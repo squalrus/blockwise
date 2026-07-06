@@ -21,7 +21,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 
 | Item | Effort | Value |
 |---|---|---|
-| [Venue detail pages with enrichment cache](#venue-detail-pages-with-enrichment-cache) | M | H |
 | [Business claiming + GPS check-in](#business-claiming--gps-check-in) | M | H |
 | [Business announcements](#business-announcements) | M | M |
 | [Native apps (React Native)](#native-apps-react-native) | L | H |
@@ -47,11 +46,6 @@ No open limitations.
 ---
 
 ## Open
-
-### Venue detail pages with enrichment cache
-**Type:** feature
-**Why** — First user-facing payoff of the data layer; introduces the on-demand `VenueEnrichmentCache` refresh pattern for Google's richer (Contact/Atmosphere) fields.
-**Notes:** Web venue detail page reading from `Venue`, on-demand fetch into `VenueEnrichmentCache` with TTL enforcement per README §1.3–§1.4. Data layer MVP has shipped, so real Phinneywood venue data is available to build against.
 
 ### Business claiming + GPS check-in
 **Type:** feature

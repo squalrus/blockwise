@@ -61,6 +61,31 @@ export interface VenueEnrichmentCache {
   rating: number | null;
   review_snippet: string | null;
   price_tier: string | null;
+  // A Google Places API (New) photo *reference* (e.g. "places/.../photos/..."),
+  // not a fetchable URL -- turning it into one requires the API key, which
+  // must stay server-side. Serve it via apps/api's GET /venues/:id/photo
+  // proxy rather than embedding this value directly in client-rendered HTML.
   photo_url: string | null;
   fetched_at: string;
+}
+
+// Venue detail page DTOs (BACKLOG "Venue detail pages with enrichment cache").
+
+export interface VenueListItem {
+  id: string;
+  name: string;
+  address: string;
+  category_name: string | null;
+}
+
+export interface VenueDetail {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  category_name: string | null;
+  claimed_by_business: boolean;
+  pois: Poi[];
+  enrichment: VenueEnrichmentCache | null;
 }
