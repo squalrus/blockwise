@@ -1,0 +1,22 @@
+# Single Netlify site serving both the Next.js frontend and the apps/api
+# Express app (wrapped with serverless-http as a co-located Netlify Function
+# — see apps/api/netlify/functions/api.ts), so /api/* calls stay same-origin.
+#
+# Dashboard: Package directory = apps/web, Functions directory =
+# apps/api/netlify/functions (must match the `functions` path below).
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+  functions = "../api/netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
