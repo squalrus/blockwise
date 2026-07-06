@@ -6,6 +6,7 @@
 # apps/api/netlify/functions (must match the `functions` path below).
 
 [build]
+  base = "apps/web"
   command = "npm run build"
   publish = ".next"
   functions = "../api/netlify/functions"

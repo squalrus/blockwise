@@ -22,7 +22,7 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | Item | Effort | Value |
 |---|---|---|
 | [Data layer MVP](#data-layer-mvp) | L | H |
-| [Venue detail pages with Yelp enrichment](#venue-detail-pages-with-yelp-enrichment) | M | H |
+| [Venue detail pages with enrichment cache](#venue-detail-pages-with-enrichment-cache) | M | H |
 | [Business claiming + GPS check-in](#business-claiming--gps-check-in) | M | H |
 | [Business announcements](#business-announcements) | M | M |
 | [Native apps (React Native)](#native-apps-react-native) | L | H |
@@ -31,6 +31,7 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | M | M |
 | [Admin portal: neighborhood boundary drawing](#admin-portal-neighborhood-boundary-drawing) | M | M |
 | [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) | M | L |
+| [Yelp Fusion enrichment (future)](#yelp-fusion-enrichment-future) | M | L |
 
 ### Improvements
 
@@ -51,11 +52,11 @@ No open limitations.
 ### Data layer MVP
 **Type:** feature
 **Why** — The data layer is the foundation everything else depends on (README §1); getting schema and licensing-safe ingestion right first avoids expensive retrofits later.
-**Notes:** `Neighborhood` + `Venue` + `Category` schema on Postgres/PostGIS, Google Places Basic-field sync scoped to Phinneywood's boundary, dedup pass (name similarity + geo proximity), category normalization into the unified taxonomy. See README §1.3–§1.6 and §12.4.
+**Notes:** Schema shipped: `Neighborhood`/`Category`/`Venue`/`POI`/`VenueEnrichmentCache` tables on Postgres/PostGIS (`supabase/migrations`), RLS enabled with no policies yet, Phinneywood neighborhood row seeded (`onboarding` status, no boundary yet), shared types in `packages/types`. **Remaining:** Google Places Basic-field sync scoped to Phinneywood's boundary (built against mocked responses first, then a real `GOOGLE_PLACES_API_KEY` — see `apps/api/GOOGLE_PLACES_SETUP.md`), dedup pass (name similarity + geo proximity), category normalization into the unified taxonomy. See README §1.3–§1.6 and §12.4.
 
-### Venue detail pages with Yelp enrichment
+### Venue detail pages with enrichment cache
 **Type:** feature
-**Why** — First user-facing payoff of the data layer; also the first place the Yelp 24-hour TTL rule has to be enforced in real code rather than by convention.
+**Why** — First user-facing payoff of the data layer; introduces the on-demand `VenueEnrichmentCache` refresh pattern for Google's richer (Contact/Atmosphere) fields.
 **Notes:** Web venue detail page reading from `Venue`, on-demand fetch into `VenueEnrichmentCache` with TTL enforcement per README §1.3–§1.4. Depends on [Data layer MVP](#data-layer-mvp).
 
 ### Business claiming + GPS check-in
@@ -97,3 +98,8 @@ No open limitations.
 **Type:** feature
 **Why** — Extends announcements into a concrete redemption/revenue mechanic for businesses, using physical friction (not cryptography) to discourage reuse.
 **Notes:** `Coupon` as an attachment to `Announcement`, `CouponRedemption` with server-authoritative timestamps and atomic check-and-increment against redemption caps, per README §13. Depends on [Business announcements](#business-announcements).
+
+### Yelp Fusion enrichment (future)
+**Type:** feature
+**Why** — Dropped from the initial plan (README §1.1) to avoid Yelp's stricter 24-hour content TTL and licensing overhead before the core Google-sourced data layer even ships. Revisit only if ratings/reviews/photos become a clear user ask that Google's own fields don't already cover.
+**Notes:** Would add a `yelp_business_id` column to `Venue` and a `'yelp'` entry to `VenueEnrichmentCache.source` (README §1.3), fetched on-demand and never persisted past 24 hours per Yelp's ToS — including the Yelp attribution/compliance checklist items that were removed from README §1.6. Not currently planned; no other backlog item depends on it.

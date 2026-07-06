@@ -18,29 +18,23 @@ The data layer is the foundation everything else depends on. Get the ingestion, 
 
 ### 1.1 Licensing constraints (read this before writing any code)
 
-**Yelp Fusion API**
-- You may **not cache/store Yelp Content for more than 24 hours**, with two exceptions: Yelp **business IDs** may be stored indefinitely for back-end matching, and non-commercial analysis has narrow carve-outs.
-- You **cannot use Yelp data to build your own persistent database** of business listings — names, addresses, ratings, etc. must be re-fetched or expired every 24 hours.
-- Commercial analysis of Yelp API content is explicitly **not permitted**.
-- Rate limits are traffic-based: new apps start with a low daily quota and must email Yelp to request more, typically after launch traffic justifies it.
-- **Design implication:** Yelp can't be your system of record. Use it as a live "enrichment" layer (ratings, review snippets, photos fetched on-demand or refreshed daily) while your own database owns the durable business record (name, address, category, geo, hours) sourced elsewhere or entered by the business itself.
-
 **Google Places API**
-- No 24-hour deletion rule like Yelp, but billing is **per-SKU and field-mask driven**: Basic fields (name, address, geo, category, open/closed) are cheapest; Contact fields (phone, hours, website) and Atmosphere fields (ratings, reviews, price level) cost significantly more per 1,000 calls.
+- No 24-hour deletion rule, but billing is **per-SKU and field-mask driven**: Basic fields (name, address, geo, category, open/closed) are cheapest; Contact fields (phone, hours, website) and Atmosphere fields (ratings, reviews, price level) cost significantly more per 1,000 calls.
 - Pricing is pay-as-you-go with a monthly credit; overuse of broad field masks ("just grab everything") is the single most common cause of runaway bills — always request the minimum field set for the use case.
 - Practical takeaway: use **Basic Data fields** for your core sync (name/address/geo/category/status) and only pull Contact/Atmosphere fields lazily (e.g., when a user opens a business detail page), caching the result.
 
-**Bottom line for architecture:** your database should be the source of truth for identity, category, and geo — populated once from Google Basic fields plus manual/business-submitted data — while Yelp and Google's richer fields (reviews, ratings, hours, photos) are treated as a refreshable cache with defined TTLs, never a permanent copy.
+**Bottom line for architecture:** your database should be the source of truth for identity, category, and geo — populated once from Google Basic fields plus manual/business-submitted data — while Google's richer fields (reviews, ratings, hours, photos) are treated as a refreshable cache with a defined TTL, never a permanent copy.
+
+> Yelp Fusion enrichment was considered here but is **out of scope for now** — see [BACKLOG.md](./BACKLOG.md) for it as a potential future enhancement, including the stricter 24-hour content TTL it would reintroduce.
 
 ### 1.2 Data sources & what each contributes
 
 | Source | Use for | Refresh strategy |
 |---|---|---|
 | Google Places API | Canonical POI discovery, geo, basic category, open/closed status | One-time/periodic sync (weekly) using Basic Data field mask |
-| Yelp Fusion API | Ratings, review snippets, photos, price tier | Fetch on-demand or refresh ≤24h, never persisted past that window |
 | Business self-submission | Hours, description, sub-venue/POI structure, announcements | Real-time, owned entirely by you |
 | Manual/admin curation | Category corrections, neighborhood-specific tagging, duplicate resolution | Ongoing, admin tool |
-| OpenStreetMap (optional, no licensing friction) | Backup/supplement geo data, especially for smaller or informal venues Google/Yelp miss | Periodic batch import (ODbL attribution required) |
+| OpenStreetMap (optional, no licensing friction) | Backup/supplement geo data, especially for smaller or informal venues Google misses | Periodic batch import (ODbL attribution required) |
 
 ### 1.3 Core data model (initial schema sketch)
 
@@ -59,7 +53,6 @@ Neighborhood                     -- the tenant boundary; see §12
 Venue
   id (internal, primary key)
   google_place_id
-  yelp_business_id        -- store only the ID, per Yelp ToS
   name
   category_id -> Category
   lat, lng
@@ -72,7 +65,7 @@ Category
   id
   name
   parent_category_id      -- supports hierarchy (e.g. Food > Coffee Shop)
-  source_mapping_json      -- how Google/Yelp category strings map here
+  source_mapping_json      -- how Google's category strings map here
 
 POI (point of interest within a venue)
   id
@@ -81,43 +74,39 @@ POI (point of interest within a venue)
   description
   type (stall, department, room, etc.)
 
-VenueEnrichmentCache        -- the "24-hour" Yelp-governed table
+VenueEnrichmentCache        -- refreshable cache for Google's richer (Contact/Atmosphere) fields
   venue_id -> Venue
-  source ('yelp' | 'google')
+  source ('google')          -- extensible if another enrichment source (e.g. Yelp, see BACKLOG.md) is added later
   rating, review_snippet, price_tier, photo_url
   fetched_at               -- used to enforce TTL / expiry
 ```
 
-Keeping `VenueEnrichmentCache` as a separate, TTL-governed table (rather than mixing Yelp fields into the core `Venue` record) makes the 24-hour compliance rule mechanical: a scheduled job purges/refreshes rows older than 24 hours, and nothing else in the schema needs to know about it.
+Keeping `VenueEnrichmentCache` as a separate table (rather than mixing these fields into the core `Venue` record) keeps the rate/cost-sensitive Google fields cleanly separated from the durable core record, and gives you one place to enforce a refresh TTL.
 
 ### 1.4 Ingestion pipeline
 
 1. **Seed sync (Google Places, Basic fields only):** batch-query the neighborhood's bounding box, upsert into `Venue` by `google_place_id`.
 2. **Dedup pass:** fuzzy-match new venues against existing records (name similarity + geo proximity, e.g. Levenshtein + haversine distance under ~30m) to catch the same business appearing under slightly different names.
-3. **Category normalization:** map Google's `types[]` and (if fetched) Yelp's category aliases into your own `Category` taxonomy via a lookup table; flag unmapped types for manual review rather than guessing.
-4. **Enrichment on-demand:** when a user opens a venue detail page, check `VenueEnrichmentCache`; if stale (>24h for Yelp, configurable for Google Contact/Atmosphere fields), refresh from the API and rewrite the cache row.
+3. **Category normalization:** map Google's `types[]` into your own `Category` taxonomy via a lookup table; flag unmapped types for manual review rather than guessing.
+4. **Enrichment on-demand:** when a user opens a venue detail page, check `VenueEnrichmentCache`; if stale (configurable TTL for Google Contact/Atmosphere fields), refresh from the API and rewrite the cache row.
 5. **Business claiming overrides source data:** once a business claims its listing, business-submitted hours/description/photos take precedence over API-sourced fields for anything the business explicitly edits.
 
 ### 1.5 Cost & quota management
 
 - Always specify Google **field masks**; never request an unrestricted field set.
 - Batch Google syncs weekly rather than per-request; a neighborhood's venue set doesn't change fast enough to justify real-time polling.
-- Track Yelp daily call volume against your granted quota; request an increase from Yelp only once real usage data justifies it (they explicitly ask new apps to start small).
-- Log per-source spend (Google) and per-source call count (Yelp) from week one — this is the easiest place for a small hyperlocal project to unexpectedly blow a budget.
+- Log Google API spend from week one — this is the easiest place for a small hyperlocal project to unexpectedly blow a budget.
 
 ### 1.6 Attribution & compliance checklist
 
 - [ ] Display "Powered by Google" / Google attribution per Maps Platform terms
-- [ ] Display Yelp logo/attribution per Yelp Fusion display requirements
-- [ ] Enforce the 24-hour Yelp content TTL programmatically, not by convention
-- [ ] Never expose raw Yelp review ratings alongside non-Yelp user-generated ratings in the same UI element (ToS restriction)
 - [ ] If using OpenStreetMap, include ODbL attribution
 
 ---
 
 ## 1.7 Map Display
 
-Map *display* is billed and licensed separately from the Places/Yelp *data* APIs — don't assume the data-source choice locks you into a matching map renderer.
+Map *display* is billed and licensed separately from the Places *data* API — don't assume the data-source choice locks you into a matching map renderer.
 
 ### Recommendation: Google Maps SDK for Android/iOS (native mobile)
 
@@ -186,13 +175,13 @@ Keeping `Entitlement` generic (one row per resource type) rather than hardcoding
 
 ## 2. Layer: Categorization
 
-- Unified taxonomy (~30–50 categories) sitting on top of Google's `types[]` and Yelp's category aliases.
+- Unified taxonomy (~30–50 categories) sitting on top of Google's `types[]`.
 - Mapping table (`source_mapping_json` above) is the single place both sources normalize into — makes adding a third source later trivial.
 - Manual override capability in the admin tool for anything auto-mapped incorrectly.
 
 ## 3. Layer: Points of Interest Within Venues
 
-- Not available from Google/Yelp — this is first-party data.
+- Not available from Google — this is first-party data.
 - Modeled as child `POI` records under a `Venue` (see schema above).
 - Populated via business self-service tool or admin curation for high-value venues (markets, malls, food halls) early on.
 
@@ -227,7 +216,7 @@ Keeping `Entitlement` generic (one row per resource type) rather than hardcoding
 These phases are platform-agnostic, but are being implemented against the **web app first** (§10); the native apps (§9) pick up each phase shortly after it lands on web, against the same backend/API rather than re-deriving it.
 
 1. **Data layer MVP:** Google Basic-field sync + dedup + categorization + Postgres/PostGIS schema
-2. Venue detail pages with on-demand Yelp enrichment (TTL-compliant cache)
+2. Venue detail pages with on-demand Google enrichment (Contact/Atmosphere fields, TTL-cached)
 3. Business claiming + GPS check-in
 4. Business announcements
 5. Challenges + badges/points
@@ -236,7 +225,7 @@ These phases are platform-agnostic, but are being implemented against the **web 
 ## 9. Suggested Stack
 
 - **Database:** PostgreSQL + PostGIS via **Supabase** (managed, includes Auth and Storage — see §10.2)
-- **Backend jobs:** **Netlify Scheduled Functions** (Node, cron syntax in `netlify.toml`) for weekly Google sync and Yelp cache TTL enforcement — no separate worker host needed at current scale
+- **Backend jobs:** **Netlify Scheduled Functions** (Node, cron syntax in `netlify.toml`) for weekly Google sync and enrichment-cache TTL refresh — no separate worker host needed at current scale
 - **Mobile:** React Native or Flutter
 - **Web:** Next.js (React) — see §10
 - **Map rendering:** Google Maps SDK (native mobile, free/unlimited) + Mapbox GL JS or Maps JavaScript API (web, metered) — see §1.7 and §10
@@ -261,7 +250,7 @@ The web app is the first client built, for rapid iteration on the data layer and
 | Framework | **Next.js (React, TypeScript)** | Server-side rendering/static generation for SEO on venue pages; same React mental model as React Native if you go that route for mobile, easing code/knowledge sharing |
 | Styling | Tailwind CSS | Fast to build with, easy to keep consistent with a design system shared across web/mobile |
 | Map | **Mapbox GL JS** (50,000 free web loads/month) or **Google Maps JavaScript API** (Essentials tier, ~10,000 free loads/month) | The free *mobile* Google Maps SDK doesn't extend to web — web map loads are metered on both providers, so pick based on styling needs (Mapbox) vs. data consistency with your Places-sourced venues (Google) |
-| Data fetching | React Query (TanStack Query) | Caching/invalidation on the client, mirrors the TTL-based caching approach already used server-side for Yelp/Google enrichment |
+| Data fetching | React Query (TanStack Query) | Caching/invalidation on the client, mirrors the TTL-based caching approach already used server-side for Google enrichment |
 | Database + Auth | **Supabase** (Postgres + PostGIS extension, Auth, Storage) | Managed Postgres with PostGIS built in satisfies §9's geo requirement directly; Supabase Auth (email/phone/social) is usable by both web and mobile clients, so no separate auth service is needed |
 | Push/notifications (web) | Web Push API for announcement alerts | Parallels mobile push without a separate vendor if you use a cross-platform push provider (e.g., OneSignal, Firebase Cloud Messaging) |
 | Check-in on web | Browser Geolocation API for GPS check-in; `getUserMedia` for QR scanning via webcam | Full check-in parity with mobile, no native-only dependency |
@@ -292,11 +281,11 @@ The goal is one backend, one data model, and as much shared logic as practical �
 - Unit tests per app
 - Web: Playwright end-to-end tests against a preview deployment
 - Mobile: Detox or Maestro for critical-path E2E (check-in flow, challenge join)
-- Backend: integration tests against a test database, including the Yelp-cache TTL enforcement job
+- Backend: integration tests against a test database, including the enrichment-cache TTL enforcement job
 
 **CD**
 - **Web:** GitHub Actions → Netlify (official `@netlify/plugin-nextjs` runtime) — deploy previews per PR are especially useful for business-portal UI review.
-- **Backend:** `apps/api`'s Express app deploys as a single Netlify Function (`serverless-http` wrapper, see `apps/api/netlify/functions/api.ts`) — no container/registry step. The weekly Google sync and Yelp cache TTL purge run as **Netlify Scheduled Functions** (cron syntax in `netlify.toml`) rather than a standalone worker process; run DB migrations against Supabase as a pipeline step before traffic cutover.
+- **Backend:** `apps/api`'s Express app deploys as a single Netlify Function (`serverless-http` wrapper, see `apps/api/netlify/functions/api.ts`) — no container/registry step. The weekly Google sync and enrichment-cache TTL refresh run as **Netlify Scheduled Functions** (cron syntax in `netlify.toml`) rather than a standalone worker process; run DB migrations against Supabase as a pipeline step before traffic cutover.
 - **Mobile:** EAS Build (if using Expo/React Native) or Fastlane (bare React Native) → TestFlight/Play Internal Testing for staging builds → App Store/Play Store for release; mobile release cadence will naturally lag web/backend since store review isn't instant — plan announcements/challenges features to degrade gracefully on older app versions.
 
 **Environments**
