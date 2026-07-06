@@ -25,4 +25,4 @@ Blockwise is moving from a build plan (`README.md`) into implementation, startin
 
 ## Licensing constraints (read before touching data ingestion)
 
-If your change touches Google Places or Yelp Fusion data, re-read README §1.1 first — both APIs have hard licensing/TTL constraints (e.g., Yelp content can't be persisted past 24 hours) that are enforced in schema and code, not by convention. Don't bypass `VenueEnrichmentCache` or its TTL logic to "simplify" a data path.
+If your change touches Google Places data, re-read README §1.1 first — its field-mask billing model is enforced in schema and code (see `VenueEnrichmentCache`'s TTL logic), not by convention. Don't bypass it to "simplify" a data path. (Yelp Fusion integration was dropped from the plan — see [BACKLOG.md](./BACKLOG.md) — but if it's ever picked back up, re-read §1.1 for its stricter 24-hour content TTL before touching that data path.)
