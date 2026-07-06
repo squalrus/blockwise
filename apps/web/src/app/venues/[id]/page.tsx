@@ -4,6 +4,7 @@ import type { VenueDetail } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { CheckInButton } from "./CheckInButton";
 import { ClaimBusinessForm } from "./ClaimBusinessForm";
+import { FavoriteButton } from "./FavoriteButton";
 
 async function getVenue(id: string): Promise<VenueDetail | null> {
   const res = await fetch(apiUrl(`/venues/${id}`), { cache: "no-store" });
@@ -44,6 +45,8 @@ export default async function VenueDetailPage({
           {venue.category_name ?? "Uncategorized"} · {venue.address}
         </p>
       </div>
+
+      <FavoriteButton venueId={venue.id} />
 
       <CheckInButton venueId={venue.id} />
 
