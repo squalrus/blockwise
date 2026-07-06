@@ -2,6 +2,14 @@
 
 A neighborhood discovery app combining sourced business data with check-ins, business announcements, challenges, and gamified badges.
 
+## Project status
+
+This repo is moving from planning into implementation. **The web app is being built first**, for rapid iteration on the data layer and API while the product surface is still settling; the native mobile apps (React Native, §9) follow shortly after, sharing the same backend and data model rather than lagging by a long margin. See [§10](#10-web-app-building-first) for what that means for the web stack, and [§8](#8-suggested-build-order) for the phase order both platforms share.
+
+- Planned work is tracked in [BACKLOG.md](./BACKLOG.md).
+- Shipped changes are logged in [CHANGELOG.md](./CHANGELOG.md).
+- See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to propose and land changes.
+
 ---
 
 ## 1. Data Layer (Primary Focus)
@@ -216,6 +224,8 @@ Keeping `Entitlement` generic (one row per resource type) rather than hardcoding
 
 ## 8. Suggested Build Order
 
+These phases are platform-agnostic, but are being implemented against the **web app first** (§10); the native apps (§9) pick up each phase shortly after it lands on web, against the same backend/API rather than re-deriving it.
+
 1. **Data layer MVP:** Google Basic-field sync + dedup + categorization + Postgres/PostGIS schema
 2. Venue detail pages with on-demand Yelp enrichment (TTL-compliant cache)
 3. Business claiming + GPS check-in
@@ -234,9 +244,9 @@ Keeping `Entitlement` generic (one row per resource type) rather than hardcoding
 
 ---
 
-## 10. Full-Featured Web App (Built in Parallel)
+## 10. Web App (Building First)
 
-A web app is worth building alongside the native apps rather than after — the two share almost everything except the UI layer, as long as the backend is designed API-first from day one (which the data layer above already assumes).
+The web app is the first client built, for rapid iteration on the data layer and API while the product surface is still settling — see [Project status](#project-status). The native apps (§9) follow shortly after, reusing the same backend and data model, as long as the backend is designed API-first from day one (which the data layer above already assumes). The two clients share almost everything except the UI layer.
 
 ### 10.1 What the web app is for
 
