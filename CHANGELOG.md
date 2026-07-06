@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.10.0] — 2026-07-06
+
+### Added
+
+- **Google social sign-in (OAuth).** A "Continue with Google" button on `/login` and `/signup`, alongside the existing email/password forms. Uses Supabase's `signInWithOAuth`, redirecting through a new `/auth/callback` page that completes the session — tries `/auth/complete-login` first (so a device's anonymous check-in history still merges correctly per README §14.2), falling back to `/auth/complete-signup` for a first-time Google user. No API changes: `verifyToken.ts` already read the auth provider generically off `app_metadata`. The signup form's consumer/business account-type choice is preserved across the redirect via `localStorage`, since Google's round trip would otherwise lose it. (`apps/web/src/lib/auth.ts`, `apps/web/src/app/auth/callback/page.tsx`, `apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`)
+- **Promote a consumer account to a business account.** The business portal (`/business`) now offers a "Become a business owner" button for a signed-in consumer account, instead of only pointing at a fresh signup. New `POST /auth/promote-to-business` endpoint flips `account_type` on the existing `app_user` row in place — same identity, same check-in history, no new account. Idempotent if the account is already a business account. 2 new unit tests. (`apps/api/src/auth/auth.ts`, `apps/api/src/auth/repository.ts`, `apps/api/src/auth/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/lib/auth.ts`, `apps/web/src/app/business/page.tsx`)
+
+### Changed
+
+- **Synced `package.json` versions across the monorepo.** `apps/api` and `packages/types` were still at `0.0.0` and `apps/web` at `0.1.0` while the root tracked the real release version — all four now move together. `CLAUDE.md` updated to document that all four must be bumped together going forward. (`package.json`, `apps/api/package.json`, `apps/web/package.json`, `packages/types/package.json`, `CLAUDE.md`)
+
 ## [0.9.0] — 2026-07-06
 
 ### Added

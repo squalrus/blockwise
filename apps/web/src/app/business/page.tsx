@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AppUser, ClaimedVenueSummary } from "@blockwise/types";
-import { getAccessToken, getCurrentUser } from "@/lib/auth";
+import { getAccessToken, getCurrentUser, promoteToBusiness } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
 type State =
@@ -20,6 +20,7 @@ type State =
 // already exists: viewing venues this account has an approved claim on.
 export default function BusinessPortalPage() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [promoting, setPromoting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +56,17 @@ export default function BusinessPortalPage() {
     };
   }, []);
 
+  async function handlePromote() {
+    setPromoting(true);
+    try {
+      await promoteToBusiness();
+      window.location.reload();
+    } catch (err) {
+      setPromoting(false);
+      setState({ status: "error", message: err instanceof Error ? err.message : "Failed to upgrade" });
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-16 font-sans">
       <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Business portal</h1>
@@ -73,13 +85,20 @@ export default function BusinessPortalPage() {
       )}
 
       {state.status === "wrong_account_type" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          This account isn&apos;t a business account.{" "}
-          <a href="/signup" className="underline">
-            Sign up
-          </a>{" "}
-          for one to claim and manage a venue.
-        </p>
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            This account isn&apos;t a business account yet. Upgrade it to claim and manage a venue --
+            your check-ins and everything else about the account stay the same.
+          </p>
+          <button
+            type="button"
+            onClick={handlePromote}
+            disabled={promoting}
+            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          >
+            {promoting ? "Upgrading…" : "Become a business owner"}
+          </button>
+        </div>
       )}
 
       {state.status === "error" && (

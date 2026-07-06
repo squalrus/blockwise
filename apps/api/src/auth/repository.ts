@@ -42,4 +42,9 @@ export interface AuthRepository {
     anonymousUserId: string,
     deviceId: string
   ): Promise<AppUserRecord>;
+  // Flips an existing account's account_type in place -- same row, same
+  // identity, no new signup. Used to let a consumer account become a
+  // business account (e.g. after claiming a venue) without creating a
+  // second account for the same person.
+  updateAccountType(userId: string, accountType: AccountType): Promise<AppUserRecord>;
 }

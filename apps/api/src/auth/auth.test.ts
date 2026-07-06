@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completeLogin, completeSignup } from "./auth";
+import { completeLogin, completeSignup, promoteToBusiness } from "./auth";
 import type { AppUserRecord, AuthRepository, CompleteSignupInput } from "./repository";
 import type { VerifiedAuthUser } from "./verifyToken";
 
@@ -77,6 +77,12 @@ class FakeAuthRepository implements AuthRepository {
     target.anonymousDeviceId = deviceId;
     return target;
   }
+
+  async updateAccountType(userId: string, accountType: AppUserRecord["accountType"]): Promise<AppUserRecord> {
+    const user = this.users.find((u) => u.id === userId)!;
+    user.accountType = accountType;
+    return user;
+  }
 }
 
 const VERIFIED: VerifiedAuthUser = {
@@ -121,6 +127,27 @@ describe("completeSignup", () => {
 
     expect(second.id).toBe(first.id);
     expect(repo.users).toHaveLength(1);
+  });
+});
+
+describe("promoteToBusiness", () => {
+  it("flips a consumer account to a business account in place", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+
+    const promoted = await promoteToBusiness(user, repo);
+
+    expect(promoted.id).toBe(user.id);
+    expect(promoted.accountType).toBe("business");
+    expect(repo.users).toHaveLength(1);
+  });
+
+  it("is a no-op for an account that's already a business account", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "business", null, repo);
+
+    const promoted = await promoteToBusiness(user, repo);
+    expect(promoted).toBe(user);
   });
 });
 
