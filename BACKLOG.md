@@ -21,7 +21,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 
 | Item | Effort | Value |
 |---|---|---|
-| [Web app scaffold](#web-app-scaffold) | M | H |
 | [Data layer MVP](#data-layer-mvp) | L | H |
 | [Venue detail pages with Yelp enrichment](#venue-detail-pages-with-yelp-enrichment) | M | H |
 | [Business claiming + GPS check-in](#business-claiming--gps-check-in) | M | H |
@@ -48,11 +47,6 @@ No open limitations.
 ---
 
 ## Open
-
-### Web app scaffold
-**Type:** feature
-**Why** — Establishes the monorepo and API-first foundation everything else builds on; the web app is the fastest path to a working end-to-end slice, so it comes before any native work.
-**Notes:** Next.js + TypeScript + Tailwind (`apps/web`), a backend service stub (`apps/api`), and a shared `packages/types` package per README §10.3. Turborepo or Nx for the monorepo. No auth, map, or real data yet — just the shell and a health-check round trip between web and api.
 
 ### Data layer MVP
 **Type:** feature
