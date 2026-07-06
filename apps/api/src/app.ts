@@ -14,6 +14,12 @@ import { performCheckin } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
 import { listClaims, reviewClaim, submitClaim } from "./claims/claims";
 import { SupabaseClaimRepository } from "./claims/supabaseRepository";
+import {
+  listAssignableCategories,
+  listVenueCategoryMappings,
+  reassignVenueCategory,
+} from "./categoryMapping/categoryMapping";
+import { SupabaseCategoryMappingRepository } from "./categoryMapping/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import { LivePlacesClient, type PlaceDetailsClient } from "./places/client";
@@ -84,6 +90,12 @@ let authRepository: SupabaseAuthRepository | undefined;
 function getAuthRepository(): SupabaseAuthRepository {
   authRepository ??= new SupabaseAuthRepository(getSupabaseClient());
   return authRepository;
+}
+
+let categoryMappingRepository: SupabaseCategoryMappingRepository | undefined;
+function getCategoryMappingRepository(): SupabaseCategoryMappingRepository {
+  categoryMappingRepository ??= new SupabaseCategoryMappingRepository(getSupabaseClient());
+  return categoryMappingRepository;
 }
 
 export function createApp() {
@@ -374,6 +386,65 @@ export function createApp() {
 
   app.post("/admin/claims/:id/approve", requireAdmin, reviewHandler("approve"));
   app.post("/admin/claims/:id/reject", requireAdmin, reviewHandler("reject"));
+
+  // Category mapping admin tool (BACKLOG.md): manual override for venues the
+  // sync's category-normalization step (README §1.4 step 3) mapped wrong.
+  app.get("/admin/venues", requireAdmin, async (req, res) => {
+    const search = req.query.search;
+    if (search !== undefined && typeof search !== "string") {
+      res.status(400).json({ error: "search must be a string" });
+      return;
+    }
+
+    try {
+      const venues = await listVenueCategoryMappings(getCategoryMappingRepository(), search);
+      res.json(venues);
+    } catch (err) {
+      console.error("GET /admin/venues failed:", err);
+      res.status(500).json({ error: "Failed to list venues" });
+    }
+  });
+
+  app.get("/admin/categories", requireAdmin, async (_req, res) => {
+    try {
+      const categories = await listAssignableCategories(getCategoryMappingRepository());
+      res.json(categories);
+    } catch (err) {
+      console.error("GET /admin/categories failed:", err);
+      res.status(500).json({ error: "Failed to list categories" });
+    }
+  });
+
+  app.patch("/admin/venues/:id/category", requireAdmin, async (req, res) => {
+    const { category_id } = req.body ?? {};
+    if (typeof category_id !== "string" || !category_id) {
+      res.status(400).json({ error: "category_id is required" });
+      return;
+    }
+
+    try {
+      const result = await reassignVenueCategory(
+        req.params.id,
+        category_id,
+        getCategoryMappingRepository()
+      );
+
+      switch (result.status) {
+        case "venue_not_found":
+          res.status(404).json({ error: "Venue not found" });
+          return;
+        case "invalid_category":
+          res.status(400).json({ error: "category_id must reference an existing leaf category" });
+          return;
+        case "updated":
+          res.json(result.venue);
+          return;
+      }
+    } catch (err) {
+      console.error(`PATCH /admin/venues/${req.params.id}/category failed:`, err);
+      res.status(500).json({ error: "Failed to reassign category" });
+    }
+  });
 
   // README §14.2: the anonymous app_user row gets its is_anonymous flag
   // flipped and auth credentials attached in place -- no data migration.

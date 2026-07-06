@@ -192,3 +192,28 @@ export interface ClaimedVenueSummary {
   name: string;
   address: string;
 }
+
+// Category mapping admin tool (BACKLOG.md) -- manual override for venues the
+// sync's category-normalization step (README §1.4 step 3) mapped incorrectly.
+
+export interface VenueCategoryMapping {
+  id: string;
+  name: string;
+  address: string;
+  category_id: string | null;
+  category_name: string | null;
+  category_group: string | null;
+}
+
+// Only leaf categories (see supabase/migrations/.../category_taxonomy.sql)
+// are valid assignment targets -- the 6 top-level group rows are
+// organizational only, so this list excludes them.
+export interface CategoryOption {
+  id: string;
+  name: string;
+  group_name: string | null;
+}
+
+export interface ReassignVenueCategoryRequest {
+  category_id: string;
+}
