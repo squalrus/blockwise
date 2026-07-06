@@ -132,4 +132,16 @@ export class SupabaseAuthRepository implements AuthRepository {
     if (updateError) throw new Error(`mergeAnonymousHistory (attach device) failed: ${updateError.message}`);
     return toRecord(data);
   }
+
+  async updateAccountType(userId: string, accountType: AccountType): Promise<AppUserRecord> {
+    const { data, error } = await this.supabase
+      .from("app_user")
+      .update({ account_type: accountType })
+      .eq("id", userId)
+      .select(USER_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`updateAccountType failed: ${error.message}`);
+    return toRecord(data);
+  }
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AccountType } from "@blockwise/types";
-import { signUp } from "@/lib/auth";
+import { signInWithGoogle, signUp } from "@/lib/auth";
 
 type Status = { state: "idle" | "submitting" | "error"; message?: string };
 
@@ -25,6 +25,15 @@ export default function SignupPage() {
       router.push(user.account_type === "business" ? "/business" : "/venues");
     } catch (err) {
       setStatus({ state: "error", message: err instanceof Error ? err.message : "Signup failed" });
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setStatus({ state: "submitting" });
+    try {
+      await signInWithGoogle(accountType);
+    } catch (err) {
+      setStatus({ state: "error", message: err instanceof Error ? err.message : "Google sign-in failed" });
     }
   }
 
@@ -78,6 +87,21 @@ export default function SignupPage() {
           <p className="text-sm text-red-600 dark:text-red-400">{status.message}</p>
         )}
       </form>
+
+      <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+        or
+        <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+      </div>
+
+      <button
+        type="button"
+        onClick={handleGoogleSignIn}
+        disabled={status.state === "submitting"}
+        className="rounded-md border border-black/[.08] px-3 py-2 text-sm font-medium text-black disabled:opacity-50 dark:border-white/[.145] dark:text-zinc-50"
+      >
+        Continue with Google
+      </button>
 
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
         Already have an account?{" "}

@@ -36,7 +36,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | [Connect with other users](#connect-with-other-users) | M | M |
 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | M | M |
 | [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect) | M | M |
-| [Google social sign-in (OAuth)](#google-social-sign-in-oauth) | S | M |
 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | M | M |
 | [Monetization: credits & entitlements](#monetization-credits--entitlements) | L | M |
 | [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) | M | L |
@@ -138,14 +137,9 @@ No open limitations.
 **Why** — Two related asks: showing who is/was recently at a business (social proof, "who's here right now"), and letting users connect with each other while physically co-located at a venue — turns a shared check-in into a natural, low-friction moment to start a connection.
 **Notes:** Depends on [User profiles with public or private visibility](#user-profiles-with-public-or-private-visibility) (only public/opted-in check-ins should be visible to other visitors) and pairs with [Connect with other users](#connect-with-other-users) for the actual connect action — likely a "people here now" list on the venue detail page (recent `checkin` rows within a short window) with a connect button per person. Consider whether this needs a tighter privacy control than the general activity feed, since "currently at this specific location" is more sensitive than general recent activity.
 
-### Google social sign-in (OAuth)
-**Type:** feature
-**Why** — Follow-up to [Real user authentication](#real-user-authentication), which only wired up email/password. Social sign-in removes a signup step (no password to create/remember) at exactly the moments that flow is meant to make frictionless — redeeming a coupon, subscribing to a venue.
-**Notes:** Enable the provider in the Supabase dashboard, add a "Sign in with Google" button calling `supabase.auth.signInWithOAuth`, and a redirect callback route that calls the existing `/auth/complete-signup`/`/auth/complete-login` with the resulting session token — same completion flow as email/password today, no API changes needed since `verifyToken.ts` already reads the provider generically off `app_metadata`. Smaller lift than [Apple social sign-in](#apple-social-sign-in-sign-in-with-apple) — no separate developer account or key rotation required.
-
 ### Apple social sign-in (Sign in with Apple)
 **Type:** feature
-**Why** — Same rationale as [Google social sign-in](#google-social-sign-in-oauth) — removes a signup step at the moments that flow is meant to make frictionless — but scoped separately since it's a materially bigger lift with its own setup dependencies and timeline.
+**Why** — Same rationale as Google social sign-in (shipped v0.10.0) — removes a signup step at the moments that flow is meant to make frictionless — but scoped separately since it's a materially bigger lift with its own setup dependencies and timeline.
 **Notes:** Requires Apple Developer Program enrollment, creating a Services ID, and generating a rotating client-secret JWT (Apple secrets expire and must be regenerated, unlike Google's). Same completion flow on the app side as Google once configured — `supabase.auth.signInWithOAuth`, a redirect callback route, then the existing `/auth/complete-signup`/`/auth/complete-login`, since `verifyToken.ts` already reads the provider generically off `app_metadata`.
 
 ### Monetization: credits & entitlements

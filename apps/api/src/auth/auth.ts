@@ -35,6 +35,18 @@ export async function completeSignup(
   });
 }
 
+// Lets a signed-in consumer account become a business account in place --
+// same row, same identity, no separate signup -- so a user who created a
+// consumer account before deciding to claim a venue isn't stuck starting
+// over. Idempotent if the account is already a business account.
+export async function promoteToBusiness(
+  user: AppUserRecord,
+  repository: AuthRepository
+): Promise<AppUserRecord> {
+  if (user.accountType === "business") return user;
+  return repository.updateAccountType(user.id, "business");
+}
+
 export type CompleteLoginResult =
   | { status: "ok"; user: AppUserRecord }
   | { status: "not_signed_up" };

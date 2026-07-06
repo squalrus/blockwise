@@ -6,7 +6,7 @@ import type {
   HealthCheckResponse,
 } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
-import { completeLogin, completeSignup, toAppUser } from "./auth/auth";
+import { completeLogin, completeSignup, promoteToBusiness, toAppUser } from "./auth/auth";
 import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from "./auth/requireAuthUser";
 import { SupabaseAuthRepository } from "./auth/supabaseRepository";
 import { verifyAccessToken } from "./auth/verifyToken";
@@ -454,6 +454,22 @@ export function createApp() {
   app.get("/auth/me", requireAuthUser(getSupabaseClient, getAuthRepository), (req, res) => {
     res.json(toAppUser(req.appUser!));
   });
+
+  // Any signed-in account can upgrade itself to a business account -- there's
+  // no separate business signup path, just this account_type flip in place.
+  app.post(
+    "/auth/promote-to-business",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const user = await promoteToBusiness(req.appUser!, getAuthRepository());
+        res.json(toAppUser(user));
+      } catch (err) {
+        console.error("POST /auth/promote-to-business failed:", err);
+        res.status(500).json({ error: "Failed to upgrade to a business account" });
+      }
+    }
+  );
 
   // Business-account-gated placeholder for the business portal's authoring
   // tools (BACKLOG "Business announcements" etc., which depend on this item
