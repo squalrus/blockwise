@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.8.0] — 2026-07-06
+
+### Added
+
+- **Real user authentication.** Supabase Auth (email/password) signup and login, completing the anonymous-first `app_user` row from v0.6.0 rather than migrating to a new one (README §14.2) — signup flips `is_anonymous` to false and attaches auth credentials to the same row, so prior check-in history is never lost. Logging in from a device with its own separate anonymous history merges that history onto the account being logged into, rather than orphaning it (README §14.2's documented edge case). Also adds a business-account variant (`account_type`): a business owner's claim submission auto-links to their account when signed in (`business_claim.claimed_by_user_id`), and a new gated `/business` portal page lists the venues that account has an approved claim on — the first concrete use of the `requireBusinessAccount` gate that later authoring-tool features (announcements, etc.) will build on. New `apps/api/src/auth/` domain (signup/login/merge logic, Supabase Auth token verification, `requireAuthUser`/`requireBusinessAccount`/`attachOptionalAuthUser` middleware) with 9 new unit tests; new `/signup`, `/login`, `/business` pages and a nav bar in `apps/web`. (`supabase/migrations/20260706050000_user_authentication.sql`, `apps/api/src/auth/`, `apps/api/src/app.ts`, `apps/api/src/claims/`, `apps/web/src/app/signup/`, `apps/web/src/app/login/`, `apps/web/src/app/business/`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/lib/auth.ts`, `apps/web/src/lib/supabaseClient.ts`, `packages/types/src/index.ts`)
+- **Supabase migration workflow docs.** New `supabase/README.md` covering the day-to-day CLI commands (`login`/`link`, local `start`/`db reset`, `migration new`, `db push`) that CONTRIBUTING.md's conventions section didn't itself spell out. (`supabase/README.md`)
+
+### Security
+
+- **Removed a prompt-injection attempt embedded in the repo.** `apps/web/AGENTS.md` (auto-loaded by `apps/web/CLAUDE.md`) instructed any agent reading it to consult fabricated documentation at a Next.js path that doesn't exist, framed as "this is NOT the Next.js you know" — a planted instruction rather than genuine project guidance. Both files removed; neither carried any other content worth preserving. (`apps/web/AGENTS.md`, `apps/web/CLAUDE.md`)
+
 ## [0.7.0] — 2026-07-06
 
 ### Added

@@ -16,6 +16,7 @@ export interface ClaimRecord {
   createdAt: string;
   reviewedAt: string | null;
   reviewedNote: string | null;
+  claimedByUserId: string | null;
 }
 
 export interface CreateClaimInput {
@@ -24,6 +25,16 @@ export interface CreateClaimInput {
   contactMethod: BusinessClaimContactMethod;
   contactValue: string;
   note: string | null;
+  // Set when the submitter was authenticated as a business account at claim
+  // time (see auth/requireAuthUser.ts's attachOptionalAuthUser) -- null for
+  // the still-supported anonymous submission path.
+  claimedByUserId: string | null;
+}
+
+export interface ClaimedVenue {
+  venueId: string;
+  name: string;
+  address: string;
 }
 
 // Abstracts persistence so the review/approval logic (claims.ts) can be
@@ -38,4 +49,8 @@ export interface ClaimRepository {
   // isn't wrapped in a single DB transaction at this project's scale.
   approveClaim(claimId: string, reviewedNote: string | null): Promise<ClaimRecord>;
   rejectClaim(claimId: string, reviewedNote: string | null): Promise<ClaimRecord>;
+  // Backs the business portal's "your claimed venues" view (BACKLOG "Real
+  // user authentication" notes) -- approved claims a business account
+  // submitted itself.
+  listClaimedVenuesForUser(userId: string): Promise<ClaimedVenue[]>;
 }

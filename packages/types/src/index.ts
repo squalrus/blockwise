@@ -130,6 +130,10 @@ export interface BusinessClaim {
   created_at: string;
   reviewed_at: string | null;
   reviewed_note: string | null;
+  // Populated when the submitter was signed into a business account at
+  // claim time (see CreateBusinessClaimRequest) -- null for the
+  // still-supported anonymous submission path.
+  claimed_by_user_id: string | null;
 }
 
 export interface CreateBusinessClaimRequest {
@@ -137,4 +141,37 @@ export interface CreateBusinessClaimRequest {
   contact_method: BusinessClaimContactMethod;
   contact_value: string;
   note?: string;
+}
+
+// Real user authentication (BACKLOG.md, README §14.2/§14.3).
+
+export type AccountType = "consumer" | "business";
+
+export interface AppUser {
+  id: string;
+  is_anonymous: boolean;
+  account_type: AccountType;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+}
+
+export interface CompleteSignupRequest {
+  // Present when the device had prior anonymous history to claim (README
+  // §14.2) -- omitted for a signup with no local anonymous identity yet.
+  anonymous_device_id?: string;
+  account_type?: AccountType;
+}
+
+export interface CompleteLoginRequest {
+  // README §14.2 edge case: if this device has its own anonymous history
+  // under a different app_user row, it gets merged into the account being
+  // logged into.
+  anonymous_device_id?: string;
+}
+
+export interface ClaimedVenueSummary {
+  venue_id: string;
+  name: string;
+  address: string;
 }

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { listClaims, reviewClaim, submitClaim } from "./claims";
-import type { ClaimRecord, ClaimRepository, CreateClaimInput, VenueClaimStatus } from "./repository";
+import type {
+  ClaimedVenue,
+  ClaimRecord,
+  ClaimRepository,
+  CreateClaimInput,
+  VenueClaimStatus,
+} from "./repository";
 
 // In-memory fake, mirroring the pattern used for VenueDetailRepository tests.
 class FakeClaimRepository implements ClaimRepository {
@@ -26,9 +32,14 @@ class FakeClaimRepository implements ClaimRepository {
       createdAt: new Date().toISOString(),
       reviewedAt: null,
       reviewedNote: null,
+      claimedByUserId: input.claimedByUserId,
     };
     this.claims.push(record);
     return record;
+  }
+
+  async listClaimedVenuesForUser(_userId: string): Promise<ClaimedVenue[]> {
+    return [];
   }
 
   async listClaims(status?: ClaimRecord["status"]): Promise<ClaimRecord[]> {
