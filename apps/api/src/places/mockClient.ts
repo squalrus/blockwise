@@ -1,4 +1,11 @@
-import type { GooglePlacesClient, RawGooglePlace, SearchNearbyParams } from "./client";
+import type {
+  GooglePlacesClient,
+  PhotoMedia,
+  PlaceDetailsClient,
+  RawGooglePlace,
+  RawPlaceDetails,
+  SearchNearbyParams,
+} from "./client";
 
 // Fixture data for building/testing the sync pipeline without a real
 // GOOGLE_PLACES_API_KEY (BACKLOG "Data layer MVP": "built against mocked
@@ -75,8 +82,55 @@ const FIXTURE_PLACES: RawGooglePlace[] = [
   },
 ];
 
-export class MockPlacesClient implements GooglePlacesClient {
+export class MockPlacesClient implements GooglePlacesClient, PlaceDetailsClient {
   async searchNearby(_params: SearchNearbyParams): Promise<RawGooglePlace[]> {
     return FIXTURE_PLACES;
   }
+
+  // Fixture Contact/Atmosphere data for the venue detail page's on-demand
+  // enrichment fetch, keyed by the same mock place ids used above.
+  async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
+    return (
+      FIXTURE_PLACE_DETAILS[placeId] ?? {
+        id: placeId,
+        rating: 4.2,
+        reviews: [{ text: { text: "A solid neighborhood spot." } }],
+      }
+    );
+  }
+
+  // A 1x1 transparent PNG fixture, so the photo-proxy route has real bytes
+  // to serve without a GOOGLE_PLACES_API_KEY.
+  async fetchPhotoMedia(_photoReference: string): Promise<PhotoMedia> {
+    const pngBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+    return {
+      contentType: "image/png",
+      data: Buffer.from(pngBase64, "base64").buffer,
+    };
+  }
 }
+
+const FIXTURE_PLACE_DETAILS: Record<string, RawPlaceDetails> = {
+  "mock-diesel-fuel-coffee": {
+    id: "mock-diesel-fuel-coffee",
+    rating: 4.6,
+    priceLevel: "PRICE_LEVEL_MODERATE",
+    reviews: [{ text: { text: "Great espresso and a cozy spot to work." } }],
+    photos: [{ name: "places/mock-diesel-fuel-coffee/photos/1" }],
+  },
+  "mock-herkimer-coffee": {
+    id: "mock-herkimer-coffee",
+    rating: 4.5,
+    priceLevel: "PRICE_LEVEL_MODERATE",
+    reviews: [{ text: { text: "Excellent single-origin pour-overs." } }],
+    photos: [{ name: "places/mock-herkimer-coffee/photos/1" }],
+  },
+  "mock-original-bakery": {
+    id: "mock-original-bakery",
+    rating: 4.8,
+    priceLevel: "PRICE_LEVEL_INEXPENSIVE",
+    reviews: [{ text: { text: "The morning buns sell out for a reason." } }],
+    photos: [{ name: "places/mock-original-bakery/photos/1" }],
+  },
+};

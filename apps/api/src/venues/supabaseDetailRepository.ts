@@ -1,0 +1,117 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Poi, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import type {
+  UpsertEnrichmentInput,
+  VenueDetailRecord,
+  VenueDetailRepository,
+} from "./detailRepository";
+
+interface CategoryEmbed {
+  name: string;
+}
+
+// Without generated Database types passed to createClient (see supabase.ts),
+// supabase-js can't tell category_id(name) is a many-to-one embed, so it
+// falls back to array cardinality -- normalize to a single row here.
+function categoryName(embed: CategoryEmbed[] | CategoryEmbed | null): string | null {
+  const category = Array.isArray(embed) ? embed[0] : embed;
+  return category?.name ?? null;
+}
+
+export class SupabaseVenueDetailRepository implements VenueDetailRepository {
+  constructor(private readonly supabase: SupabaseClient) {}
+
+  async listVenues(): Promise<VenueListItem[]> {
+    const { data, error } = await this.supabase
+      .from("venue")
+      .select("id, name, address, category:category_id(name)")
+      .order("name");
+
+    if (error) throw new Error(`listVenues failed: ${error.message}`);
+
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      category_name: categoryName(row.category),
+    }));
+  }
+
+  async getVenueDetail(venueId: string): Promise<VenueDetailRecord | null> {
+    const { data: venue, error: venueError } = await this.supabase
+      .from("venue")
+      .select(
+        "id, google_place_id, name, address, lat, lng, claimed_by_business, category:category_id(name)"
+      )
+      .eq("id", venueId)
+      .maybeSingle();
+
+    if (venueError) throw new Error(`getVenueDetail failed: ${venueError.message}`);
+    if (!venue) return null;
+
+    const [{ data: pois, error: poisError }, { data: enrichment, error: enrichmentError }] =
+      await Promise.all([
+        this.supabase.from("poi").select("id, venue_id, name, description, type").eq(
+          "venue_id",
+          venueId
+        ),
+        this.supabase
+          .from("venue_enrichment_cache")
+          .select("venue_id, source, rating, review_snippet, price_tier, photo_url, fetched_at")
+          .eq("venue_id", venueId)
+          .eq("source", "google")
+          .maybeSingle(),
+      ]);
+
+    if (poisError) throw new Error(`getVenueDetail (pois) failed: ${poisError.message}`);
+    if (enrichmentError)
+      throw new Error(`getVenueDetail (enrichment) failed: ${enrichmentError.message}`);
+
+    return {
+      id: venue.id,
+      googlePlaceId: venue.google_place_id,
+      name: venue.name,
+      address: venue.address,
+      lat: venue.lat,
+      lng: venue.lng,
+      categoryName: categoryName(venue.category),
+      claimedByBusiness: venue.claimed_by_business,
+      pois: (pois ?? []) as Poi[],
+      enrichment: (enrichment as VenueEnrichmentCache | null) ?? null,
+    };
+  }
+
+  async upsertEnrichment(input: UpsertEnrichmentInput): Promise<VenueEnrichmentCache> {
+    const { data, error } = await this.supabase
+      .from("venue_enrichment_cache")
+      .upsert(
+        {
+          venue_id: input.venueId,
+          source: input.source,
+          rating: input.rating,
+          review_snippet: input.reviewSnippet,
+          price_tier: input.priceTier,
+          photo_url: input.photoUrl,
+          fetched_at: new Date().toISOString(),
+        },
+        { onConflict: "venue_id,source" }
+      )
+      .select("venue_id, source, rating, review_snippet, price_tier, photo_url, fetched_at")
+      .single();
+
+    if (error) throw new Error(`upsertEnrichment failed: ${error.message}`);
+    return data as VenueEnrichmentCache;
+  }
+
+  async getEnrichmentPhotoReference(venueId: string): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .from("venue_enrichment_cache")
+      .select("photo_url")
+      .eq("venue_id", venueId)
+      .eq("source", "google")
+      .maybeSingle();
+
+    if (error) throw new Error(`getEnrichmentPhotoReference failed: ${error.message}`);
+    return data?.photo_url ?? null;
+  }
+}
