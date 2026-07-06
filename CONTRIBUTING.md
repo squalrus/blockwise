@@ -23,6 +23,14 @@ Blockwise is moving from a build plan (`README.md`) into implementation, startin
 - Commit messages: short, imperative, focused on *why* over *what* (the diff already shows what changed).
 - PRs: keep them scoped to one backlog item or fix where practical. Link the backlog item or issue being addressed.
 
+## Supabase migrations
+
+Schema changes live in `supabase/migrations` and must be pushed to the hosted project explicitly — `supabase db push` (after `supabase login` and `supabase link --project-ref <ref>` once per machine). Nothing applies automatically; there's no CI step for this yet.
+
+- Never edit an already-applied migration file — add a new one instead, even to fix a mistake in a previous one.
+- `supabase/seed.sql` only runs on a local `supabase db reset`, not on `db push` to a hosted project. If a change needs to reach an already-seeded live row, write it as a migration (e.g. an idempotent `update ... where ... is null`), not just a `seed.sql` edit.
+- Every new table needs an explicit `grant` to `service_role` (see `20260706032000_grant_service_role.sql`). This project's Supabase config has `auto_expose_new_tables` off (the current default), so RLS-enabled tables get **no** privileges for any role, including `service_role`, until granted — `apps/api` will fail with "permission denied" otherwise, regardless of RLS policies.
+
 ## Licensing constraints (read before touching data ingestion)
 
 If your change touches Google Places data, re-read README §1.1 first — its field-mask billing model is enforced in schema and code (see `VenueEnrichmentCache`'s TTL logic), not by convention. Don't bypass it to "simplify" a data path. (Yelp Fusion integration was dropped from the plan — see [BACKLOG.md](./BACKLOG.md) — but if it's ever picked back up, re-read §1.1 for its stricter 24-hour content TTL before touching that data path.)

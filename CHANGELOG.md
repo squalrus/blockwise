@@ -2,6 +2,21 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.4.0] — 2026-07-06
+
+### Added
+
+- **Google Places sync, dedup, and category normalization.** `apps/api/src/places/` implements the remaining data layer ingestion pipeline (README §1.4): a grid-tiled Google Places (New) Nearby Search restricted to the category taxonomy's Google types (chunked to stay under the API's 50-type-per-call and 20-result-per-call limits), a Levenshtein-similarity + geo-proximity dedup pass (catches duplicates against existing venues and within the same sync batch), and category matching that flags unmapped Google types for manual review instead of guessing. Business-claimed venues are treated as source-of-truth and never overwritten by re-syncs. Runnable via `npm run sync:places -- <neighborhood-slug>` in `apps/api` (mock Google client by default; real client once `GOOGLE_PLACES_API_KEY` is set — see `apps/api/GOOGLE_PLACES_SETUP.md`). Verified end-to-end against live Google data: 229 real Phinneywood businesses synced, correctly categorized, zero unmapped. 32 vitest unit tests. (`apps/api/src/places/`, `apps/api/src/scripts/syncPlaces.ts`, `apps/api/package.json`, `apps/api/tsconfig.json`, `turbo.json`, `supabase/migrations/20260706031000_neighborhood_for_sync_fn.sql`)
+- **Unified category taxonomy.** 39 categories across 6 groups (Food & Drink, Retail, Health & Wellness, Services, Arts/Culture/Recreation, Lodging) mapped to Google Places types per README §2. (`supabase/migrations/20260706030000_category_taxonomy.sql`)
+- **Phinneywood boundary polygon.** Hand-authored placeholder polygon around the Greenwood Ave N / Phinney Ave N corridor (README §12.4) so the sync has a real area to scope against — a stand-in until the admin boundary-drawing tool (§12.6, still on the backlog) exists. (`supabase/seed.sql`, `supabase/migrations/20260706032100_phinneywood_boundary.sql`)
+
+### Fixed
+
+- **Netlify Functions build failure: `serverless-http` unresolved.** Netlify treats the configured `base` directory's `package.json` (`apps/web`) as the site's dependency manifest for function bundling, even though the function code and its dependencies actually live in `apps/api` — added the function's runtime dependencies (`serverless-http`, `express`, `@supabase/supabase-js`) to `apps/web/package.json` so esbuild can resolve them. (`apps/web/package.json`, `package-lock.json`)
+- **Missing Supabase grants blocked every service-role query.** The RLS-enabled tables from the initial schema migration had no explicit GRANTs to `service_role` — this project's Supabase config has `auto_expose_new_tables` off (the new default), so grants are no longer automatic — meaning every query from `apps/api` was failing with "permission denied" regardless of RLS. Granted table/sequence/function privileges to `service_role`, including for tables created after this migration. (`supabase/migrations/20260706032000_grant_service_role.sql`)
+- **Invalid Google Places type strings rejected by the API.** `dry_cleaning` and `second_hand_store` aren't real Google Places (New) type values; replaced with the correct `laundry` and `thrift_store` mappings. (`supabase/migrations/20260706033000_fix_invalid_google_types.sql`)
+- **Short-term rental listings flooding the venue table.** Google's `lodging`/`bed_and_breakfast` types cover any Airbnb/VRBO-style listing, not just real hotels — a live sync run confirmed 122 of 350 synced venues were vacation rentals rather than neighborhood businesses. Restricted "Hotel & Lodging" to the `hotel` type only. (`supabase/migrations/20260706034000_restrict_lodging_to_hotels.sql`)
+
 ## [0.3.2] — 2026-07-05
 
 ### Added
