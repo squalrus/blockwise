@@ -507,10 +507,14 @@ User
   id
   is_anonymous (bool)              -- true until the person completes signup
   anonymous_device_id              -- set on first launch, before any signup
+  auth_user_id                     -- join to Supabase Auth's own auth.users row, set on signup
+  account_type                     -- 'consumer' | 'business'
   auth_provider                    -- 'email' | 'phone' | 'apple' | 'google', null while anonymous
   email / phone                    -- null while anonymous
   created_at
 ```
+
+`account_type` gates the business-account variant of this flow: a business owner signs up the same way (Supabase Auth), but with `account_type = 'business'`, which is what `requireBusinessAccount` (apps/api) checks to gate the business portal's authoring tools as they ship. `auth_user_id` is deliberately independent of `id` (which is assigned at first anonymous check-in, before any `auth.users` row exists) rather than reusing it as the primary key, since that's the more common Supabase pattern but doesn't fit an anonymous-first model.
 
 - Check-ins, badge awards, and challenge progress all reference `user_id` from the very first app open — an anonymous user accumulates real history against a real (if unauthenticated) row.
 - **Signing up doesn't migrate data — it completes the same row.** The anonymous `User` row simply gets `is_anonymous` flipped to `false` and auth credentials attached, so all prior check-in/badge history is already correctly attached with zero migration step. (Edge case: if someone signs into an *existing* account from a device that already had anonymous history, merge the two rows' check-in/badge records at that point — worth handling explicitly, but it's the exception rather than the default path.)

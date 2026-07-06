@@ -13,6 +13,7 @@ function toBusinessClaim(record: ClaimRecord): BusinessClaim {
     created_at: record.createdAt,
     reviewed_at: record.reviewedAt,
     reviewed_note: record.reviewedNote,
+    claimed_by_user_id: record.claimedByUserId,
   };
 }
 
@@ -21,6 +22,10 @@ export interface SubmitClaimInput {
   contactMethod: BusinessClaimContactMethod;
   contactValue: string;
   note?: string;
+  // Set when the submitter is authenticated as a business account (see
+  // auth/requireAuthUser.ts's attachOptionalAuthUser) -- omitted/null keeps
+  // the existing anonymous submission path working unchanged.
+  claimedByUserId?: string | null;
 }
 
 export type SubmitClaimResult =
@@ -47,6 +52,7 @@ export async function submitClaim(
     contactMethod: input.contactMethod,
     contactValue: input.contactValue,
     note: input.note ?? null,
+    claimedByUserId: input.claimedByUserId ?? null,
   });
   return { status: "created", claim: toBusinessClaim(claim) };
 }

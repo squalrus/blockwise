@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BusinessClaimStatus } from "@blockwise/types";
-import type { ClaimRecord, ClaimRepository, CreateClaimInput, VenueClaimStatus } from "./repository";
+import type {
+  ClaimedVenue,
+  ClaimRecord,
+  ClaimRepository,
+  CreateClaimInput,
+  VenueClaimStatus,
+} from "./repository";
 
 function toRecord(row: {
   id: string;
@@ -13,6 +19,7 @@ function toRecord(row: {
   created_at: string;
   reviewed_at: string | null;
   reviewed_note: string | null;
+  claimed_by_user_id: string | null;
 }): ClaimRecord {
   return {
     id: row.id,
@@ -25,11 +32,12 @@ function toRecord(row: {
     createdAt: row.created_at,
     reviewedAt: row.reviewed_at,
     reviewedNote: row.reviewed_note,
+    claimedByUserId: row.claimed_by_user_id,
   };
 }
 
 const CLAIM_COLUMNS =
-  "id, venue_id, contact_name, contact_method, contact_value, note, status, created_at, reviewed_at, reviewed_note";
+  "id, venue_id, contact_name, contact_method, contact_value, note, status, created_at, reviewed_at, reviewed_note, claimed_by_user_id";
 
 export class SupabaseClaimRepository implements ClaimRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -54,6 +62,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         contact_method: input.contactMethod,
         contact_value: input.contactValue,
         note: input.note,
+        claimed_by_user_id: input.claimedByUserId,
       })
       .select(CLAIM_COLUMNS)
       .single();
@@ -119,5 +128,20 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     if (error) throw new Error(`rejectClaim failed: ${error.message}`);
     return toRecord(data);
+  }
+
+  async listClaimedVenuesForUser(userId: string): Promise<ClaimedVenue[]> {
+    const { data, error } = await this.supabase
+      .from("business_claim")
+      .select("venue:venue_id (id, name, address)")
+      .eq("claimed_by_user_id", userId)
+      .eq("status", "approved");
+
+    if (error) throw new Error(`listClaimedVenuesForUser failed: ${error.message}`);
+
+    return (data ?? [])
+      .map((row) => row.venue as unknown as { id: string; name: string; address: string } | null)
+      .filter((venue): venue is { id: string; name: string; address: string } => venue !== null)
+      .map((venue) => ({ venueId: venue.id, name: venue.name, address: venue.address }));
   }
 }

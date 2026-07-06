@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { BusinessClaimContactMethod } from "@blockwise/types";
+import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
 type Status = { state: "idle" | "submitting" | "submitted" | "error"; message?: string };
@@ -26,9 +27,17 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
     };
 
     try {
+      // If signed in (as any account type), attach it -- the API only acts
+      // on this for a business account (auto-linking claimed_by_user_id so
+      // it shows up in that account's /business portal); it's a no-op
+      // otherwise, so this is safe to send unconditionally.
+      const token = await getAccessToken();
       const res = await fetch(clientApiUrl(`/venues/${venueId}/claims`), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(body),
       });
       const responseBody = await res.json();

@@ -21,7 +21,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 
 | Item | Effort | Value |
 |---|---|---|
-| [Real user authentication](#real-user-authentication) | M | H |
 | [Native apps (React Native)](#native-apps-react-native) | L | H |
 | [Category mapping admin tool](#category-mapping-admin-tool) | S | M |
 | [Favorite venues](#favorite-venues) | S | M |
@@ -34,6 +33,7 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | [Neighborhood admin invites](#neighborhood-admin-invites) | M | M |
 | [Business omission & venue merging](#business-omission--venue-merging) | M | M |
 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | M | M |
+| [Google and Apple social sign-in (OAuth)](#google-and-apple-social-sign-in-oauth) | M | M |
 | [Monetization: credits & entitlements](#monetization-credits--entitlements) | L | M |
 | [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) | M | L |
 | [Yelp Fusion enrichment (future)](#yelp-fusion-enrichment-future) | M | L |
@@ -58,11 +58,6 @@ No open limitations.
 ---
 
 ## Open
-
-### Real user authentication
-**Type:** feature
-**Why** — Blocking prerequisite for three other items: [Business announcements](#business-announcements) needs a real login for the claimed-business authoring tool (today's claim flow is just an admin-reviewed request with no follow-up login), [Challenges + badges/points](#challenges--badgespoints) needs a durable identity for persistent-named leaderboard presence, and [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) needs it to enforce per-user redemption caps (README §14.3). Today only the anonymous-first `app_user` row exists (README §14.2, shipped v0.6.0) — `auth_provider`/`email`/`phone` columns are present but nothing populates them.
-**Notes:** Wire up Supabase Auth (email/phone/social) per README §10.2/§14. Signup should flip `is_anonymous` to false on the same row rather than migrating data (README §14.2), with the documented edge case of merging an existing account's history into a device's anonymous history if they collide. Also covers `VenueSubscription` (README §14.3) — the notify-me-of-updates action specifically, which still needs a durable identity to deliver to. This is distinct from [Favorite venues](#favorite-venues)/[Venue wishlist](#venue-wishlist), which are anonymous-eligible personal bookmarks, not notification opt-ins. Also covers a business-account variant of auth that gates the business portal's authoring tools.
 
 ### Native apps (React Native)
 **Type:** feature
@@ -123,6 +118,11 @@ No open limitations.
 **Type:** feature
 **Why** — README §13.3 already floats "requiring the business to tap a confirm button on their own device... a true two-sided confirmation" for high-value coupons; scanning the user's QR code is a concrete version of that, and gives businesses a way to check a customer in or redeem a coupon on their behalf as an alternative to the user's own GPS check-in or slide gesture — useful when a user's phone/GPS is having trouble, or simply as a faster front-counter flow.
 **Notes:** Business portal (§10.1) gets camera-based QR scanning (`getUserMedia`, same technique as the mobile QR check-in webcam approach in §10.2) reading a per-user, per-session QR code (analogous to the signed-URL scheme already planned for venue/POI QR check-in — README §4 Phase 2 — but keyed to the user instead of the venue). Additive to, not a replacement for, the user-initiated slide/GPS flows. Depends on [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) for the redemption half; the check-in half can reuse existing check-in logic.
+
+### Google and Apple social sign-in (OAuth)
+**Type:** feature
+**Why** — Follow-up to [Real user authentication](#real-user-authentication), which only wired up email/password. Social sign-in removes a signup step (no password to create/remember) at exactly the moments that flow is meant to make frictionless — redeeming a coupon, subscribing to a venue.
+**Notes:** Google is the smaller half: enable the provider in the Supabase dashboard, add a "Sign in with Google" button calling `supabase.auth.signInWithOAuth`, and a redirect callback route that calls the existing `/auth/complete-signup`/`/auth/complete-login` with the resulting session token — same completion flow as email/password today, no API changes needed since `verifyToken.ts` already reads the provider generically off `app_metadata`. Apple is a bigger lift and should probably be scoped/estimated separately even though it's listed here alongside Google: it requires Apple Developer Program enrollment, a Services ID, and generating a rotating client-secret JWT.
 
 ### Monetization: credits & entitlements
 **Type:** feature

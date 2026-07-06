@@ -1,10 +1,15 @@
 import express from "express";
 import type {
+  AccountType,
   BusinessClaimContactMethod,
   BusinessClaimStatus,
   HealthCheckResponse,
 } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
+import { completeLogin, completeSignup, toAppUser } from "./auth/auth";
+import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from "./auth/requireAuthUser";
+import { SupabaseAuthRepository } from "./auth/supabaseRepository";
+import { verifyAccessToken } from "./auth/verifyToken";
 import { performCheckin } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
 import { listClaims, reviewClaim, submitClaim } from "./claims/claims";
@@ -17,6 +22,13 @@ import { SupabaseVenueDetailRepository } from "./venues/supabaseDetailRepository
 
 const CONTACT_METHODS: BusinessClaimContactMethod[] = ["phone", "email", "domain"];
 const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"];
+const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
+
+function bearerToken(req: express.Request): string | null {
+  const header = req.header("authorization");
+  if (!header?.startsWith("Bearer ")) return null;
+  return header.slice("Bearer ".length);
+}
 
 // Netlify invokes this function at /.netlify/functions/api/*, but the public
 // redirect (see netlify.toml) fronts it at /api/*. Depending on the Netlify
@@ -58,6 +70,12 @@ let claimRepository: SupabaseClaimRepository | undefined;
 function getClaimRepository(): SupabaseClaimRepository {
   claimRepository ??= new SupabaseClaimRepository(getSupabaseClient());
   return claimRepository;
+}
+
+let authRepository: SupabaseAuthRepository | undefined;
+function getAuthRepository(): SupabaseAuthRepository {
+  authRepository ??= new SupabaseAuthRepository(getSupabaseClient());
+  return authRepository;
 }
 
 export function createApp() {
@@ -179,49 +197,62 @@ export function createApp() {
 
   // README §5: claim submission is public; verification is manual/admin
   // reviewed (no SMS/email provider wired in yet) via the /admin/claims
-  // routes below.
-  app.post("/venues/:id/claims", async (req, res) => {
-    const { contact_name, contact_method, contact_value, note } = req.body ?? {};
-    if (
-      typeof contact_name !== "string" ||
-      !contact_name ||
-      typeof contact_value !== "string" ||
-      !contact_value ||
-      !CONTACT_METHODS.includes(contact_method)
-    ) {
-      res.status(400).json({
-        error: `contact_name, contact_value, and contact_method (one of ${CONTACT_METHODS.join(", ")}) are required`,
-      });
-      return;
-    }
-    if (note !== undefined && typeof note !== "string") {
-      res.status(400).json({ error: "note must be a string" });
-      return;
-    }
-
-    try {
-      const result = await submitClaim(
-        req.params.id,
-        { contactName: contact_name, contactMethod: contact_method, contactValue: contact_value, note },
-        getClaimRepository()
-      );
-
-      switch (result.status) {
-        case "not_found":
-          res.status(404).json({ error: "Venue not found" });
-          return;
-        case "already_claimed":
-          res.status(409).json({ error: "Venue is already claimed" });
-          return;
-        case "created":
-          res.status(201).json(result.claim);
-          return;
+  // routes below. Authentication is optional here (attachOptionalAuthUser)
+  // rather than required -- a signed-in business account gets its claim
+  // auto-linked (see claimed_by_user_id / GET /business/venues below), but
+  // the anonymous contact-info-only path still works unchanged.
+  app.post(
+    "/venues/:id/claims",
+    attachOptionalAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      const { contact_name, contact_method, contact_value, note } = req.body ?? {};
+      if (
+        typeof contact_name !== "string" ||
+        !contact_name ||
+        typeof contact_value !== "string" ||
+        !contact_value ||
+        !CONTACT_METHODS.includes(contact_method)
+      ) {
+        res.status(400).json({
+          error: `contact_name, contact_value, and contact_method (one of ${CONTACT_METHODS.join(", ")}) are required`,
+        });
+        return;
       }
-    } catch (err) {
-      console.error(`POST /venues/${req.params.id}/claims failed:`, err);
-      res.status(500).json({ error: "Failed to submit claim" });
+      if (note !== undefined && typeof note !== "string") {
+        res.status(400).json({ error: "note must be a string" });
+        return;
+      }
+
+      try {
+        const result = await submitClaim(
+          req.params.id,
+          {
+            contactName: contact_name,
+            contactMethod: contact_method,
+            contactValue: contact_value,
+            note,
+            claimedByUserId: req.appUser?.accountType === "business" ? req.appUser.id : null,
+          },
+          getClaimRepository()
+        );
+
+        switch (result.status) {
+          case "not_found":
+            res.status(404).json({ error: "Venue not found" });
+            return;
+          case "already_claimed":
+            res.status(409).json({ error: "Venue is already claimed" });
+            return;
+          case "created":
+            res.status(201).json(result.claim);
+            return;
+        }
+      } catch (err) {
+        console.error(`POST /venues/${req.params.id}/claims failed:`, err);
+        res.status(500).json({ error: "Failed to submit claim" });
+      }
     }
-  });
+  );
 
   app.get("/admin/claims", requireAdmin, async (req, res) => {
     const status = req.query.status;
@@ -273,6 +304,106 @@ export function createApp() {
 
   app.post("/admin/claims/:id/approve", requireAdmin, reviewHandler("approve"));
   app.post("/admin/claims/:id/reject", requireAdmin, reviewHandler("reject"));
+
+  // README §14.2: the anonymous app_user row gets its is_anonymous flag
+  // flipped and auth credentials attached in place -- no data migration.
+  // The caller must already hold a valid Supabase Auth session (the
+  // Authorization bearer token); this endpoint only links it to app_user.
+  app.post("/auth/complete-signup", async (req, res) => {
+    const token = bearerToken(req);
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { anonymous_device_id, account_type } = req.body ?? {};
+    if (anonymous_device_id !== undefined && typeof anonymous_device_id !== "string") {
+      res.status(400).json({ error: "anonymous_device_id must be a string" });
+      return;
+    }
+    if (account_type !== undefined && !ACCOUNT_TYPES.includes(account_type)) {
+      res.status(400).json({ error: `account_type must be one of ${ACCOUNT_TYPES.join(", ")}` });
+      return;
+    }
+
+    try {
+      const verified = await verifyAccessToken(getSupabaseClient(), token);
+      if (!verified) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const user = await completeSignup(
+        verified,
+        account_type ?? "consumer",
+        anonymous_device_id ?? null,
+        getAuthRepository()
+      );
+      res.status(200).json(toAppUser(user));
+    } catch (err) {
+      console.error("POST /auth/complete-signup failed:", err);
+      res.status(500).json({ error: "Failed to complete signup" });
+    }
+  });
+
+  // README §14.2 edge case: merges a device's anonymous check-in history
+  // into the account being logged into, if the device had accumulated any
+  // under a different app_user row.
+  app.post("/auth/complete-login", async (req, res) => {
+    const token = bearerToken(req);
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { anonymous_device_id } = req.body ?? {};
+    if (anonymous_device_id !== undefined && typeof anonymous_device_id !== "string") {
+      res.status(400).json({ error: "anonymous_device_id must be a string" });
+      return;
+    }
+
+    try {
+      const verified = await verifyAccessToken(getSupabaseClient(), token);
+      if (!verified) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const result = await completeLogin(verified, anonymous_device_id ?? null, getAuthRepository());
+      if (result.status === "not_signed_up") {
+        res.status(404).json({ error: "No account found for this login -- complete signup first" });
+        return;
+      }
+      res.json(toAppUser(result.user));
+    } catch (err) {
+      console.error("POST /auth/complete-login failed:", err);
+      res.status(500).json({ error: "Failed to complete login" });
+    }
+  });
+
+  app.get("/auth/me", requireAuthUser(getSupabaseClient, getAuthRepository), (req, res) => {
+    res.json(toAppUser(req.appUser!));
+  });
+
+  // Business-account-gated placeholder for the business portal's authoring
+  // tools (BACKLOG "Business announcements" etc., which depend on this item
+  // for the business-side login) -- proves the account_type gate end-to-end
+  // by listing the venues this business account has an approved claim on.
+  app.get(
+    "/business/venues",
+    requireBusinessAccount(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const venues = await getClaimRepository().listClaimedVenuesForUser(req.appUser!.id);
+        res.json(
+          venues.map((v) => ({ venue_id: v.venueId, name: v.name, address: v.address }))
+        );
+      } catch (err) {
+        console.error("GET /business/venues failed:", err);
+        res.status(500).json({ error: "Failed to list claimed venues" });
+      }
+    }
+  );
 
   return app;
 }
