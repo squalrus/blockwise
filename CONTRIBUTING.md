@@ -15,7 +15,7 @@ Blockwise is moving from a build plan (`README.md`) into implementation, startin
 2. Make the change. Update `README.md`, `BACKLOG.md`, or other docs if reality has changed.
 3. Move the relevant backlog entry into `CHANGELOG.md` under a new version block (date, classification, user-facing summary), and remove it from `BACKLOG.md`.
 4. Bump `version` in `package.json` per [semver](https://semver.org/): feature → minor, bug/improvement/cleanup → patch, breaking change → major.
-5. Run the build/tests as the correctness gate (CI details will be added here once `apps/*` exist — see README §10.4 for the intended pipeline).
+5. Run the build/tests as the correctness gate: `npm run build` at the repo root (Turborepo builds all workspaces). No automated CI pipeline exists yet — see README §10.4 for the intended pipeline once the app surface justifies it.
 6. Commit, push the branch, and open a PR with `gh pr create`. Requires the [GitHub CLI](https://cli.github.com), authenticated via `gh auth login`.
 
 ## Commit and PR conventions
