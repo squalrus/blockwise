@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.9.0] — 2026-07-06
+
+### Added
+
+- **Favorite venues.** A personal "I like this place" bookmark on the venue detail page, separate from check-ins or business claiming. Device-scoped like check-ins (README §14.2) — attaches to the existing anonymous `app_user` row and converts for free on signup, no migration step. New `favorite` table (unique per user/venue, RLS-enabled service-role-only like every other table), `GET/POST/DELETE /venues/:id/favorites` endpoints, and a toggle button on the venue detail page that loads current status on mount. 7 new unit tests. (`supabase/migrations/20260706060000_favorite_venues.sql`, `apps/api/src/favorites/`, `apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/FavoriteButton.tsx`, `apps/web/src/app/venues/[id]/page.tsx`, `packages/types/src/index.ts`)
+
 ## [0.8.0] — 2026-07-06
 
 ### Added

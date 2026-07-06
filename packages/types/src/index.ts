@@ -116,6 +116,23 @@ export interface CreateCheckinRequest {
   lng: number;
 }
 
+export interface Favorite {
+  id: string;
+  user_id: string;
+  venue_id: string;
+  created_at: string;
+}
+
+export interface CreateFavoriteRequest {
+  // Identifies the (possibly still-anonymous) app_user row -- see README
+  // §14.2 -- generated client-side on first launch and persisted locally.
+  anonymous_device_id: string;
+}
+
+export interface FavoriteStatusResponse {
+  favorited: boolean;
+}
+
 export type BusinessClaimContactMethod = "phone" | "email" | "domain";
 export type BusinessClaimStatus = "pending" | "approved" | "rejected";
 

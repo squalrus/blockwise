@@ -23,7 +23,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 |---|---|---|
 | [Native apps (React Native)](#native-apps-react-native) | L | H |
 | [Category mapping admin tool](#category-mapping-admin-tool) | S | M |
-| [Favorite venues](#favorite-venues) | S | M |
 | [Venue wishlist](#venue-wishlist) | S | M |
 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | S | M |
 | [Business announcements](#business-announcements) | M | M |
@@ -33,7 +32,12 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | [Neighborhood admin invites](#neighborhood-admin-invites) | M | M |
 | [Business omission & venue merging](#business-omission--venue-merging) | M | M |
 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | M | M |
-| [Google and Apple social sign-in (OAuth)](#google-and-apple-social-sign-in-oauth) | M | M |
+| [User profiles with public or private visibility](#user-profiles-with-public-or-private-visibility) | M | M |
+| [Connect with other users](#connect-with-other-users) | M | M |
+| [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | M | M |
+| [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect) | M | M |
+| [Google social sign-in (OAuth)](#google-social-sign-in-oauth) | S | M |
+| [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | M | M |
 | [Monetization: credits & entitlements](#monetization-credits--entitlements) | L | M |
 | [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) | M | L |
 | [Yelp Fusion enrichment (future)](#yelp-fusion-enrichment-future) | M | L |
@@ -69,15 +73,10 @@ No open limitations.
 **Why** — README §2 calls for "manual override capability in the admin tool for anything auto-mapped incorrectly," but the only admin surface that exists today is `/admin/claims` (v0.6.0) — there's no way to fix a venue the sync's category-normalization step mapped wrong without a direct DB edit.
 **Notes:** Small admin page mirroring the existing `/admin/claims` pattern (same `ADMIN_API_TOKEN` gate) — search/filter venues, reassign `category_id`. Also a natural home for reviewing the sync pipeline's "unmapped Google type" flags (README §1.4 step 3) instead of them only showing up in logs.
 
-### Favorite venues
-**Type:** feature
-**Why** — Personal "I like this place" bookmark, distinct from a notification subscription (`VenueSubscription`, covered under [Real user authentication](#real-user-authentication)) — a low-stakes action that doesn't need to reach the user later, so it doesn't need the same durable-identity requirement.
-**Notes:** Device-scoped like check-ins (README §14.2) — attaches to the existing anonymous `app_user` row, converts for free on signup with no migration step. Separate from [Venue wishlist](#venue-wishlist) (already-like vs. want-to-visit are different intents).
-
 ### Venue wishlist
 **Type:** feature
-**Why** — "Want to visit" intent is distinct from "already like this place" (see [Favorite venues](#favorite-venues)) — useful for challenge/exploration framing later (e.g. surfacing wishlisted venues that also count toward an active challenge).
-**Notes:** Same anonymous-first, device-scoped pattern as [Favorite venues](#favorite-venues) — likely shares a schema shape (e.g. one join table with a `list_type` of `favorite` | `wishlist`) and UI treatment, just a different label/intent per venue.
+**Why** — "Want to visit" intent is distinct from "already like this place" (shipped as Favorite venues in v0.9.0) — useful for challenge/exploration framing later (e.g. surfacing wishlisted venues that also count toward an active challenge).
+**Notes:** Same anonymous-first, device-scoped pattern as the shipped `favorite` table (`supabase/migrations/20260706060000_favorite_venues.sql`) — likely shares a schema shape (e.g. a `list_type` of `favorite` | `wishlist` on the same table) and UI treatment, just a different label/intent per venue.
 
 ### Coupon redemption also checks you in
 **Type:** feature
@@ -119,10 +118,35 @@ No open limitations.
 **Why** — README §13.3 already floats "requiring the business to tap a confirm button on their own device... a true two-sided confirmation" for high-value coupons; scanning the user's QR code is a concrete version of that, and gives businesses a way to check a customer in or redeem a coupon on their behalf as an alternative to the user's own GPS check-in or slide gesture — useful when a user's phone/GPS is having trouble, or simply as a faster front-counter flow.
 **Notes:** Business portal (§10.1) gets camera-based QR scanning (`getUserMedia`, same technique as the mobile QR check-in webcam approach in §10.2) reading a per-user, per-session QR code (analogous to the signed-URL scheme already planned for venue/POI QR check-in — README §4 Phase 2 — but keyed to the user instead of the venue). Additive to, not a replacement for, the user-initiated slide/GPS flows. Depends on [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) for the redemption half; the check-in half can reuse existing check-in logic.
 
-### Google and Apple social sign-in (OAuth)
+### User profiles with public or private visibility
+**Type:** feature
+**Why** — Foundation for [Connect with other users](#connect-with-other-users), [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins), and [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect) — all three need a per-user visibility setting before showing anyone else's activity, since a signed-in identity (shipped v0.8.0) doesn't by itself imply the user wants their presence visible to others.
+**Notes:** A `user_profile` extension on `app_user` (display name, optional avatar, `visibility` of `public` | `private`, default `private`) gated behind real user authentication (v0.8.0) — anonymous devices have no profile to show. Private-by-default is the safe choice; the other three items below should all check this flag before surfacing a user's activity to anyone else.
+
+### Connect with other users
+**Type:** feature
+**Why** — The requested "friend"-equivalent relationship, using neighborhood-flavored language instead of "friend" per the user's ask — lets two users see each other's activity ([Activity feed of recent check-ins](#activity-feed-of-recent-check-ins)) regardless of the public/private default, and is the mechanism behind "connect while at the business" in [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect).
+**Notes:** Needs [User profiles with public or private visibility](#user-profiles-with-public-or-private-visibility) first (something to send a request to/from). Likely a `user_connection` table (requester/recipient/status: pending|accepted|declined), symmetric once accepted. Naming is still open — user wants a neighborhood-appropriate term rather than "friend" (e.g. "neighbor"); worth deciding before writing UI copy.
+
+### Activity feed of recent check-ins
+**Type:** feature
+**Why** — Lets a user see what people they're connected to (or public profiles) have been checking into recently — the social payoff for connecting at all, and a natural discovery surface ("what's popular right now among people I know").
+**Notes:** Depends on [User profiles with public or private visibility](#user-profiles-with-public-or-private-visibility) (respect the visibility flag) and likely [Connect with other users](#connect-with-other-users) — open question: is the feed public-profiles-only, connections-only, or both (with connections seeing more)? Resolve before scoping. Reads off the existing `checkin` table (README §4/§14.2) — no new check-in schema needed, just a query surface and visibility filtering.
+
+### Business visitor history and in-person connect
+**Type:** feature
+**Why** — Two related asks: showing who is/was recently at a business (social proof, "who's here right now"), and letting users connect with each other while physically co-located at a venue — turns a shared check-in into a natural, low-friction moment to start a connection.
+**Notes:** Depends on [User profiles with public or private visibility](#user-profiles-with-public-or-private-visibility) (only public/opted-in check-ins should be visible to other visitors) and pairs with [Connect with other users](#connect-with-other-users) for the actual connect action — likely a "people here now" list on the venue detail page (recent `checkin` rows within a short window) with a connect button per person. Consider whether this needs a tighter privacy control than the general activity feed, since "currently at this specific location" is more sensitive than general recent activity.
+
+### Google social sign-in (OAuth)
 **Type:** feature
 **Why** — Follow-up to [Real user authentication](#real-user-authentication), which only wired up email/password. Social sign-in removes a signup step (no password to create/remember) at exactly the moments that flow is meant to make frictionless — redeeming a coupon, subscribing to a venue.
-**Notes:** Google is the smaller half: enable the provider in the Supabase dashboard, add a "Sign in with Google" button calling `supabase.auth.signInWithOAuth`, and a redirect callback route that calls the existing `/auth/complete-signup`/`/auth/complete-login` with the resulting session token — same completion flow as email/password today, no API changes needed since `verifyToken.ts` already reads the provider generically off `app_metadata`. Apple is a bigger lift and should probably be scoped/estimated separately even though it's listed here alongside Google: it requires Apple Developer Program enrollment, a Services ID, and generating a rotating client-secret JWT.
+**Notes:** Enable the provider in the Supabase dashboard, add a "Sign in with Google" button calling `supabase.auth.signInWithOAuth`, and a redirect callback route that calls the existing `/auth/complete-signup`/`/auth/complete-login` with the resulting session token — same completion flow as email/password today, no API changes needed since `verifyToken.ts` already reads the provider generically off `app_metadata`. Smaller lift than [Apple social sign-in](#apple-social-sign-in-sign-in-with-apple) — no separate developer account or key rotation required.
+
+### Apple social sign-in (Sign in with Apple)
+**Type:** feature
+**Why** — Same rationale as [Google social sign-in](#google-social-sign-in-oauth) — removes a signup step at the moments that flow is meant to make frictionless — but scoped separately since it's a materially bigger lift with its own setup dependencies and timeline.
+**Notes:** Requires Apple Developer Program enrollment, creating a Services ID, and generating a rotating client-secret JWT (Apple secrets expire and must be regenerated, unlike Google's). Same completion flow on the app side as Google once configured — `supabase.auth.signInWithOAuth`, a redirect callback route, then the existing `/auth/complete-signup`/`/auth/complete-login`, since `verifyToken.ts` already reads the provider generically off `app_metadata`.
 
 ### Monetization: credits & entitlements
 **Type:** feature

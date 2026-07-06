@@ -14,6 +14,8 @@ import { performCheckin } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
 import { listClaims, reviewClaim, submitClaim } from "./claims/claims";
 import { SupabaseClaimRepository } from "./claims/supabaseRepository";
+import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
+import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import { LivePlacesClient, type PlaceDetailsClient } from "./places/client";
 import { MockPlacesClient } from "./places/mockClient";
 import { getSupabaseClient } from "./supabase";
@@ -64,6 +66,12 @@ let checkinRepository: SupabaseCheckinRepository | undefined;
 function getCheckinRepository(): SupabaseCheckinRepository {
   checkinRepository ??= new SupabaseCheckinRepository(getSupabaseClient());
   return checkinRepository;
+}
+
+let favoriteRepository: SupabaseFavoriteRepository | undefined;
+function getFavoriteRepository(): SupabaseFavoriteRepository {
+  favoriteRepository ??= new SupabaseFavoriteRepository(getSupabaseClient());
+  return favoriteRepository;
 }
 
 let claimRepository: SupabaseClaimRepository | undefined;
@@ -192,6 +200,68 @@ export function createApp() {
     } catch (err) {
       console.error(`POST /venues/${req.params.id}/checkins failed:`, err);
       res.status(500).json({ error: "Failed to check in" });
+    }
+  });
+
+  // Favorite venues (BACKLOG.md): a device-scoped "I like this place"
+  // bookmark, toggled independently of check-ins/claims.
+  app.get("/venues/:id/favorites", async (req, res) => {
+    const anonymousDeviceId = req.query.anonymous_device_id;
+    if (typeof anonymousDeviceId !== "string" || !anonymousDeviceId) {
+      res.status(400).json({ error: "anonymous_device_id is required" });
+      return;
+    }
+
+    try {
+      const result = await getFavoriteStatus(req.params.id, anonymousDeviceId, getFavoriteRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Venue not found" });
+        return;
+      }
+      res.json({ favorited: result.favorited });
+    } catch (err) {
+      console.error(`GET /venues/${req.params.id}/favorites failed:`, err);
+      res.status(500).json({ error: "Failed to load favorite status" });
+    }
+  });
+
+  app.post("/venues/:id/favorites", async (req, res) => {
+    const { anonymous_device_id } = req.body ?? {};
+    if (typeof anonymous_device_id !== "string" || !anonymous_device_id) {
+      res.status(400).json({ error: "anonymous_device_id is required" });
+      return;
+    }
+
+    try {
+      const result = await addFavorite(req.params.id, anonymous_device_id, getFavoriteRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Venue not found" });
+        return;
+      }
+      res.status(result.status === "created" ? 201 : 200).json(result.favorite);
+    } catch (err) {
+      console.error(`POST /venues/${req.params.id}/favorites failed:`, err);
+      res.status(500).json({ error: "Failed to add favorite" });
+    }
+  });
+
+  app.delete("/venues/:id/favorites", async (req, res) => {
+    const { anonymous_device_id } = req.body ?? {};
+    if (typeof anonymous_device_id !== "string" || !anonymous_device_id) {
+      res.status(400).json({ error: "anonymous_device_id is required" });
+      return;
+    }
+
+    try {
+      const result = await removeFavorite(req.params.id, anonymous_device_id, getFavoriteRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Venue not found" });
+        return;
+      }
+      res.status(204).end();
+    } catch (err) {
+      console.error(`DELETE /venues/${req.params.id}/favorites failed:`, err);
+      res.status(500).json({ error: "Failed to remove favorite" });
     }
   });
 
