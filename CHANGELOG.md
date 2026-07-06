@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.4.1] — 2026-07-06
+
+### Fixed
+
+- **Deployed site showed the API health check as unreachable.** `apps/web`'s homepage server-fetch defaulted to `http://localhost:4000`, which doesn't exist in production, and fetched `/health` directly, a path the deployed site's `/api/*`-only redirect (`netlify.toml`) never routes to the co-located function. Now falls back to `process.env.URL` (Netlify's own auto-injected production site URL — no dashboard configuration needed) and always requests `/api/health`, which resolves correctly against both the deployed redirect and the local `apps/api` dev server. (`apps/web/src/app/page.tsx`)
+
 ## [0.4.0] — 2026-07-06
 
 ### Added

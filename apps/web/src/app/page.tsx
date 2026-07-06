@@ -1,10 +1,18 @@
 import type { HealthCheckResponse } from "@blockwise/types";
 
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
+// In production the two apps are one same-origin Netlify site
+// (netlify.toml), so the API is only reachable through the /api/* redirect
+// to the co-located function -- `process.env.URL` is Netlify's own
+// auto-injected production site URL, set on every deploy with no dashboard
+// configuration needed. Locally (npm run dev, port 4000), apps/api's own
+// middleware strips a leading /api the same way the redirect's target does,
+// so /api/health resolves correctly against both.
+const API_URL = process.env.API_URL ?? process.env.URL ?? "http://localhost:4000";
+const HEALTH_URL = `${API_URL}/api/health`;
 
 async function getApiHealth(): Promise<HealthCheckResponse | null> {
   try {
-    const res = await fetch(`${API_URL}/health`, { cache: "no-store" });
+    const res = await fetch(HEALTH_URL, { cache: "no-store" });
     if (!res.ok) return null;
     return (await res.json()) as HealthCheckResponse;
   } catch {
@@ -28,7 +36,7 @@ export default async function Home() {
           </p>
         ) : (
           <p className="mt-1 font-medium text-red-600 dark:text-red-400">
-            unreachable at {API_URL} (start apps/api with `npm run dev`)
+            unreachable at {HEALTH_URL} (start apps/api with `npm run dev`)
           </p>
         )}
       </div>
