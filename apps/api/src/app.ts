@@ -20,6 +20,22 @@ function getPlacesClient(): PlaceDetailsClient {
   return apiKey ? new LivePlacesClient(apiKey) : new MockPlacesClient();
 }
 
+// Constructed lazily (on first request) rather than at createApp() time --
+// getSupabaseClient() throws if SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY aren't
+// set, and building it eagerly would crash every route including /health
+// the moment the function cold-starts with a misconfigured environment.
+let venueRepository: SupabaseVenueDetailRepository | undefined;
+function getVenueRepository(): SupabaseVenueDetailRepository {
+  venueRepository ??= new SupabaseVenueDetailRepository(getSupabaseClient());
+  return venueRepository;
+}
+
+let placesClient: PlaceDetailsClient | undefined;
+function getCachedPlacesClient(): PlaceDetailsClient {
+  placesClient ??= getPlacesClient();
+  return placesClient;
+}
+
 export function createApp() {
   const app = express();
 
@@ -38,12 +54,9 @@ export function createApp() {
     res.json(body);
   });
 
-  const venueRepository = new SupabaseVenueDetailRepository(getSupabaseClient());
-  const placesClient = getPlacesClient();
-
   app.get("/venues", async (_req, res) => {
     try {
-      const venues = await venueRepository.listVenues();
+      const venues = await getVenueRepository().listVenues();
       res.json(venues);
     } catch (err) {
       console.error("GET /venues failed:", err);
@@ -55,8 +68,8 @@ export function createApp() {
     try {
       const venue = await getVenueDetailWithFreshEnrichment(
         req.params.id,
-        venueRepository,
-        placesClient
+        getVenueRepository(),
+        getCachedPlacesClient()
       );
       if (!venue) {
         res.status(404).json({ error: "Venue not found" });
@@ -74,12 +87,14 @@ export function createApp() {
   // the browser -- see PlaceDetailsClient.fetchPhotoMedia.
   app.get("/venues/:id/photo", async (req, res) => {
     try {
-      const photoReference = await venueRepository.getEnrichmentPhotoReference(req.params.id);
+      const photoReference = await getVenueRepository().getEnrichmentPhotoReference(
+        req.params.id
+      );
       if (!photoReference) {
         res.status(404).end();
         return;
       }
-      const media = await placesClient.fetchPhotoMedia(photoReference);
+      const media = await getCachedPlacesClient().fetchPhotoMedia(photoReference);
       res.setHeader("Content-Type", media.contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
       res.send(Buffer.from(media.data));
