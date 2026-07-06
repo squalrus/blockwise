@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.5.2] — 2026-07-06
+
+### Fixed
+
+- **Venue photos rendered as broken images in production.** `apps/api/netlify/functions/api.ts` wrapped the Express app with `serverless-http` without declaring which content types are binary, so every response body — including `GET /venues/:id/photo`'s JPEG bytes — was encoded as UTF-8 text before being packaged into the Lambda-style response. Each invalid UTF-8 byte sequence in the image got replaced with the Unicode replacement character, corrupting the file even though the endpoint returned 200 with the correct `Content-Type`. Now passes `{ binary: ["image/*"] }` so image responses are base64-encoded instead. (`apps/api/netlify/functions/api.ts`)
+
 ## [0.5.1] — 2026-07-06
 
 ### Fixed
