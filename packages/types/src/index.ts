@@ -75,7 +75,14 @@ export interface VenueListItem {
   id: string;
   name: string;
   address: string;
+  lat: number;
+  lng: number;
   category_name: string | null;
+  // The category's top-level group (README §2's 6 groups, e.g. "Food &
+  // Drink") -- distinct from category_name (the specific leaf category, e.g.
+  // "Coffee Shop"). Used for map marker color-coding, where 39 leaf colors
+  // would be indistinguishable but 6 group colors are.
+  category_group: string | null;
 }
 
 export interface VenueDetail {
