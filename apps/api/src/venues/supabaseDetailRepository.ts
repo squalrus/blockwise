@@ -8,6 +8,7 @@ import type {
 
 interface CategoryEmbed {
   name: string;
+  parent?: CategoryEmbed[] | CategoryEmbed | null;
 }
 
 // Without generated Database types passed to createClient (see supabase.ts),
@@ -18,13 +19,24 @@ function categoryName(embed: CategoryEmbed[] | CategoryEmbed | null): string | n
   return category?.name ?? null;
 }
 
+// The venue's category is always a leaf (e.g. "Coffee Shop"); its group
+// (e.g. "Food & Drink", README §2) is the leaf's parent row. Falls back to
+// the category's own name for the rare case it has no parent.
+function categoryGroupName(embed: CategoryEmbed[] | CategoryEmbed | null): string | null {
+  const category = Array.isArray(embed) ? embed[0] : embed;
+  if (!category) return null;
+  return categoryName(category.parent ?? null) ?? category.name;
+}
+
 export class SupabaseVenueDetailRepository implements VenueDetailRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
   async listVenues(): Promise<VenueListItem[]> {
     const { data, error } = await this.supabase
       .from("venue")
-      .select("id, name, address, category:category_id(name)")
+      .select(
+        "id, name, address, lat, lng, category:category_id(name, parent:parent_category_id(name))"
+      )
       .order("name");
 
     if (error) throw new Error(`listVenues failed: ${error.message}`);
@@ -33,7 +45,10 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
       id: row.id,
       name: row.name,
       address: row.address,
+      lat: row.lat,
+      lng: row.lng,
       category_name: categoryName(row.category),
+      category_group: categoryGroupName(row.category),
     }));
   }
 

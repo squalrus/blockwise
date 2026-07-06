@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.7.0] — 2026-07-06
+
+### Added
+
+- **Venues map view.** `/venues` now has a List/Map toggle; the map renders every venue as a marker on the Google Maps JavaScript API, colored by its top-level category group (Food & Drink, Retail, Health & Wellness, Services, Arts/Culture/Recreation, Lodging) with an always-visible legend, clustered via `@googlemaps/markerclusterer` so dense blocks collapse into a single pin until zoomed in, and fit to the actual bounds of the synced venues rather than a fixed center/zoom. Clicking a marker opens an info window (name, category, address, a link to the venue's detail page) built from DOM APIs rather than an HTML string, since venue name/address ultimately come from Google Places sync and, later, business self-submission — neither should be trusted as pre-sanitized HTML. Marker/legend colors were run through the project's dataviz-palette validator for colorblind-safe separation in both light and dark mode. Falls back to a clear message instead of a broken map when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` isn't configured. `VenueListItem` (and the `GET /venues` list endpoint) now also carries `lat`/`lng` and a `category_group` field (the category's parent row, distinct from its specific `category_name`) to support marker placement and color-coding. Verified end-to-end in a browser against live Phinneywood data (229 venues) with a real Maps API key: toggle, clustering, category colors, and the marker click → info window flow. (`apps/web/src/app/venues/MapView.tsx`, `apps/web/src/app/venues/VenuesView.tsx`, `apps/web/src/lib/categoryColors.ts`, `apps/web/src/app/venues/page.tsx`, `apps/api/src/venues/supabaseDetailRepository.ts`, `packages/types/src/index.ts`, `apps/web/.env.example`)
+
 ## [0.6.0] — 2026-07-06
 
 ### Added

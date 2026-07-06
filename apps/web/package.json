@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@blockwise/types": "*",
+    "@googlemaps/js-api-loader": "^2.1.1",
+    "@googlemaps/markerclusterer": "^2.6.2",
     "@supabase/supabase-js": "^2.45.4",
     "express": "^4.21.1",
     "next": "16.2.10",
@@ -20,6 +22,7 @@
   "devDependencies": {
     "@netlify/plugin-nextjs": "^5.7.4",
     "@tailwindcss/postcss": "^4",
+    "@types/google.maps": "^3.65.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
