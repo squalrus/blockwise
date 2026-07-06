@@ -235,8 +235,8 @@ These phases are platform-agnostic, but are being implemented against the **web 
 
 ## 9. Suggested Stack
 
-- **Database:** PostgreSQL + PostGIS for geo queries
-- **Backend jobs:** scheduled worker (e.g., cron + queue) for weekly Google sync and Yelp cache TTL enforcement
+- **Database:** PostgreSQL + PostGIS via **Supabase** (managed, includes Auth and Storage — see §10.2)
+- **Backend jobs:** **Netlify Scheduled Functions** (Node, cron syntax in `netlify.toml`) for weekly Google sync and Yelp cache TTL enforcement — no separate worker host needed at current scale
 - **Mobile:** React Native or Flutter
 - **Web:** Next.js (React) — see §10
 - **Map rendering:** Google Maps SDK (native mobile, free/unlimited) + Mapbox GL JS or Maps JavaScript API (web, metered) — see §1.7 and §10
@@ -262,10 +262,10 @@ The web app is the first client built, for rapid iteration on the data layer and
 | Styling | Tailwind CSS | Fast to build with, easy to keep consistent with a design system shared across web/mobile |
 | Map | **Mapbox GL JS** (50,000 free web loads/month) or **Google Maps JavaScript API** (Essentials tier, ~10,000 free loads/month) | The free *mobile* Google Maps SDK doesn't extend to web — web map loads are metered on both providers, so pick based on styling needs (Mapbox) vs. data consistency with your Places-sourced venues (Google) |
 | Data fetching | React Query (TanStack Query) | Caching/invalidation on the client, mirrors the TTL-based caching approach already used server-side for Yelp/Google enrichment |
-| Auth | Shared auth service (e.g., Auth0, Clerk, or a custom JWT-based service) usable by both web and mobile clients | Avoids building/maintaining two separate auth systems |
+| Database + Auth | **Supabase** (Postgres + PostGIS extension, Auth, Storage) | Managed Postgres with PostGIS built in satisfies §9's geo requirement directly; Supabase Auth (email/phone/social) is usable by both web and mobile clients, so no separate auth service is needed |
 | Push/notifications (web) | Web Push API for announcement alerts | Parallels mobile push without a separate vendor if you use a cross-platform push provider (e.g., OneSignal, Firebase Cloud Messaging) |
 | Check-in on web | Browser Geolocation API for GPS check-in; `getUserMedia` for QR scanning via webcam | Full check-in parity with mobile, no native-only dependency |
-| Hosting | Vercel (native Next.js support) or containerized on the same infra as the backend | Vercel is the lowest-friction option for Next.js specifically |
+| Hosting | **Netlify** (official Next.js runtime for `apps/web`; `apps/api`'s Express app wrapped with `serverless-http` and deployed as a Netlify Function) | Native Next.js support with PR preview deploys, same as Vercel, and keeps the backend on the same platform rather than standing up separate container infra |
 
 ### 10.3 Sharing code between web and mobile
 
@@ -295,12 +295,12 @@ The goal is one backend, one data model, and as much shared logic as practical �
 - Backend: integration tests against a test database, including the Yelp-cache TTL enforcement job
 
 **CD**
-- **Web:** GitHub Actions → Vercel (or Docker build → your cloud provider) — Next.js preview deployments per PR are especially useful for business-portal UI review.
-- **Backend:** Docker image → container registry → deploy to staging/production (e.g., ECS, Cloud Run, Fly.io); run DB migrations as a pipeline step before traffic cutover.
+- **Web:** GitHub Actions → Netlify (official `@netlify/plugin-nextjs` runtime) — deploy previews per PR are especially useful for business-portal UI review.
+- **Backend:** `apps/api`'s Express app deploys as a single Netlify Function (`serverless-http` wrapper, see `apps/api/netlify/functions/api.ts`) — no container/registry step. The weekly Google sync and Yelp cache TTL purge run as **Netlify Scheduled Functions** (cron syntax in `netlify.toml`) rather than a standalone worker process; run DB migrations against Supabase as a pipeline step before traffic cutover.
 - **Mobile:** EAS Build (if using Expo/React Native) or Fastlane (bare React Native) → TestFlight/Play Internal Testing for staging builds → App Store/Play Store for release; mobile release cadence will naturally lag web/backend since store review isn't instant — plan announcements/challenges features to degrade gracefully on older app versions.
 
 **Environments**
-- `dev` (local/docker-compose) → `staging` (full stack, seeded with a test neighborhood's data) → `production`.
+- `dev` (local, Supabase local dev CLI or a dev Supabase project) → `staging` (separate Supabase project, seeded with a test neighborhood's data) → `production`.
 - Feature flags (e.g., LaunchDarkly or a simple in-house flag table) let you ship challenge/badge features to web first and roll out to mobile once store review clears, without branching the backend.
 
 **Observability (both platforms)**
