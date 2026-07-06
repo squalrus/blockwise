@@ -89,3 +89,45 @@ export interface VenueDetail {
   pois: Poi[];
   enrichment: VenueEnrichmentCache | null;
 }
+
+// Business claiming + GPS check-in (BACKLOG.md, README §4/§5/§14.2).
+
+export interface Checkin {
+  id: string;
+  user_id: string;
+  venue_id: string;
+  device_lat: number;
+  device_lng: number;
+  checked_in_at: string;
+}
+
+export interface CreateCheckinRequest {
+  // Identifies the (possibly still-anonymous) app_user row -- see README
+  // §14.2 -- generated client-side on first launch and persisted locally.
+  anonymous_device_id: string;
+  lat: number;
+  lng: number;
+}
+
+export type BusinessClaimContactMethod = "phone" | "email" | "domain";
+export type BusinessClaimStatus = "pending" | "approved" | "rejected";
+
+export interface BusinessClaim {
+  id: string;
+  venue_id: string;
+  contact_name: string;
+  contact_method: BusinessClaimContactMethod;
+  contact_value: string;
+  note: string | null;
+  status: BusinessClaimStatus;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_note: string | null;
+}
+
+export interface CreateBusinessClaimRequest {
+  contact_name: string;
+  contact_method: BusinessClaimContactMethod;
+  contact_value: string;
+  note?: string;
+}

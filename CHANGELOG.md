@@ -2,6 +2,16 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.6.0] — 2026-07-06
+
+### Added
+
+- **Business claiming + GPS check-in.** Consumers can check in at a venue from its detail page: the browser's Geolocation API is checked against `Venue.lat/lng` with a 100m geofence (README §4 Phase 1), and repeat check-ins at the same venue are blocked for 4 hours to prevent streak gaming. Check-ins attach to a new anonymous-first `app_user` row (README §14.2) — every device gets one from its first check-in, identified by a device id generated client-side and persisted in `localStorage`, with no signup required. Business owners can submit a claim request from the same page (contact name, phone/email/domain, and an optional note); since no SMS/email provider is wired into this project yet, verification is manual — claims land in a pending queue reviewed from a new internal `/admin/claims` page (gated by a shared `ADMIN_API_TOKEN` secret, the pragmatic stand-in until a real admin-auth system exists) and approving one flips `Venue.claimed_by_business`. New `app_user`, `business_claim`, and `checkin` tables, all RLS-enabled with no policies (service-role only, matching every other table). 16 new unit tests. Verified end-to-end against live Phinneywood data in a browser: geofence pass/fail, cooldown enforcement, claim submission → admin approval → claim form disappearing, and the already-claimed/already-reviewed conflict guards. (`supabase/migrations/20260706040000_business_claims_and_checkins.sql`, `apps/api/src/checkins/`, `apps/api/src/claims/`, `apps/api/src/admin/requireAdmin.ts`, `apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/CheckInButton.tsx`, `apps/web/src/app/venues/[id]/ClaimBusinessForm.tsx`, `apps/web/src/app/admin/claims/page.tsx`, `apps/web/src/lib/deviceId.ts`, `apps/web/src/lib/clientApi.ts`, `packages/types/src/index.ts`)
+
+### Fixed
+
+- **Local dev: client-side `/api/*` requests had no path to the API server.** The new check-in/claim UI is the first client-side (browser) fetching in `apps/web` — in production, Netlify's redirect (`netlify.toml`) makes `/api/*` same-origin, but locally `next dev` (port 3000) and `apps/api`'s dev server (port 4000) are separate origins with no CORS layer (deliberately removed in v0.3.1 to keep prod same-origin). Added a dev-time Next.js rewrite proxying `/api/*` to the API server, so browser fetches work locally without reintroducing CORS. No-op in production, where Netlify's own redirect handles the path first. (`apps/web/next.config.ts`)
+
 ## [0.5.2] — 2026-07-06
 
 ### Fixed

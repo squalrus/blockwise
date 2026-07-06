@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { VenueDetail } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
+import { CheckInButton } from "./CheckInButton";
+import { ClaimBusinessForm } from "./ClaimBusinessForm";
 
 async function getVenue(id: string): Promise<VenueDetail | null> {
   const res = await fetch(apiUrl(`/venues/${id}`), { cache: "no-store" });
@@ -42,6 +44,10 @@ export default async function VenueDetailPage({
           {venue.category_name ?? "Uncategorized"} · {venue.address}
         </p>
       </div>
+
+      <CheckInButton venueId={venue.id} />
+
+      {!venue.claimed_by_business && <ClaimBusinessForm venueId={venue.id} />}
 
       <div className="rounded-lg border border-black/[.08] px-6 py-4 dark:border-white/[.145]">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">Google enrichment</p>

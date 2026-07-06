@@ -21,7 +21,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 
 | Item | Effort | Value |
 |---|---|---|
-| [Business claiming + GPS check-in](#business-claiming--gps-check-in) | M | H |
 | [Business announcements](#business-announcements) | M | M |
 | [Native apps (React Native)](#native-apps-react-native) | L | H |
 | [Challenges + badges/points](#challenges--badgespoints) | M | M |
@@ -47,15 +46,10 @@ No open limitations.
 
 ## Open
 
-### Business claiming + GPS check-in
-**Type:** feature
-**Why** — Unlocks the business portal and the first gamification primitive (check-ins); required before announcements, challenges, or monetization can exist.
-**Notes:** Web business portal claiming flow (phone/email or domain verification, README §5) plus consumer-facing GPS geofence check-in (README §4 Phase 1) with cooldown logic to prevent streak gaming.
-
 ### Business announcements
 **Type:** feature
 **Why** — First monetizable content type and the reason business claiming exists; also the base that coupons (§13) later attach to.
-**Notes:** Claimed-business authoring tool + follower feed, with a basic moderation queue per README §5. Depends on [Business claiming + GPS check-in](#business-claiming--gps-check-in).
+**Notes:** Claimed-business authoring tool + follower feed, with a basic moderation queue per README §5. Business claiming + GPS check-in has shipped (v0.6.0), so this is now unblocked.
 
 ### Native apps (React Native)
 **Type:** feature
