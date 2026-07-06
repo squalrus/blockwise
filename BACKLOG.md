@@ -21,7 +21,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 
 | Item | Effort | Value |
 |---|---|---|
-| [Data layer MVP](#data-layer-mvp) | L | H |
 | [Venue detail pages with enrichment cache](#venue-detail-pages-with-enrichment-cache) | M | H |
 | [Business claiming + GPS check-in](#business-claiming--gps-check-in) | M | H |
 | [Business announcements](#business-announcements) | M | M |
@@ -49,15 +48,10 @@ No open limitations.
 
 ## Open
 
-### Data layer MVP
-**Type:** feature
-**Why** — The data layer is the foundation everything else depends on (README §1); getting schema and licensing-safe ingestion right first avoids expensive retrofits later.
-**Notes:** Schema shipped: `Neighborhood`/`Category`/`Venue`/`POI`/`VenueEnrichmentCache` tables on Postgres/PostGIS (`supabase/migrations`), RLS enabled with no policies yet, Phinneywood neighborhood row seeded (`onboarding` status, no boundary yet), shared types in `packages/types`. **Remaining:** Google Places Basic-field sync scoped to Phinneywood's boundary (built against mocked responses first, then a real `GOOGLE_PLACES_API_KEY` — see `apps/api/GOOGLE_PLACES_SETUP.md`), dedup pass (name similarity + geo proximity), category normalization into the unified taxonomy. See README §1.3–§1.6 and §12.4.
-
 ### Venue detail pages with enrichment cache
 **Type:** feature
 **Why** — First user-facing payoff of the data layer; introduces the on-demand `VenueEnrichmentCache` refresh pattern for Google's richer (Contact/Atmosphere) fields.
-**Notes:** Web venue detail page reading from `Venue`, on-demand fetch into `VenueEnrichmentCache` with TTL enforcement per README §1.3–§1.4. Depends on [Data layer MVP](#data-layer-mvp).
+**Notes:** Web venue detail page reading from `Venue`, on-demand fetch into `VenueEnrichmentCache` with TTL enforcement per README §1.3–§1.4. Data layer MVP has shipped, so real Phinneywood venue data is available to build against.
 
 ### Business claiming + GPS check-in
 **Type:** feature
