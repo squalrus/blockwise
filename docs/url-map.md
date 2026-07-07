@@ -21,7 +21,7 @@ apps/web/src/app/
 ├── profile/
 │   └── [username]/page.tsx                        /profile/:username — P — public user profile, neighborhoods, recent check-ins
 ├── neighborhoods/
-│   └── [slug]/page.tsx                            /neighborhoods/:slug — P — public neighborhood profile, venues, events, POIs
+│   └── [slug]/page.tsx                            /neighborhoods/:slug — P — public neighborhood profile, venues, events, POIs, challenges, leaderboard
 ├── venues/
 │   └── [id]/page.tsx                              /venues/:id — P — venue detail, claim form, favorite/check-in
 ├── business/
@@ -61,7 +61,10 @@ Auth gates:
 └── promote-to-business                               POST — auth
 
 /neighborhoods                                       GET — public — list, joined-flag if authed
-├── :slug                                            GET — public — profile (only slug-keyed lookup route)
+├── :slug/
+│   ├── (root)                                        GET — public — profile
+│   ├── leaderboard                                   GET — public — points leaderboard, public-visibility users only
+│   └── challenges                                    GET — public (optional auth) — challenge templates + this user's progress
 └── :id/
     ├── events                                        GET — public
     ├── venues                                        GET — public
@@ -74,8 +77,12 @@ Auth gates:
 ├── announcements                                       GET — public
 ├── events                                              GET — public
 ├── claims                                              POST — public (optional auth attaches claimed_by_user_id)
-├── checkins                                            POST — public (optional auth)
-├── favorites                                            GET, POST, DELETE — mixed (GET public, POST/DELETE auth)
+├── checkins                                            POST — public (optional auth) — awards check-in points/challenge progress
+├── favorites                                            GET, POST, DELETE — mixed (GET public, POST/DELETE auth) — POST awards first-time favorite points
+
+/pois/:id/
+└── checkins                                          POST — public (optional auth) — POI check-in, same geofence/cooldown as venue check-in
+
 /me/
 ├── checkins                                          GET — auth
 ├── favorites                                          GET — auth
@@ -114,7 +121,7 @@ Auth gates:
     └── :id/archive                                       POST — admin
 ```
 
-Identifier note: every neighborhood-identifying path param in the API is the **id** (UUID), except the one public `GET /neighborhoods/:slug` lookup — the web app resolves slug→id client-side (via `GET /neighborhood-admin/neighborhoods`) before calling any `:id`-keyed admin route. Venue-identifying params are always **id** (UUID), never slug.
+Identifier note: every neighborhood-identifying path param in the API is the **id** (UUID), except the public `GET /neighborhoods/:slug` family (profile, leaderboard, challenges) — the web app resolves slug→id client-side (via `GET /neighborhood-admin/neighborhoods`) before calling any `:id`-keyed admin route. Venue-identifying params are always **id** (UUID), never slug.
 
 ## History
 

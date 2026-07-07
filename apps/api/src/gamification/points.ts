@@ -1,0 +1,38 @@
+import type { LeaderboardEntry } from "@blockwise/types";
+import type { GamificationRepository } from "./repository";
+
+// BACKLOG.md Ref 6: check-in = 10pts, first-time favorite/follow = 5pts.
+export const CHECKIN_POINTS = 10;
+export const FAVORITE_POINTS = 5;
+
+export async function awardFavoritePoints(
+  input: { userId: string; venueId: string },
+  repository: GamificationRepository
+): Promise<void> {
+  const context = await repository.getVenueContext(input.venueId);
+  if (!context) return;
+
+  await repository.awardPoints({
+    userId: input.userId,
+    neighborhoodId: context.neighborhoodId,
+    eventType: "favorite",
+    points: FAVORITE_POINTS,
+    venueId: input.venueId,
+  });
+}
+
+export async function getLeaderboard(
+  neighborhoodId: string,
+  repository: GamificationRepository,
+  limit = 20
+): Promise<LeaderboardEntry[]> {
+  const rows = await repository.getLeaderboard(neighborhoodId, limit);
+  return rows.map((row, index) => ({
+    user_id: row.userId,
+    display_name: row.displayName,
+    username: row.username,
+    avatar_url: row.avatarUrl,
+    points: row.points,
+    rank: index + 1,
+  }));
+}

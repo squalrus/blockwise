@@ -2,15 +2,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CheckinRecord,
   CheckinRepository,
+  CheckinTarget,
   CheckinVenue,
   CreateCheckinInput,
+  PoiLocation,
   VenueLocation,
 } from "./repository";
+
+const CHECKIN_COLUMNS = "id, user_id, venue_id, poi_id, device_lat, device_lng, checked_in_at";
 
 function toRecord(row: {
   id: string;
   user_id: string;
-  venue_id: string;
+  venue_id: string | null;
+  poi_id: string | null;
   device_lat: number;
   device_lng: number;
   checked_in_at: string;
@@ -19,6 +24,7 @@ function toRecord(row: {
     id: row.id,
     userId: row.user_id,
     venueId: row.venue_id,
+    poiId: row.poi_id,
     deviceLat: row.device_lat,
     deviceLng: row.device_lng,
     checkedInAt: row.checked_in_at,
@@ -36,6 +42,19 @@ export class SupabaseCheckinRepository implements CheckinRepository {
       .maybeSingle();
 
     if (error) throw new Error(`getVenueLocation failed: ${error.message}`);
+    return data;
+  }
+
+  async getPoiLocation(poiId: string): Promise<PoiLocation | null> {
+    const { data, error } = await this.supabase
+      .from("poi")
+      .select("id, lat, lng")
+      .eq("id", poiId)
+      .not("lat", "is", null)
+      .not("lng", "is", null)
+      .maybeSingle();
+
+    if (error) throw new Error(`getPoiLocation failed: ${error.message}`);
     return data;
   }
 
@@ -61,17 +80,35 @@ export class SupabaseCheckinRepository implements CheckinRepository {
     return created.id;
   }
 
-  async getLastCheckin(userId: string, venueId: string): Promise<CheckinRecord | null> {
+  async getLastCheckinForTarget(
+    userId: string,
+    target: CheckinTarget
+  ): Promise<CheckinRecord | null> {
+    let query = this.supabase
+      .from("checkin")
+      .select(CHECKIN_COLUMNS)
+      .eq("user_id", userId)
+      .order("checked_in_at", { ascending: false })
+      .limit(1);
+    query =
+      target.kind === "venue" ? query.eq("venue_id", target.id) : query.eq("poi_id", target.id);
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) throw new Error(`getLastCheckinForTarget failed: ${error.message}`);
+    return data ? toRecord(data) : null;
+  }
+
+  async getLastCheckinAnywhere(userId: string): Promise<CheckinRecord | null> {
     const { data, error } = await this.supabase
       .from("checkin")
-      .select("id, user_id, venue_id, device_lat, device_lng, checked_in_at")
+      .select(CHECKIN_COLUMNS)
       .eq("user_id", userId)
-      .eq("venue_id", venueId)
       .order("checked_in_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (error) throw new Error(`getLastCheckin failed: ${error.message}`);
+    if (error) throw new Error(`getLastCheckinAnywhere failed: ${error.message}`);
     return data ? toRecord(data) : null;
   }
 
@@ -80,11 +117,12 @@ export class SupabaseCheckinRepository implements CheckinRepository {
       .from("checkin")
       .insert({
         user_id: input.userId,
-        venue_id: input.venueId,
+        venue_id: input.venueId ?? null,
+        poi_id: input.poiId ?? null,
         device_lat: input.deviceLat,
         device_lng: input.deviceLng,
       })
-      .select("id, user_id, venue_id, device_lat, device_lng, checked_in_at")
+      .select(CHECKIN_COLUMNS)
       .single();
 
     if (error) throw new Error(`createCheckin failed: ${error.message}`);

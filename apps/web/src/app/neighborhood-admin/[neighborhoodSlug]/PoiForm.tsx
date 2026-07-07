@@ -26,6 +26,8 @@ export function PoiForm({
       name: String(data.get("name") ?? ""),
       type: String(data.get("type") ?? ""),
       description: String(data.get("description") ?? "") || undefined,
+      lat: Number(data.get("lat")),
+      lng: Number(data.get("lng")),
     };
 
     try {
@@ -75,6 +77,24 @@ export function PoiForm({
         rows={2}
         className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
       />
+      <div className="flex gap-3">
+        <input
+          name="lat"
+          type="number"
+          step="any"
+          required
+          placeholder="Latitude"
+          className="w-1/2 rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+        />
+        <input
+          name="lng"
+          type="number"
+          step="any"
+          required
+          placeholder="Longitude"
+          className="w-1/2 rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+        />
+      </div>
       <button
         type="submit"
         disabled={status.state === "submitting"}

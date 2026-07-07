@@ -3,23 +3,25 @@ import type { CreateNeighborhoodPoiInput, PoiRecord, PoiRepository } from "./rep
 
 function toRecord(row: {
   id: string;
-  venue_id: string | null;
-  neighborhood_id: string | null;
+  neighborhood_id: string;
   name: string;
   description: string | null;
   type: string;
+  lat: number | null;
+  lng: number | null;
 }): PoiRecord {
   return {
     id: row.id,
-    venueId: row.venue_id,
     neighborhoodId: row.neighborhood_id,
     name: row.name,
     description: row.description,
     type: row.type,
+    lat: row.lat,
+    lng: row.lng,
   };
 }
 
-const POI_COLUMNS = "id, venue_id, neighborhood_id, name, description, type";
+const POI_COLUMNS = "id, neighborhood_id, name, description, type, lat, lng";
 
 export class SupabasePoiRepository implements PoiRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -32,6 +34,8 @@ export class SupabasePoiRepository implements PoiRepository {
         name: input.name,
         description: input.description,
         type: input.type,
+        lat: input.lat,
+        lng: input.lng,
       })
       .select(POI_COLUMNS)
       .single();

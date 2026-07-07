@@ -93,7 +93,7 @@ export default async function VenueDetailPage({
 
       <FavoriteButton venueId={venue.id} />
 
-      <CheckInButton venueId={venue.id} />
+      <CheckInButton target={{ type: "venue", id: venue.id }} />
 
       {!venue.claimed_by_business && <ClaimBusinessForm venueId={venue.id} />}
 
@@ -160,28 +160,6 @@ export default async function VenueDetailPage({
                 <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
                   {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
                 </p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {venue.pois.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-black dark:text-zinc-50">
-            Points of interest
-          </h2>
-          <ul className="mt-2 flex flex-col gap-2">
-            {venue.pois.map((poi) => (
-              <li
-                key={poi.id}
-                className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-              >
-                <span className="font-medium text-black dark:text-zinc-50">{poi.name}</span>
-                <span className="ml-2 text-zinc-600 dark:text-zinc-400">{poi.type}</span>
-                {poi.description && (
-                  <p className="mt-1 text-zinc-600 dark:text-zinc-400">{poi.description}</p>
-                )}
               </li>
             ))}
           </ul>

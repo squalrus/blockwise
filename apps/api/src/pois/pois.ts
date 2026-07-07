@@ -4,11 +4,12 @@ import type { PoiRecord, PoiRepository } from "./repository";
 function toPoi(record: PoiRecord): Poi {
   return {
     id: record.id,
-    venue_id: record.venueId,
     neighborhood_id: record.neighborhoodId,
     name: record.name,
     description: record.description,
     type: record.type,
+    lat: record.lat,
+    lng: record.lng,
   };
 }
 
@@ -16,6 +17,8 @@ export interface CreateNeighborhoodPoiInput {
   name: string;
   description?: string;
   type: string;
+  lat: number;
+  lng: number;
 }
 
 export async function createNeighborhoodPoi(
@@ -28,6 +31,8 @@ export async function createNeighborhoodPoi(
     name: input.name,
     description: input.description ?? null,
     type: input.type,
+    lat: input.lat,
+    lng: input.lng,
   });
   return toPoi(record);
 }
