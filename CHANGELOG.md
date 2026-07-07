@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.14.1] — 2026-07-06
+
+### Fixed
+
+- **Business claims not linking to the submitter's account in the common signup order.** `POST /venues/:id/claims` only set `business_claim.claimed_by_user_id` if the submitter was *already* a business account at the moment they submitted the claim — but the signup form defaults to a consumer account, so the realistic flow (sign up as consumer → submit a claim → promote to business via `/business`) left the claim permanently unlinked, even after an admin approved it, since the field was never set retroactively. Now any signed-in account (consumer or business) gets linked at submission time, matching the field's original intent per its migration comment ("auto-link to its own submitter once authenticated") rather than requiring business status up front. (`apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/ClaimBusinessForm.tsx`)
+
 ## [0.14.0] — 2026-07-06
 
 ### Added
