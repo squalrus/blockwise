@@ -268,17 +268,17 @@ export function createApp() {
   });
 
   // Landing page (BACKLOG.md "Neighborhoods on landing page and user
-  // profile"): every active neighborhood in the network, for the "all
-  // neighborhoods" browse/join list. Authentication is optional (mirrors
-  // POST /venues/:id/claims above) -- signed-in visitors get `joined` flagged
-  // per neighborhood so the landing page can show "Joined" vs. a join button;
+  // profile"): every neighborhood in the network, for the "all neighborhoods"
+  // browse/join list. Authentication is optional (mirrors POST
+  // /venues/:id/claims above) -- signed-in visitors get `joined` flagged per
+  // neighborhood so the landing page can show "Joined" vs. a join button;
   // anonymous visitors just see the full list with joined always false.
   app.get(
     "/neighborhoods",
     attachOptionalAuthUser(getSupabaseClient, getAuthRepository),
     async (req, res) => {
       try {
-        const neighborhoods = await getNeighborhoodRepository().listActive();
+        const neighborhoods = await getNeighborhoodRepository().listAll();
         const joinedIds = req.appUser
           ? new Set(
               (await listMembershipsForUser(req.appUser.id, getNeighborhoodMemberRepository())).map(

@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.16.1] — 2026-07-06
+
+### Fixed
+
+- **Landing page showing "No neighborhoods yet" in production.** `GET /neighborhoods` (added in v0.16.0) filtered to `status = 'active'`, but the seeded Phinneywood neighborhood is still `'onboarding'` — a status nothing else in the app has ever gated on, despite the neighborhood being fully live (venues, check-ins, business claims, its own public profile page). The filter silently hid the only neighborhood that exists. Now lists every neighborhood regardless of status. (`apps/api/src/neighborhoods/repository.ts`, `apps/api/src/neighborhoods/supabaseRepository.ts`, `apps/api/src/app.ts`)
+
 ## [0.16.0] — 2026-07-06
 
 ### Added
