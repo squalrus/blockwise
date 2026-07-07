@@ -3,7 +3,8 @@ import type { CreateEventInput, EventRecord, EventRepository } from "./repositor
 
 function toRecord(row: {
   id: string;
-  venue_id: string;
+  venue_id: string | null;
+  neighborhood_id: string | null;
   title: string;
   description: string;
   start_time: string;
@@ -13,6 +14,7 @@ function toRecord(row: {
   return {
     id: row.id,
     venueId: row.venue_id,
+    neighborhoodId: row.neighborhood_id,
     title: row.title,
     description: row.description,
     startTime: row.start_time,
@@ -21,7 +23,7 @@ function toRecord(row: {
   };
 }
 
-const EVENT_COLUMNS = "id, venue_id, title, description, start_time, end_time, created_at";
+const EVENT_COLUMNS = "id, venue_id, neighborhood_id, title, description, start_time, end_time, created_at";
 
 export class SupabaseEventRepository implements EventRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -30,7 +32,8 @@ export class SupabaseEventRepository implements EventRepository {
     const { data, error } = await this.supabase
       .from("event")
       .insert({
-        venue_id: input.venueId,
+        venue_id: input.venueId ?? null,
+        neighborhood_id: input.neighborhoodId ?? null,
         title: input.title,
         description: input.description,
         start_time: input.startTime,
@@ -51,6 +54,17 @@ export class SupabaseEventRepository implements EventRepository {
       .order("start_time", { ascending: true });
 
     if (error) throw new Error(`listEventsForVenue failed: ${error.message}`);
+    return (data ?? []).map(toRecord);
+  }
+
+  async listEventsForNeighborhood(neighborhoodId: string): Promise<EventRecord[]> {
+    const { data, error } = await this.supabase
+      .from("event")
+      .select(EVENT_COLUMNS)
+      .eq("neighborhood_id", neighborhoodId)
+      .order("start_time", { ascending: true });
+
+    if (error) throw new Error(`listEventsForNeighborhood failed: ${error.message}`);
     return (data ?? []).map(toRecord);
   }
 }

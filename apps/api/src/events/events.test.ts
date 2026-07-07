@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEvent, listEventsForVenue } from "./events";
+import { createEvent, createEventForNeighborhood, listEventsForNeighborhood, listEventsForVenue } from "./events";
 import type { CreateEventInput, EventRecord, EventRepository } from "./repository";
 
 // In-memory fake, mirroring the pattern used for AnnouncementRepository tests.
@@ -10,7 +10,8 @@ class FakeEventRepository implements EventRepository {
   async createEvent(input: CreateEventInput): Promise<EventRecord> {
     const record: EventRecord = {
       id: `event-${this.nextId++}`,
-      venueId: input.venueId,
+      venueId: input.venueId ?? null,
+      neighborhoodId: input.neighborhoodId ?? null,
       title: input.title,
       description: input.description,
       startTime: input.startTime,
@@ -23,6 +24,10 @@ class FakeEventRepository implements EventRepository {
 
   async listEventsForVenue(venueId: string): Promise<EventRecord[]> {
     return this.events.filter((e) => e.venueId === venueId);
+  }
+
+  async listEventsForNeighborhood(neighborhoodId: string): Promise<EventRecord[]> {
+    return this.events.filter((e) => e.neighborhoodId === neighborhoodId);
   }
 }
 
@@ -71,5 +76,41 @@ describe("listEventsForVenue", () => {
     const results = await listEventsForVenue("venue-1", repo);
     expect(results).toHaveLength(1);
     expect(results[0].venue_id).toBe("venue-1");
+  });
+});
+
+describe("createEventForNeighborhood", () => {
+  it("creates a neighborhood-scoped event with no venue_id", async () => {
+    const repo = new FakeEventRepository();
+    const result = await createEventForNeighborhood("neighborhood-1", VALID_INPUT, repo);
+
+    expect(result.status).toBe("created");
+    if (result.status === "created") {
+      expect(result.event.neighborhood_id).toBe("neighborhood-1");
+      expect(result.event.venue_id).toBeNull();
+    }
+  });
+
+  it("rejects an end_time at or before start_time", async () => {
+    const repo = new FakeEventRepository();
+    const result = await createEventForNeighborhood(
+      "neighborhood-1",
+      { ...VALID_INPUT, endTime: VALID_INPUT.startTime },
+      repo
+    );
+    expect(result).toEqual({ status: "invalid_time_range" });
+  });
+});
+
+describe("listEventsForNeighborhood", () => {
+  it("only returns events for the requested neighborhood", async () => {
+    const repo = new FakeEventRepository();
+    await createEventForNeighborhood("neighborhood-1", VALID_INPUT, repo);
+    await createEventForNeighborhood("neighborhood-2", VALID_INPUT, repo);
+    await createEvent("venue-1", VALID_INPUT, repo);
+
+    const results = await listEventsForNeighborhood("neighborhood-1", repo);
+    expect(results).toHaveLength(1);
+    expect(results[0].neighborhood_id).toBe("neighborhood-1");
   });
 });

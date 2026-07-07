@@ -13,6 +13,7 @@ export interface Neighborhood {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
   city: string;
   state: string;
   country: string;
@@ -47,7 +48,11 @@ export interface Venue {
 
 export interface Poi {
   id: string;
-  venue_id: string;
+  // Exactly one of venue_id/neighborhood_id is set (BACKLOG.md "Neighborhood
+  // profile pages") -- a venue-owned POI, or a neighborhood-owned one (parks,
+  // transit, landmarks not tied to any single business).
+  venue_id: string | null;
+  neighborhood_id: string | null;
   name: string;
   description: string | null;
   type: string;
@@ -235,7 +240,9 @@ export interface CreateAnnouncementRequest {
 
 export interface Event {
   id: string;
-  venue_id: string;
+  // Exactly one of venue_id/neighborhood_id is set -- see Poi above.
+  venue_id: string | null;
+  neighborhood_id: string | null;
   title: string;
   description: string;
   start_time: string;
@@ -248,6 +255,47 @@ export interface CreateEventRequest {
   description: string;
   start_time: string;
   end_time: string;
+}
+
+// Neighborhood profile pages (BACKLOG.md) -- public profile mirroring the
+// venue/business profile shape but scoped to Neighborhood: a description,
+// neighborhood-owned POIs, and neighborhood-wide events. Authored by that
+// neighborhood's own admins (requireNeighborhoodAdmin), mirroring the
+// business owner venue dashboard's shape.
+
+export interface NeighborhoodProfile {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  city: string;
+  state: string;
+  pois: Poi[];
+}
+
+export interface NeighborhoodAdminSummary {
+  neighborhood_id: string;
+  name: string;
+  slug: string;
+}
+
+export interface NeighborhoodDashboardSummary {
+  neighborhood_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  pois: Poi[];
+  events: Event[];
+}
+
+export interface UpdateNeighborhoodDescriptionRequest {
+  description: string;
+}
+
+export interface CreateNeighborhoodPoiRequest {
+  name: string;
+  description?: string;
+  type: string;
 }
 
 // GET /business/venues/:id/dashboard -- follower count is a count of

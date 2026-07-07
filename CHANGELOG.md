@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.15.0] — 2026-07-07
+
+### Added
+
+- **Neighborhood profile pages.** Each neighborhood now gets a public profile (`/neighborhoods/[slug]`) mirroring the venue/business profile's shape — a description, upcoming events, and neighborhood-owned points of interest (parks, transit, landmarks not tied to any single business). Authored from a new self-serve `/neighborhood-admin` portal, gated by a new `requireNeighborhoodAdmin` middleware that (unlike the existing global `requireAdmin`) proves the signed-in account administers that *specific* neighborhood. Reuses the existing venue-scoped `poi`/`event` tables rather than duplicating them — `venue_id` is now nullable on both, with a new `neighborhood_id` column and a check constraint enforcing exactly one owner per row. New endpoints: public `GET /neighborhoods/:slug`, `GET /neighborhoods/:id/events`; authenticated `GET /neighborhood-admin/neighborhoods`, `GET .../:id/dashboard`, `PATCH .../:id`, `POST .../:id/events`, `POST .../:id/pois`. 13 new unit tests. (`supabase/migrations/20260706090000_neighborhood_profile.sql`, `apps/api/src/neighborhoods/`, `apps/api/src/pois/`, `apps/api/src/admin/requireNeighborhoodAdmin.ts`, `apps/api/src/admin/repository.ts`, `apps/api/src/admin/supabaseRepository.ts`, `apps/api/src/events/`, `apps/api/src/venues/supabaseDetailRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhoods/`, `apps/web/src/app/neighborhood-admin/`, `apps/web/src/app/AccountNav.tsx`, `packages/types/src/index.ts`)
+
 ## [0.14.1] — 2026-07-06
 
 ### Fixed

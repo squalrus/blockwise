@@ -49,6 +49,9 @@ export function AccountNav() {
             <a href="/admin/venues" className="text-zinc-600 hover:underline dark:text-zinc-400">
               Admin: venues
             </a>
+            <a href="/neighborhood-admin" className="text-zinc-600 hover:underline dark:text-zinc-400">
+              Neighborhood admin
+            </a>
           </>
         )}
         {state.status === "signed_in" && (

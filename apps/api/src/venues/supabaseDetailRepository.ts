@@ -66,7 +66,7 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
 
     const [{ data: pois, error: poisError }, { data: enrichment, error: enrichmentError }] =
       await Promise.all([
-        this.supabase.from("poi").select("id, venue_id, name, description, type").eq(
+        this.supabase.from("poi").select("id, venue_id, neighborhood_id, name, description, type").eq(
           "venue_id",
           venueId
         ),

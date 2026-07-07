@@ -1,6 +1,9 @@
 export interface EventRecord {
   id: string;
-  venueId: string;
+  // Exactly one of venueId/neighborhoodId is set (BACKLOG.md "Neighborhood
+  // profile pages") -- a venue-scoped event, or a neighborhood-wide one.
+  venueId: string | null;
+  neighborhoodId: string | null;
   title: string;
   description: string;
   startTime: string;
@@ -9,7 +12,8 @@ export interface EventRecord {
 }
 
 export interface CreateEventInput {
-  venueId: string;
+  venueId?: string;
+  neighborhoodId?: string;
   title: string;
   description: string;
   startTime: string;
@@ -21,4 +25,5 @@ export interface CreateEventInput {
 export interface EventRepository {
   createEvent(input: CreateEventInput): Promise<EventRecord>;
   listEventsForVenue(venueId: string): Promise<EventRecord[]>;
+  listEventsForNeighborhood(neighborhoodId: string): Promise<EventRecord[]>;
 }
