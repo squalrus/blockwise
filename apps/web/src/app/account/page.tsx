@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AppUser, CheckinHistoryItem, FavoriteVenueSummary } from "@blockwise/types";
+import type {
+  AppUser,
+  CheckinHistoryItem,
+  FavoriteVenueSummary,
+  NeighborhoodMembership,
+} from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
@@ -14,6 +19,7 @@ type State =
       user: AppUser;
       favorites: FavoriteVenueSummary[];
       checkins: CheckinHistoryItem[];
+      neighborhoods: NeighborhoodMembership[];
     };
 
 // Aggregates the account state that's scattered across its own flows today
@@ -37,12 +43,13 @@ export default function AccountPage() {
 
       const token = await getAccessToken();
       const headers = { Authorization: `Bearer ${token}` };
-      const [favoritesRes, checkinsRes] = await Promise.all([
+      const [favoritesRes, checkinsRes, neighborhoodsRes] = await Promise.all([
         fetch(clientApiUrl("/me/favorites"), { headers }),
         fetch(clientApiUrl("/me/checkins"), { headers }),
+        fetch(clientApiUrl("/me/neighborhoods"), { headers }),
       ]);
       if (cancelled) return;
-      if (!favoritesRes.ok || !checkinsRes.ok) {
+      if (!favoritesRes.ok || !checkinsRes.ok || !neighborhoodsRes.ok) {
         setState({ status: "error", message: "Failed to load your account" });
         return;
       }
@@ -52,6 +59,7 @@ export default function AccountPage() {
         user,
         favorites: await favoritesRes.json(),
         checkins: await checkinsRes.json(),
+        neighborhoods: await neighborhoodsRes.json(),
       });
     }
 
@@ -61,6 +69,24 @@ export default function AccountPage() {
       cancelled = true;
     };
   }, []);
+
+  async function setHome(neighborhoodId: string) {
+    if (state.status !== "ready") return;
+    const token = await getAccessToken();
+    const res = await fetch(clientApiUrl(`/neighborhoods/${neighborhoodId}/home`), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+
+    setState({
+      ...state,
+      neighborhoods: state.neighborhoods.map((n) => ({
+        ...n,
+        is_primary: n.neighborhood_id === neighborhoodId,
+      })),
+    });
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
@@ -97,6 +123,49 @@ export default function AccountPage() {
                 Member since {new Date(state.user.created_at).toLocaleDateString()}
               </p>
             </div>
+          </section>
+
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Neighborhoods</h2>
+            {state.neighborhoods.length === 0 ? (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                No neighborhoods joined yet -- join one from the{" "}
+                <a href="/" className="underline">
+                  home page
+                </a>
+                .
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {state.neighborhoods.map((n) => (
+                  <li
+                    key={n.neighborhood_id}
+                    className="flex items-center justify-between gap-4 rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
+                  >
+                    <div>
+                      <a
+                        href={`/neighborhoods/${n.slug}`}
+                        className="font-medium text-black hover:underline dark:text-zinc-50"
+                      >
+                        {n.name}
+                      </a>
+                      <p className="text-zinc-600 dark:text-zinc-400">
+                        {n.city}, {n.state}
+                        {n.is_primary ? " · Home" : ""}
+                      </p>
+                    </div>
+                    {!n.is_primary && (
+                      <button
+                        onClick={() => setHome(n.neighborhood_id)}
+                        className="shrink-0 rounded-md border border-black/[.08] px-3 py-1 text-xs font-medium text-black dark:border-white/[.145] dark:text-zinc-50"
+                      >
+                        Set as home
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className="flex flex-col gap-2">

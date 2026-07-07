@@ -273,6 +273,30 @@ export interface NeighborhoodProfile {
   pois: Poi[];
 }
 
+// Neighborhood membership (BACKLOG.md "Neighborhoods on landing page and user
+// profile") -- a signed-in user joining a neighborhood, with at most one
+// marked as their "home" neighborhood (is_primary).
+
+export interface NeighborhoodMembership {
+  neighborhood_id: string;
+  name: string;
+  slug: string;
+  city: string;
+  state: string;
+  is_primary: boolean;
+}
+
+export interface NeighborhoodSummary {
+  id: string;
+  name: string;
+  slug: string;
+  city: string;
+  state: string;
+  // Populated only when the request is authenticated -- null for anonymous
+  // visitors browsing the landing page's full neighborhood list.
+  joined: boolean;
+}
+
 export interface NeighborhoodAdminSummary {
   neighborhood_id: string;
   name: string;

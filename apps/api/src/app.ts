@@ -6,6 +6,7 @@ import type {
   HealthCheckResponse,
   NeighborhoodDashboardSummary,
   NeighborhoodProfile,
+  NeighborhoodSummary,
   VenueDashboardSummary,
 } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
@@ -43,6 +44,13 @@ import {
   updateNeighborhoodDescription,
 } from "./neighborhoods/neighborhoods";
 import { SupabaseNeighborhoodRepository } from "./neighborhoods/supabaseRepository";
+import {
+  joinNeighborhood,
+  leaveNeighborhood,
+  listMembershipsForUser,
+  setHomeNeighborhood,
+} from "./neighborhoodMembers/neighborhoodMembers";
+import { SupabaseNeighborhoodMemberRepository } from "./neighborhoodMembers/supabaseRepository";
 import { LivePlacesClient, type PlaceDetailsClient } from "./places/client";
 import { MockPlacesClient } from "./places/mockClient";
 import { createNeighborhoodPoi, listPoisForNeighborhood } from "./pois/pois";
@@ -151,6 +159,12 @@ function getPoiRepository(): SupabasePoiRepository {
   return poiRepository;
 }
 
+let neighborhoodMemberRepository: SupabaseNeighborhoodMemberRepository | undefined;
+function getNeighborhoodMemberRepository(): SupabaseNeighborhoodMemberRepository {
+  neighborhoodMemberRepository ??= new SupabaseNeighborhoodMemberRepository(getSupabaseClient());
+  return neighborhoodMemberRepository;
+}
+
 export function createApp() {
   const app = express();
 
@@ -253,6 +267,42 @@ export function createApp() {
     }
   });
 
+  // Landing page (BACKLOG.md "Neighborhoods on landing page and user
+  // profile"): every active neighborhood in the network, for the "all
+  // neighborhoods" browse/join list. Authentication is optional (mirrors
+  // POST /venues/:id/claims above) -- signed-in visitors get `joined` flagged
+  // per neighborhood so the landing page can show "Joined" vs. a join button;
+  // anonymous visitors just see the full list with joined always false.
+  app.get(
+    "/neighborhoods",
+    attachOptionalAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const neighborhoods = await getNeighborhoodRepository().listActive();
+        const joinedIds = req.appUser
+          ? new Set(
+              (await listMembershipsForUser(req.appUser.id, getNeighborhoodMemberRepository())).map(
+                (m) => m.neighborhood_id
+              )
+            )
+          : new Set<string>();
+
+        const summaries: NeighborhoodSummary[] = neighborhoods.map((n) => ({
+          id: n.id,
+          name: n.name,
+          slug: n.slug,
+          city: n.city,
+          state: n.state,
+          joined: joinedIds.has(n.id),
+        }));
+        res.json(summaries);
+      } catch (err) {
+        console.error("GET /neighborhoods failed:", err);
+        res.status(500).json({ error: "Failed to list neighborhoods" });
+      }
+    }
+  );
+
   // Neighborhood profile pages (BACKLOG.md): public read of a neighborhood's
   // own description and POIs -- the neighborhood-scoped equivalent of the
   // venue detail page. Looked up by slug (a nicer public URL than the raw
@@ -291,6 +341,79 @@ export function createApp() {
       res.status(500).json({ error: "Failed to list events" });
     }
   });
+
+  // Neighborhood membership (BACKLOG.md "Neighborhoods on landing page and
+  // user profile"): sign-in required, unlike favorite/checkin above -- both
+  // surfaces this feeds (My account, home neighborhood) already require a
+  // real account.
+  app.post(
+    "/neighborhoods/:id/join",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const result = await joinNeighborhood(
+          req.params.id,
+          req.appUser!.id,
+          getNeighborhoodMemberRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+        res.status(result.status === "created" ? 201 : 200).json(result.membership);
+      } catch (err) {
+        console.error(`POST /neighborhoods/${req.params.id}/join failed:`, err);
+        res.status(500).json({ error: "Failed to join neighborhood" });
+      }
+    }
+  );
+
+  app.delete(
+    "/neighborhoods/:id/join",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const result = await leaveNeighborhood(
+          req.params.id,
+          req.appUser!.id,
+          getNeighborhoodMemberRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+        res.status(204).end();
+      } catch (err) {
+        console.error(`DELETE /neighborhoods/${req.params.id}/join failed:`, err);
+        res.status(500).json({ error: "Failed to leave neighborhood" });
+      }
+    }
+  );
+
+  // Marks this neighborhood as the user's "home" -- requires already being a
+  // member (join first), rather than joining implicitly, so a user can't end
+  // up with a home neighborhood they never explicitly opted into.
+  app.post(
+    "/neighborhoods/:id/home",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const result = await setHomeNeighborhood(
+          req.params.id,
+          req.appUser!.id,
+          getNeighborhoodMemberRepository()
+        );
+        if (result.status === "not_a_member") {
+          res.status(409).json({ error: "Join this neighborhood before setting it as home" });
+          return;
+        }
+        res.json(result.membership);
+      } catch (err) {
+        console.error(`POST /neighborhoods/${req.params.id}/home failed:`, err);
+        res.status(500).json({ error: "Failed to set home neighborhood" });
+      }
+    }
+  );
 
   // README §4 Phase 1: GPS geofence check-in, with a cooldown to prevent
   // gaming streaks/badges (see checkins/checkin.ts for the actual radius and
@@ -439,6 +562,26 @@ export function createApp() {
       res.status(500).json({ error: "Failed to list favorite venues" });
     }
   });
+
+  // My account page (BACKLOG.md "Neighborhoods on landing page and user
+  // profile"): neighborhood-joined membership listing for the signed-in
+  // user, mirroring GET /me/favorites above.
+  app.get(
+    "/me/neighborhoods",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const memberships = await listMembershipsForUser(
+          req.appUser!.id,
+          getNeighborhoodMemberRepository()
+        );
+        res.json(memberships);
+      } catch (err) {
+        console.error("GET /me/neighborhoods failed:", err);
+        res.status(500).json({ error: "Failed to list joined neighborhoods" });
+      }
+    }
+  );
 
   // README §5: claim submission is public; verification is manual/admin
   // reviewed (no SMS/email provider wired in yet) via the /admin/claims

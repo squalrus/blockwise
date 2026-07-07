@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Event, NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
+import { JoinNeighborhoodButton } from "./JoinNeighborhoodButton";
 
 async function getNeighborhood(slug: string): Promise<NeighborhoodProfile | null> {
   const res = await fetch(apiUrl(`/neighborhoods/${slug}`), { cache: "no-store" });
@@ -38,13 +39,16 @@ export default async function NeighborhoodProfilePage({
         ← All venues
       </Link>
 
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
-          {neighborhood.name}
-        </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          {neighborhood.city}, {neighborhood.state}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
+            {neighborhood.name}
+          </h1>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            {neighborhood.city}, {neighborhood.state}
+          </p>
+        </div>
+        <JoinNeighborhoodButton neighborhoodId={neighborhood.id} />
       </div>
 
       {neighborhood.description && (
