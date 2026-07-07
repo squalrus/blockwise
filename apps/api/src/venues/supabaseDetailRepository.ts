@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Poi, SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import type { SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
 import type {
   UpsertEnrichmentInput,
   VenueDetailRecord,
@@ -70,14 +70,9 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
       : venue.neighborhood;
 
     const [
-      { data: pois, error: poisError },
       { data: enrichment, error: enrichmentError },
       { data: claim, error: claimError },
     ] = await Promise.all([
-      this.supabase.from("poi").select("id, venue_id, neighborhood_id, name, description, type").eq(
-        "venue_id",
-        venueId
-      ),
       this.supabase
         .from("venue_enrichment_cache")
         .select("venue_id, source, rating, review_snippet, price_tier, photo_url, fetched_at")
@@ -92,7 +87,6 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
         .maybeSingle(),
     ]);
 
-    if (poisError) throw new Error(`getVenueDetail (pois) failed: ${poisError.message}`);
     if (enrichmentError)
       throw new Error(`getVenueDetail (enrichment) failed: ${enrichmentError.message}`);
     if (claimError) throw new Error(`getVenueDetail (claim) failed: ${claimError.message}`);
@@ -106,7 +100,6 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
       lng: venue.lng,
       categoryName: categoryName(venue.category),
       claimedByBusiness: venue.claimed_by_business,
-      pois: (pois ?? []) as Poi[],
       enrichment: (enrichment as VenueEnrichmentCache | null) ?? null,
       neighborhoodSlug: neighborhoodEmbed.slug,
       neighborhoodName: neighborhoodEmbed.name,

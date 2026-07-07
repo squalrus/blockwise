@@ -56,6 +56,10 @@ import {
 import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
+import { listChallengesWithProgress } from "./gamification/challenges";
+import { awardFavoritePoints, getLeaderboard } from "./gamification/points";
+import { awardCheckinRewards } from "./gamification/rewards";
+import { SupabaseGamificationRepository } from "./gamification/supabaseRepository";
 import {
   getNeighborhoodById,
   getNeighborhoodBySlug,
@@ -153,6 +157,12 @@ let favoriteRepository: SupabaseFavoriteRepository | undefined;
 function getFavoriteRepository(): SupabaseFavoriteRepository {
   favoriteRepository ??= new SupabaseFavoriteRepository(getSupabaseClient());
   return favoriteRepository;
+}
+
+let gamificationRepository: SupabaseGamificationRepository | undefined;
+function getGamificationRepository(): SupabaseGamificationRepository {
+  gamificationRepository ??= new SupabaseGamificationRepository(getSupabaseClient());
+  return gamificationRepository;
 }
 
 let claimRepository: SupabaseClaimRepository | undefined;
@@ -373,6 +383,61 @@ export function createApp() {
     }
   });
 
+  // Neighborhood-scoped, points-based leaderboard (BACKLOG.md Ref 6) --
+  // opt-in via the existing public-profile visibility flag (v0.20.0), same
+  // gate as GET /users/:username.
+  app.get("/neighborhoods/:slug/leaderboard", async (req, res) => {
+    try {
+      const neighborhood = await getNeighborhoodBySlug(req.params.slug, getNeighborhoodRepository());
+      if (!neighborhood) {
+        res.status(404).json({ error: "Neighborhood not found" });
+        return;
+      }
+
+      const leaderboard = await getLeaderboard(neighborhood.id, getGamificationRepository());
+      res.json(leaderboard);
+    } catch (err) {
+      console.error(`GET /neighborhoods/${req.params.slug}/leaderboard failed:`, err);
+      res.status(500).json({ error: "Failed to load leaderboard" });
+    }
+  });
+
+  // Template-driven challenges for a neighborhood, with the requesting
+  // user's live progress (BACKLOG.md Ref 6) -- works for a signed-in account
+  // or an anonymous device with prior check-in/favorite history; a device
+  // with no app_user row yet just gets zeroed-out progress on every
+  // challenge.
+  app.get(
+    "/neighborhoods/:slug/challenges",
+    attachOptionalAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const neighborhood = await getNeighborhoodBySlug(req.params.slug, getNeighborhoodRepository());
+        if (!neighborhood) {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+
+        const anonymousDeviceId = req.query.anonymous_device_id;
+        const userId = req.appUser
+          ? req.appUser.id
+          : typeof anonymousDeviceId === "string" && anonymousDeviceId
+            ? await getGamificationRepository().getUserIdForDevice(anonymousDeviceId)
+            : null;
+
+        const challenges = await listChallengesWithProgress(
+          neighborhood.id,
+          userId,
+          getGamificationRepository()
+        );
+        res.json(challenges);
+      } catch (err) {
+        console.error(`GET /neighborhoods/${req.params.slug}/challenges failed:`, err);
+        res.status(500).json({ error: "Failed to load challenges" });
+      }
+    }
+  );
+
   app.get("/neighborhoods/:id/events", async (req, res) => {
     try {
       const events = await listEventsForNeighborhood(req.params.id, getEventRepository());
@@ -485,7 +550,7 @@ export function createApp() {
 
     try {
       const result = await performCheckin(
-        req.params.id,
+        { kind: "venue", id: req.params.id },
         anonymous_device_id,
         { lat, lng },
         getCheckinRepository()
@@ -507,10 +572,75 @@ export function createApp() {
           return;
         case "created":
           res.status(201).json(result.checkin);
+          // Points/challenges (BACKLOG.md Ref 6) -- best-effort, after the
+          // check-in itself has already succeeded and been returned.
+          awardCheckinRewards(
+            {
+              userId: result.checkin.user_id,
+              checkinId: result.checkin.id,
+              venueId: req.params.id,
+            },
+            getGamificationRepository()
+          ).catch((err) => console.error(`awardCheckinRewards (venue ${req.params.id}) failed:`, err));
           return;
       }
     } catch (err) {
       console.error(`POST /venues/${req.params.id}/checkins failed:`, err);
+      res.status(500).json({ error: "Failed to check in" });
+    }
+  });
+
+  // Check-in against a neighborhood POI rather than a venue (BACKLOG.md
+  // Ref 6) -- same GPS geofence/cooldown rules, mirroring the venue route
+  // above.
+  app.post("/pois/:id/checkins", async (req, res) => {
+    const { anonymous_device_id, lat, lng } = req.body ?? {};
+    if (
+      typeof anonymous_device_id !== "string" ||
+      !anonymous_device_id ||
+      typeof lat !== "number" ||
+      typeof lng !== "number"
+    ) {
+      res.status(400).json({ error: "anonymous_device_id, lat, and lng are required" });
+      return;
+    }
+
+    try {
+      const result = await performCheckin(
+        { kind: "poi", id: req.params.id },
+        anonymous_device_id,
+        { lat, lng },
+        getCheckinRepository()
+      );
+
+      switch (result.status) {
+        case "not_found":
+          res.status(404).json({ error: "Point of interest not found" });
+          return;
+        case "too_far":
+          res
+            .status(400)
+            .json({ error: "Too far from point of interest to check in", distance_meters: result.distanceMeters });
+          return;
+        case "cooldown":
+          res
+            .status(429)
+            .json({ error: "Check-in cooldown still active", retry_at: result.retryAt });
+          return;
+        case "created":
+          res.status(201).json(result.checkin);
+          awardCheckinRewards(
+            {
+              userId: result.checkin.user_id,
+              checkinId: result.checkin.id,
+              poiId: req.params.id,
+            },
+            getGamificationRepository()
+          ).catch((err) => console.error(`awardCheckinRewards (poi ${req.params.id}) failed:`, err));
+          return;
+      }
+    } catch (err) {
+      console.error(`POST /pois/${req.params.id}/checkins failed:`, err);
       res.status(500).json({ error: "Failed to check in" });
     }
   });
@@ -571,6 +701,14 @@ export function createApp() {
         return;
       }
       res.status(result.status === "created" ? 201 : 200).json(result.favorite);
+      if (result.status === "created") {
+        // BACKLOG.md Ref 6: 5pts the first time a venue is favorited/followed
+        // -- best-effort, after the response has already been sent.
+        awardFavoritePoints(
+          { userId: result.favorite.user_id, venueId: req.params.id },
+          getGamificationRepository()
+        ).catch((err) => console.error(`awardFavoritePoints (venue ${req.params.id}) failed:`, err));
+      }
     } catch (err) {
       console.error(`POST /venues/${req.params.id}/favorites failed:`, err);
       res.status(500).json({ error: "Failed to add favorite" });
@@ -1302,7 +1440,7 @@ export function createApp() {
   );
 
   app.post("/neighborhood-admin/neighborhoods/:id/pois", neighborhoodAdminGate, async (req, res) => {
-    const { name, description, type } = req.body ?? {};
+    const { name, description, type, lat, lng } = req.body ?? {};
     if (typeof name !== "string" || !name || typeof type !== "string" || !type) {
       res.status(400).json({ error: "name and type are required" });
       return;
@@ -1311,11 +1449,15 @@ export function createApp() {
       res.status(400).json({ error: "description must be a string" });
       return;
     }
+    if (typeof lat !== "number" || typeof lng !== "number") {
+      res.status(400).json({ error: "lat and lng are required" });
+      return;
+    }
 
     try {
       const poi = await createNeighborhoodPoi(
         req.params.id,
-        { name, description, type },
+        { name, description, type, lat, lng },
         getPoiRepository()
       );
       res.status(201).json(poi);

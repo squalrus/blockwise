@@ -1,23 +1,33 @@
 import type { Checkin } from "@blockwise/types";
 import { haversineMeters } from "../places/geo";
-import type { CheckinRecord, CheckinRepository, VenueLocation } from "./repository";
+import type { CheckinRecord, CheckinRepository, CheckinTarget } from "./repository";
 
 // README §4 Phase 1: "GPS geofence check-in (radius check against
 // Venue.lat/lng)". 100m comfortably covers GPS drift for a single-building
-// venue without also catching a neighboring storefront.
+// venue without also catching a neighboring storefront. Reused as-is for POI
+// check-ins (BACKLOG.md Ref 6).
 export const CHECKIN_RADIUS_METERS = 100;
 
 // README §4: "one check-in per venue per 4–6 hours" to prevent gaming
-// streaks/badges -- 4 hours is the floor of that range.
+// streaks/badges -- 4 hours is the floor of that range. Applies per venue/POI.
 export const CHECKIN_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
+// A separate, shorter cooldown against the user's *most recent check-in
+// anywhere* (not just this venue/POI) -- without this, a user could satisfy
+// a multi-venue challenge like "check in to 5 coffee shops" in seconds by
+// rapid-tapping through nearby venues. 2 minutes rules out scripted/instant
+// abuse without blocking a real multi-stop visit.
+export const GLOBAL_CHECKIN_COOLDOWN_MS = 2 * 60 * 1000;
+
 export interface EvaluateCheckinInput {
-  venue: VenueLocation;
+  target: { lat: number; lng: number };
   device: { lat: number; lng: number };
-  lastCheckin: CheckinRecord | null;
+  lastCheckinForTarget: CheckinRecord | null;
+  lastCheckinAnywhere: CheckinRecord | null;
   now: number;
   radiusMeters?: number;
   cooldownMs?: number;
+  globalCooldownMs?: number;
 }
 
 export type CheckinDecision =
@@ -25,24 +35,30 @@ export type CheckinDecision =
   | { allowed: false; reason: "too_far"; distanceMeters: number }
   | { allowed: false; reason: "cooldown"; retryAt: string };
 
+function cooldownRetryAt(lastCheckin: CheckinRecord, now: number, cooldownMs: number): Date | null {
+  const elapsedMs = now - new Date(lastCheckin.checkedInAt).getTime();
+  if (elapsedMs >= cooldownMs) return null;
+  return new Date(new Date(lastCheckin.checkedInAt).getTime() + cooldownMs);
+}
+
 export function evaluateCheckin(input: EvaluateCheckinInput): CheckinDecision {
   const radiusMeters = input.radiusMeters ?? CHECKIN_RADIUS_METERS;
   const cooldownMs = input.cooldownMs ?? CHECKIN_COOLDOWN_MS;
+  const globalCooldownMs = input.globalCooldownMs ?? GLOBAL_CHECKIN_COOLDOWN_MS;
 
-  const distanceMeters = haversineMeters(
-    { lat: input.venue.lat, lng: input.venue.lng },
-    input.device
-  );
+  const distanceMeters = haversineMeters(input.target, input.device);
   if (distanceMeters > radiusMeters) {
     return { allowed: false, reason: "too_far", distanceMeters };
   }
 
-  if (input.lastCheckin) {
-    const elapsedMs = input.now - new Date(input.lastCheckin.checkedInAt).getTime();
-    if (elapsedMs < cooldownMs) {
-      const retryAt = new Date(new Date(input.lastCheckin.checkedInAt).getTime() + cooldownMs);
-      return { allowed: false, reason: "cooldown", retryAt: retryAt.toISOString() };
-    }
+  const candidates = [
+    input.lastCheckinForTarget && cooldownRetryAt(input.lastCheckinForTarget, input.now, cooldownMs),
+    input.lastCheckinAnywhere && cooldownRetryAt(input.lastCheckinAnywhere, input.now, globalCooldownMs),
+  ].filter((candidate): candidate is Date => candidate !== null && candidate !== undefined);
+
+  if (candidates.length > 0) {
+    const retryAt = candidates.reduce((latest, candidate) => (candidate > latest ? candidate : latest));
+    return { allowed: false, reason: "cooldown", retryAt: retryAt.toISOString() };
   }
 
   return { allowed: true };
@@ -59,6 +75,7 @@ function toCheckin(record: CheckinRecord): Checkin {
     id: record.id,
     user_id: record.userId,
     venue_id: record.venueId,
+    poi_id: record.poiId,
     device_lat: record.deviceLat,
     device_lng: record.deviceLng,
     checked_in_at: record.checkedInAt,
@@ -66,19 +83,31 @@ function toCheckin(record: CheckinRecord): Checkin {
 }
 
 export async function performCheckin(
-  venueId: string,
+  target: CheckinTarget,
   anonymousDeviceId: string,
   device: { lat: number; lng: number },
   repository: CheckinRepository,
   now: number = Date.now()
 ): Promise<CheckinResult> {
-  const venue = await repository.getVenueLocation(venueId);
-  if (!venue) return { status: "not_found" };
+  const location =
+    target.kind === "venue"
+      ? await repository.getVenueLocation(target.id)
+      : await repository.getPoiLocation(target.id);
+  if (!location) return { status: "not_found" };
 
   const userId = await repository.getOrCreateAnonymousUser(anonymousDeviceId);
-  const lastCheckin = await repository.getLastCheckin(userId, venueId);
+  const [lastCheckinForTarget, lastCheckinAnywhere] = await Promise.all([
+    repository.getLastCheckinForTarget(userId, target),
+    repository.getLastCheckinAnywhere(userId),
+  ]);
 
-  const decision = evaluateCheckin({ venue, device, lastCheckin, now });
+  const decision = evaluateCheckin({
+    target: location,
+    device,
+    lastCheckinForTarget,
+    lastCheckinAnywhere,
+    now,
+  });
   if (!decision.allowed) {
     if (decision.reason === "too_far") {
       return { status: "too_far", distanceMeters: decision.distanceMeters };
@@ -88,7 +117,8 @@ export async function performCheckin(
 
   const created = await repository.createCheckin({
     userId,
-    venueId,
+    venueId: target.kind === "venue" ? target.id : undefined,
+    poiId: target.kind === "poi" ? target.id : undefined,
     deviceLat: device.lat,
     deviceLng: device.lng,
   });

@@ -65,14 +65,15 @@ export interface Venue {
 
 export interface Poi {
   id: string;
-  // Exactly one of venue_id/neighborhood_id is set (BACKLOG.md "Neighborhood
-  // profile pages") -- a venue-owned POI, or a neighborhood-owned one (parks,
-  // transit, landmarks not tied to any single business).
-  venue_id: string | null;
-  neighborhood_id: string | null;
+  neighborhood_id: string;
   name: string;
   description: string | null;
   type: string;
+  // Nullable only for rows that predate this column (BACKLOG.md Ref 6) --
+  // required at the API layer for newly created POIs so a POI can be a
+  // GPS-verified check-in target.
+  lat: number | null;
+  lng: number | null;
 }
 
 export type EnrichmentSource = "google";
@@ -115,7 +116,6 @@ export interface VenueDetail {
   lng: number;
   category_name: string | null;
   claimed_by_business: boolean;
-  pois: Poi[];
   enrichment: VenueEnrichmentCache | null;
   // The neighborhood this venue belongs to (venues now browse from the
   // neighborhood page, not a standalone /venues page), for the venue detail
@@ -132,7 +132,10 @@ export interface VenueDetail {
 export interface Checkin {
   id: string;
   user_id: string;
-  venue_id: string;
+  // Exactly one of venue_id/poi_id is set (BACKLOG.md Ref 6 -- check-ins can
+  // target a neighborhood POI as well as a venue).
+  venue_id: string | null;
+  poi_id: string | null;
   device_lat: number;
   device_lng: number;
   checked_in_at: string;
@@ -297,7 +300,7 @@ export interface CreateAnnouncementRequest {
 
 export interface Event {
   id: string;
-  // Exactly one of venue_id/neighborhood_id is set -- see Poi above.
+  // Exactly one of venue_id/neighborhood_id is set.
   venue_id: string | null;
   neighborhood_id: string | null;
   title: string;
@@ -392,6 +395,10 @@ export interface CreateNeighborhoodPoiRequest {
   name: string;
   description?: string;
   type: string;
+  // Required so the POI can be a GPS-verified check-in target (BACKLOG.md
+  // Ref 6), matching the venue check-in geofence approach.
+  lat: number;
+  lng: number;
 }
 
 // GET /business/venues/:id/dashboard -- follower count is a count of
@@ -459,4 +466,54 @@ export interface CreateCategoryRequest {
 
 export interface RenameCategoryRequest {
   name: string;
+}
+
+// Challenges + badges/points (BACKLOG.md Ref 6) -- core gamification loop.
+// Points: check-in = 10, first-time favorite/follow a venue = 5. Challenges
+// are template-driven (a data row, not code) and reward bonus points plus an
+// optional badge on completion.
+
+export interface Badge {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+}
+
+export type ChallengeTargetType = "category" | "poi";
+
+export interface Challenge {
+  id: string;
+  neighborhood_id: string;
+  title: string;
+  description: string | null;
+  target_type: ChallengeTargetType;
+  // Populated for target_type "category" -- e.g. "Coffee Shop".
+  category_name: string | null;
+  // Populated for target_type "poi".
+  poi_id: string | null;
+  poi_name: string | null;
+  target_count: number;
+  points_reward: number;
+  badge: Badge | null;
+  starts_at: string;
+  ends_at: string;
+}
+
+// GET /neighborhoods/:id/challenges -- adds the requesting user's progress
+// on top of the Challenge template. progress_count is a distinct-venue count
+// for category challenges, or 0/1 for POI challenges.
+export interface ChallengeProgress extends Challenge {
+  progress_count: number;
+  completed: boolean;
+}
+
+export interface LeaderboardEntry {
+  user_id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  points: number;
+  rank: number;
 }

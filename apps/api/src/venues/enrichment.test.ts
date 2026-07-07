@@ -17,7 +17,6 @@ const BASE_RECORD: VenueDetailRecord = {
   lng: -122.3549,
   categoryName: "Coffee Shop",
   claimedByBusiness: false,
-  pois: [],
   enrichment: null,
   neighborhoodSlug: "phinneywood",
   neighborhoodName: "Phinneywood",

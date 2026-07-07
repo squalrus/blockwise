@@ -1,10 +1,11 @@
 export interface PoiRecord {
   id: string;
-  venueId: string | null;
-  neighborhoodId: string | null;
+  neighborhoodId: string;
   name: string;
   description: string | null;
   type: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface CreateNeighborhoodPoiInput {
@@ -12,13 +13,21 @@ export interface CreateNeighborhoodPoiInput {
   name: string;
   description: string | null;
   type: string;
+  lat: number;
+  lng: number;
+}
+
+export interface PoiLocation {
+  id: string;
+  lat: number;
+  lng: number;
+  neighborhoodId: string;
 }
 
 // Abstracts persistence so createNeighborhoodPoi/listPoisForNeighborhood
 // (pois.ts) can be tested against an in-memory fake, mirroring
-// events/repository.ts. Venue-owned POIs are still read via
-// venues/detailRepository.ts (no writer exists for those -- they only ever
-// come from the sync pipeline, README §1.4).
+// events/repository.ts. POI is always neighborhood-owned (BACKLOG.md Ref 6 --
+// the earlier venue-owned option never had a writer, so it was dropped).
 export interface PoiRepository {
   createPoiForNeighborhood(input: CreateNeighborhoodPoiInput): Promise<PoiRecord>;
   listPoisForNeighborhood(neighborhoodId: string): Promise<PoiRecord[]>;

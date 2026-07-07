@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Event, NeighborhoodProfile, SocialLinks, VenueListItem } from "@blockwise/types";
+import type {
+  Event,
+  LeaderboardEntry,
+  NeighborhoodProfile,
+  SocialLinks,
+  VenueListItem,
+} from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
+import { CheckInButton } from "../../venues/[id]/CheckInButton";
+import { ChallengesView } from "./ChallengesView";
 import { JoinNeighborhoodButton } from "./JoinNeighborhoodButton";
 import { VenuesView } from "./VenuesView";
 
@@ -32,6 +40,12 @@ async function getVenues(id: string): Promise<VenueListItem[]> {
   return (await res.json()) as VenueListItem[];
 }
 
+async function getLeaderboard(slug: string): Promise<LeaderboardEntry[]> {
+  const res = await fetch(apiUrl(`/neighborhoods/${slug}/leaderboard`), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load leaderboard for neighborhood ${slug}: ${res.status}`);
+  return (await res.json()) as LeaderboardEntry[];
+}
+
 // Neighborhood profile pages (BACKLOG.md): the neighborhood-scoped equivalent
 // of the venue detail page (venues/[id]/page.tsx) -- a description, upcoming
 // events, and neighborhood-owned POIs (parks, transit, landmarks not tied to
@@ -46,9 +60,10 @@ export default async function NeighborhoodProfilePage({
 
   if (!neighborhood) notFound();
 
-  const [events, venues] = await Promise.all([
+  const [events, venues, leaderboard] = await Promise.all([
     getEvents(neighborhood.id),
     getVenues(neighborhood.id),
+    getLeaderboard(neighborhood.slug),
   ]);
 
   return (
@@ -123,7 +138,7 @@ export default async function NeighborhoodProfilePage({
           <h2 className="text-lg font-semibold text-black dark:text-zinc-50">
             Points of interest
           </h2>
-          <ul className="mt-2 flex flex-col gap-2">
+          <ul className="mt-2 flex flex-col gap-3">
             {neighborhood.pois.map((poi) => (
               <li
                 key={poi.id}
@@ -134,9 +149,34 @@ export default async function NeighborhoodProfilePage({
                 {poi.description && (
                   <p className="mt-1 text-zinc-600 dark:text-zinc-400">{poi.description}</p>
                 )}
+                <div className="mt-2">
+                  <CheckInButton target={{ type: "poi", id: poi.id }} />
+                </div>
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      <ChallengesView neighborhoodSlug={neighborhood.slug} />
+
+      {leaderboard.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Leaderboard</h2>
+          <ol className="mt-2 flex flex-col gap-2">
+            {leaderboard.map((entry) => (
+              <li
+                key={entry.user_id}
+                className="flex items-center justify-between rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
+              >
+                <span className="text-black dark:text-zinc-50">
+                  <span className="mr-2 text-zinc-500 dark:text-zinc-500">#{entry.rank}</span>
+                  {entry.display_name ?? entry.username ?? "Neighbor"}
+                </span>
+                <span className="font-medium text-black dark:text-zinc-50">{entry.points}pts</span>
+              </li>
+            ))}
+          </ol>
         </div>
       )}
     </div>

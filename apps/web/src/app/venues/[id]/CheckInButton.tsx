@@ -12,6 +12,8 @@ type Status =
   | { state: "cooldown"; retryAt: string }
   | { state: "error"; message: string };
 
+export type CheckinTarget = { type: "venue"; id: string } | { type: "poi"; id: string };
+
 function getCurrentPosition(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -21,14 +23,18 @@ function getCurrentPosition(): Promise<GeolocationPosition> {
   });
 }
 
-export function CheckInButton({ venueId }: { venueId: string }) {
+// Shared by the venue detail page and the neighborhood page's POI list
+// (BACKLOG.md Ref 6 -- check-ins can target a neighborhood POI as well as a
+// venue), same GPS geofence/cooldown UX either way.
+export function CheckInButton({ target }: { target: CheckinTarget }) {
   const [status, setStatus] = useState<Status>({ state: "idle" });
 
   async function handleCheckIn() {
     setStatus({ state: "checking" });
     try {
       const position = await getCurrentPosition();
-      const res = await fetch(clientApiUrl(`/venues/${venueId}/checkins`), {
+      const path = target.type === "venue" ? `/venues/${target.id}/checkins` : `/pois/${target.id}/checkins`;
+      const res = await fetch(clientApiUrl(path), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

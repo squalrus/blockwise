@@ -1,4 +1,4 @@
-import type { Poi, SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import type { SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
 
 export interface VenueDetailRecord {
   id: string;
@@ -9,7 +9,6 @@ export interface VenueDetailRecord {
   lng: number;
   categoryName: string | null;
   claimedByBusiness: boolean;
-  pois: Poi[];
   enrichment: VenueEnrichmentCache | null;
   neighborhoodSlug: string;
   neighborhoodName: string;
@@ -38,6 +37,6 @@ export interface VenueDetailRepository {
   upsertEnrichment(input: UpsertEnrichmentInput): Promise<VenueEnrichmentCache>;
   // Just the cached Google photo reference (see venues/enrichment.ts), for
   // the GET /venues/:id/photo proxy route -- avoids assembling the full
-  // detail record (pois, category join) just to serve an image.
+  // detail record (category join, enrichment) just to serve an image.
   getEnrichmentPhotoReference(venueId: string): Promise<string | null>;
 }

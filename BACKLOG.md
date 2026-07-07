@@ -62,12 +62,13 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 24 | [Slide-to-check-in](#slide-to-check-in) | improvement | S | M | — |
-| 6 | [Challenges + badges/points](#challenges--badgespoints) | feature | M | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 14 | [Connect with other users](#connect-with-other-users) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | 14 |
 | 33 | [Friends/neighbors on profile](#friendsneighbors-on-profile) | feature | L | M | — |
+| 42 | [Badge icon rendering](#badge-icon-rendering) | improvement | S | L | — |
+| 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
 
@@ -287,14 +288,6 @@ No open limitations.
 **Why** — Check-in today (v0.6.0, `CheckInButton.tsx`) is a plain tap button. Once [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) (Ref 20) ships its physical-friction slide gesture (project plan §13.2), reusing the same control for check-in gives one consistent "commit to this action" interaction across the app instead of two different patterns for conceptually similar moments.
 **Notes:** Extract the slide gesture as a shared component used by both flows — whichever of check-in or coupons is built first should design it as reusable rather than coupon-specific, so this isn't a hard dependency in either direction. Check-in's version doesn't need the "server writes the authoritative timestamp, locked after use" redemption semantics from §13.2 — just the slide-to-confirm interaction itself.
 
-#### Challenges + badges/points
-
-**Ref:** 6
-**Type:** feature
-**Depends:** —
-**Why** — Core gamification loop that drives repeat engagement; template-driven so new challenges are a data change, not a code change.
-**Notes:** Template-driven challenges (project plan §6), points/badges (project plan §7), neighborhood-scoped opt-in leaderboards. Reads off existing `Venue`/`Category`/check-in tables, no new core schema needed. Persistent-named leaderboard presence needs real user authentication, which shipped in v0.8.0; anonymous check-ins can still count toward progress independent of that.
-
 #### Apple social sign-in (Sign in with Apple)
 
 **Ref:** 17
@@ -334,6 +327,22 @@ No open limitations.
 **Depends:** —
 **Why** — Users today can see profiles and activity, but have no way to explicitly connect with people they've met at venues or events. A friend/follower model lets users build a social graph and see what their friends are up to, especially the venues they've checked in to.
 **Notes:** Add a `user_connection` table with (user_id, connected_user_id, status: 'pending'|'accepted'|'blocked', created_at) and a partial unique index. Endpoints: `POST /users/:id/connect` (send request), `POST /users/:id/connect/:connectionId/accept` (accept), `DELETE /users/:id/connect/:connectionId` (remove). Show "Friends" section on public profiles. Open question: model this as one-way "follows" or mutual "friends"? Geolocation-based "nearby users" suggestion is separate scope.
+
+#### Badge icon rendering
+
+**Ref:** 42
+**Type:** improvement
+**Depends:** —
+**Why** — Badges earned from completing a challenge (Challenges + badges/points, shipped v0.22.0) currently store `icon` as a plain text code (e.g. `"coffee"`, `"compass"`) with no actual artwork wired up anywhere in the UI, so an earned badge has no visual identity — just a name in a list.
+**Notes:** Map the existing `badge.icon` code to a real icon/emoji set (or an uploaded image) and render it wherever badges show up (challenge list, a future "my badges" section on profile). Small, self-contained follow-up — no schema change needed since `icon` already exists as a column.
+
+#### Leaderboard aggregation performance
+
+**Ref:** 43
+**Type:** improvement
+**Depends:** —
+**Why** — `GET /neighborhoods/:slug/leaderboard` (`apps/api/src/gamification/supabaseRepository.ts`) computes each user's total by fetching every `point_event` row for the neighborhood and summing in JS, rather than a DB-side aggregation. Fine at pilot scale (one small neighborhood), but this will slow down and burn memory as a neighborhood's check-in/favorite history grows.
+**Notes:** Replace the client-side sum with a DB-side `GROUP BY`/`SUM` (a Postgres view, materialized view, or RPC function) so aggregation scales with the database rather than with rows pulled over the wire. Revisit once a neighborhood's `point_event` row count becomes large enough to notice — not urgent today.
 
 ### Infrastructure & Design
 

@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.22.0] — 2026-07-07
+
+### Added
+
+- **Challenges, points, and a neighborhood leaderboard.** The first slice of the gamification loop the README's tagline has always promised ("join challenges, and earn badges"): a check-in now earns 10 points and favoriting/following a venue earns 5 (once per venue — unfavoriting and refavoriting doesn't farm it), tallied into a new neighborhood-scoped leaderboard (`GET /neighborhoods/:slug/leaderboard`) that only surfaces public-visibility profiles. Two seeded template challenges kick off Phinneywood's first month: "Coffee Crawl" (check in to 5 different coffee shops during July, 50pt bonus + a Coffee Crawler badge) and "Explore Woodland Park" (check in to a POI, 20pt bonus + a Neighborhood Explorer badge) — completing one is detected automatically after a qualifying check-in and is a one-time award per user. Challenges are template-driven rows in a new `challenge` table (category- or POI-targeted, with a start/end window and optional badge), so future challenges are a data change, not a code change; live per-user progress is shown via `GET /neighborhoods/:slug/challenges`. (`supabase/migrations/20260707040000_points_badges_challenges.sql`, `supabase/migrations/20260707050000_seed_challenges.sql`, `apps/api/src/gamification/`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`, `packages/types/src/index.ts`)
+- **Check-ins can now target a neighborhood POI, not just a venue.** POI check-ins (`POST /pois/:id/checkins`) reuse the same 100m GPS geofence and cooldown rules as venue check-ins, and are what the "Explore Woodland Park" challenge above checks into. `poi` gains `lat`/`lng` columns so a POI has a real location to check GPS proximity against. (`supabase/migrations/20260707030000_checkin_poi_target.sql`, `apps/api/src/checkins/`, `apps/web/src/app/venues/[id]/CheckInButton.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`)
+- **Global cross-venue check-in cooldown.** Alongside the existing 4-hour per-venue/POI cooldown, a new 2-minute cooldown against the user's *most recent check-in anywhere* stops rapid-tapping through several nearby venues to instantly farm a multi-venue challenge like "5 coffee shops." (`apps/api/src/checkins/checkin.ts`)
+
+### Changed
+
+- **POI simplified to always be neighborhood-owned.** POI previously supported an unused venue-owned option (added for a future "POI within a venue" use case that never got a writer — only the sync pipeline was ever slated to populate it, and never did). Dropped `poi.venue_id` and the `poi_owner_check` constraint; `poi.neighborhood_id` is now required. The venue detail page's dead "Points of interest" section (always empty, since nothing ever wrote to it) is removed along with it. (`supabase/migrations/20260707020000_poi_neighborhood_only.sql`, `apps/api/src/pois/`, `apps/api/src/venues/`, `apps/web/src/app/venues/[id]/page.tsx`, `packages/types/src/index.ts`)
+
 ## [0.21.0] — 2026-07-07
 
 ### Added
