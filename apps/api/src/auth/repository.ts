@@ -1,4 +1,4 @@
-import type { AccountType } from "@blockwise/types";
+import type { AccountType, ProfileVisibility } from "@blockwise/types";
 
 export interface AppUserRecord {
   id: string;
@@ -9,7 +9,16 @@ export interface AppUserRecord {
   email: string | null;
   phone: string | null;
   anonymousDeviceId: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  visibility: ProfileVisibility;
   createdAt: string;
+}
+
+export interface UpdateProfileInput {
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  visibility?: ProfileVisibility;
 }
 
 export interface CompleteSignupInput {
@@ -47,4 +56,8 @@ export interface AuthRepository {
   // business account (e.g. after claiming a venue) without creating a
   // second account for the same person.
   updateAccountType(userId: string, accountType: AccountType): Promise<AppUserRecord>;
+  // Self-service profile edit (display name, avatar, public/private
+  // visibility) -- only ever called for the caller's own row (requireAuthUser
+  // resolves req.appUser from the caller's own token), never another user's.
+  updateProfile(userId: string, input: UpdateProfileInput): Promise<AppUserRecord>;
 }

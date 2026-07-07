@@ -23,6 +23,16 @@ export default async function Home() {
         Blockwise
       </h1>
 
+      <div className="flex max-w-xl flex-col items-center gap-2 text-center">
+        <p className="text-lg font-medium text-black dark:text-zinc-50">
+          Discover local. Check in. Connect.
+        </p>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Blockwise helps you find what&apos;s happening in your neighborhood — browse local
+          businesses, check in when you visit, and join challenges as you explore.
+        </p>
+      </div>
+
       <NeighborhoodsSection />
 
       <div className="rounded-lg border border-black/[.08] px-6 py-4 text-sm dark:border-white/[.145]">

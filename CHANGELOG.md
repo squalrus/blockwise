@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.20.0] — 2026-07-07
+
+### Added
+
+- **User profiles with public or private visibility.** `app_user` gains `display_name`, `avatar_url`, and `visibility` (`public`/`private`, private by default — a signed-in identity doesn't by itself imply the user wants their presence visible to anyone else). Self-editable from the account page via a new `PATCH /me/profile` endpoint; blank display names clear the field rather than storing an empty string, and fields omitted from a request are left untouched. This is the foundation the still-open Connect-with-other-users, activity-feed, and business-visitor-history backlog items depend on. (`supabase/migrations/20260707000000_user_profile_visibility.sql`, `apps/api/src/auth/`, `apps/api/src/app.ts`, `apps/web/src/app/account/`, `packages/types/src/index.ts`)
+- **Homepage blurb.** The landing page jumped straight into the neighborhood list with no framing; a short hero section ("Discover local. Check in. Connect." plus a one-sentence description) now sits above the grid. (`apps/web/src/app/page.tsx`)
+- **Version number in the footer.** A new footer, visible on every page, shows the running app version (read from `package.json`) so support staff and users can tell at a glance which build they're on. (`apps/web/src/app/Footer.tsx`, `apps/web/src/app/layout.tsx`)
+
+### Changed
+
+- **`BACKLOG.md` reorganized by domain instead of by item type.** The four type-based tables (Features/Improvements/Known Issues/Limitations) are now four domain-based tables (Neighborhood, Business & Venue, User, Infrastructure & Design), each covering every item type in one place — easier to see everything planned for a given area at a glance. All existing Ref numbers and Depends relationships are unchanged. (`BACKLOG.md`)
+
 ## [0.19.0] — 2026-07-07
 
 ### Added

@@ -9,6 +9,7 @@ import type {
 } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { ProfileForm } from "./ProfileForm";
 
 type State =
   | { status: "loading" }
@@ -70,6 +71,11 @@ export default function AccountPage() {
     };
   }, []);
 
+  function handleProfileSaved(user: AppUser) {
+    if (state.status !== "ready") return;
+    setState({ ...state, user });
+  }
+
   async function setHome(neighborhoodId: string) {
     if (state.status !== "ready") return;
     const token = await getAccessToken();
@@ -123,6 +129,11 @@ export default function AccountPage() {
                 Member since {new Date(state.user.created_at).toLocaleDateString()}
               </p>
             </div>
+          </section>
+
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Profile</h2>
+            <ProfileForm user={state.user} onSaved={handleProfileSaved} />
           </section>
 
           <section className="flex flex-col gap-2">
