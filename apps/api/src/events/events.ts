@@ -5,6 +5,7 @@ function toEvent(record: EventRecord): Event {
   return {
     id: record.id,
     venue_id: record.venueId,
+    neighborhood_id: record.neighborhoodId,
     title: record.title,
     description: record.description,
     start_time: record.startTime,
@@ -24,12 +25,13 @@ export type CreateEventResult =
   | { status: "created"; event: Event }
   | { status: "invalid_time_range" };
 
-// The venue itself is already guaranteed to exist and be owned by the caller
-// via requireVenueOwner (see claims/requireVenueOwner.ts) on the route that
-// calls this, so the only validation left to do here is the one thing the
-// route can't check for free: that the event's own time range makes sense.
-export async function createEvent(
-  venueId: string,
+// Shared by createEvent/createEventForNeighborhood below -- the owning venue
+// or neighborhood is already guaranteed to exist and be owned by the caller
+// via the route's gate (requireVenueOwner or requireNeighborhoodAdmin), so
+// the only validation left to do here is the one thing the route can't check
+// for free: that the event's own time range makes sense.
+async function createEventRecord(
+  owner: { venueId?: string; neighborhoodId?: string },
   input: CreateEventInput,
   repository: EventRepository
 ): Promise<CreateEventResult> {
@@ -40,7 +42,7 @@ export async function createEvent(
   }
 
   const record = await repository.createEvent({
-    venueId,
+    ...owner,
     title: input.title,
     description: input.description,
     startTime: input.startTime,
@@ -49,10 +51,34 @@ export async function createEvent(
   return { status: "created", event: toEvent(record) };
 }
 
+export async function createEvent(
+  venueId: string,
+  input: CreateEventInput,
+  repository: EventRepository
+): Promise<CreateEventResult> {
+  return createEventRecord({ venueId }, input, repository);
+}
+
+export async function createEventForNeighborhood(
+  neighborhoodId: string,
+  input: CreateEventInput,
+  repository: EventRepository
+): Promise<CreateEventResult> {
+  return createEventRecord({ neighborhoodId }, input, repository);
+}
+
 export async function listEventsForVenue(
   venueId: string,
   repository: EventRepository
 ): Promise<Event[]> {
   const records = await repository.listEventsForVenue(venueId);
+  return records.map(toEvent);
+}
+
+export async function listEventsForNeighborhood(
+  neighborhoodId: string,
+  repository: EventRepository
+): Promise<Event[]> {
+  const records = await repository.listEventsForNeighborhood(neighborhoodId);
   return records.map(toEvent);
 }

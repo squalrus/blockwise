@@ -4,9 +4,12 @@ import type {
   BusinessClaimContactMethod,
   BusinessClaimStatus,
   HealthCheckResponse,
+  NeighborhoodDashboardSummary,
+  NeighborhoodProfile,
   VenueDashboardSummary,
 } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
+import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
 import { SupabaseNeighborhoodAdminRepository } from "./admin/supabaseRepository";
 import { createAnnouncement, listAnnouncementsForVenue } from "./announcements/announcements";
 import { SupabaseAnnouncementRepository } from "./announcements/supabaseRepository";
@@ -25,12 +28,25 @@ import {
   reassignVenueCategory,
 } from "./categoryMapping/categoryMapping";
 import { SupabaseCategoryMappingRepository } from "./categoryMapping/supabaseRepository";
-import { createEvent, listEventsForVenue } from "./events/events";
+import {
+  createEvent,
+  createEventForNeighborhood,
+  listEventsForNeighborhood,
+  listEventsForVenue,
+} from "./events/events";
 import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
+import {
+  getNeighborhoodById,
+  getNeighborhoodBySlug,
+  updateNeighborhoodDescription,
+} from "./neighborhoods/neighborhoods";
+import { SupabaseNeighborhoodRepository } from "./neighborhoods/supabaseRepository";
 import { LivePlacesClient, type PlaceDetailsClient } from "./places/client";
 import { MockPlacesClient } from "./places/mockClient";
+import { createNeighborhoodPoi, listPoisForNeighborhood } from "./pois/pois";
+import { SupabasePoiRepository } from "./pois/supabaseRepository";
 import { getSupabaseClient } from "./supabase";
 import { getVenueDetailWithFreshEnrichment } from "./venues/enrichment";
 import { SupabaseVenueDetailRepository } from "./venues/supabaseDetailRepository";
@@ -123,11 +139,28 @@ function getEventRepository(): SupabaseEventRepository {
   return eventRepository;
 }
 
+let neighborhoodRepository: SupabaseNeighborhoodRepository | undefined;
+function getNeighborhoodRepository(): SupabaseNeighborhoodRepository {
+  neighborhoodRepository ??= new SupabaseNeighborhoodRepository(getSupabaseClient());
+  return neighborhoodRepository;
+}
+
+let poiRepository: SupabasePoiRepository | undefined;
+function getPoiRepository(): SupabasePoiRepository {
+  poiRepository ??= new SupabasePoiRepository(getSupabaseClient());
+  return poiRepository;
+}
+
 export function createApp() {
   const app = express();
 
   const adminGate = requireAdmin(getSupabaseClient, getAuthRepository, getNeighborhoodAdminRepository);
   const venueOwnerGate = requireVenueOwner(getSupabaseClient, getAuthRepository, getClaimRepository);
+  const neighborhoodAdminGate = requireNeighborhoodAdmin(
+    getSupabaseClient,
+    getAuthRepository,
+    getNeighborhoodAdminRepository
+  );
 
   app.use((req, _res, next) => {
     req.url =
@@ -216,6 +249,45 @@ export function createApp() {
       res.json(events);
     } catch (err) {
       console.error(`GET /venues/${req.params.id}/events failed:`, err);
+      res.status(500).json({ error: "Failed to list events" });
+    }
+  });
+
+  // Neighborhood profile pages (BACKLOG.md): public read of a neighborhood's
+  // own description and POIs -- the neighborhood-scoped equivalent of the
+  // venue detail page. Looked up by slug (a nicer public URL than the raw
+  // id) rather than id, unlike every venue-scoped route above.
+  app.get("/neighborhoods/:slug", async (req, res) => {
+    try {
+      const neighborhood = await getNeighborhoodBySlug(req.params.slug, getNeighborhoodRepository());
+      if (!neighborhood) {
+        res.status(404).json({ error: "Neighborhood not found" });
+        return;
+      }
+
+      const pois = await listPoisForNeighborhood(neighborhood.id, getPoiRepository());
+      const profile: NeighborhoodProfile = {
+        id: neighborhood.id,
+        name: neighborhood.name,
+        slug: neighborhood.slug,
+        description: neighborhood.description,
+        city: neighborhood.city,
+        state: neighborhood.state,
+        pois,
+      };
+      res.json(profile);
+    } catch (err) {
+      console.error(`GET /neighborhoods/${req.params.slug} failed:`, err);
+      res.status(500).json({ error: "Failed to load neighborhood" });
+    }
+  });
+
+  app.get("/neighborhoods/:id/events", async (req, res) => {
+    try {
+      const events = await listEventsForNeighborhood(req.params.id, getEventRepository());
+      res.json(events);
+    } catch (err) {
+      console.error(`GET /neighborhoods/${req.params.id}/events failed:`, err);
       res.status(500).json({ error: "Failed to list events" });
     }
   });
@@ -752,6 +824,150 @@ export function createApp() {
     } catch (err) {
       console.error(`POST /business/venues/${req.params.id}/events failed:`, err);
       res.status(500).json({ error: "Failed to create event" });
+    }
+  });
+
+  // Neighborhood profile pages (BACKLOG.md): self-serve authoring surface for
+  // a neighborhood's own admins, mirroring the business owner venue
+  // dashboard's shape but scoped to Neighborhood instead of Venue. The list
+  // route below is gated by adminGate (admin of *any* neighborhood, same as
+  // GET /business/venues is gated by "any business account") since it has no
+  // :id to scope by; every route below it is gated by neighborhoodAdminGate,
+  // scoped to req.params.id specifically.
+  app.get("/neighborhood-admin/neighborhoods", adminGate, async (req, res) => {
+    try {
+      const neighborhoods = await getNeighborhoodAdminRepository().listNeighborhoodsForAdmin(
+        req.appUser!.id
+      );
+      res.json(
+        neighborhoods.map((n) => ({ neighborhood_id: n.neighborhoodId, name: n.name, slug: n.slug }))
+      );
+    } catch (err) {
+      console.error("GET /neighborhood-admin/neighborhoods failed:", err);
+      res.status(500).json({ error: "Failed to list administered neighborhoods" });
+    }
+  });
+
+  app.get(
+    "/neighborhood-admin/neighborhoods/:id/dashboard",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      try {
+        const neighborhood = await getNeighborhoodById(req.params.id, getNeighborhoodRepository());
+        if (!neighborhood) {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+
+        const [pois, events] = await Promise.all([
+          listPoisForNeighborhood(req.params.id, getPoiRepository()),
+          listEventsForNeighborhood(req.params.id, getEventRepository()),
+        ]);
+
+        const summary: NeighborhoodDashboardSummary = {
+          neighborhood_id: neighborhood.id,
+          name: neighborhood.name,
+          slug: neighborhood.slug,
+          description: neighborhood.description,
+          pois,
+          events,
+        };
+        res.json(summary);
+      } catch (err) {
+        console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/dashboard failed:`, err);
+        res.status(500).json({ error: "Failed to load neighborhood dashboard" });
+      }
+    }
+  );
+
+  app.patch("/neighborhood-admin/neighborhoods/:id", neighborhoodAdminGate, async (req, res) => {
+    const { description } = req.body ?? {};
+    if (typeof description !== "string") {
+      res.status(400).json({ error: "description is required" });
+      return;
+    }
+
+    try {
+      const result = await updateNeighborhoodDescription(
+        req.params.id,
+        description,
+        getNeighborhoodRepository()
+      );
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Neighborhood not found" });
+        return;
+      }
+      res.json(result.neighborhood);
+    } catch (err) {
+      console.error(`PATCH /neighborhood-admin/neighborhoods/${req.params.id} failed:`, err);
+      res.status(500).json({ error: "Failed to update neighborhood" });
+    }
+  });
+
+  app.post(
+    "/neighborhood-admin/neighborhoods/:id/events",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { title, description, start_time, end_time } = req.body ?? {};
+      if (
+        typeof title !== "string" ||
+        !title ||
+        typeof description !== "string" ||
+        !description ||
+        typeof start_time !== "string" ||
+        !start_time ||
+        typeof end_time !== "string" ||
+        !end_time
+      ) {
+        res
+          .status(400)
+          .json({ error: "title, description, start_time, and end_time are required" });
+        return;
+      }
+
+      try {
+        const result = await createEventForNeighborhood(
+          req.params.id,
+          { title, description, startTime: start_time, endTime: end_time },
+          getEventRepository()
+        );
+
+        switch (result.status) {
+          case "invalid_time_range":
+            res.status(400).json({ error: "end_time must be after start_time" });
+            return;
+          case "created":
+            res.status(201).json(result.event);
+            return;
+        }
+      } catch (err) {
+        console.error(`POST /neighborhood-admin/neighborhoods/${req.params.id}/events failed:`, err);
+        res.status(500).json({ error: "Failed to create event" });
+      }
+    }
+  );
+
+  app.post("/neighborhood-admin/neighborhoods/:id/pois", neighborhoodAdminGate, async (req, res) => {
+    const { name, description, type } = req.body ?? {};
+    if (typeof name !== "string" || !name || typeof type !== "string" || !type) {
+      res.status(400).json({ error: "name and type are required" });
+      return;
+    }
+    if (description !== undefined && typeof description !== "string") {
+      res.status(400).json({ error: "description must be a string" });
+      return;
+    }
+
+    try {
+      const poi = await createNeighborhoodPoi(
+        req.params.id,
+        { name, description, type },
+        getPoiRepository()
+      );
+      res.status(201).json(poi);
+    } catch (err) {
+      console.error(`POST /neighborhood-admin/neighborhoods/${req.params.id}/pois failed:`, err);
+      res.status(500).json({ error: "Failed to create point of interest" });
     }
   });
 
