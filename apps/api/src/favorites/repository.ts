@@ -26,4 +26,8 @@ export interface FavoriteRepository {
   // joined listing for a signed-in user, mirroring claims/repository.ts's
   // listClaimedVenuesForUser.
   listFavoriteVenuesForUser(userId: string): Promise<FavoriteVenue[]>;
+  // Backs the business owner venue dashboard's "follower count" (BACKLOG.md)
+  // -- there's no separate "follow" table, favoriting a venue is the follow
+  // relationship.
+  countFavoritesForVenue(venueId: string): Promise<number>;
 }

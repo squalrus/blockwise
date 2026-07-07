@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { VenueDetail } from "@blockwise/types";
+import type { Announcement, Event, VenueDetail } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { CheckInButton } from "./CheckInButton";
 import { ClaimBusinessForm } from "./ClaimBusinessForm";
@@ -11,6 +11,22 @@ async function getVenue(id: string): Promise<VenueDetail | null> {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load venue ${id}: ${res.status}`);
   return (await res.json()) as VenueDetail;
+}
+
+// Business owner venue dashboard (BACKLOG.md): read-only display of a
+// claimed venue's own announcements/events, authored from the owner-side
+// dashboard (/business/[venueId]). No moderation queue or push notifications
+// yet -- see the migration's header comment -- so this is just a plain list.
+async function getAnnouncements(id: string): Promise<Announcement[]> {
+  const res = await fetch(apiUrl(`/venues/${id}/announcements`), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load announcements for venue ${id}: ${res.status}`);
+  return (await res.json()) as Announcement[];
+}
+
+async function getEvents(id: string): Promise<Event[]> {
+  const res = await fetch(apiUrl(`/venues/${id}/events`), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load events for venue ${id}: ${res.status}`);
+  return (await res.json()) as Event[];
 }
 
 function formatPriceTier(priceTier: string | null): string | null {
@@ -28,6 +44,8 @@ export default async function VenueDetailPage({
   const venue = await getVenue(id);
 
   if (!venue) notFound();
+
+  const [announcements, events] = await Promise.all([getAnnouncements(id), getEvents(id)]);
 
   const priceTier = formatPriceTier(venue.enrichment?.price_tier ?? null);
 
@@ -83,6 +101,43 @@ export default async function VenueDetailPage({
           </p>
         )}
       </div>
+
+      {announcements.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Announcements</h2>
+          <ul className="mt-2 flex flex-col gap-2">
+            {announcements.map((a) => (
+              <li
+                key={a.id}
+                className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
+              >
+                <span className="font-medium text-black dark:text-zinc-50">{a.title}</span>
+                <p className="mt-1 text-zinc-600 dark:text-zinc-400">{a.body}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {events.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Upcoming events</h2>
+          <ul className="mt-2 flex flex-col gap-2">
+            {events.map((e) => (
+              <li
+                key={e.id}
+                className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
+              >
+                <span className="font-medium text-black dark:text-zinc-50">{e.title}</span>
+                <p className="mt-1 text-zinc-600 dark:text-zinc-400">{e.description}</p>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+                  {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {venue.pois.length > 0 && (
         <div>

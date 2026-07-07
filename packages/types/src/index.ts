@@ -215,6 +215,55 @@ export interface ClaimedVenueSummary {
   address: string;
 }
 
+// Business owner venue dashboard (BACKLOG.md) -- Announcement/Event content
+// types an approved claimed-business owner can author for their venue, plus
+// the read-only stats the dashboard shows alongside them (README §1.8/§5).
+
+export interface Announcement {
+  id: string;
+  venue_id: string;
+  title: string;
+  body: string;
+  published: boolean;
+  created_at: string;
+}
+
+export interface CreateAnnouncementRequest {
+  title: string;
+  body: string;
+}
+
+export interface Event {
+  id: string;
+  venue_id: string;
+  title: string;
+  description: string;
+  start_time: string;
+  end_time: string;
+  created_at: string;
+}
+
+export interface CreateEventRequest {
+  title: string;
+  description: string;
+  start_time: string;
+  end_time: string;
+}
+
+// GET /business/venues/:id/dashboard -- follower count is a count of
+// `favorite` rows (there's no separate "follow" table; favoriting a venue is
+// the follow relationship, per the backlog item's own notes), check-in count
+// is a count of `checkin` rows.
+export interface VenueDashboardSummary {
+  venue_id: string;
+  name: string;
+  address: string;
+  follower_count: number;
+  checkin_count: number;
+  announcements: Announcement[];
+  events: Event[];
+}
+
 // Category mapping admin tool (BACKLOG.md) -- manual override for venues the
 // sync's category-normalization step (README §1.4 step 3) mapped incorrectly.
 

@@ -53,4 +53,9 @@ export interface ClaimRepository {
   // user authentication" notes) -- approved claims a business account
   // submitted itself.
   listClaimedVenuesForUser(userId: string): Promise<ClaimedVenue[]>;
+  // Venue-scoped ownership check backing requireVenueOwner (BACKLOG.md
+  // "Business owner venue dashboard") -- narrower than
+  // listClaimedVenuesForUser, which is for listing every venue a business
+  // owns rather than checking one in particular.
+  isVenueClaimedByUser(userId: string, venueId: string): Promise<boolean>;
 }

@@ -42,6 +42,12 @@ class FakeClaimRepository implements ClaimRepository {
     return [];
   }
 
+  async isVenueClaimedByUser(userId: string, venueId: string): Promise<boolean> {
+    return this.claims.some(
+      (c) => c.claimedByUserId === userId && c.venueId === venueId && c.status === "approved"
+    );
+  }
+
   async listClaims(status?: ClaimRecord["status"]): Promise<ClaimRecord[]> {
     return status ? this.claims.filter((c) => c.status === status) : this.claims;
   }

@@ -144,4 +144,17 @@ export class SupabaseClaimRepository implements ClaimRepository {
       .filter((venue): venue is { id: string; name: string; address: string } => venue !== null)
       .map((venue) => ({ venueId: venue.id, name: venue.name, address: venue.address }));
   }
+
+  async isVenueClaimedByUser(userId: string, venueId: string): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from("business_claim")
+      .select("id")
+      .eq("claimed_by_user_id", userId)
+      .eq("venue_id", venueId)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (error) throw new Error(`isVenueClaimedByUser failed: ${error.message}`);
+    return data !== null;
+  }
 }

@@ -109,4 +109,14 @@ export class SupabaseFavoriteRepository implements FavoriteRepository {
         createdAt: row.createdAt,
       }));
   }
+
+  async countFavoritesForVenue(venueId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("favorite")
+      .select("id", { count: "exact", head: true })
+      .eq("venue_id", venueId);
+
+    if (error) throw new Error(`countFavoritesForVenue failed: ${error.message}`);
+    return count ?? 0;
+  }
 }
