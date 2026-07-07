@@ -224,6 +224,26 @@ export function createApp() {
     }
   });
 
+  // My account page (BACKLOG.md): venue-joined check-in history for the
+  // signed-in user, keyed off the real app_user id rather than an
+  // anonymous_device_id since this page requires being signed in.
+  app.get("/me/checkins", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const checkins = await getCheckinRepository().listCheckinsForUser(req.appUser!.id);
+      res.json(
+        checkins.map((c) => ({
+          venue_id: c.venueId,
+          name: c.name,
+          address: c.address,
+          checked_in_at: c.checkedInAt,
+        }))
+      );
+    } catch (err) {
+      console.error("GET /me/checkins failed:", err);
+      res.status(500).json({ error: "Failed to list check-in history" });
+    }
+  });
+
   // Favorite venues (BACKLOG.md): a device-scoped "I like this place"
   // bookmark, toggled independently of check-ins/claims.
   app.get("/venues/:id/favorites", async (req, res) => {
@@ -283,6 +303,25 @@ export function createApp() {
     } catch (err) {
       console.error(`DELETE /venues/${req.params.id}/favorites failed:`, err);
       res.status(500).json({ error: "Failed to remove favorite" });
+    }
+  });
+
+  // My account page (BACKLOG.md): venue-joined favorites listing for the
+  // signed-in user, mirroring GET /me/checkins above.
+  app.get("/me/favorites", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const venues = await getFavoriteRepository().listFavoriteVenuesForUser(req.appUser!.id);
+      res.json(
+        venues.map((v) => ({
+          venue_id: v.venueId,
+          name: v.name,
+          address: v.address,
+          created_at: v.createdAt,
+        }))
+      );
+    } catch (err) {
+      console.error("GET /me/favorites failed:", err);
+      res.status(500).json({ error: "Failed to list favorite venues" });
     }
   });
 

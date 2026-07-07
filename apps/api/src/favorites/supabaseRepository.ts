@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FavoriteRecord, FavoriteRepository } from "./repository";
+import type { FavoriteRecord, FavoriteRepository, FavoriteVenue } from "./repository";
 
 function toRecord(row: {
   id: string;
@@ -82,5 +82,31 @@ export class SupabaseFavoriteRepository implements FavoriteRepository {
       .eq("venue_id", venueId);
 
     if (error) throw new Error(`deleteFavorite failed: ${error.message}`);
+  }
+
+  async listFavoriteVenuesForUser(userId: string): Promise<FavoriteVenue[]> {
+    const { data, error } = await this.supabase
+      .from("favorite")
+      .select("created_at, venue:venue_id (id, name, address)")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new Error(`listFavoriteVenuesForUser failed: ${error.message}`);
+
+    return (data ?? [])
+      .map((row) => ({
+        venue: row.venue as unknown as { id: string; name: string; address: string } | null,
+        createdAt: row.created_at as string,
+      }))
+      .filter(
+        (row): row is { venue: { id: string; name: string; address: string }; createdAt: string } =>
+          row.venue !== null
+      )
+      .map((row) => ({
+        venueId: row.venue.id,
+        name: row.venue.name,
+        address: row.venue.address,
+        createdAt: row.createdAt,
+      }));
   }
 }

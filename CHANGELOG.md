@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.13.0] — 2026-07-06
+
+### Added
+
+- **My account page.** A new `/account` page giving signed-in users a single place to see their identity, favorites, and check-in history, instead of each being scattered across its own flow. Two new endpoints back it: `GET /me/favorites` and `GET /me/checkins`, both venue-joined listings (name/address alongside the raw `favorite`/`checkin` rows) gated by `requireAuthUser`. Wishlist and coupons sections show a "Coming soon" placeholder — neither has a backend yet (separate backlog items) — rather than being omitted outright, so the page's shape is already in place for when they land. A "My account" link was added to the top nav for any signed-in user. (`apps/api/src/favorites/`, `apps/api/src/checkins/`, `apps/api/src/app.ts`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/AccountNav.tsx`, `packages/types/src/index.ts`)
+
 ## [0.12.0] — 2026-07-06
 
 ### Added

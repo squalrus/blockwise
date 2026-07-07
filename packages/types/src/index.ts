@@ -133,6 +133,24 @@ export interface FavoriteStatusResponse {
   favorited: boolean;
 }
 
+// GET /me/favorites -- venue-joined listing for the "My account" page
+// (BACKLOG.md), since the raw Favorite row above has no venue name/address.
+export interface FavoriteVenueSummary {
+  venue_id: string;
+  name: string;
+  address: string;
+  created_at: string;
+}
+
+// GET /me/checkins -- venue-joined check-in history for the "My account"
+// page, mirroring FavoriteVenueSummary above.
+export interface CheckinHistoryItem {
+  venue_id: string;
+  name: string;
+  address: string;
+  checked_in_at: string;
+}
+
 export type BusinessClaimContactMethod = "phone" | "email" | "domain";
 export type BusinessClaimStatus = "pending" | "approved" | "rejected";
 

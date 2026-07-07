@@ -31,6 +31,11 @@ export function AccountNav() {
         Blockwise
       </a>
       <div className="ml-auto flex items-center gap-4">
+        {state.status === "signed_in" && (
+          <a href="/account" className="text-zinc-600 hover:underline dark:text-zinc-400">
+            My account
+          </a>
+        )}
         {state.status === "signed_in" && state.user.account_type === "business" && (
           <a href="/business" className="text-zinc-600 hover:underline dark:text-zinc-400">
             Business portal

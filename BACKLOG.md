@@ -23,7 +23,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 |---|---|---|
 | [Native apps (React Native)](#native-apps-react-native) | L | H |
 | [Venue wishlist](#venue-wishlist) | S | M |
-| [My account page](#my-account-page) | M | M |
 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | S | M |
 | [Category taxonomy management](#category-taxonomy-management) | S | M |
 | [Business announcements](#business-announcements) | M | M |
@@ -74,11 +73,6 @@ No open limitations.
 **Type:** feature
 **Why** — "Want to visit" intent is distinct from "already like this place" (shipped as Favorite venues in v0.9.0) — useful for challenge/exploration framing later (e.g. surfacing wishlisted venues that also count toward an active challenge).
 **Notes:** Same anonymous-first, device-scoped pattern as the shipped `favorite` table (`supabase/migrations/20260706060000_favorite_venues.sql`) — likely shares a schema shape (e.g. a `list_type` of `favorite` | `wishlist` on the same table) and UI treatment, just a different label/intent per venue.
-
-### My account page
-**Type:** feature
-**Why** — Real user authentication (v0.8.0) and Favorite venues (v0.9.0) give users an identity and a first piece of saved state, but there's no single place to see it — account details, favorites, wishlist, recent check-ins, and coupons (available/redeemed) are each scattered across their own flows with no personal dashboard tying them together.
-**Notes:** Aggregates existing data (`GET /auth/me`, the `favorite` table) plus data from features not yet shipped — [Venue wishlist](#venue-wishlist) and [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) — so the coupons and wishlist sections would need to land after (or stub out ahead of) those. Distinct from [User profiles with public or private visibility](#user-profiles-with-public-or-private-visibility): this is the user's own private view of their account, not the public-facing profile shown to other users.
 
 ### Coupon redemption also checks you in
 **Type:** feature

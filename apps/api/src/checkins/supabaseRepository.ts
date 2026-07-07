@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CheckinRecord,
   CheckinRepository,
+  CheckinVenue,
   CreateCheckinInput,
   VenueLocation,
 } from "./repository";
@@ -88,5 +89,31 @@ export class SupabaseCheckinRepository implements CheckinRepository {
 
     if (error) throw new Error(`createCheckin failed: ${error.message}`);
     return toRecord(data);
+  }
+
+  async listCheckinsForUser(userId: string): Promise<CheckinVenue[]> {
+    const { data, error } = await this.supabase
+      .from("checkin")
+      .select("checked_in_at, venue:venue_id (id, name, address)")
+      .eq("user_id", userId)
+      .order("checked_in_at", { ascending: false });
+
+    if (error) throw new Error(`listCheckinsForUser failed: ${error.message}`);
+
+    return (data ?? [])
+      .map((row) => ({
+        venue: row.venue as unknown as { id: string; name: string; address: string } | null,
+        checkedInAt: row.checked_in_at as string,
+      }))
+      .filter(
+        (row): row is { venue: { id: string; name: string; address: string }; checkedInAt: string } =>
+          row.venue !== null
+      )
+      .map((row) => ({
+        venueId: row.venue.id,
+        name: row.venue.name,
+        address: row.venue.address,
+        checkedInAt: row.checkedInAt,
+      }));
   }
 }

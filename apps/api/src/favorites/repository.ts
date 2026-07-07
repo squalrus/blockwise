@@ -5,6 +5,13 @@ export interface FavoriteRecord {
   createdAt: string;
 }
 
+export interface FavoriteVenue {
+  venueId: string;
+  name: string;
+  address: string;
+  createdAt: string;
+}
+
 // Abstracts persistence so addFavorite/removeFavorite (favorite.ts) can be
 // tested against an in-memory fake, mirroring checkins/repository.ts.
 export interface FavoriteRepository {
@@ -15,4 +22,8 @@ export interface FavoriteRepository {
   getFavorite(userId: string, venueId: string): Promise<FavoriteRecord | null>;
   createFavorite(userId: string, venueId: string): Promise<FavoriteRecord>;
   deleteFavorite(userId: string, venueId: string): Promise<void>;
+  // Backs the "My account" page's favorites section (BACKLOG.md) -- venue-
+  // joined listing for a signed-in user, mirroring claims/repository.ts's
+  // listClaimedVenuesForUser.
+  listFavoriteVenuesForUser(userId: string): Promise<FavoriteVenue[]>;
 }

@@ -20,6 +20,13 @@ export interface CreateCheckinInput {
   deviceLng: number;
 }
 
+export interface CheckinVenue {
+  venueId: string;
+  name: string;
+  address: string;
+  checkedInAt: string;
+}
+
 // Abstracts persistence so the geofence/cooldown decision (checkin.ts) can be
 // tested against an in-memory fake, mirroring venues/detailRepository.ts.
 export interface CheckinRepository {
@@ -29,4 +36,8 @@ export interface CheckinRepository {
   getOrCreateAnonymousUser(anonymousDeviceId: string): Promise<string>;
   getLastCheckin(userId: string, venueId: string): Promise<CheckinRecord | null>;
   createCheckin(input: CreateCheckinInput): Promise<CheckinRecord>;
+  // Backs the "My account" page's check-in history section (BACKLOG.md) --
+  // venue-joined listing for a signed-in user, mirroring
+  // favorites/repository.ts's listFavoriteVenuesForUser.
+  listCheckinsForUser(userId: string): Promise<CheckinVenue[]>;
 }
