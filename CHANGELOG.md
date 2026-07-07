@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.21.0] — 2026-07-07
+
+### Added
+
+- **Public user profiles.** Profiles are now browsable at `/profile/:username` for any account that has both chosen a username and set its visibility to public (v0.20.0's `visibility` column, still private by default) — showing avatar, display name, join date, joined neighborhoods, and up to 10 recent check-ins. A private or username-less profile 404s the same way a nonexistent one would, so its existence isn't leaked to outside callers. `app_user` gains a `username` column (lowercase letters/numbers/`_`/`-`, 3-30 characters, unique), self-editable alongside the existing profile fields via `PATCH /me/profile`, which now also returns `409` if the chosen username is already taken. New public endpoint: `GET /users/:username`. (`supabase/migrations/20260707010000_public_user_profiles.sql`, `apps/api/src/auth/`, `apps/api/src/app.ts`, `apps/web/src/app/profile/`, `apps/web/src/app/account/ProfileForm.tsx`, `packages/types/src/index.ts`)
+- **Google profile picture on signup.** A fresh signup via Google OAuth now seeds `avatar_url` from the account's Google profile picture instead of leaving it blank until manually filled in — one less step to a profile that looks like *someone*. Only seeded once, at signup; a later manual edit (or manual clear) via `PATCH /me/profile` is never overwritten. Avatars now render as an actual image (falling back to an initial-letter monogram when unset) on the account page and the new public profile page, via a shared `Avatar` component, rather than only existing as a raw URL in a form field. (`apps/api/src/auth/verifyToken.ts`, `apps/api/src/auth/auth.ts`, `apps/web/src/app/Avatar.tsx`, `apps/web/src/app/account/ProfileForm.tsx`, `apps/web/src/app/profile/`)
+
 ## [0.20.0] — 2026-07-07
 
 ### Added

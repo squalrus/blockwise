@@ -64,8 +64,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 24 | [Slide-to-check-in](#slide-to-check-in) | improvement | S | M | — |
 | 6 | [Challenges + badges/points](#challenges--badgespoints) | feature | M | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
-| 34 | [Show profile picture from Google](#show-profile-picture-from-google) | improvement | M | M | — |
-| 37 | [Public user profiles](#public-user-profiles) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 14 | [Connect with other users](#connect-with-other-users) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | 14 |
@@ -304,22 +302,6 @@ No open limitations.
 **Depends:** —
 **Why** — Same rationale as Google social sign-in (shipped v0.10.0) — removes a signup step at the moments that flow is meant to make frictionless — but scoped separately since it's a materially bigger lift with its own setup dependencies and timeline.
 **Notes:** Requires Apple Developer Program enrollment, creating a Services ID, and generating a rotating client-secret JWT (Apple secrets expire and must be regenerated, unlike Google's). Same completion flow on the app side as Google once configured — `supabase.auth.signInWithOAuth`, a redirect callback route, then the existing `/auth/complete-signup`/`/auth/complete-login`, since `verifyToken.ts` already reads the provider generically off `app_metadata`.
-
-#### Show profile picture from Google
-
-**Ref:** 34
-**Type:** improvement
-**Depends:** —
-**Why** — User profiles today have no picture or avatar. Pulling the profile picture from Google Sign-in (if the user signed up that way) or a generated avatar fallback makes profiles feel more personal and easier to recognize.
-**Notes:** Store `google_profile_picture_url` (or generic `profile_picture_url`) on the `User` row if the user signs in with Google. Fall back to a placeholder avatar (generated initials, monogram, etc.) if no picture. No additional auth required — Google's profile picture is already public for users with Google accounts.
-
-#### Public user profiles
-
-**Ref:** 37
-**Type:** feature
-**Depends:** —
-**Why** — User profiles today are not discoverable or browsable — they're only visible if you already have a user ID. Public profiles (with privacy controls) let users find others, see their activity/check-ins, and connect, supporting the social discovery loop.
-**Notes:** Create a `GET /users/:id` endpoint (public, shows only public profile data). Add a `/profile/:username` or `/users/:id` route on the web app. Privacy model: `is_public` flag on the User row (defaults to true; users can opt out). Show public profile data: avatar/name, joined date, recent check-ins (privacy-controlled per check-in), list of neighborhoods they're active in.
 
 #### Anonymous user quotas
 

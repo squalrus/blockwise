@@ -238,6 +238,10 @@ export interface AppUser {
   phone: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  // BACKLOG.md "Public user profiles" -- the handle a public profile is
+  // addressed by (/profile/:username), distinct from the internal id.
+  // Unset (null) until the user chooses one; unique when set.
+  username: string | null;
   visibility: ProfileVisibility;
   created_at: string;
   // Additive to account_type -- an account can be a consumer, a claimed
@@ -249,6 +253,7 @@ export interface AppUser {
 export interface UpdateProfileRequest {
   display_name?: string | null;
   avatar_url?: string | null;
+  username?: string | null;
   visibility?: ProfileVisibility;
 }
 
@@ -337,6 +342,19 @@ export interface NeighborhoodMembership {
   city: string;
   state: string;
   is_primary: boolean;
+}
+
+// GET /users/:username (BACKLOG.md "Public user profiles") -- only ever
+// returned for a public-visibility profile with a username set; recent
+// check-ins are gated by that same profile-level visibility, since checkin
+// has no per-row privacy field of its own.
+export interface PublicUserProfile {
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  joined_at: string;
+  neighborhoods: NeighborhoodMembership[];
+  recent_checkins: CheckinHistoryItem[];
 }
 
 export interface NeighborhoodSummary {
