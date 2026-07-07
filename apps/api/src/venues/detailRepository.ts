@@ -11,6 +11,8 @@ export interface VenueDetailRecord {
   claimedByBusiness: boolean;
   pois: Poi[];
   enrichment: VenueEnrichmentCache | null;
+  neighborhoodSlug: string;
+  neighborhoodName: string;
 }
 
 export interface UpsertEnrichmentInput {
@@ -26,7 +28,9 @@ export interface UpsertEnrichmentInput {
 // be tested against an in-memory fake instead of a real Supabase project,
 // mirroring the pattern in places/repository.ts.
 export interface VenueDetailRepository {
-  listVenues(): Promise<VenueListItem[]>;
+  // Venues are browsed from the neighborhood page (BACKLOG.md), so this is
+  // always scoped to a single neighborhood rather than listing every venue.
+  listVenues(neighborhoodId: string): Promise<VenueListItem[]>;
   getVenueDetail(venueId: string): Promise<VenueDetailRecord | null>;
   upsertEnrichment(input: UpsertEnrichmentInput): Promise<VenueEnrichmentCache>;
   // Just the cached Google photo reference (see venues/enrichment.ts), for

@@ -78,5 +78,7 @@ export async function getVenueDetailWithFreshEnrichment(
     claimed_by_business: record.claimedByBusiness,
     pois: record.pois,
     enrichment: enrichment ?? null,
+    neighborhood_slug: record.neighborhoodSlug,
+    neighborhood_name: record.neighborhoodName,
   };
 }

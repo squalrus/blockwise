@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Event, NeighborhoodProfile } from "@blockwise/types";
+import type { Event, NeighborhoodProfile, VenueListItem } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { JoinNeighborhoodButton } from "./JoinNeighborhoodButton";
+import { VenuesView } from "./VenuesView";
 
 async function getNeighborhood(slug: string): Promise<NeighborhoodProfile | null> {
   const res = await fetch(apiUrl(`/neighborhoods/${slug}`), { cache: "no-store" });
@@ -15,6 +16,12 @@ async function getEvents(id: string): Promise<Event[]> {
   const res = await fetch(apiUrl(`/neighborhoods/${id}/events`), { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load events for neighborhood ${id}: ${res.status}`);
   return (await res.json()) as Event[];
+}
+
+async function getVenues(id: string): Promise<VenueListItem[]> {
+  const res = await fetch(apiUrl(`/neighborhoods/${id}/venues`), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load venues for neighborhood ${id}: ${res.status}`);
+  return (await res.json()) as VenueListItem[];
 }
 
 // Neighborhood profile pages (BACKLOG.md): the neighborhood-scoped equivalent
@@ -31,12 +38,15 @@ export default async function NeighborhoodProfilePage({
 
   if (!neighborhood) notFound();
 
-  const events = await getEvents(neighborhood.id);
+  const [events, venues] = await Promise.all([
+    getEvents(neighborhood.id),
+    getVenues(neighborhood.id),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
-      <Link href="/venues" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
-        ← All venues
+      <Link href="/" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+        ← All neighborhoods
       </Link>
 
       <div className="flex items-start justify-between gap-4">
@@ -54,6 +64,13 @@ export default async function NeighborhoodProfilePage({
       {neighborhood.description && (
         <p className="text-sm text-zinc-700 dark:text-zinc-300">{neighborhood.description}</p>
       )}
+
+      <div>
+        <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Venues</h2>
+        <div className="mt-2">
+          <VenuesView venues={venues} />
+        </div>
+      </div>
 
       {events.length > 0 && (
         <div>

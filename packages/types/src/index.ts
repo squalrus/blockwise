@@ -100,6 +100,11 @@ export interface VenueDetail {
   claimed_by_business: boolean;
   pois: Poi[];
   enrichment: VenueEnrichmentCache | null;
+  // The neighborhood this venue belongs to (venues now browse from the
+  // neighborhood page, not a standalone /venues page), for the venue detail
+  // page's "back to neighborhood" link.
+  neighborhood_slug: string;
+  neighborhood_name: string;
 }
 
 // Business claiming + GPS check-in (BACKLOG.md, README §4/§5/§14.2).

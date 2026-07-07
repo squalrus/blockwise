@@ -19,6 +19,8 @@ const BASE_RECORD: VenueDetailRecord = {
   claimedByBusiness: false,
   pois: [],
   enrichment: null,
+  neighborhoodSlug: "phinneywood",
+  neighborhoodName: "Phinneywood",
 };
 
 class FakeRepository implements VenueDetailRepository {

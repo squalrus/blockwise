@@ -13,7 +13,7 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     completeOAuthSignIn()
       .then((user) => {
-        router.replace(user.account_type === "business" ? "/business" : "/venues");
+        router.replace(user.account_type === "business" ? "/business" : "/");
       })
       .catch((err) => {
         setStatus({ state: "error", message: err instanceof Error ? err.message : "Sign-in failed" });

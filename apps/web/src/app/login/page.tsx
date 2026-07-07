@@ -20,7 +20,7 @@ export default function LoginPage() {
 
     try {
       const user = await logIn(email, password);
-      router.push(user.account_type === "business" ? "/business" : "/venues");
+      router.push(user.account_type === "business" ? "/business" : "/");
     } catch (err) {
       setStatus({ state: "error", message: err instanceof Error ? err.message : "Login failed" });
     }

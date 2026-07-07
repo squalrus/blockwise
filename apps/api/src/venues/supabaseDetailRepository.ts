@@ -31,12 +31,13 @@ function categoryGroupName(embed: CategoryEmbed[] | CategoryEmbed | null): strin
 export class SupabaseVenueDetailRepository implements VenueDetailRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
-  async listVenues(): Promise<VenueListItem[]> {
+  async listVenues(neighborhoodId: string): Promise<VenueListItem[]> {
     const { data, error } = await this.supabase
       .from("venue")
       .select(
         "id, name, address, lat, lng, category:category_id(name, parent:parent_category_id(name))"
       )
+      .eq("neighborhood_id", neighborhoodId)
       .order("name");
 
     if (error) throw new Error(`listVenues failed: ${error.message}`);
@@ -56,13 +57,17 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
     const { data: venue, error: venueError } = await this.supabase
       .from("venue")
       .select(
-        "id, google_place_id, name, address, lat, lng, claimed_by_business, category:category_id(name)"
+        "id, google_place_id, name, address, lat, lng, claimed_by_business, category:category_id(name), neighborhood:neighborhood_id(slug, name)"
       )
       .eq("id", venueId)
       .maybeSingle();
 
     if (venueError) throw new Error(`getVenueDetail failed: ${venueError.message}`);
     if (!venue) return null;
+
+    const neighborhoodEmbed = Array.isArray(venue.neighborhood)
+      ? venue.neighborhood[0]
+      : venue.neighborhood;
 
     const [{ data: pois, error: poisError }, { data: enrichment, error: enrichmentError }] =
       await Promise.all([
@@ -93,6 +98,8 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
       claimedByBusiness: venue.claimed_by_business,
       pois: (pois ?? []) as Poi[],
       enrichment: (enrichment as VenueEnrichmentCache | null) ?? null,
+      neighborhoodSlug: neighborhoodEmbed.slug,
+      neighborhoodName: neighborhoodEmbed.name,
     };
   }
 
