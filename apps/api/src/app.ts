@@ -4,9 +4,12 @@ import type {
   BusinessClaimContactMethod,
   BusinessClaimStatus,
   HealthCheckResponse,
+  VenueDashboardSummary,
 } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
 import { SupabaseNeighborhoodAdminRepository } from "./admin/supabaseRepository";
+import { createAnnouncement, listAnnouncementsForVenue } from "./announcements/announcements";
+import { SupabaseAnnouncementRepository } from "./announcements/supabaseRepository";
 import { completeLogin, completeSignup, promoteToBusiness, toAppUser } from "./auth/auth";
 import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from "./auth/requireAuthUser";
 import { SupabaseAuthRepository } from "./auth/supabaseRepository";
@@ -14,6 +17,7 @@ import { verifyAccessToken } from "./auth/verifyToken";
 import { performCheckin } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
 import { listClaims, reviewClaim, submitClaim } from "./claims/claims";
+import { requireVenueOwner } from "./claims/requireVenueOwner";
 import { SupabaseClaimRepository } from "./claims/supabaseRepository";
 import {
   listAssignableCategories,
@@ -21,6 +25,8 @@ import {
   reassignVenueCategory,
 } from "./categoryMapping/categoryMapping";
 import { SupabaseCategoryMappingRepository } from "./categoryMapping/supabaseRepository";
+import { createEvent, listEventsForVenue } from "./events/events";
+import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import { LivePlacesClient, type PlaceDetailsClient } from "./places/client";
@@ -105,10 +111,23 @@ function getNeighborhoodAdminRepository(): SupabaseNeighborhoodAdminRepository {
   return neighborhoodAdminRepository;
 }
 
+let announcementRepository: SupabaseAnnouncementRepository | undefined;
+function getAnnouncementRepository(): SupabaseAnnouncementRepository {
+  announcementRepository ??= new SupabaseAnnouncementRepository(getSupabaseClient());
+  return announcementRepository;
+}
+
+let eventRepository: SupabaseEventRepository | undefined;
+function getEventRepository(): SupabaseEventRepository {
+  eventRepository ??= new SupabaseEventRepository(getSupabaseClient());
+  return eventRepository;
+}
+
 export function createApp() {
   const app = express();
 
   const adminGate = requireAdmin(getSupabaseClient, getAuthRepository, getNeighborhoodAdminRepository);
+  const venueOwnerGate = requireVenueOwner(getSupabaseClient, getAuthRepository, getClaimRepository);
 
   app.use((req, _res, next) => {
     req.url =
@@ -174,6 +193,30 @@ export function createApp() {
     } catch (err) {
       console.error(`GET /venues/${req.params.id}/photo failed:`, err);
       res.status(502).json({ error: "Failed to load photo" });
+    }
+  });
+
+  // Business owner venue dashboard (BACKLOG.md): read-only, public listing of
+  // a venue's own announcements/events, shown on the venue detail page.
+  // Authoring is gated (see POST /business/venues/:id/announcements|events
+  // below) -- these two routes are read-only for any visitor.
+  app.get("/venues/:id/announcements", async (req, res) => {
+    try {
+      const announcements = await listAnnouncementsForVenue(req.params.id, getAnnouncementRepository());
+      res.json(announcements);
+    } catch (err) {
+      console.error(`GET /venues/${req.params.id}/announcements failed:`, err);
+      res.status(500).json({ error: "Failed to list announcements" });
+    }
+  });
+
+  app.get("/venues/:id/events", async (req, res) => {
+    try {
+      const events = await listEventsForVenue(req.params.id, getEventRepository());
+      res.json(events);
+    } catch (err) {
+      console.error(`GET /venues/${req.params.id}/events failed:`, err);
+      res.status(500).json({ error: "Failed to list events" });
     }
   });
 
@@ -613,6 +656,100 @@ export function createApp() {
       }
     }
   );
+
+  // Business owner venue dashboard (BACKLOG.md): follower/check-in stats plus
+  // this venue's own announcements/events, for the specific venue this
+  // business account holds an approved claim on (enforced by venueOwnerGate,
+  // not just "is a business account" like GET /business/venues above).
+  app.get("/business/venues/:id/dashboard", venueOwnerGate, async (req, res) => {
+    try {
+      const venue = await getVenueRepository().getVenueDetail(req.params.id);
+      if (!venue) {
+        res.status(404).json({ error: "Venue not found" });
+        return;
+      }
+
+      const [followerCount, checkinCount, announcements, events] = await Promise.all([
+        getFavoriteRepository().countFavoritesForVenue(req.params.id),
+        getCheckinRepository().countCheckinsForVenue(req.params.id),
+        listAnnouncementsForVenue(req.params.id, getAnnouncementRepository()),
+        listEventsForVenue(req.params.id, getEventRepository()),
+      ]);
+
+      const summary: VenueDashboardSummary = {
+        venue_id: venue.id,
+        name: venue.name,
+        address: venue.address,
+        follower_count: followerCount,
+        checkin_count: checkinCount,
+        announcements,
+        events,
+      };
+      res.json(summary);
+    } catch (err) {
+      console.error(`GET /business/venues/${req.params.id}/dashboard failed:`, err);
+      res.status(500).json({ error: "Failed to load venue dashboard" });
+    }
+  });
+
+  app.post("/business/venues/:id/announcements", venueOwnerGate, async (req, res) => {
+    const { title, body } = req.body ?? {};
+    if (typeof title !== "string" || !title || typeof body !== "string" || !body) {
+      res.status(400).json({ error: "title and body are required" });
+      return;
+    }
+
+    try {
+      const announcement = await createAnnouncement(
+        req.params.id,
+        { title, body },
+        getAnnouncementRepository()
+      );
+      res.status(201).json(announcement);
+    } catch (err) {
+      console.error(`POST /business/venues/${req.params.id}/announcements failed:`, err);
+      res.status(500).json({ error: "Failed to create announcement" });
+    }
+  });
+
+  app.post("/business/venues/:id/events", venueOwnerGate, async (req, res) => {
+    const { title, description, start_time, end_time } = req.body ?? {};
+    if (
+      typeof title !== "string" ||
+      !title ||
+      typeof description !== "string" ||
+      !description ||
+      typeof start_time !== "string" ||
+      !start_time ||
+      typeof end_time !== "string" ||
+      !end_time
+    ) {
+      res
+        .status(400)
+        .json({ error: "title, description, start_time, and end_time are required" });
+      return;
+    }
+
+    try {
+      const result = await createEvent(
+        req.params.id,
+        { title, description, startTime: start_time, endTime: end_time },
+        getEventRepository()
+      );
+
+      switch (result.status) {
+        case "invalid_time_range":
+          res.status(400).json({ error: "end_time must be after start_time" });
+          return;
+        case "created":
+          res.status(201).json(result.event);
+          return;
+      }
+    } catch (err) {
+      console.error(`POST /business/venues/${req.params.id}/events failed:`, err);
+      res.status(500).json({ error: "Failed to create event" });
+    }
+  });
 
   return app;
 }

@@ -14,10 +14,8 @@ type State =
 
 // Gated by requireBusinessAccount on GET /business/venues (apps/api) --
 // the concrete, testable slice of "Real user authentication"'s business
-// variant. The actual authoring tools (posting announcements, etc.) are a
-// separate backlog item that depends on this login; this page just proves
-// the account_type gate works end-to-end via the one business action that
-// already exists: viewing venues this account has an approved claim on.
+// variant. Each claimed venue links to its own per-venue dashboard
+// (/business/[venueId]) for stats and announcement/event authoring.
 export default function BusinessPortalPage() {
   const [state, setState] = useState<State>({ status: "loading" });
   const [promoting, setPromoting] = useState(false);
@@ -119,10 +117,16 @@ export default function BusinessPortalPage() {
               key={venue.venue_id}
               className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
             >
-              <a href={`/venues/${venue.venue_id}`} className="font-medium text-black hover:underline dark:text-zinc-50">
+              <a href={`/business/${venue.venue_id}`} className="font-medium text-black hover:underline dark:text-zinc-50">
                 {venue.name}
               </a>
               <p className="text-zinc-600 dark:text-zinc-400">{venue.address}</p>
+              <a
+                href={`/venues/${venue.venue_id}`}
+                className="text-xs text-zinc-500 hover:underline dark:text-zinc-500"
+              >
+                View public page
+              </a>
             </li>
           ))}
         </ul>

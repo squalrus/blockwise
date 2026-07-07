@@ -40,4 +40,6 @@ export interface CheckinRepository {
   // venue-joined listing for a signed-in user, mirroring
   // favorites/repository.ts's listFavoriteVenuesForUser.
   listCheckinsForUser(userId: string): Promise<CheckinVenue[]>;
+  // Backs the business owner venue dashboard's "check-in count" (BACKLOG.md).
+  countCheckinsForVenue(venueId: string): Promise<number>;
 }

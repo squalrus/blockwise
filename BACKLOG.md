@@ -38,6 +38,7 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | M | M |
 | [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect) | M | M |
 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | M | M |
+| [Business-editable venue basic data](#business-editable-venue-basic-data) | M | M |
 | [Monetization: credits & entitlements](#monetization-credits--entitlements) | L | M |
 | [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) | M | L |
 | [Yelp Fusion enrichment (future)](#yelp-fusion-enrichment-future) | M | L |
@@ -148,6 +149,11 @@ No open limitations.
 **Type:** feature
 **Why** — Same rationale as Google social sign-in (shipped v0.10.0) — removes a signup step at the moments that flow is meant to make frictionless — but scoped separately since it's a materially bigger lift with its own setup dependencies and timeline.
 **Notes:** Requires Apple Developer Program enrollment, creating a Services ID, and generating a rotating client-secret JWT (Apple secrets expire and must be regenerated, unlike Google's). Same completion flow on the app side as Google once configured — `supabase.auth.signInWithOAuth`, a redirect callback route, then the existing `/auth/complete-signup`/`/auth/complete-login`, since `verifyToken.ts` already reads the provider generically off `app_metadata`.
+
+### Business-editable venue basic data
+**Type:** feature
+**Why** — Google-sourced venue data (name, description, hours, photos) is only as current as the last sync pipeline run — a claimed business owner has no way to correct or supplement it themselves (e.g. updated hours, a better description, their own photos) between syncs.
+**Notes:** Builds on [Business owner venue dashboard](#business-owner-venue-dashboard) — that dashboard is the surface this editing UI would live in, so build it second. Needs a way to distinguish owner-edited fields from sync-pipeline-written ones so a future sync run doesn't silently overwrite an owner's edits (e.g. an `overridden_by_owner` flag per field, or a separate `VenueOverride` table the read path merges on top of the synced `Venue` row).
 
 ### Monetization: credits & entitlements
 **Type:** feature

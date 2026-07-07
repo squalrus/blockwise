@@ -116,4 +116,14 @@ export class SupabaseCheckinRepository implements CheckinRepository {
         checkedInAt: row.checkedInAt,
       }));
   }
+
+  async countCheckinsForVenue(venueId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("checkin")
+      .select("id", { count: "exact", head: true })
+      .eq("venue_id", venueId);
+
+    if (error) throw new Error(`countCheckinsForVenue failed: ${error.message}`);
+    return count ?? 0;
+  }
 }

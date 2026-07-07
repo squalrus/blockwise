@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.14.0] — 2026-07-06
+
+### Added
+
+- **Business owner venue dashboard.** A claimed business owner can now open a per-venue dashboard (`/business/[venueId]`, linked from each venue on the existing `/business` portal) showing follower count (a count of `favorite` rows — there's no separate "follow" table) and check-in count, alongside two new content types they can author: `Announcement` (a one-off update) and `Event` (a scheduled, time-boxed listing), both scoped to the venue and shown publicly on that venue's detail page. Ownership of the specific venue being managed is enforced server-side by a new `requireVenueOwner` middleware — stronger than the existing `requireBusinessAccount` gate, which only proved "a business account" rather than "owns this venue." No moderation queue or entitlement/credit gating yet — announcements publish immediately and creation is unlimited — both are separate, later backlog items ("Business announcements", "Monetization: credits & entitlements"). New `GET /business/venues/:id/dashboard`, `POST /business/venues/:id/announcements`, `POST /business/venues/:id/events`, and public `GET /venues/:id/announcements`/`events` endpoints. 6 new unit tests. (`supabase/migrations/20260706080000_business_owner_dashboard.sql`, `apps/api/src/announcements/`, `apps/api/src/events/`, `apps/api/src/claims/requireVenueOwner.ts`, `apps/api/src/claims/repository.ts`, `apps/api/src/claims/supabaseRepository.ts`, `apps/api/src/favorites/repository.ts`, `apps/api/src/favorites/supabaseRepository.ts`, `apps/api/src/checkins/repository.ts`, `apps/api/src/checkins/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/business/`, `apps/web/src/app/venues/[id]/page.tsx`, `packages/types/src/index.ts`)
+
 ## [0.13.0] — 2026-07-06
 
 ### Added

@@ -45,6 +45,10 @@ class FakeFavoriteRepository implements FavoriteRepository {
   async listFavoriteVenuesForUser(_userId: string): Promise<FavoriteVenue[]> {
     return [];
   }
+
+  async countFavoritesForVenue(venueId: string): Promise<number> {
+    return this.favorites.filter((f) => f.venueId === venueId).length;
+  }
 }
 
 describe("addFavorite", () => {
