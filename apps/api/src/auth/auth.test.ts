@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { completeLogin, completeSignup, promoteToBusiness } from "./auth";
-import type { AppUserRecord, AuthRepository, CompleteSignupInput } from "./repository";
+import { completeLogin, completeSignup, promoteToBusiness, updateProfile } from "./auth";
+import type { AppUserRecord, AuthRepository, CompleteSignupInput, UpdateProfileInput } from "./repository";
 import type { VerifiedAuthUser } from "./verifyToken";
 
 // In-memory fake, mirroring the pattern used for CheckinRepository/
@@ -20,6 +20,9 @@ class FakeAuthRepository implements AuthRepository {
       email: null,
       phone: null,
       anonymousDeviceId: deviceId,
+      displayName: null,
+      avatarUrl: null,
+      visibility: "private",
       createdAt: new Date().toISOString(),
     };
     this.users.push(user);
@@ -59,6 +62,9 @@ class FakeAuthRepository implements AuthRepository {
       email: input.email,
       phone: input.phone,
       anonymousDeviceId: null,
+      displayName: null,
+      avatarUrl: null,
+      visibility: "private",
       createdAt: new Date().toISOString(),
     };
     this.users.push(created);
@@ -81,6 +87,14 @@ class FakeAuthRepository implements AuthRepository {
   async updateAccountType(userId: string, accountType: AppUserRecord["accountType"]): Promise<AppUserRecord> {
     const user = this.users.find((u) => u.id === userId)!;
     user.accountType = accountType;
+    return user;
+  }
+
+  async updateProfile(userId: string, input: UpdateProfileInput): Promise<AppUserRecord> {
+    const user = this.users.find((u) => u.id === userId)!;
+    if ("displayName" in input) user.displayName = input.displayName ?? null;
+    if ("avatarUrl" in input) user.avatarUrl = input.avatarUrl ?? null;
+    if ("visibility" in input) user.visibility = input.visibility!;
     return user;
   }
 }
@@ -127,6 +141,61 @@ describe("completeSignup", () => {
 
     expect(second.id).toBe(first.id);
     expect(repo.users).toHaveLength(1);
+  });
+});
+
+describe("updateProfile", () => {
+  it("sets display name, avatar, and visibility", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+
+    const updated = await updateProfile(
+      user,
+      { displayName: "Jane", avatarUrl: "https://example.com/avatar.png", visibility: "public" },
+      repo
+    );
+
+    expect(updated.displayName).toBe("Jane");
+    expect(updated.avatarUrl).toBe("https://example.com/avatar.png");
+    expect(updated.visibility).toBe("public");
+  });
+
+  it("defaults to private visibility on signup, before any profile edit", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+    expect(user.visibility).toBe("private");
+  });
+
+  it("leaves fields not present in the input unchanged", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+    await updateProfile(user, { displayName: "Jane", visibility: "public" }, repo);
+
+    const updated = await updateProfile(user, { avatarUrl: "https://example.com/avatar.png" }, repo);
+
+    expect(updated.displayName).toBe("Jane");
+    expect(updated.visibility).toBe("public");
+    expect(updated.avatarUrl).toBe("https://example.com/avatar.png");
+  });
+
+  it("treats a blank display name as clearing it rather than storing an empty string", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+    await updateProfile(user, { displayName: "Jane" }, repo);
+
+    const updated = await updateProfile(user, { displayName: "   " }, repo);
+
+    expect(updated.displayName).toBeNull();
+  });
+
+  it("clears a field when explicitly set to null", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+    await updateProfile(user, { avatarUrl: "https://example.com/avatar.png" }, repo);
+
+    const updated = await updateProfile(user, { avatarUrl: null }, repo);
+
+    expect(updated.avatarUrl).toBeNull();
   });
 });
 

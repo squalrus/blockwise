@@ -225,17 +225,31 @@ export interface UpdateSocialLinksRequest {
 
 export type AccountType = "consumer" | "business";
 
+// BACKLOG.md "User profiles with public or private visibility" -- private by
+// default, since a signed-in identity doesn't by itself imply the user wants
+// their presence (activity, connections) visible to anyone else.
+export type ProfileVisibility = "public" | "private";
+
 export interface AppUser {
   id: string;
   is_anonymous: boolean;
   account_type: AccountType;
   email: string | null;
   phone: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  visibility: ProfileVisibility;
   created_at: string;
   // Additive to account_type -- an account can be a consumer, a claimed
   // business owner, and a neighborhood admin all at once (BACKLOG.md
   // "Neighborhood admin invites").
   is_neighborhood_admin: boolean;
+}
+
+export interface UpdateProfileRequest {
+  display_name?: string | null;
+  avatar_url?: string | null;
+  visibility?: ProfileVisibility;
 }
 
 export interface CompleteSignupRequest {

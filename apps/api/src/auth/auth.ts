@@ -1,5 +1,5 @@
 import type { AccountType, AppUser } from "@blockwise/types";
-import type { AppUserRecord, AuthRepository } from "./repository";
+import type { AppUserRecord, AuthRepository, UpdateProfileInput } from "./repository";
 import type { VerifiedAuthUser } from "./verifyToken";
 
 export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean): AppUser {
@@ -9,6 +9,9 @@ export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean): 
     account_type: record.accountType,
     email: record.email,
     phone: record.phone,
+    display_name: record.displayName,
+    avatar_url: record.avatarUrl,
+    visibility: record.visibility,
     created_at: record.createdAt,
     is_neighborhood_admin: isNeighborhoodAdmin,
   };
@@ -46,6 +49,27 @@ export async function promoteToBusiness(
 ): Promise<AppUserRecord> {
   if (user.accountType === "business") return user;
   return repository.updateAccountType(user.id, "business");
+}
+
+// Self-service profile edit (BACKLOG.md "User profiles with public or
+// private visibility"). Only fields present in `input` are changed -- a
+// field explicitly set to null clears it, one simply omitted is left alone.
+// Blank display names are treated as "not set" rather than stored as an
+// empty string.
+export async function updateProfile(
+  user: AppUserRecord,
+  input: UpdateProfileInput,
+  repository: AuthRepository
+): Promise<AppUserRecord> {
+  const patch: UpdateProfileInput = {};
+  if ("displayName" in input) {
+    const trimmed = input.displayName?.trim();
+    patch.displayName = trimmed ? trimmed : null;
+  }
+  if ("avatarUrl" in input) patch.avatarUrl = input.avatarUrl;
+  if ("visibility" in input) patch.visibility = input.visibility;
+
+  return repository.updateProfile(user.id, patch);
 }
 
 export type CompleteLoginResult =

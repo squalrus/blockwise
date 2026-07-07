@@ -7,6 +7,7 @@ import type {
   NeighborhoodDashboardSummary,
   NeighborhoodProfile,
   NeighborhoodSummary,
+  ProfileVisibility,
   SocialLinks,
   SocialPlatform,
   VenueDashboardSummary,
@@ -16,7 +17,7 @@ import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
 import { SupabaseNeighborhoodAdminRepository } from "./admin/supabaseRepository";
 import { createAnnouncement, listAnnouncementsForVenue } from "./announcements/announcements";
 import { SupabaseAnnouncementRepository } from "./announcements/supabaseRepository";
-import { completeLogin, completeSignup, promoteToBusiness, toAppUser } from "./auth/auth";
+import { completeLogin, completeSignup, promoteToBusiness, toAppUser, updateProfile } from "./auth/auth";
 import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from "./auth/requireAuthUser";
 import { SupabaseAuthRepository } from "./auth/supabaseRepository";
 import { verifyAccessToken } from "./auth/verifyToken";
@@ -80,6 +81,7 @@ const CONTACT_METHODS: BusinessClaimContactMethod[] = ["phone", "email", "domain
 const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"];
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
+const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "private"];
 
 // Shared by the neighborhood-admin and business-owner social-links PATCH
 // routes -- rejects unknown platform keys and non-string values rather than
@@ -622,6 +624,47 @@ export function createApp() {
       } catch (err) {
         console.error("GET /me/neighborhoods failed:", err);
         res.status(500).json({ error: "Failed to list joined neighborhoods" });
+      }
+    }
+  );
+
+  // BACKLOG.md "User profiles with public or private visibility": display
+  // name / avatar / public-private toggle, self-service only -- req.appUser
+  // is always the caller's own row (resolved from their own token), never
+  // another user's, so there's no id param to authorize against.
+  app.patch(
+    "/me/profile",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      const { display_name, avatar_url, visibility } = req.body ?? {};
+      if (display_name !== undefined && display_name !== null && typeof display_name !== "string") {
+        res.status(400).json({ error: "display_name must be a string or null" });
+        return;
+      }
+      if (avatar_url !== undefined && avatar_url !== null && typeof avatar_url !== "string") {
+        res.status(400).json({ error: "avatar_url must be a string or null" });
+        return;
+      }
+      if (visibility !== undefined && !PROFILE_VISIBILITIES.includes(visibility)) {
+        res.status(400).json({ error: `visibility must be one of ${PROFILE_VISIBILITIES.join(", ")}` });
+        return;
+      }
+
+      try {
+        const updated = await updateProfile(
+          req.appUser!,
+          {
+            ...(display_name !== undefined && { displayName: display_name }),
+            ...(avatar_url !== undefined && { avatarUrl: avatar_url }),
+            ...(visibility !== undefined && { visibility }),
+          },
+          getAuthRepository()
+        );
+        const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(updated.id);
+        res.json(toAppUser(updated, isAdmin));
+      } catch (err) {
+        console.error("PATCH /me/profile failed:", err);
+        res.status(500).json({ error: "Failed to update profile" });
       }
     }
   );

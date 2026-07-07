@@ -1,9 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AccountType } from "@blockwise/types";
-import type { AppUserRecord, AuthRepository, CompleteSignupInput } from "./repository";
+import type { AccountType, ProfileVisibility } from "@blockwise/types";
+import type { AppUserRecord, AuthRepository, CompleteSignupInput, UpdateProfileInput } from "./repository";
 
 const USER_COLUMNS =
-  "id, is_anonymous, account_type, auth_user_id, auth_provider, email, phone, anonymous_device_id, created_at";
+  "id, is_anonymous, account_type, auth_user_id, auth_provider, email, phone, anonymous_device_id, display_name, avatar_url, visibility, created_at";
 
 function toRecord(row: {
   id: string;
@@ -14,6 +14,9 @@ function toRecord(row: {
   email: string | null;
   phone: string | null;
   anonymous_device_id: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  visibility: ProfileVisibility;
   created_at: string;
 }): AppUserRecord {
   return {
@@ -25,6 +28,9 @@ function toRecord(row: {
     email: row.email,
     phone: row.phone,
     anonymousDeviceId: row.anonymous_device_id,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    visibility: row.visibility,
     createdAt: row.created_at,
   };
 }
@@ -142,6 +148,23 @@ export class SupabaseAuthRepository implements AuthRepository {
       .single();
 
     if (error) throw new Error(`updateAccountType failed: ${error.message}`);
+    return toRecord(data);
+  }
+
+  async updateProfile(userId: string, input: UpdateProfileInput): Promise<AppUserRecord> {
+    const patch: Record<string, unknown> = {};
+    if ("displayName" in input) patch.display_name = input.displayName;
+    if ("avatarUrl" in input) patch.avatar_url = input.avatarUrl;
+    if ("visibility" in input) patch.visibility = input.visibility;
+
+    const { data, error } = await this.supabase
+      .from("app_user")
+      .update(patch)
+      .eq("id", userId)
+      .select(USER_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`updateProfile failed: ${error.message}`);
     return toRecord(data);
   }
 }

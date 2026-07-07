@@ -77,7 +77,8 @@ Auth gates:
 /me/
 ├── checkins                                          GET — auth
 ├── favorites                                          GET — auth
-└── neighborhoods                                      GET — auth
+├── neighborhoods                                      GET — auth
+└── profile                                            PATCH — auth — display_name/avatar_url/visibility
 
 /business/
 ├── venues                                            GET — business — venues this account has claimed
