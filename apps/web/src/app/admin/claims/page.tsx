@@ -2,43 +2,43 @@
 
 import { useEffect, useState } from "react";
 import type { BusinessClaim, BusinessClaimStatus } from "@blockwise/types";
+import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
-const TOKEN_STORAGE_KEY = "blockwise_admin_token";
+type TokenState = { status: "loading" } | { status: "signed_out" } | { status: "ready"; token: string };
 
 // Internal-only page for reviewing business claims (README §5). Gated by the
-// same shared secret the API's requireAdmin middleware checks -- there's no
-// real admin auth system yet (see BACKLOG.md's separate admin-portal item),
-// so this is a pragmatic MVP: paste the token once, it's kept in
-// sessionStorage for the rest of the browser session.
+// API's requireAdmin middleware, which checks the signed-in account has a
+// neighborhood_admin row -- reuses the same session token as every other
+// authenticated route (see lib/auth.ts) rather than a separate admin token.
 export default function AdminClaimsPage() {
-  const [token, setToken] = useState("");
-  const [tokenInput, setTokenInput] = useState("");
+  const [tokenState, setTokenState] = useState<TokenState>({ status: "loading" });
   const [status, setStatus] = useState<BusinessClaimStatus>("pending");
   const [claims, setClaims] = useState<BusinessClaim[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<"unauthorized" | "forbidden" | "failed" | null>(null);
 
   useEffect(() => {
-    // sessionStorage isn't available during the static prerender of this
-    // page, so it can't be read via a useState lazy initializer -- this has
-    // to happen post-hydration, in an effect.
-    const stored = window.sessionStorage.getItem(TOKEN_STORAGE_KEY);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (stored) setToken(stored);
+    getAccessToken().then((token) => setTokenState(token ? { status: "ready", token } : { status: "signed_out" }));
   }, []);
 
   async function loadClaims(activeToken: string, activeStatus: BusinessClaimStatus) {
     setError(null);
     const res = await fetch(clientApiUrl(`/admin/claims?status=${activeStatus}`), {
-      headers: { "X-Admin-Token": activeToken },
+      headers: { Authorization: `Bearer ${activeToken}` },
     });
     if (res.status === 401) {
-      setError("Invalid admin token");
+      setError("unauthorized");
+      setClaims(null);
+      return;
+    }
+    if (res.status === 403) {
+      setError("forbidden");
       setClaims(null);
       return;
     }
     if (!res.ok) {
-      setError("Failed to load claims");
+      setError("failed");
       return;
     }
     setClaims(await res.json());
@@ -50,47 +50,61 @@ export default function AdminClaimsPage() {
     // stricter set-state-in-effect check flags since loadClaims eventually
     // calls setClaims/setError.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (token) loadClaims(token, status);
-  }, [token, status]);
-
-  function handleTokenSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    window.sessionStorage.setItem(TOKEN_STORAGE_KEY, tokenInput);
-    setToken(tokenInput);
-  }
+    if (tokenState.status === "ready") loadClaims(tokenState.token, status);
+  }, [tokenState, status]);
 
   async function handleReview(claimId: string, decision: "approve" | "reject") {
+    if (tokenState.status !== "ready") return;
     const res = await fetch(clientApiUrl(`/admin/claims/${claimId}/${decision}`), {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Admin-Token": token },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenState.token}` },
       body: JSON.stringify({}),
     });
     if (!res.ok) {
-      setError(`Failed to ${decision} claim`);
+      setError("failed");
       return;
     }
-    await loadClaims(token, status);
+    await loadClaims(tokenState.token, status);
   }
 
-  if (!token) {
+  if (tokenState.status === "loading") return null;
+
+  if (tokenState.status === "signed_out") {
     return (
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-16 font-sans">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: claims</h1>
-        <form onSubmit={handleTokenSubmit} className="flex flex-col gap-2">
-          <input
-            type="password"
-            value={tokenInput}
-            onChange={(e) => setTokenInput(e.target.value)}
-            placeholder="Admin token"
-            className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
-          />
-          <button
-            type="submit"
-            className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
-          >
-            Continue
-          </button>
-        </form>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          You need to be signed in to view this page.{" "}
+          <a href="/login" className="underline">
+            Log in
+          </a>
+        </p>
+      </div>
+    );
+  }
+
+  if (error === "forbidden") {
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-16 font-sans">
+        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: claims</h1>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          You&apos;re signed in, but your account isn&apos;t a neighborhood admin.
+        </p>
+      </div>
+    );
+  }
+
+  if (error === "unauthorized") {
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-16 font-sans">
+        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: claims</h1>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Your session expired.{" "}
+          <a href="/login" className="underline">
+            Log in
+          </a>{" "}
+          again.
+        </p>
       </div>
     );
   }
@@ -115,7 +129,7 @@ export default function AdminClaimsPage() {
         ))}
       </div>
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error === "failed" && <p className="text-sm text-red-600 dark:text-red-400">Something went wrong.</p>}
 
       {claims?.length === 0 && (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">No {status} claims.</p>

@@ -36,6 +36,16 @@ export function AccountNav() {
             Business portal
           </a>
         )}
+        {state.status === "signed_in" && state.user.is_neighborhood_admin && (
+          <>
+            <a href="/admin/claims" className="text-zinc-600 hover:underline dark:text-zinc-400">
+              Admin: claims
+            </a>
+            <a href="/admin/venues" className="text-zinc-600 hover:underline dark:text-zinc-400">
+              Admin: venues
+            </a>
+          </>
+        )}
         {state.status === "signed_in" && (
           <button onClick={handleLogOut} className="text-zinc-600 hover:underline dark:text-zinc-400">
             Log out
