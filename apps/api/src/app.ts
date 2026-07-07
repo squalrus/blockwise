@@ -371,9 +371,13 @@ export function createApp() {
   // README §5: claim submission is public; verification is manual/admin
   // reviewed (no SMS/email provider wired in yet) via the /admin/claims
   // routes below. Authentication is optional here (attachOptionalAuthUser)
-  // rather than required -- a signed-in business account gets its claim
-  // auto-linked (see claimed_by_user_id / GET /business/venues below), but
-  // the anonymous contact-info-only path still works unchanged.
+  // rather than required -- any signed-in account (consumer or business, see
+  // claimed_by_user_id / GET /business/venues below) gets its claim
+  // auto-linked, since account_type can still be promoted to business later
+  // via /auth/promote-to-business -- gating this on already being a business
+  // account at submission time would silently drop the link for the common
+  // "submit a claim, then promote" order. The anonymous contact-info-only
+  // path still works unchanged.
   app.post(
     "/venues/:id/claims",
     attachOptionalAuthUser(getSupabaseClient, getAuthRepository),
@@ -404,7 +408,7 @@ export function createApp() {
             contactMethod: contact_method,
             contactValue: contact_value,
             note,
-            claimedByUserId: req.appUser?.accountType === "business" ? req.appUser.id : null,
+            claimedByUserId: req.appUser?.id ?? null,
           },
           getClaimRepository()
         );

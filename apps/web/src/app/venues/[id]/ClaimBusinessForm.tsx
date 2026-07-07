@@ -27,10 +27,11 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
     };
 
     try {
-      // If signed in (as any account type), attach it -- the API only acts
-      // on this for a business account (auto-linking claimed_by_user_id so
-      // it shows up in that account's /business portal); it's a no-op
-      // otherwise, so this is safe to send unconditionally.
+      // If signed in (as any account type), attach it -- the API auto-links
+      // claimed_by_user_id to whichever account submitted the claim, even if
+      // it's still a consumer account at this point (see app.ts), so it
+      // shows up in /business once both the claim is approved and the
+      // account is promoted to business, in either order.
       const token = await getAccessToken();
       const res = await fetch(clientApiUrl(`/venues/${venueId}/claims`), {
         method: "POST",
