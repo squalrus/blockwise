@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.16.0] — 2026-07-06
+
+### Added
+
+- **Neighborhoods on landing page and user profile.** Neighborhoods are now discoverable and joinable from the landing page, and visible on the "My account" page. A new `neighborhood_member` table (`user_id`, `neighborhood_id`, `is_primary`) records a signed-in user's membership, with a partial unique index enforcing at most one "home" neighborhood per user. The landing page now shows every active neighborhood with a join/leave button (and a "Your neighborhoods" section when signed in) via a new public `GET /neighborhoods` endpoint (optionally authenticated to flag which are already joined). The neighborhood profile page (`/neighborhoods/[slug]`) gained a matching join/leave button. The account page gained a "Neighborhoods" section listing joined neighborhoods with a "Set as home" action. New endpoints: `GET /neighborhoods`, `GET /me/neighborhoods`, `POST`/`DELETE /neighborhoods/:id/join`, `POST /neighborhoods/:id/home`, all backed by a new `neighborhoodMembers/` domain mirroring the `favorites/` pattern, but sign-in required rather than device-scoped. 6 new unit tests. (`supabase/migrations/20260706100000_neighborhood_membership.sql`, `apps/api/src/neighborhoodMembers/`, `apps/api/src/neighborhoods/repository.ts`, `apps/api/src/neighborhoods/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/NeighborhoodsSection.tsx`, `apps/web/src/app/page.tsx`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/JoinNeighborhoodButton.tsx`, `packages/types/src/index.ts`)
+
 ## [0.15.0] — 2026-07-07
 
 ### Added

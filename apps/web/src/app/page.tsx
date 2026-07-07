@@ -1,5 +1,6 @@
 import type { HealthCheckResponse } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
+import { NeighborhoodsSection } from "./NeighborhoodsSection";
 
 const HEALTH_URL = apiUrl("/health");
 
@@ -17,10 +18,13 @@ export default async function Home() {
   const apiHealth = await getApiHealth();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-zinc-50 p-16 font-sans dark:bg-black">
+    <div className="flex min-h-screen flex-col items-center gap-6 bg-zinc-50 p-16 font-sans dark:bg-black">
       <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
         Blockwise
       </h1>
+
+      <NeighborhoodsSection />
+
       <div className="rounded-lg border border-black/[.08] px-6 py-4 text-sm dark:border-white/[.145]">
         <p className="text-zinc-600 dark:text-zinc-400">apps/api health check</p>
         {apiHealth ? (

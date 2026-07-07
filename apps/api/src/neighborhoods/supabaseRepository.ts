@@ -57,4 +57,15 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
     if (error) throw new Error(`updateDescription failed: ${error.message}`);
     return toRecord(data);
   }
+
+  async listActive(): Promise<NeighborhoodRecord[]> {
+    const { data, error } = await this.supabase
+      .from("neighborhood")
+      .select(NEIGHBORHOOD_COLUMNS)
+      .eq("status", "active")
+      .order("name");
+
+    if (error) throw new Error(`listActive failed: ${error.message}`);
+    return (data ?? []).map(toRecord);
+  }
 }
