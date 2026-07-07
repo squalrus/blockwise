@@ -30,7 +30,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | [Challenges + badges/points](#challenges--badgespoints) | M | M |
 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | M | M |
 | [Admin portal: neighborhood boundary drawing](#admin-portal-neighborhood-boundary-drawing) | M | M |
-| [Neighborhood admin invites](#neighborhood-admin-invites) | M | M |
 | [Neighborhood notifications](#neighborhood-notifications) | M | M |
 | [Neighborhood profile pages](#neighborhood-profile-pages) | M | M |
 | [Business omission & venue merging](#business-omission--venue-merging) | M | M |
@@ -111,15 +110,10 @@ No open limitations.
 **Why** — Makes onboarding a second neighborhood after Phinneywood a data workflow instead of a code change (README §12.3, §12.5).
 **Notes:** Interactive polygon-drawing tool (Mapbox GL Draw or Google Maps Drawing Library) gated to internal staff, with a dry-run Places query preview before committing the boundary, per README §12.6. Also covers re-editing an existing neighborhood's boundary (not create-only), per the same section.
 
-### Neighborhood admin invites
-**Type:** feature
-**Why** — Every admin action shipped so far (claims review, and the planned boundary-drawing and category tools) is gated by a single shared `ADMIN_API_TOKEN` secret (v0.6.0) rather than individual accounts — there's no way to add or remove one person's admin access without rotating the shared secret for everyone. This becomes a real gap once a second neighborhood (README §12.3) has its own local staff who shouldn't have blanket access to every neighborhood.
-**Notes:** Likely needs [Real user authentication](#real-user-authentication) first (a per-person identity to attach a role to). Scope: a join table between `User` and `Neighborhood` carrying a role, plus an invite flow (email link) for internal staff — replaces or layers on top of the current shared-token gate.
-
 ### Neighborhood notifications
 **Type:** feature
-**Why** — Business announcements are per-venue and reach only that business's followers; there's no way for neighborhood-level staff (see [Neighborhood admin invites](#neighborhood-admin-invites)) to broadcast something to everyone in a neighborhood at once (e.g. an event, a service outage, a safety notice).
-**Notes:** Likely a `NeighborhoodNotification` (or reuse `Announcement` with a nullable `venue_id` for neighborhood-wide scope) authored via an admin tool gated the same way as other admin surfaces; delivery channel (push vs. in-app feed) probably follows whatever [Business announcements](#business-announcements) settles on. Depends on [Neighborhood admin invites](#neighborhood-admin-invites) for a scoped staff identity to author as, and on [Business announcements](#business-announcements) for the underlying feed/notification plumbing.
+**Why** — Business announcements are per-venue and reach only that business's followers; there's no way for neighborhood-level staff (neighborhood admin roles shipped v0.12.0) to broadcast something to everyone in a neighborhood at once (e.g. an event, a service outage, a safety notice).
+**Notes:** Likely a `NeighborhoodNotification` (or reuse `Announcement` with a nullable `venue_id` for neighborhood-wide scope) authored via an admin tool gated the same way as other admin surfaces (`requireAdmin`, v0.12.0); delivery channel (push vs. in-app feed) probably follows whatever [Business announcements](#business-announcements) settles on. Depends on [Business announcements](#business-announcements) for the underlying feed/notification plumbing.
 
 ### Neighborhood profile pages
 **Type:** feature

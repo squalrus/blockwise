@@ -6,6 +6,7 @@ import type {
   HealthCheckResponse,
 } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
+import { SupabaseNeighborhoodAdminRepository } from "./admin/supabaseRepository";
 import { completeLogin, completeSignup, promoteToBusiness, toAppUser } from "./auth/auth";
 import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from "./auth/requireAuthUser";
 import { SupabaseAuthRepository } from "./auth/supabaseRepository";
@@ -98,8 +99,16 @@ function getCategoryMappingRepository(): SupabaseCategoryMappingRepository {
   return categoryMappingRepository;
 }
 
+let neighborhoodAdminRepository: SupabaseNeighborhoodAdminRepository | undefined;
+function getNeighborhoodAdminRepository(): SupabaseNeighborhoodAdminRepository {
+  neighborhoodAdminRepository ??= new SupabaseNeighborhoodAdminRepository(getSupabaseClient());
+  return neighborhoodAdminRepository;
+}
+
 export function createApp() {
   const app = express();
+
+  const adminGate = requireAdmin(getSupabaseClient, getAuthRepository, getNeighborhoodAdminRepository);
 
   app.use((req, _res, next) => {
     req.url =
@@ -336,7 +345,7 @@ export function createApp() {
     }
   );
 
-  app.get("/admin/claims", requireAdmin, async (req, res) => {
+  app.get("/admin/claims", adminGate, async (req, res) => {
     const status = req.query.status;
     if (status !== undefined && !CLAIM_STATUSES.includes(status as BusinessClaimStatus)) {
       res.status(400).json({ error: `status must be one of ${CLAIM_STATUSES.join(", ")}` });
@@ -384,12 +393,12 @@ export function createApp() {
     }
   };
 
-  app.post("/admin/claims/:id/approve", requireAdmin, reviewHandler("approve"));
-  app.post("/admin/claims/:id/reject", requireAdmin, reviewHandler("reject"));
+  app.post("/admin/claims/:id/approve", adminGate, reviewHandler("approve"));
+  app.post("/admin/claims/:id/reject", adminGate, reviewHandler("reject"));
 
   // Category mapping admin tool (BACKLOG.md): manual override for venues the
   // sync's category-normalization step (README §1.4 step 3) mapped wrong.
-  app.get("/admin/venues", requireAdmin, async (req, res) => {
+  app.get("/admin/venues", adminGate, async (req, res) => {
     const search = req.query.search;
     if (search !== undefined && typeof search !== "string") {
       res.status(400).json({ error: "search must be a string" });
@@ -405,7 +414,7 @@ export function createApp() {
     }
   });
 
-  app.get("/admin/categories", requireAdmin, async (_req, res) => {
+  app.get("/admin/categories", adminGate, async (_req, res) => {
     try {
       const categories = await listAssignableCategories(getCategoryMappingRepository());
       res.json(categories);
@@ -415,7 +424,7 @@ export function createApp() {
     }
   });
 
-  app.patch("/admin/venues/:id/category", requireAdmin, async (req, res) => {
+  app.patch("/admin/venues/:id/category", adminGate, async (req, res) => {
     const { category_id } = req.body ?? {};
     if (typeof category_id !== "string" || !category_id) {
       res.status(400).json({ error: "category_id is required" });
@@ -480,7 +489,8 @@ export function createApp() {
         anonymous_device_id ?? null,
         getAuthRepository()
       );
-      res.status(200).json(toAppUser(user));
+      const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(user.id);
+      res.status(200).json(toAppUser(user, isAdmin));
     } catch (err) {
       console.error("POST /auth/complete-signup failed:", err);
       res.status(500).json({ error: "Failed to complete signup" });
@@ -515,15 +525,17 @@ export function createApp() {
         res.status(404).json({ error: "No account found for this login -- complete signup first" });
         return;
       }
-      res.json(toAppUser(result.user));
+      const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(result.user.id);
+      res.json(toAppUser(result.user, isAdmin));
     } catch (err) {
       console.error("POST /auth/complete-login failed:", err);
       res.status(500).json({ error: "Failed to complete login" });
     }
   });
 
-  app.get("/auth/me", requireAuthUser(getSupabaseClient, getAuthRepository), (req, res) => {
-    res.json(toAppUser(req.appUser!));
+  app.get("/auth/me", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(req.appUser!.id);
+    res.json(toAppUser(req.appUser!, isAdmin));
   });
 
   // Any signed-in account can upgrade itself to a business account -- there's
@@ -534,7 +546,8 @@ export function createApp() {
     async (req, res) => {
       try {
         const user = await promoteToBusiness(req.appUser!, getAuthRepository());
-        res.json(toAppUser(user));
+        const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(user.id);
+        res.json(toAppUser(user, isAdmin));
       } catch (err) {
         console.error("POST /auth/promote-to-business failed:", err);
         res.status(500).json({ error: "Failed to upgrade to a business account" });

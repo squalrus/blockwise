@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.12.0] — 2026-07-06
+
+### Added
+
+- **Neighborhood admin roles.** Replaces the shared `ADMIN_API_TOKEN` secret with per-account admin roles: a new `neighborhood_admin` table (`user_id`, `neighborhood_id`) is checked by `requireAdmin`, which now requires a real signed-in session (the same Bearer-token auth as every other `/auth/*`-gated route) instead of an `X-Admin-Token` header. The role is additive to `account_type` — an account can be a consumer, a claimed business owner, and a neighborhood admin all at once. Granting is done via a new CLI script (`npm run grant:admin -- <email> <neighborhood-slug>`, mirroring `sync:places`) rather than a self-service invite UI, matching this project's current solo-operator scale — a self-serve invite flow remains a smaller follow-up on the backlog. `AppUser` gained an `is_neighborhood_admin` flag, surfaced in the top nav (`AccountNav`) as "Admin: claims" / "Admin: venues" links alongside the existing "Business portal" link. The `/admin/claims` and `/admin/venues` pages now sign requests with the browser's own session token instead of a pasted admin token. (`supabase/migrations/20260706070000_neighborhood_admin.sql`, `apps/api/src/admin/`, `apps/api/src/app.ts`, `apps/api/src/auth/auth.ts`, `apps/api/src/scripts/grantNeighborhoodAdmin.ts`, `apps/web/src/app/admin/`, `apps/web/src/app/AccountNav.tsx`, `packages/types/src/index.ts`)
+
 ## [0.11.0] — 2026-07-06
 
 ### Added

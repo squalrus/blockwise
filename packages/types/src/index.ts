@@ -171,6 +171,10 @@ export interface AppUser {
   email: string | null;
   phone: string | null;
   created_at: string;
+  // Additive to account_type -- an account can be a consumer, a claimed
+  // business owner, and a neighborhood admin all at once (BACKLOG.md
+  // "Neighborhood admin invites").
+  is_neighborhood_admin: boolean;
 }
 
 export interface CompleteSignupRequest {
