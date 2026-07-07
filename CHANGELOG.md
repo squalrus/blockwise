@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.17.0] — 2026-07-06
+
+### Added
+
+- **Category taxonomy management.** The category-mapping admin tool (v0.11.0) could only reassign which existing leaf category a venue belongs to — there was no way to add, rename, or retire a category itself without a direct DB edit. A new admin page (`/admin/category-taxonomy`) lets admins create top-level groups or leaf categories (optionally tagging a leaf with the Google Places `types[]` the sync pipeline matches against), rename any category, and archive one — archiving is blocked if the category is still assigned to any venue, or (for a group) still has active leaf children, so nothing gets silently orphaned. Archived categories no longer appear as assignable options in the existing venue category-reassignment tool. Adds a `category.status` column (`active`/`archived`, mirroring the status-enum pattern already used by `neighborhood`/`business_claim`) rather than deleting rows outright. New endpoints: `GET`/`POST /admin/category-taxonomy`, `PATCH /admin/category-taxonomy/:id`, `POST /admin/category-taxonomy/:id/archive`, all gated by the existing `requireAdmin` middleware. 13 new unit tests. (`supabase/migrations/20260706110000_category_taxonomy_management.sql`, `apps/api/src/categoryAdmin/`, `apps/api/src/categoryMapping/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/admin/category-taxonomy/`, `packages/types/src/index.ts`)
+
 ## [0.16.2] — 2026-07-07
 
 ### Changed

@@ -24,6 +24,13 @@ import { listClaims, reviewClaim, submitClaim } from "./claims/claims";
 import { requireVenueOwner } from "./claims/requireVenueOwner";
 import { SupabaseClaimRepository } from "./claims/supabaseRepository";
 import {
+  archiveCategory,
+  createCategory,
+  listCategoriesForAdmin,
+  renameCategory,
+} from "./categoryAdmin/categoryAdmin";
+import { SupabaseCategoryAdminRepository } from "./categoryAdmin/supabaseRepository";
+import {
   listAssignableCategories,
   listVenueCategoryMappings,
   reassignVenueCategory,
@@ -127,6 +134,12 @@ let categoryMappingRepository: SupabaseCategoryMappingRepository | undefined;
 function getCategoryMappingRepository(): SupabaseCategoryMappingRepository {
   categoryMappingRepository ??= new SupabaseCategoryMappingRepository(getSupabaseClient());
   return categoryMappingRepository;
+}
+
+let categoryAdminRepository: SupabaseCategoryAdminRepository | undefined;
+function getCategoryAdminRepository(): SupabaseCategoryAdminRepository {
+  categoryAdminRepository ??= new SupabaseCategoryAdminRepository(getSupabaseClient());
+  return categoryAdminRepository;
 }
 
 let neighborhoodAdminRepository: SupabaseNeighborhoodAdminRepository | undefined;
@@ -755,6 +768,113 @@ export function createApp() {
     } catch (err) {
       console.error(`PATCH /admin/venues/${req.params.id}/category failed:`, err);
       res.status(500).json({ error: "Failed to reassign category" });
+    }
+  });
+
+  // Category taxonomy management (BACKLOG.md Ref 4): create/rename/archive
+  // actions on the category table itself -- distinct from the mapping tool
+  // above, which only reassigns which existing category a venue points to.
+  app.get("/admin/category-taxonomy", adminGate, async (_req, res) => {
+    try {
+      const categories = await listCategoriesForAdmin(getCategoryAdminRepository());
+      res.json(categories);
+    } catch (err) {
+      console.error("GET /admin/category-taxonomy failed:", err);
+      res.status(500).json({ error: "Failed to list categories" });
+    }
+  });
+
+  app.post("/admin/category-taxonomy", adminGate, async (req, res) => {
+    const { name, parent_category_id, google_types } = req.body ?? {};
+    if (typeof name !== "string") {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    if (parent_category_id !== null && parent_category_id !== undefined && typeof parent_category_id !== "string") {
+      res.status(400).json({ error: "parent_category_id must be a string or null" });
+      return;
+    }
+    if (
+      google_types !== undefined &&
+      (!Array.isArray(google_types) || !google_types.every((t) => typeof t === "string"))
+    ) {
+      res.status(400).json({ error: "google_types must be an array of strings" });
+      return;
+    }
+
+    try {
+      const result = await createCategory(
+        name,
+        parent_category_id ?? null,
+        google_types ?? [],
+        getCategoryAdminRepository()
+      );
+
+      switch (result.status) {
+        case "invalid_name":
+          res.status(400).json({ error: "name must not be empty" });
+          return;
+        case "invalid_parent":
+          res.status(400).json({ error: "parent_category_id must reference an existing top-level group" });
+          return;
+        case "created":
+          res.status(201).json(result.category);
+          return;
+      }
+    } catch (err) {
+      console.error("POST /admin/category-taxonomy failed:", err);
+      res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+
+  app.patch("/admin/category-taxonomy/:id", adminGate, async (req, res) => {
+    const { name } = req.body ?? {};
+    if (typeof name !== "string") {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+
+    try {
+      const result = await renameCategory(req.params.id, name, getCategoryAdminRepository());
+
+      switch (result.status) {
+        case "not_found":
+          res.status(404).json({ error: "Category not found" });
+          return;
+        case "invalid_name":
+          res.status(400).json({ error: "name must not be empty" });
+          return;
+        case "renamed":
+          res.json(result.category);
+          return;
+      }
+    } catch (err) {
+      console.error(`PATCH /admin/category-taxonomy/${req.params.id} failed:`, err);
+      res.status(500).json({ error: "Failed to rename category" });
+    }
+  });
+
+  app.post("/admin/category-taxonomy/:id/archive", adminGate, async (req, res) => {
+    try {
+      const result = await archiveCategory(req.params.id, getCategoryAdminRepository());
+
+      switch (result.status) {
+        case "not_found":
+          res.status(404).json({ error: "Category not found" });
+          return;
+        case "in_use":
+          res.status(409).json({ error: `Category is assigned to ${result.venueCount} venue(s)` });
+          return;
+        case "has_children":
+          res.status(409).json({ error: `Category has ${result.childCount} active subcategory(ies)` });
+          return;
+        case "archived":
+          res.json(result.category);
+          return;
+      }
+    } catch (err) {
+      console.error(`POST /admin/category-taxonomy/${req.params.id}/archive failed:`, err);
+      res.status(500).json({ error: "Failed to archive category" });
     }
   });
 

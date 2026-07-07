@@ -25,11 +25,14 @@ export interface Neighborhood {
   created_at: string;
 }
 
+export type CategoryStatus = "active" | "archived";
+
 export interface Category {
   id: string;
   name: string;
   parent_category_id: string | null;
   source_mapping_json: Record<string, unknown>;
+  status: CategoryStatus;
 }
 
 export interface Venue {
@@ -364,4 +367,31 @@ export interface CategoryOption {
 
 export interface ReassignVenueCategoryRequest {
   category_id: string;
+}
+
+// Category taxonomy management (BACKLOG.md Ref 4) -- create/rename/archive
+// actions on the category table itself (both top-level groups and leaves),
+// distinct from CategoryOption/ReassignVenueCategoryRequest above which only
+// reassign a venue's existing category.
+
+export interface CategoryAdminItem {
+  id: string;
+  name: string;
+  parent_category_id: string | null;
+  status: CategoryStatus;
+  // The Google Places types[] that normalize into this leaf category (README
+  // §2/§1.4 step 3) -- empty for top-level group rows.
+  google_types: string[];
+}
+
+export interface CreateCategoryRequest {
+  name: string;
+  // null creates a new top-level group; a string must reference an existing
+  // top-level group (2-level taxonomy only, no nesting under a leaf).
+  parent_category_id: string | null;
+  google_types?: string[];
+}
+
+export interface RenameCategoryRequest {
+  name: string;
 }

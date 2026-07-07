@@ -29,7 +29,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | 1 | [Native apps (React Native)](#native-apps-react-native) | L | H | — |
 | 30 | [Instagram links and social media integration](#instagram-links-and-social-media-integration) | M | M | — |
 | 2 | [Venue wishlist](#venue-wishlist) | S | M | — |
-| 4 | [Category taxonomy management](#category-taxonomy-management) | S | M | — |
 | 3 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | S | M | 20 |
 | 5 | [Business announcements](#business-announcements) | M | M | — |
 | 6 | [Challenges + badges/points](#challenges--badgespoints) | M | M | — |
@@ -114,13 +113,6 @@ No open limitations.
 **Depends:** [20](#business-coupons--slide-to-redeem)
 **Why** — Redeeming a coupon already proves the user is physically at the venue (README §13.3's whole rationale for the slide gesture is in-person, witnessed confirmation) — that's strictly stronger evidence of presence than a GPS geofence, so it should count as a check-in too rather than requiring a separate, redundant action from the user.
 **Notes:** On `CouponRedemption` write, also write a `Checkin` row for that `venue_id`/`user_id` (server-side, same transaction) — subject to the existing cooldown logic so it doesn't create a duplicate/conflicting check-in if the user already checked in recently.
-
-### Category taxonomy management
-**Ref:** 4
-**Type:** feature
-**Depends:** —
-**Why** — The Category mapping admin tool (v0.11.0) lets an admin reassign which existing leaf category a venue belongs to, but the 39-category taxonomy itself (README §2) is still fixed at seed time — there's no way to add, rename, or retire a category (e.g. a new leaf type needed for a second neighborhood, per README §12.3) without a direct DB edit.
-**Notes:** Extends the `categoryMapping/` domain and admin surface shipped in v0.11.0 with create/rename/archive actions on `Category` rows — should preserve `parent_category_id` grouping and guard against orphaning venues currently assigned to a category being archived.
 
 ### Business announcements
 **Ref:** 5
