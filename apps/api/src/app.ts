@@ -19,6 +19,7 @@ import { createAnnouncement, listAnnouncementsForVenue } from "./announcements/a
 import { SupabaseAnnouncementRepository } from "./announcements/supabaseRepository";
 import { completeLogin, completeSignup, promoteToBusiness, toAppUser, updateProfile } from "./auth/auth";
 import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from "./auth/requireAuthUser";
+import { UsernameTakenError } from "./auth/repository";
 import { SupabaseAuthRepository } from "./auth/supabaseRepository";
 import { verifyAccessToken } from "./auth/verifyToken";
 import { performCheckin } from "./checkins/checkin";
@@ -82,6 +83,13 @@ const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
 const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "private"];
+// BACKLOG.md "Public user profiles": matches the app_user.username check
+// constraint (migration 20260707010000) -- kept in sync with it.
+const USERNAME_PATTERN = /^[a-z0-9_-]{3,30}$/;
+// Recent check-ins shown on a public profile (BACKLOG.md Ref 37) -- capped
+// rather than showing full history, since this is a "what have they been up
+// to lately" glance, not the account owner's own /me/checkins page.
+const PUBLIC_PROFILE_CHECKIN_LIMIT = 10;
 
 // Shared by the neighborhood-admin and business-owner social-links PATCH
 // routes -- rejects unknown platform keys and non-string values rather than
@@ -636,13 +644,27 @@ export function createApp() {
     "/me/profile",
     requireAuthUser(getSupabaseClient, getAuthRepository),
     async (req, res) => {
-      const { display_name, avatar_url, visibility } = req.body ?? {};
+      const { display_name, avatar_url, username, visibility } = req.body ?? {};
       if (display_name !== undefined && display_name !== null && typeof display_name !== "string") {
         res.status(400).json({ error: "display_name must be a string or null" });
         return;
       }
       if (avatar_url !== undefined && avatar_url !== null && typeof avatar_url !== "string") {
         res.status(400).json({ error: "avatar_url must be a string or null" });
+        return;
+      }
+      if (username !== undefined && username !== null && typeof username !== "string") {
+        res.status(400).json({ error: "username must be a string or null" });
+        return;
+      }
+      if (
+        typeof username === "string" &&
+        username.trim() &&
+        !USERNAME_PATTERN.test(username.trim().toLowerCase())
+      ) {
+        res.status(400).json({
+          error: "username must be 3-30 characters: lowercase letters, numbers, underscores, or hyphens",
+        });
         return;
       }
       if (visibility !== undefined && !PROFILE_VISIBILITIES.includes(visibility)) {
@@ -656,6 +678,7 @@ export function createApp() {
           {
             ...(display_name !== undefined && { displayName: display_name }),
             ...(avatar_url !== undefined && { avatarUrl: avatar_url }),
+            ...(username !== undefined && { username }),
             ...(visibility !== undefined && { visibility }),
           },
           getAuthRepository()
@@ -663,11 +686,54 @@ export function createApp() {
         const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(updated.id);
         res.json(toAppUser(updated, isAdmin));
       } catch (err) {
+        if (err instanceof UsernameTakenError) {
+          res.status(409).json({ error: err.message });
+          return;
+        }
         console.error("PATCH /me/profile failed:", err);
         res.status(500).json({ error: "Failed to update profile" });
       }
     }
   );
+
+  // BACKLOG.md "Public user profiles": the username-keyed public counterpart
+  // to /me/profile, mirroring how GET /neighborhoods/:slug is the public
+  // lookup alongside the id-keyed neighborhood-admin routes. Returns 404 for
+  // both "no such username" and "profile is private" -- a private profile
+  // isn't distinguishable from a nonexistent one to an outside caller.
+  // Recent check-ins are gated by the same profile-level visibility, since
+  // checkin has no per-row privacy field of its own.
+  app.get("/users/:username", async (req, res) => {
+    try {
+      const user = await getAuthRepository().getByUsername(req.params.username.toLowerCase());
+      if (!user || user.visibility !== "public") {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+
+      const [checkins, neighborhoods] = await Promise.all([
+        getCheckinRepository().listCheckinsForUser(user.id),
+        listMembershipsForUser(user.id, getNeighborhoodMemberRepository()),
+      ]);
+
+      res.json({
+        username: user.username,
+        display_name: user.displayName,
+        avatar_url: user.avatarUrl,
+        joined_at: user.createdAt,
+        neighborhoods,
+        recent_checkins: checkins.slice(0, PUBLIC_PROFILE_CHECKIN_LIMIT).map((c) => ({
+          venue_id: c.venueId,
+          name: c.name,
+          address: c.address,
+          checked_in_at: c.checkedInAt,
+        })),
+      });
+    } catch (err) {
+      console.error(`GET /users/${req.params.username} failed:`, err);
+      res.status(500).json({ error: "Failed to load user profile" });
+    }
+  });
 
   // README §5: claim submission is public; verification is manual/admin
   // reviewed (no SMS/email provider wired in yet) via the /admin/claims

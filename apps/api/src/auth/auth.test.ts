@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { completeLogin, completeSignup, promoteToBusiness, updateProfile } from "./auth";
+import { UsernameTakenError } from "./repository";
 import type { AppUserRecord, AuthRepository, CompleteSignupInput, UpdateProfileInput } from "./repository";
 import type { VerifiedAuthUser } from "./verifyToken";
 
@@ -22,6 +23,7 @@ class FakeAuthRepository implements AuthRepository {
       anonymousDeviceId: deviceId,
       displayName: null,
       avatarUrl: null,
+      username: null,
       visibility: "private",
       createdAt: new Date().toISOString(),
     };
@@ -38,6 +40,10 @@ class FakeAuthRepository implements AuthRepository {
     return this.users.find((u) => u.anonymousDeviceId === deviceId) ?? null;
   }
 
+  async getByUsername(username: string): Promise<AppUserRecord | null> {
+    return this.users.find((u) => u.username === username) ?? null;
+  }
+
   async completeSignup(input: CompleteSignupInput): Promise<AppUserRecord> {
     const deviceUser = input.anonymousDeviceId
       ? await this.getByAnonymousDeviceId(input.anonymousDeviceId)
@@ -50,6 +56,7 @@ class FakeAuthRepository implements AuthRepository {
       deviceUser.authProvider = input.authProvider;
       deviceUser.email = input.email;
       deviceUser.phone = input.phone;
+      deviceUser.avatarUrl = input.avatarUrl;
       return deviceUser;
     }
 
@@ -63,7 +70,8 @@ class FakeAuthRepository implements AuthRepository {
       phone: input.phone,
       anonymousDeviceId: null,
       displayName: null,
-      avatarUrl: null,
+      avatarUrl: input.avatarUrl,
+      username: null,
       visibility: "private",
       createdAt: new Date().toISOString(),
     };
@@ -92,8 +100,12 @@ class FakeAuthRepository implements AuthRepository {
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<AppUserRecord> {
     const user = this.users.find((u) => u.id === userId)!;
+    if ("username" in input && input.username && this.users.some((u) => u.id !== userId && u.username === input.username)) {
+      throw new UsernameTakenError(input.username);
+    }
     if ("displayName" in input) user.displayName = input.displayName ?? null;
     if ("avatarUrl" in input) user.avatarUrl = input.avatarUrl ?? null;
+    if ("username" in input) user.username = input.username ?? null;
     if ("visibility" in input) user.visibility = input.visibility!;
     return user;
   }
@@ -104,6 +116,7 @@ const VERIFIED: VerifiedAuthUser = {
   authProvider: "email",
   email: "jane@example.com",
   phone: null,
+  avatarUrl: null,
 };
 
 describe("completeSignup", () => {
@@ -141,6 +154,24 @@ describe("completeSignup", () => {
 
     expect(second.id).toBe(first.id);
     expect(repo.users).toHaveLength(1);
+  });
+
+  it("seeds avatar_url from the OAuth provider's picture on a fresh Google signup (BACKLOG.md Ref 34)", async () => {
+    const repo = new FakeAuthRepository();
+    const googleVerified: VerifiedAuthUser = {
+      ...VERIFIED,
+      authProvider: "google",
+      avatarUrl: "https://lh3.googleusercontent.com/a/photo.jpg",
+    };
+
+    const user = await completeSignup(googleVerified, "consumer", null, repo);
+    expect(user.avatarUrl).toBe("https://lh3.googleusercontent.com/a/photo.jpg");
+  });
+
+  it("leaves avatar_url null for a non-OAuth signup", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+    expect(user.avatarUrl).toBeNull();
   });
 });
 
@@ -196,6 +227,33 @@ describe("updateProfile", () => {
     const updated = await updateProfile(user, { avatarUrl: null }, repo);
 
     expect(updated.avatarUrl).toBeNull();
+  });
+
+  it("lowercases and trims a username (BACKLOG.md 'Public user profiles')", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+
+    const updated = await updateProfile(user, { username: "  Jane-Doe_2  " }, repo);
+    expect(updated.username).toBe("jane-doe_2");
+  });
+
+  it("treats a blank username as clearing it", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+    await updateProfile(user, { username: "janedoe" }, repo);
+
+    const updated = await updateProfile(user, { username: "   " }, repo);
+    expect(updated.username).toBeNull();
+  });
+
+  it("rejects a username already taken by another account", async () => {
+    const repo = new FakeAuthRepository();
+    const user1 = await completeSignup(VERIFIED, "consumer", null, repo);
+    const otherVerified: VerifiedAuthUser = { ...VERIFIED, authUserId: "auth-2" };
+    const user2 = await completeSignup(otherVerified, "consumer", null, repo);
+    await updateProfile(user1, { username: "janedoe" }, repo);
+
+    await expect(updateProfile(user2, { username: "janedoe" }, repo)).rejects.toThrow(UsernameTakenError);
   });
 });
 

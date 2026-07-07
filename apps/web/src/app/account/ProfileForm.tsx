@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AppUser, ProfileVisibility } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { Avatar } from "../Avatar";
 
 type Status = { state: "idle" | "submitting" | "error"; message?: string };
 
@@ -27,6 +28,7 @@ export function ProfileForm({
     const data = new FormData(e.currentTarget);
     const displayName = String(data.get("display_name") ?? "").trim();
     const avatarUrl = String(data.get("avatar_url") ?? "").trim();
+    const username = String(data.get("username") ?? "").trim();
     const visibility = data.get("visibility") as ProfileVisibility;
 
     try {
@@ -37,6 +39,7 @@ export function ProfileForm({
         body: JSON.stringify({
           display_name: displayName || null,
           avatar_url: avatarUrl || null,
+          username: username || null,
           visibility,
         }),
       });
@@ -58,6 +61,17 @@ export function ProfileForm({
       onSubmit={handleSubmit}
       className="flex flex-col gap-3 rounded-lg border border-black/[.08] px-6 py-4 dark:border-white/[.145]"
     >
+      <div className="flex items-center gap-3">
+        <Avatar avatarUrl={user.avatar_url} label={user.display_name ?? user.username ?? "?"} size={48} />
+        {user.visibility === "public" && user.username && (
+          <a
+            href={`/profile/${user.username}`}
+            className="text-sm text-zinc-600 underline hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+          >
+            View public profile
+          </a>
+        )}
+      </div>
       <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
         Display name
         <input
@@ -77,6 +91,20 @@ export function ProfileForm({
           placeholder="https://..."
           className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-transparent dark:text-zinc-50"
         />
+      </label>
+      <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+        Username
+        <input
+          name="username"
+          type="text"
+          defaultValue={user.username ?? ""}
+          placeholder="lowercase letters, numbers, _ or -"
+          pattern="[a-z0-9_-]{3,30}"
+          className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-transparent dark:text-zinc-50"
+        />
+        <span className="text-xs text-zinc-500 dark:text-zinc-500">
+          Required to make your profile reachable at /profile/:username once public.
+        </span>
       </label>
       <fieldset className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
         Profile visibility

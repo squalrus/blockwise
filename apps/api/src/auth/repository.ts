@@ -11,6 +11,7 @@ export interface AppUserRecord {
   anonymousDeviceId: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  username: string | null;
   visibility: ProfileVisibility;
   createdAt: string;
 }
@@ -18,6 +19,7 @@ export interface AppUserRecord {
 export interface UpdateProfileInput {
   displayName?: string | null;
   avatarUrl?: string | null;
+  username?: string | null;
   visibility?: ProfileVisibility;
 }
 
@@ -26,6 +28,11 @@ export interface CompleteSignupInput {
   authProvider: string;
   email: string | null;
   phone: string | null;
+  // Google's OAuth profile picture (BACKLOG.md "Show profile picture from
+  // Google") -- seeds avatar_url on a fresh signup only; never touched again
+  // afterward, so a later manual edit (or manual clear) via PATCH /me/profile
+  // always wins.
+  avatarUrl: string | null;
   accountType: AccountType;
   // Present when the device had prior anonymous history to claim (README
   // §14.2) -- the row it identifies, if still anonymous, gets converted in
@@ -33,11 +40,23 @@ export interface CompleteSignupInput {
   anonymousDeviceId: string | null;
 }
 
+// BACKLOG.md "User profiles with public or private visibility": PATCH
+// /me/profile setting a username already taken by another account.
+export class UsernameTakenError extends Error {
+  constructor(username: string) {
+    super(`Username "${username}" is already taken`);
+    this.name = "UsernameTakenError";
+  }
+}
+
 // Abstracts persistence so the signup/login linking logic (auth.ts) can be
 // tested against an in-memory fake, mirroring checkins/repository.ts.
 export interface AuthRepository {
   getByAuthUserId(authUserId: string): Promise<AppUserRecord | null>;
   getByAnonymousDeviceId(deviceId: string): Promise<AppUserRecord | null>;
+  // BACKLOG.md "Public user profiles": the username-keyed lookup backing
+  // GET /users/:username, mirroring how neighborhoods resolve by slug.
+  getByUsername(username: string): Promise<AppUserRecord | null>;
   // Converts the anonymous row for anonymousDeviceId into an authenticated
   // one (README §14.2: "signing up doesn't migrate data -- it completes the
   // same row"), or creates a fresh row if no anonymous row exists for that

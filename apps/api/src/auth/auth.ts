@@ -11,6 +11,7 @@ export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean): 
     phone: record.phone,
     display_name: record.displayName,
     avatar_url: record.avatarUrl,
+    username: record.username,
     visibility: record.visibility,
     created_at: record.createdAt,
     is_neighborhood_admin: isNeighborhoodAdmin,
@@ -34,6 +35,7 @@ export async function completeSignup(
     authProvider: verified.authProvider,
     email: verified.email,
     phone: verified.phone,
+    avatarUrl: verified.avatarUrl,
     accountType,
     anonymousDeviceId,
   });
@@ -67,6 +69,10 @@ export async function updateProfile(
     patch.displayName = trimmed ? trimmed : null;
   }
   if ("avatarUrl" in input) patch.avatarUrl = input.avatarUrl;
+  if ("username" in input) {
+    const trimmed = input.username?.trim().toLowerCase();
+    patch.username = trimmed ? trimmed : null;
+  }
   if ("visibility" in input) patch.visibility = input.visibility;
 
   return repository.updateProfile(user.id, patch);

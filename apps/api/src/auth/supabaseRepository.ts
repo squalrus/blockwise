@@ -1,9 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AccountType, ProfileVisibility } from "@blockwise/types";
 import type { AppUserRecord, AuthRepository, CompleteSignupInput, UpdateProfileInput } from "./repository";
+import { UsernameTakenError } from "./repository";
 
 const USER_COLUMNS =
-  "id, is_anonymous, account_type, auth_user_id, auth_provider, email, phone, anonymous_device_id, display_name, avatar_url, visibility, created_at";
+  "id, is_anonymous, account_type, auth_user_id, auth_provider, email, phone, anonymous_device_id, display_name, avatar_url, username, visibility, created_at";
+
+// Postgres unique_violation.
+const UNIQUE_VIOLATION = "23505";
 
 function toRecord(row: {
   id: string;
@@ -16,6 +20,7 @@ function toRecord(row: {
   anonymous_device_id: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  username: string | null;
   visibility: ProfileVisibility;
   created_at: string;
 }): AppUserRecord {
@@ -30,6 +35,7 @@ function toRecord(row: {
     anonymousDeviceId: row.anonymous_device_id,
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
+    username: row.username,
     visibility: row.visibility,
     createdAt: row.created_at,
   };
@@ -60,6 +66,17 @@ export class SupabaseAuthRepository implements AuthRepository {
     return data ? toRecord(data) : null;
   }
 
+  async getByUsername(username: string): Promise<AppUserRecord | null> {
+    const { data, error } = await this.supabase
+      .from("app_user")
+      .select(USER_COLUMNS)
+      .eq("username", username)
+      .maybeSingle();
+
+    if (error) throw new Error(`getByUsername failed: ${error.message}`);
+    return data ? toRecord(data) : null;
+  }
+
   async completeSignup(input: CompleteSignupInput): Promise<AppUserRecord> {
     if (input.anonymousDeviceId) {
       const deviceUser = await this.getByAnonymousDeviceId(input.anonymousDeviceId);
@@ -77,6 +94,7 @@ export class SupabaseAuthRepository implements AuthRepository {
             auth_provider: input.authProvider,
             email: input.email,
             phone: input.phone,
+            avatar_url: input.avatarUrl,
           })
           .eq("id", deviceUser.id)
           .select(USER_COLUMNS)
@@ -96,6 +114,7 @@ export class SupabaseAuthRepository implements AuthRepository {
         auth_provider: input.authProvider,
         email: input.email,
         phone: input.phone,
+        avatar_url: input.avatarUrl,
       })
       .select(USER_COLUMNS)
       .single();
@@ -155,6 +174,7 @@ export class SupabaseAuthRepository implements AuthRepository {
     const patch: Record<string, unknown> = {};
     if ("displayName" in input) patch.display_name = input.displayName;
     if ("avatarUrl" in input) patch.avatar_url = input.avatarUrl;
+    if ("username" in input) patch.username = input.username;
     if ("visibility" in input) patch.visibility = input.visibility;
 
     const { data, error } = await this.supabase
@@ -164,7 +184,10 @@ export class SupabaseAuthRepository implements AuthRepository {
       .select(USER_COLUMNS)
       .single();
 
-    if (error) throw new Error(`updateProfile failed: ${error.message}`);
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) throw new UsernameTakenError(String(input.username));
+      throw new Error(`updateProfile failed: ${error.message}`);
+    }
     return toRecord(data);
   }
 }
