@@ -202,6 +202,14 @@ export interface BusinessClaim {
   social_links: SocialLinks;
 }
 
+// Neighborhood-admin claims tab (docs/url-map.md refactor) needs the venue's
+// name/address alongside the claim -- the global admin/claims page never
+// joined through to venue, since it only showed the raw venue_id.
+export interface BusinessClaimWithVenue extends BusinessClaim {
+  venue_name: string;
+  venue_address: string;
+}
+
 export interface CreateBusinessClaimRequest {
   contact_name: string;
   contact_method: BusinessClaimContactMethod;

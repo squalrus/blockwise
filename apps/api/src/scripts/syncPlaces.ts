@@ -16,7 +16,7 @@ try {
 // Runs the Google Places sync for one neighborhood (BACKLOG "Data layer
 // MVP"). Usage: npm run sync:places -- <neighborhood-slug>
 // Uses MockPlacesClient unless GOOGLE_PLACES_API_KEY is set in the
-// environment (see apps/api/GOOGLE_PLACES_SETUP.md for real-key setup).
+// environment (see docs/google-places-setup.md for real-key setup).
 async function main() {
   const slug = process.argv[2];
   if (!slug) {

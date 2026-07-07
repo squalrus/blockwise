@@ -1,8 +1,9 @@
 # Google Places API setup
 
 One-time Google Cloud setup needed before the real (non-mocked) Google Places
-sync (README §1.1–§1.5, backlog item "Data layer MVP") can run against live
-data. None of this is code — it's Google Cloud Console configuration.
+sync ([project plan](./project-plan.md) §1.1–§1.5, backlog item "Data layer MVP")
+can run against live data. None of this is code — it's Google Cloud Console
+configuration.
 
 ## 1. Create (or pick) a Google Cloud project
 
@@ -63,5 +64,5 @@ GOOGLE_PLACES_API_KEY=<your key>
 ```
 
 Never expose this key to `apps/web` or any browser-executed code — the sync
-runs server-side only (a Netlify Scheduled Function per README §9), so the
-key never needs to leave `apps/api`.
+runs server-side only (a Netlify Scheduled Function per [project plan](./project-plan.md)
+§9), so the key never needs to leave `apps/api`.

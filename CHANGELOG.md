@@ -2,6 +2,25 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.19.0] — 2026-07-07
+
+### Added
+
+- **Neighborhood admin: business claims and venue categories as tabs.** Business-claim review and venue-category reassignment moved from two separate, ungated-by-neighborhood pages (`/admin/claims`, `/admin/venues` — both required only "admin of *some* neighborhood," with no way to scope to one) into `Business claims` and `Venue categories` tabs alongside the existing per-neighborhood `Overview` tab. New neighborhood-scoped endpoints (`GET /neighborhood-admin/neighborhoods/:id/claims`, `POST .../claims/:claimId/approve|reject`, `GET .../venues`, `PATCH .../venues/:venueId/category`) replace the old global ones, closing a real correctness gap: an admin previously saw and could mutate every neighborhood's claims/venues at once, not just the one(s) they administer. The claims tab now also shows the venue's name/address instead of a bare id. (`apps/api/src/claims/`, `apps/api/src/categoryMapping/`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Neighborhood admin URLs now use the neighborhood's slug instead of its UUID** (`/neighborhood-admin/[neighborhoodId]` → `/neighborhood-admin/[neighborhoodSlug]`), matching the public `/neighborhoods/[slug]` convention — the same identifier everywhere for a given neighborhood. A new `layout.tsx` resolves slug → id once and shares it via context across all three tabs, and owns the shared signed-out/forbidden state plus the tab nav. (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/`)
+- **Documentation reorganized.** The original build plan moved from the root `README.md` to `docs/project-plan.md` (section numbers unchanged, since code comments and `BACKLOG.md` cite them); a new, concise root `README.md` covers project overview, repo structure, and local setup instead. `docs/url-map.md` is now a maintained route tree (web + API) rather than a point-in-time snapshot, with an explicit instruction — also added to `CLAUDE.md`/`CONTRIBUTING.md` — to update it whenever a route changes. `apps/api/GOOGLE_PLACES_SETUP.md` moved to `docs/google-places-setup.md` for naming consistency with the rest of `docs/`. (`README.md`, `docs/`, `CLAUDE.md`, `CONTRIBUTING.md`, `BACKLOG.md`)
+
+### Fixed
+
+- **Homepage "Join" button didn't persist across a refresh.** The neighborhood list fetch (`GET /neighborhoods`) was missing its `Authorization` header, so the server couldn't identify the signed-in user and always reported `joined: false` on reload — the join itself worked, the page just didn't reflect it. (`apps/web/src/app/NeighborhoodsSection.tsx`)
+
+### Removed
+
+- **Global `/admin/claims` and `/admin/venues` pages.** Replaced by the neighborhood-scoped tabs above; deleted outright with no redirects (no production users depend on the old URLs). (`apps/web/src/app/admin/claims/`, `apps/web/src/app/admin/venues/`)
+
 ## [0.18.0] — 2026-07-07
 
 ### Added

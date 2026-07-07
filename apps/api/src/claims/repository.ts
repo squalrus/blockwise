@@ -38,12 +38,27 @@ export interface ClaimedVenue {
   address: string;
 }
 
+export interface ClaimWithVenueRecord extends ClaimRecord {
+  venueName: string;
+  venueAddress: string;
+}
+
 // Abstracts persistence so the review/approval logic (claims.ts) can be
 // tested against an in-memory fake, mirroring venues/detailRepository.ts.
 export interface ClaimRepository {
   getVenue(venueId: string): Promise<VenueClaimStatus | null>;
   createClaim(input: CreateClaimInput): Promise<ClaimRecord>;
-  listClaims(status?: BusinessClaimStatus): Promise<ClaimRecord[]>;
+  // Neighborhood-scoped counterpart of the old global listClaims -- joins
+  // through venue to filter by neighborhood_id, per the "combine claims +
+  // venues into neighborhood admin" refactor (BACKLOG/docs/url-map.md).
+  listClaimsForNeighborhood(
+    neighborhoodId: string,
+    status?: BusinessClaimStatus
+  ): Promise<ClaimWithVenueRecord[]>;
+  // Backs reviewClaimForNeighborhood's ownership check -- null if the claim
+  // doesn't exist, so a cross-neighborhood claim id and a missing one both
+  // resolve to the same not_found result without leaking which case it was.
+  getClaimVenueNeighborhoodId(claimId: string): Promise<string | null>;
   getClaim(claimId: string): Promise<ClaimRecord | null>;
   // Both apply the claim's own status/reviewed_at update and, for approve,
   // flip venue.claimed_by_business -- see supabaseRepository.ts for why this
