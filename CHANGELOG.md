@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.11.0] — 2026-07-06
+
+### Added
+
+- **Category mapping admin tool.** A new `/admin/venues` page (same shared `ADMIN_API_TOKEN` gate as `/admin/claims`) lets an admin search venues by name or address and reassign a venue's category from a dropdown of the 39 leaf categories (grouped by their parent, e.g. "Food & Drink / Coffee Shop") — the manual override README §2 calls for when the sync's category-normalization step (README §1.4 step 3) maps a venue wrong. New `GET/PATCH /admin/venues*` and `GET /admin/categories` endpoints, backed by a `categoryMapping/` domain mirroring the `claims/` pattern; only leaf categories (those with a parent) are valid reassignment targets, since the 6 top-level group rows are organizational only. No schema changes — reuses the existing `venue`/`category` tables. 6 new unit tests. (`apps/api/src/categoryMapping/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/venues/page.tsx`, `packages/types/src/index.ts`)
+
 ## [0.10.0] — 2026-07-06
 
 ### Added

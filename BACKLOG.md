@@ -22,14 +22,17 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | Item | Effort | Value |
 |---|---|---|
 | [Native apps (React Native)](#native-apps-react-native) | L | H |
-| [Category mapping admin tool](#category-mapping-admin-tool) | S | M |
 | [Venue wishlist](#venue-wishlist) | S | M |
+| [My account page](#my-account-page) | M | M |
 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | S | M |
+| [Category taxonomy management](#category-taxonomy-management) | S | M |
 | [Business announcements](#business-announcements) | M | M |
 | [Challenges + badges/points](#challenges--badgespoints) | M | M |
 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | M | M |
 | [Admin portal: neighborhood boundary drawing](#admin-portal-neighborhood-boundary-drawing) | M | M |
 | [Neighborhood admin invites](#neighborhood-admin-invites) | M | M |
+| [Neighborhood notifications](#neighborhood-notifications) | M | M |
+| [Neighborhood profile pages](#neighborhood-profile-pages) | M | M |
 | [Business omission & venue merging](#business-omission--venue-merging) | M | M |
 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | M | M |
 | [User profiles with public or private visibility](#user-profiles-with-public-or-private-visibility) | M | M |
@@ -46,6 +49,7 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 | Item | Effort | Value |
 |---|---|---|
 | [Category browsing & filtering](#category-browsing--filtering) | S | M |
+| [Sort venues by proximity](#sort-venues-by-proximity) | S | M |
 | [Slide-to-check-in](#slide-to-check-in) | S | M |
 | [CI/CD pipeline](#cicd-pipeline) | L | M |
 | [Attribution & compliance checklist](#attribution--compliance-checklist) | S | L |
@@ -67,20 +71,25 @@ No open limitations.
 **Why** — Mobile is the primary long-term surface (free/unlimited Google Maps SDK, push notifications, in-person coupon redemption) but follows the web app so the API/data model is proven out first, per the user's direction to prioritize web for rapid dev.
 **Notes:** `apps/mobile` in the same monorepo, consuming the same `packages/api-client` and `packages/types` as web (README §10.3). Target feature parity with the web consumer experience (map, check-ins, announcements, challenges) once those web milestones land — this is a parity build, not a redesign.
 
-### Category mapping admin tool
-**Type:** feature
-**Why** — README §2 calls for "manual override capability in the admin tool for anything auto-mapped incorrectly," but the only admin surface that exists today is `/admin/claims` (v0.6.0) — there's no way to fix a venue the sync's category-normalization step mapped wrong without a direct DB edit.
-**Notes:** Small admin page mirroring the existing `/admin/claims` pattern (same `ADMIN_API_TOKEN` gate) — search/filter venues, reassign `category_id`. Also a natural home for reviewing the sync pipeline's "unmapped Google type" flags (README §1.4 step 3) instead of them only showing up in logs.
-
 ### Venue wishlist
 **Type:** feature
 **Why** — "Want to visit" intent is distinct from "already like this place" (shipped as Favorite venues in v0.9.0) — useful for challenge/exploration framing later (e.g. surfacing wishlisted venues that also count toward an active challenge).
 **Notes:** Same anonymous-first, device-scoped pattern as the shipped `favorite` table (`supabase/migrations/20260706060000_favorite_venues.sql`) — likely shares a schema shape (e.g. a `list_type` of `favorite` | `wishlist` on the same table) and UI treatment, just a different label/intent per venue.
 
+### My account page
+**Type:** feature
+**Why** — Real user authentication (v0.8.0) and Favorite venues (v0.9.0) give users an identity and a first piece of saved state, but there's no single place to see it — account details, favorites, wishlist, recent check-ins, and coupons (available/redeemed) are each scattered across their own flows with no personal dashboard tying them together.
+**Notes:** Aggregates existing data (`GET /auth/me`, the `favorite` table) plus data from features not yet shipped — [Venue wishlist](#venue-wishlist) and [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) — so the coupons and wishlist sections would need to land after (or stub out ahead of) those. Distinct from [User profiles with public or private visibility](#user-profiles-with-public-or-private-visibility): this is the user's own private view of their account, not the public-facing profile shown to other users.
+
 ### Coupon redemption also checks you in
 **Type:** feature
 **Why** — Redeeming a coupon already proves the user is physically at the venue (README §13.3's whole rationale for the slide gesture is in-person, witnessed confirmation) — that's strictly stronger evidence of presence than a GPS geofence, so it should count as a check-in too rather than requiring a separate, redundant action from the user.
 **Notes:** On `CouponRedemption` write, also write a `Checkin` row for that `venue_id`/`user_id` (server-side, same transaction) — subject to the existing cooldown logic so it doesn't create a duplicate/conflicting check-in if the user already checked in recently. Depends on [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem).
+
+### Category taxonomy management
+**Type:** feature
+**Why** — The Category mapping admin tool (v0.11.0) lets an admin reassign which existing leaf category a venue belongs to, but the 39-category taxonomy itself (README §2) is still fixed at seed time — there's no way to add, rename, or retire a category (e.g. a new leaf type needed for a second neighborhood, per README §12.3) without a direct DB edit.
+**Notes:** Extends the `categoryMapping/` domain and admin surface shipped in v0.11.0 with create/rename/archive actions on `Category` rows — should preserve `parent_category_id` grouping and guard against orphaning venues currently assigned to a category being archived.
 
 ### Business announcements
 **Type:** feature
@@ -106,6 +115,16 @@ No open limitations.
 **Type:** feature
 **Why** — Every admin action shipped so far (claims review, and the planned boundary-drawing and category tools) is gated by a single shared `ADMIN_API_TOKEN` secret (v0.6.0) rather than individual accounts — there's no way to add or remove one person's admin access without rotating the shared secret for everyone. This becomes a real gap once a second neighborhood (README §12.3) has its own local staff who shouldn't have blanket access to every neighborhood.
 **Notes:** Likely needs [Real user authentication](#real-user-authentication) first (a per-person identity to attach a role to). Scope: a join table between `User` and `Neighborhood` carrying a role, plus an invite flow (email link) for internal staff — replaces or layers on top of the current shared-token gate.
+
+### Neighborhood notifications
+**Type:** feature
+**Why** — Business announcements are per-venue and reach only that business's followers; there's no way for neighborhood-level staff (see [Neighborhood admin invites](#neighborhood-admin-invites)) to broadcast something to everyone in a neighborhood at once (e.g. an event, a service outage, a safety notice).
+**Notes:** Likely a `NeighborhoodNotification` (or reuse `Announcement` with a nullable `venue_id` for neighborhood-wide scope) authored via an admin tool gated the same way as other admin surfaces; delivery channel (push vs. in-app feed) probably follows whatever [Business announcements](#business-announcements) settles on. Depends on [Neighborhood admin invites](#neighborhood-admin-invites) for a scoped staff identity to author as, and on [Business announcements](#business-announcements) for the underlying feed/notification plumbing.
+
+### Neighborhood profile pages
+**Type:** feature
+**Why** — Businesses get a claimable profile (claiming, announcements, coupons); a neighborhood itself has no equivalent presence in the app beyond being a boundary and venue filter — a summary, curated events, and neighborhood-level POIs (parks, transit, landmarks not tied to any single business) would give users a reason to visit a "neighborhood page" the way a business profile does today.
+**Notes:** Mirrors the business-profile shape but scoped to `Neighborhood` instead of `Venue`: a description/summary field, an events list (possibly a shared schema with any future business-events feature), and neighborhood-owned POIs distinct from venue-owned ones. Overlaps conceptually with [Neighborhood notifications](#neighborhood-notifications) — both are neighborhood-level content — worth scoping together to decide if they share an authoring surface.
 
 ### Business omission & venue merging
 **Type:** feature
@@ -161,6 +180,11 @@ No open limitations.
 **Type:** improvement
 **Why** — The 39-category taxonomy (README §2, shipped v0.4.0) exists server-side, but the venue list only shows category as plain text next to the address — there's no way to filter or browse by category today.
 **Notes:** Filter chips or a category picker on the venues list and map view (map view shipped v0.7.0, already color-codes markers by category group per README §1.7). Reuses the existing `Category`/`source_mapping_json` data, no new schema needed.
+
+### Sort venues by proximity
+**Type:** improvement
+**Why** — The venues list orders results alphabetically by name (`supabaseDetailRepository.ts`'s `.order("name")`) regardless of where the user is standing — in a walkable neighborhood app, "what's closest to me" is a more useful default ordering than alphabetical for finding somewhere to go right now.
+**Notes:** Sort by distance from the device's current lat/lng (already collected for GPS check-in, README §4) using the existing `Venue.lat`/`lng` columns — no new schema needed, just a distance calculation (haversine) applied client- or server-side and a toggle if alphabetical should remain an option.
 
 ### Slide-to-check-in
 **Type:** improvement
