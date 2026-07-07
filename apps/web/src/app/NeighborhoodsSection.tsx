@@ -23,9 +23,13 @@ export function NeighborhoodsSection() {
     let cancelled = false;
 
     async function load() {
+      const token = await getAccessToken();
       const [user, res] = await Promise.all([
         getCurrentUser(),
-        fetch(clientApiUrl("/neighborhoods"), { cache: "no-store" }),
+        fetch(clientApiUrl("/neighborhoods"), {
+          cache: "no-store",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        }),
       ]);
       if (cancelled) return;
       if (!res.ok) {

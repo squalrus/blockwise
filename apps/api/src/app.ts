@@ -24,8 +24,9 @@ import { performCheckin } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
 import {
   getVenueSocialLinks,
-  listClaims,
+  listClaimsForNeighborhood,
   reviewClaim,
+  reviewClaimForNeighborhood,
   submitClaim,
   updateVenueSocialLinks,
 } from "./claims/claims";
@@ -40,8 +41,8 @@ import {
 import { SupabaseCategoryAdminRepository } from "./categoryAdmin/supabaseRepository";
 import {
   listAssignableCategories,
-  listVenueCategoryMappings,
-  reassignVenueCategory,
+  listVenueCategoryMappingsForNeighborhood,
+  reassignVenueCategoryForNeighborhood,
 } from "./categoryMapping/categoryMapping";
 import { SupabaseCategoryMappingRepository } from "./categoryMapping/supabaseRepository";
 import {
@@ -688,75 +689,6 @@ export function createApp() {
     }
   );
 
-  app.get("/admin/claims", adminGate, async (req, res) => {
-    const status = req.query.status;
-    if (status !== undefined && !CLAIM_STATUSES.includes(status as BusinessClaimStatus)) {
-      res.status(400).json({ error: `status must be one of ${CLAIM_STATUSES.join(", ")}` });
-      return;
-    }
-
-    try {
-      const claims = await listClaims(getClaimRepository(), status as BusinessClaimStatus | undefined);
-      res.json(claims);
-    } catch (err) {
-      console.error("GET /admin/claims failed:", err);
-      res.status(500).json({ error: "Failed to list claims" });
-    }
-  });
-
-  const reviewHandler = (decision: "approve" | "reject") => async (req: express.Request, res: express.Response) => {
-    const { reviewed_note } = req.body ?? {};
-    if (reviewed_note !== undefined && typeof reviewed_note !== "string") {
-      res.status(400).json({ error: "reviewed_note must be a string" });
-      return;
-    }
-
-    try {
-      const result = await reviewClaim(
-        req.params.id,
-        decision,
-        reviewed_note ?? null,
-        getClaimRepository()
-      );
-
-      switch (result.status) {
-        case "not_found":
-          res.status(404).json({ error: "Claim not found" });
-          return;
-        case "already_reviewed":
-          res.status(409).json({ error: "Claim has already been reviewed" });
-          return;
-        case "updated":
-          res.json(result.claim);
-          return;
-      }
-    } catch (err) {
-      console.error(`POST /admin/claims/${req.params.id}/${decision} failed:`, err);
-      res.status(500).json({ error: `Failed to ${decision} claim` });
-    }
-  };
-
-  app.post("/admin/claims/:id/approve", adminGate, reviewHandler("approve"));
-  app.post("/admin/claims/:id/reject", adminGate, reviewHandler("reject"));
-
-  // Category mapping admin tool (BACKLOG.md): manual override for venues the
-  // sync's category-normalization step (README §1.4 step 3) mapped wrong.
-  app.get("/admin/venues", adminGate, async (req, res) => {
-    const search = req.query.search;
-    if (search !== undefined && typeof search !== "string") {
-      res.status(400).json({ error: "search must be a string" });
-      return;
-    }
-
-    try {
-      const venues = await listVenueCategoryMappings(getCategoryMappingRepository(), search);
-      res.json(venues);
-    } catch (err) {
-      console.error("GET /admin/venues failed:", err);
-      res.status(500).json({ error: "Failed to list venues" });
-    }
-  });
-
   app.get("/admin/categories", adminGate, async (_req, res) => {
     try {
       const categories = await listAssignableCategories(getCategoryMappingRepository());
@@ -764,37 +696,6 @@ export function createApp() {
     } catch (err) {
       console.error("GET /admin/categories failed:", err);
       res.status(500).json({ error: "Failed to list categories" });
-    }
-  });
-
-  app.patch("/admin/venues/:id/category", adminGate, async (req, res) => {
-    const { category_id } = req.body ?? {};
-    if (typeof category_id !== "string" || !category_id) {
-      res.status(400).json({ error: "category_id is required" });
-      return;
-    }
-
-    try {
-      const result = await reassignVenueCategory(
-        req.params.id,
-        category_id,
-        getCategoryMappingRepository()
-      );
-
-      switch (result.status) {
-        case "venue_not_found":
-          res.status(404).json({ error: "Venue not found" });
-          return;
-        case "invalid_category":
-          res.status(400).json({ error: "category_id must reference an existing leaf category" });
-          return;
-        case "updated":
-          res.json(result.venue);
-          return;
-      }
-    } catch (err) {
-      console.error(`PATCH /admin/venues/${req.params.id}/category failed:`, err);
-      res.status(500).json({ error: "Failed to reassign category" });
     }
   });
 
@@ -1142,8 +1043,10 @@ export function createApp() {
   // dashboard's shape but scoped to Neighborhood instead of Venue. The list
   // route below is gated by adminGate (admin of *any* neighborhood, same as
   // GET /business/venues is gated by "any business account") since it has no
-  // :id to scope by; every route below it is gated by neighborhoodAdminGate,
-  // scoped to req.params.id specifically.
+  // :id to scope by; every route below it -- including the claims and venues
+  // routes further down, folded in from the old global /admin/claims and
+  // /admin/venues (docs/url-map.md refactor) -- is gated by
+  // neighborhoodAdminGate, scoped to req.params.id specifically.
   app.get("/neighborhood-admin/neighborhoods", adminGate, async (req, res) => {
     try {
       const neighborhoods = await getNeighborhoodAdminRepository().listNeighborhoodsForAdmin(
@@ -1312,6 +1215,139 @@ export function createApp() {
       res.status(500).json({ error: "Failed to create point of interest" });
     }
   });
+
+  // Business claim review, neighborhood-scoped (docs/url-map.md refactor --
+  // was the global GET/POST /admin/claims* family, gated only by adminGate
+  // with no per-neighborhood filter).
+  app.get("/neighborhood-admin/neighborhoods/:id/claims", neighborhoodAdminGate, async (req, res) => {
+    const status = req.query.status;
+    if (status !== undefined && !CLAIM_STATUSES.includes(status as BusinessClaimStatus)) {
+      res.status(400).json({ error: `status must be one of ${CLAIM_STATUSES.join(", ")}` });
+      return;
+    }
+
+    try {
+      const claims = await listClaimsForNeighborhood(
+        req.params.id,
+        getClaimRepository(),
+        status as BusinessClaimStatus | undefined
+      );
+      res.json(claims);
+    } catch (err) {
+      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/claims failed:`, err);
+      res.status(500).json({ error: "Failed to list claims" });
+    }
+  });
+
+  const neighborhoodClaimReviewHandler =
+    (decision: "approve" | "reject") => async (req: express.Request, res: express.Response) => {
+      const { reviewed_note } = req.body ?? {};
+      if (reviewed_note !== undefined && typeof reviewed_note !== "string") {
+        res.status(400).json({ error: "reviewed_note must be a string" });
+        return;
+      }
+
+      try {
+        const result = await reviewClaimForNeighborhood(
+          req.params.id,
+          req.params.claimId,
+          decision,
+          reviewed_note ?? null,
+          getClaimRepository()
+        );
+
+        switch (result.status) {
+          case "not_found":
+            res.status(404).json({ error: "Claim not found" });
+            return;
+          case "already_reviewed":
+            res.status(409).json({ error: "Claim has already been reviewed" });
+            return;
+          case "updated":
+            res.json(result.claim);
+            return;
+        }
+      } catch (err) {
+        console.error(
+          `POST /neighborhood-admin/neighborhoods/${req.params.id}/claims/${req.params.claimId}/${decision} failed:`,
+          err
+        );
+        res.status(500).json({ error: `Failed to ${decision} claim` });
+      }
+    };
+
+  app.post(
+    "/neighborhood-admin/neighborhoods/:id/claims/:claimId/approve",
+    neighborhoodAdminGate,
+    neighborhoodClaimReviewHandler("approve")
+  );
+  app.post(
+    "/neighborhood-admin/neighborhoods/:id/claims/:claimId/reject",
+    neighborhoodAdminGate,
+    neighborhoodClaimReviewHandler("reject")
+  );
+
+  // Venue category reassignment, neighborhood-scoped (docs/url-map.md
+  // refactor -- was the global GET /admin/venues + PATCH
+  // /admin/venues/:id/category family).
+  app.get("/neighborhood-admin/neighborhoods/:id/venues", neighborhoodAdminGate, async (req, res) => {
+    const search = req.query.search;
+    if (search !== undefined && typeof search !== "string") {
+      res.status(400).json({ error: "search must be a string" });
+      return;
+    }
+
+    try {
+      const venues = await listVenueCategoryMappingsForNeighborhood(
+        req.params.id,
+        getCategoryMappingRepository(),
+        search
+      );
+      res.json(venues);
+    } catch (err) {
+      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/venues failed:`, err);
+      res.status(500).json({ error: "Failed to list venues" });
+    }
+  });
+
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/venues/:venueId/category",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { category_id } = req.body ?? {};
+      if (typeof category_id !== "string" || !category_id) {
+        res.status(400).json({ error: "category_id is required" });
+        return;
+      }
+
+      try {
+        const result = await reassignVenueCategoryForNeighborhood(
+          req.params.id,
+          req.params.venueId,
+          category_id,
+          getCategoryMappingRepository()
+        );
+
+        switch (result.status) {
+          case "venue_not_found":
+            res.status(404).json({ error: "Venue not found" });
+            return;
+          case "invalid_category":
+            res.status(400).json({ error: "category_id must reference an existing leaf category" });
+            return;
+          case "updated":
+            res.json(result.venue);
+            return;
+        }
+      } catch (err) {
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/venues/${req.params.venueId}/category failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to reassign category" });
+      }
+    }
+  );
 
   return app;
 }

@@ -43,16 +43,28 @@ function toVenueCategoryRecord(row: {
 export class SupabaseCategoryMappingRepository implements CategoryMappingRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
-  async listVenues(search?: string): Promise<VenueCategoryRecord[]> {
+  async listVenuesForNeighborhood(neighborhoodId: string, search?: string): Promise<VenueCategoryRecord[]> {
     let query = this.supabase
       .from("venue")
       .select(`${VENUE_COLUMNS}, category_id`)
+      .eq("neighborhood_id", neighborhoodId)
       .order("name");
     if (search) query = query.or(`name.ilike.%${search}%,address.ilike.%${search}%`);
 
     const { data, error } = await query;
-    if (error) throw new Error(`listVenues failed: ${error.message}`);
+    if (error) throw new Error(`listVenuesForNeighborhood failed: ${error.message}`);
     return (data ?? []).map(toVenueCategoryRecord);
+  }
+
+  async getVenueNeighborhoodId(venueId: string): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .from("venue")
+      .select("neighborhood_id")
+      .eq("id", venueId)
+      .maybeSingle();
+
+    if (error) throw new Error(`getVenueNeighborhoodId failed: ${error.message}`);
+    return data?.neighborhood_id ?? null;
   }
 
   async listCategories(): Promise<CategoryRecord[]> {

@@ -2,9 +2,10 @@ import type {
   BusinessClaim,
   BusinessClaimContactMethod,
   BusinessClaimStatus,
+  BusinessClaimWithVenue,
   SocialLinks,
 } from "@blockwise/types";
-import type { ClaimRecord, ClaimRepository } from "./repository";
+import type { ClaimRecord, ClaimRepository, ClaimWithVenueRecord } from "./repository";
 
 function toBusinessClaim(record: ClaimRecord): BusinessClaim {
   return {
@@ -21,6 +22,10 @@ function toBusinessClaim(record: ClaimRecord): BusinessClaim {
     claimed_by_user_id: record.claimedByUserId,
     social_links: record.socialLinks,
   };
+}
+
+function toBusinessClaimWithVenue(record: ClaimWithVenueRecord): BusinessClaimWithVenue {
+  return { ...toBusinessClaim(record), venue_name: record.venueName, venue_address: record.venueAddress };
 }
 
 export interface SubmitClaimInput {
@@ -63,12 +68,13 @@ export async function submitClaim(
   return { status: "created", claim: toBusinessClaim(claim) };
 }
 
-export async function listClaims(
+export async function listClaimsForNeighborhood(
+  neighborhoodId: string,
   repository: ClaimRepository,
   status?: BusinessClaimStatus
-): Promise<BusinessClaim[]> {
-  const claims = await repository.listClaims(status);
-  return claims.map(toBusinessClaim);
+): Promise<BusinessClaimWithVenue[]> {
+  const claims = await repository.listClaimsForNeighborhood(neighborhoodId, status);
+  return claims.map(toBusinessClaimWithVenue);
 }
 
 export type ReviewClaimResult =
@@ -95,6 +101,21 @@ export async function reviewClaim(
       : await repository.rejectClaim(claimId, reviewedNote);
 
   return { status: "updated", claim: toBusinessClaim(updated) };
+}
+
+// Neighborhood-scoped counterpart of reviewClaim -- rejects (as not_found,
+// same as a missing claim, so it doesn't leak whether the id exists in a
+// different neighborhood) before delegating to the existing review logic.
+export async function reviewClaimForNeighborhood(
+  neighborhoodId: string,
+  claimId: string,
+  decision: "approve" | "reject",
+  reviewedNote: string | null,
+  repository: ClaimRepository
+): Promise<ReviewClaimResult> {
+  const ownerNeighborhoodId = await repository.getClaimVenueNeighborhoodId(claimId);
+  if (ownerNeighborhoodId !== neighborhoodId) return { status: "not_found" };
+  return reviewClaim(claimId, decision, reviewedNote, repository);
 }
 
 // venueOwnerGate already proves the caller holds an approved claim on this

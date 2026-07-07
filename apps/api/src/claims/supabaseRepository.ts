@@ -4,6 +4,7 @@ import type {
   ClaimedVenue,
   ClaimRecord,
   ClaimRepository,
+  ClaimWithVenueRecord,
   CreateClaimInput,
   VenueClaimStatus,
 } from "./repository";
@@ -73,15 +74,40 @@ export class SupabaseClaimRepository implements ClaimRepository {
     return toRecord(data);
   }
 
-  async listClaims(status?: BusinessClaimStatus): Promise<ClaimRecord[]> {
-    let query = this.supabase.from("business_claim").select(CLAIM_COLUMNS).order("created_at", {
-      ascending: false,
-    });
+  async listClaimsForNeighborhood(
+    neighborhoodId: string,
+    status?: BusinessClaimStatus
+  ): Promise<ClaimWithVenueRecord[]> {
+    let query = this.supabase
+      .from("business_claim")
+      .select(`${CLAIM_COLUMNS}, venue:venue_id!inner(neighborhood_id, name, address)`)
+      .eq("venue.neighborhood_id", neighborhoodId)
+      .order("created_at", { ascending: false });
     if (status) query = query.eq("status", status);
 
     const { data, error } = await query;
-    if (error) throw new Error(`listClaims failed: ${error.message}`);
-    return (data ?? []).map(toRecord);
+    if (error) throw new Error(`listClaimsForNeighborhood failed: ${error.message}`);
+    return (data ?? []).map((row) => {
+      const venue = (Array.isArray(row.venue) ? row.venue[0] : row.venue) as {
+        name: string;
+        address: string;
+      };
+      return { ...toRecord(row), venueName: venue.name, venueAddress: venue.address };
+    });
+  }
+
+  async getClaimVenueNeighborhoodId(claimId: string): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .from("business_claim")
+      .select("venue:venue_id(neighborhood_id)")
+      .eq("id", claimId)
+      .maybeSingle();
+
+    if (error) throw new Error(`getClaimVenueNeighborhoodId failed: ${error.message}`);
+    const venue = (Array.isArray(data?.venue) ? data?.venue[0] : data?.venue) as {
+      neighborhood_id: string;
+    } | null;
+    return venue?.neighborhood_id ?? null;
   }
 
   async getClaim(claimId: string): Promise<ClaimRecord | null> {

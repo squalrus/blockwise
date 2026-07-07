@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { SocialLinks } from "@blockwise/types";
 import {
   getVenueSocialLinks,
-  listClaims,
+  listClaimsForNeighborhood,
   reviewClaim,
+  reviewClaimForNeighborhood,
   submitClaim,
   updateVenueSocialLinks,
 } from "./claims";
@@ -11,20 +12,39 @@ import type {
   ClaimedVenue,
   ClaimRecord,
   ClaimRepository,
+  ClaimWithVenueRecord,
   CreateClaimInput,
   VenueClaimStatus,
 } from "./repository";
+
+interface VenueFixture {
+  claimedByBusiness: boolean;
+  neighborhoodId: string;
+  name: string;
+  address: string;
+}
+
+function venue(overrides: Partial<VenueFixture> = {}): VenueFixture {
+  return {
+    claimedByBusiness: false,
+    neighborhoodId: "neighborhood-1",
+    name: "Venue",
+    address: "123 Main St",
+    ...overrides,
+  };
+}
 
 // In-memory fake, mirroring the pattern used for VenueDetailRepository tests.
 class FakeClaimRepository implements ClaimRepository {
   claims: ClaimRecord[] = [];
   private nextId = 1;
 
-  constructor(private readonly venues: Map<string, boolean>) {}
+  constructor(private readonly venues: Map<string, VenueFixture>) {}
 
   async getVenue(venueId: string): Promise<VenueClaimStatus | null> {
-    if (!this.venues.has(venueId)) return null;
-    return { id: venueId, claimedByBusiness: this.venues.get(venueId)! };
+    const v = this.venues.get(venueId);
+    if (!v) return null;
+    return { id: venueId, claimedByBusiness: v.claimedByBusiness };
   }
 
   async createClaim(input: CreateClaimInput): Promise<ClaimRecord> {
@@ -56,8 +76,23 @@ class FakeClaimRepository implements ClaimRepository {
     );
   }
 
-  async listClaims(status?: ClaimRecord["status"]): Promise<ClaimRecord[]> {
-    return status ? this.claims.filter((c) => c.status === status) : this.claims;
+  async listClaimsForNeighborhood(
+    neighborhoodId: string,
+    status?: ClaimRecord["status"]
+  ): Promise<ClaimWithVenueRecord[]> {
+    return this.claims
+      .filter((c) => this.venues.get(c.venueId)?.neighborhoodId === neighborhoodId)
+      .filter((c) => (status ? c.status === status : true))
+      .map((c) => {
+        const v = this.venues.get(c.venueId)!;
+        return { ...c, venueName: v.name, venueAddress: v.address };
+      });
+  }
+
+  async getClaimVenueNeighborhoodId(claimId: string): Promise<string | null> {
+    const claim = this.claims.find((c) => c.id === claimId);
+    if (!claim) return null;
+    return this.venues.get(claim.venueId)?.neighborhoodId ?? null;
   }
 
   async getClaim(claimId: string): Promise<ClaimRecord | null> {
@@ -69,7 +104,8 @@ class FakeClaimRepository implements ClaimRepository {
     claim.status = "approved";
     claim.reviewedAt = new Date().toISOString();
     claim.reviewedNote = reviewedNote;
-    this.venues.set(claim.venueId, true);
+    const v = this.venues.get(claim.venueId);
+    if (v) v.claimedByBusiness = true;
     return claim;
   }
 
@@ -104,13 +140,13 @@ describe("submitClaim", () => {
   });
 
   it("returns already_claimed when the venue is already claimed", async () => {
-    const repo = new FakeClaimRepository(new Map([["venue-1", true]]));
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue({ claimedByBusiness: true })]]));
     const result = await submitClaim("venue-1", CONTACT, repo);
     expect(result).toEqual({ status: "already_claimed" });
   });
 
   it("creates a pending claim for an unclaimed venue", async () => {
-    const repo = new FakeClaimRepository(new Map([["venue-1", false]]));
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue()]]));
     const result = await submitClaim("venue-1", CONTACT, repo);
     expect(result.status).toBe("created");
     if (result.status === "created") {
@@ -122,13 +158,13 @@ describe("submitClaim", () => {
 
 describe("reviewClaim", () => {
   it("returns not_found for an unknown claim", async () => {
-    const repo = new FakeClaimRepository(new Map([["venue-1", false]]));
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue()]]));
     const result = await reviewClaim("missing-claim", "approve", null, repo);
     expect(result).toEqual({ status: "not_found" });
   });
 
   it("approving a claim flips the venue's claimed_by_business flag", async () => {
-    const repo = new FakeClaimRepository(new Map([["venue-1", false]]));
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue()]]));
     const created = await submitClaim("venue-1", CONTACT, repo);
     if (created.status !== "created") throw new Error("expected claim to be created");
 
@@ -142,7 +178,7 @@ describe("reviewClaim", () => {
   });
 
   it("rejecting a claim leaves the venue unclaimed", async () => {
-    const repo = new FakeClaimRepository(new Map([["venue-1", false]]));
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue()]]));
     const created = await submitClaim("venue-1", CONTACT, repo);
     if (created.status !== "created") throw new Error("expected claim to be created");
 
@@ -152,7 +188,7 @@ describe("reviewClaim", () => {
   });
 
   it("refuses to re-review a claim that's already been decided", async () => {
-    const repo = new FakeClaimRepository(new Map([["venue-1", false]]));
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue()]]));
     const created = await submitClaim("venue-1", CONTACT, repo);
     if (created.status !== "created") throw new Error("expected claim to be created");
 
@@ -162,23 +198,78 @@ describe("reviewClaim", () => {
   });
 });
 
-describe("listClaims", () => {
-  it("filters by status when provided", async () => {
-    const repo = new FakeClaimRepository(new Map([["venue-1", false], ["venue-2", false]]));
+describe("listClaimsForNeighborhood", () => {
+  it("only returns claims whose venue belongs to the given neighborhood, filtered by status", async () => {
+    const repo = new FakeClaimRepository(
+      new Map([
+        ["venue-1", venue({ neighborhoodId: "neighborhood-1", name: "Venue One", address: "1 First St" })],
+        ["venue-2", venue({ neighborhoodId: "neighborhood-1" })],
+        ["venue-3", venue({ neighborhoodId: "neighborhood-2" })],
+      ])
+    );
     const first = await submitClaim("venue-1", CONTACT, repo);
     await submitClaim("venue-2", CONTACT, repo);
+    await submitClaim("venue-3", CONTACT, repo);
     if (first.status !== "created") throw new Error("expected claim to be created");
     await reviewClaim(first.claim.id, "approve", null, repo);
 
-    const pending = await listClaims(repo, "pending");
+    const pending = await listClaimsForNeighborhood("neighborhood-1", repo, "pending");
     expect(pending).toHaveLength(1);
     expect(pending[0].venue_id).toBe("venue-2");
+
+    const all = await listClaimsForNeighborhood("neighborhood-1", repo);
+    expect(all).toHaveLength(2);
+    expect(all.find((c) => c.venue_id === "venue-1")).toMatchObject({
+      venue_name: "Venue One",
+      venue_address: "1 First St",
+    });
+
+    const other = await listClaimsForNeighborhood("neighborhood-2", repo);
+    expect(other).toHaveLength(1);
+    expect(other[0].venue_id).toBe("venue-3");
+  });
+});
+
+describe("reviewClaimForNeighborhood", () => {
+  it("returns not_found when the claim's venue belongs to a different neighborhood", async () => {
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue({ neighborhoodId: "neighborhood-1" })]]));
+    const created = await submitClaim("venue-1", CONTACT, repo);
+    if (created.status !== "created") throw new Error("expected claim to be created");
+
+    const result = await reviewClaimForNeighborhood("neighborhood-2", created.claim.id, "approve", null, repo);
+    expect(result).toEqual({ status: "not_found" });
+    expect((await repo.getClaim(created.claim.id))?.status).toBe("pending");
+  });
+
+  it("returns not_found for a genuinely missing claim id", async () => {
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue({ neighborhoodId: "neighborhood-1" })]]));
+    const result = await reviewClaimForNeighborhood("neighborhood-1", "missing-claim", "approve", null, repo);
+    expect(result).toEqual({ status: "not_found" });
+  });
+
+  it("delegates to the normal review flow when the neighborhood matches", async () => {
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue({ neighborhoodId: "neighborhood-1" })]]));
+    const created = await submitClaim("venue-1", CONTACT, repo);
+    if (created.status !== "created") throw new Error("expected claim to be created");
+
+    const result = await reviewClaimForNeighborhood(
+      "neighborhood-1",
+      created.claim.id,
+      "approve",
+      "looks good",
+      repo
+    );
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") expect(result.claim.reviewed_note).toBe("looks good");
+
+    const second = await reviewClaimForNeighborhood("neighborhood-1", created.claim.id, "reject", null, repo);
+    expect(second).toEqual({ status: "already_reviewed" });
   });
 });
 
 describe("venue social links", () => {
   it("defaults to empty and can be updated for an approved claim", async () => {
-    const repo = new FakeClaimRepository(new Map([["venue-1", false]]));
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue()]]));
     const created = await submitClaim("venue-1", CONTACT, repo);
     if (created.status !== "created") throw new Error("expected claim to be created");
     await reviewClaim(created.claim.id, "approve", null, repo);

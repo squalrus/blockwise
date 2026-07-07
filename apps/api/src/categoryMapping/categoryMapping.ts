@@ -16,11 +16,12 @@ function toCategoryOption(record: CategoryRecord): CategoryOption {
   return { id: record.id, name: record.name, group_name: record.groupName };
 }
 
-export async function listVenueCategoryMappings(
+export async function listVenueCategoryMappingsForNeighborhood(
+  neighborhoodId: string,
   repository: CategoryMappingRepository,
   search?: string
 ): Promise<VenueCategoryMapping[]> {
-  const venues = await repository.listVenues(search);
+  const venues = await repository.listVenuesForNeighborhood(neighborhoodId, search);
   return venues.map(toVenueCategoryMapping);
 }
 
@@ -53,4 +54,19 @@ export async function reassignVenueCategory(
 
   const updated = await repository.updateVenueCategory(venueId, categoryId);
   return { status: "updated", venue: toVenueCategoryMapping(updated) };
+}
+
+// Neighborhood-scoped counterpart of reassignVenueCategory -- rejects (as
+// venue_not_found, same as a genuinely missing venue) before delegating to
+// the existing reassignment logic, so a cross-neighborhood venue id can't be
+// mutated from a different neighborhood's admin tab.
+export async function reassignVenueCategoryForNeighborhood(
+  neighborhoodId: string,
+  venueId: string,
+  categoryId: string,
+  repository: CategoryMappingRepository
+): Promise<ReassignVenueCategoryResult> {
+  const venueNeighborhoodId = await repository.getVenueNeighborhoodId(venueId);
+  if (venueNeighborhoodId !== neighborhoodId) return { status: "venue_not_found" };
+  return reassignVenueCategory(venueId, categoryId, repository);
 }

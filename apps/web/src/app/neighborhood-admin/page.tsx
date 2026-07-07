@@ -95,7 +95,7 @@ export default function NeighborhoodAdminPortalPage() {
               className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
             >
               <a
-                href={`/neighborhood-admin/${neighborhood.neighborhood_id}`}
+                href={`/neighborhood-admin/${neighborhood.slug}`}
                 className="font-medium text-black hover:underline dark:text-zinc-50"
               >
                 {neighborhood.name}
