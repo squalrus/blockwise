@@ -15,8 +15,11 @@ export interface NeighborhoodRepository {
   getNeighborhoodById(id: string): Promise<NeighborhoodRecord | null>;
   updateDescription(id: string, description: string): Promise<NeighborhoodRecord>;
   // Landing page (BACKLOG.md "Neighborhoods on landing page and user
-  // profile") -- every active neighborhood in the network, for the "all
-  // neighborhoods" browse/join list. Onboarding-status neighborhoods aren't
-  // public yet (README neighborhood.status), so excluded here.
-  listActive(): Promise<NeighborhoodRecord[]>;
+  // profile") -- every neighborhood in the network, for the "all
+  // neighborhoods" browse/join list. Not filtered by status: nothing else in
+  // the app gates on neighborhood.status today, and the seeded Phinneywood
+  // row is still 'onboarding' despite being fully live (venues, check-ins,
+  // business claims, its own public profile page) -- filtering it out here
+  // would hide the only neighborhood that exists.
+  listAll(): Promise<NeighborhoodRecord[]>;
 }
