@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { evaluateCheckin, performCheckin } from "./checkin";
-import type { CheckinRecord, CheckinRepository, VenueLocation } from "./repository";
+import type { CheckinRecord, CheckinRepository, CheckinVenue, VenueLocation } from "./repository";
 
 const VENUE: VenueLocation = { id: "venue-1", lat: 47.6062, lng: -122.3321 };
 const AT_VENUE = { lat: 47.6062, lng: -122.3321 };
@@ -104,6 +104,10 @@ class FakeCheckinRepository implements CheckinRepository {
     };
     this.checkins.push(record);
     return record;
+  }
+
+  async listCheckinsForUser(_userId: string): Promise<CheckinVenue[]> {
+    return [];
   }
 }
 

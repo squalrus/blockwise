@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorite";
-import type { FavoriteRecord, FavoriteRepository } from "./repository";
+import type { FavoriteRecord, FavoriteRepository, FavoriteVenue } from "./repository";
 
 // In-memory fake, mirroring FakeCheckinRepository in checkins/checkin.test.ts.
 class FakeFavoriteRepository implements FavoriteRepository {
@@ -40,6 +40,10 @@ class FakeFavoriteRepository implements FavoriteRepository {
 
   async deleteFavorite(userId: string, venueId: string): Promise<void> {
     this.favorites = this.favorites.filter((f) => !(f.userId === userId && f.venueId === venueId));
+  }
+
+  async listFavoriteVenuesForUser(_userId: string): Promise<FavoriteVenue[]> {
+    return [];
   }
 }
 
