@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.16.2] — 2026-07-07
+
+### Changed
+
+- **Venues now browse from the neighborhood page instead of a standalone `/venues` list.** The List/Map toggle (shipped v0.7.0) moved from the top-level `/venues` page onto each neighborhood's profile page (`/neighborhoods/[slug]`), scoped to that neighborhood's own venues via a new `GET /neighborhoods/:id/venues` endpoint — the venue table has always had a `neighborhood_id` column, but nothing queried by it until now. The venue detail page's back link now points to the venue's own neighborhood (`neighborhood_slug`/`neighborhood_name` added to `VenueDetail`) instead of the removed `/venues` list. Post-login/signup redirects for consumer accounts now land on the landing page instead of the removed page. (`apps/api/src/app.ts`, `apps/api/src/venues/`, `apps/web/src/app/neighborhoods/[slug]/`, `apps/web/src/app/venues/[id]/page.tsx`, `apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`, `apps/web/src/app/auth/callback/page.tsx`, `packages/types/src/index.ts`)
+- **`apps/api`'s TypeScript config switched to `Node16` module/moduleResolution** (from `CommonJS`/`Node`), matching the package's actual ESM-style import resolution and clearing an editor type-checking error. (`apps/api/tsconfig.json`)
+
+### Fixed
+
+- **"Blockwise" home link went to the venues list instead of the landing page.** The nav bar's wordmark linked to `/venues`, so there was no way to get back to the landing page (neighborhood browsing, sign-in status) short of typing the URL. Now links to `/`. (`apps/web/src/app/AccountNav.tsx`)
+- **Date inputs and dropdowns were unreadable in dark mode.** Native form controls (`<select>`, `type="date"`/`"datetime-local"` inputs) render their own calendar icon, dropdown arrow, and popup list outside of Tailwind's styling — without a `color-scheme` declaration, browsers draw that chrome for light mode regardless of the page's own dark theme, making it blend into or vanish against the dark background. Added `color-scheme: light`/`dark` alongside the existing light/dark CSS variables so these controls render correctly in both themes. (`apps/web/src/app/globals.css`)
+
 ## [0.16.1] — 2026-07-06
 
 ### Fixed

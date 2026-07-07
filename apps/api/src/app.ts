@@ -193,16 +193,6 @@ export function createApp() {
     res.json(body);
   });
 
-  app.get("/venues", async (_req, res) => {
-    try {
-      const venues = await getVenueRepository().listVenues();
-      res.json(venues);
-    } catch (err) {
-      console.error("GET /venues failed:", err);
-      res.status(500).json({ error: "Failed to list venues" });
-    }
-  });
-
   app.get("/venues/:id", async (req, res) => {
     try {
       const venue = await getVenueDetailWithFreshEnrichment(
@@ -339,6 +329,18 @@ export function createApp() {
     } catch (err) {
       console.error(`GET /neighborhoods/${req.params.id}/events failed:`, err);
       res.status(500).json({ error: "Failed to list events" });
+    }
+  });
+
+  // Venues are browsed from the neighborhood page (BACKLOG.md), not a
+  // standalone /venues page -- scoped by the venue table's neighborhood_id.
+  app.get("/neighborhoods/:id/venues", async (req, res) => {
+    try {
+      const venues = await getVenueRepository().listVenues(req.params.id);
+      res.json(venues);
+    } catch (err) {
+      console.error(`GET /neighborhoods/${req.params.id}/venues failed:`, err);
+      res.status(500).json({ error: "Failed to list venues" });
     }
   });
 

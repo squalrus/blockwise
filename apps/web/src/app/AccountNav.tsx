@@ -27,7 +27,7 @@ export function AccountNav() {
 
   return (
     <nav className="flex items-center gap-4 border-b border-black/[.08] px-6 py-3 text-sm dark:border-white/[.145]">
-      <a href="/venues" className="font-medium text-black dark:text-zinc-50">
+      <a href="/" className="font-medium text-black dark:text-zinc-50">
         Blockwise
       </a>
       <div className="ml-auto flex items-center gap-4">
