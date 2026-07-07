@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BusinessClaimStatus } from "@blockwise/types";
+import type { BusinessClaimStatus, SocialLinks } from "@blockwise/types";
 import type {
   ClaimedVenue,
   ClaimRecord,
@@ -20,6 +20,7 @@ function toRecord(row: {
   reviewed_at: string | null;
   reviewed_note: string | null;
   claimed_by_user_id: string | null;
+  social_links: SocialLinks | null;
 }): ClaimRecord {
   return {
     id: row.id,
@@ -33,11 +34,12 @@ function toRecord(row: {
     reviewedAt: row.reviewed_at,
     reviewedNote: row.reviewed_note,
     claimedByUserId: row.claimed_by_user_id,
+    socialLinks: row.social_links ?? {},
   };
 }
 
 const CLAIM_COLUMNS =
-  "id, venue_id, contact_name, contact_method, contact_value, note, status, created_at, reviewed_at, reviewed_note, claimed_by_user_id";
+  "id, venue_id, contact_name, contact_method, contact_value, note, status, created_at, reviewed_at, reviewed_note, claimed_by_user_id, social_links";
 
 export class SupabaseClaimRepository implements ClaimRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -156,5 +158,30 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     if (error) throw new Error(`isVenueClaimedByUser failed: ${error.message}`);
     return data !== null;
+  }
+
+  async getApprovedClaimSocialLinks(venueId: string): Promise<SocialLinks> {
+    const { data, error } = await this.supabase
+      .from("business_claim")
+      .select("social_links")
+      .eq("venue_id", venueId)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (error) throw new Error(`getApprovedClaimSocialLinks failed: ${error.message}`);
+    return (data?.social_links as SocialLinks | null) ?? {};
+  }
+
+  async updateApprovedClaimSocialLinks(venueId: string, socialLinks: SocialLinks): Promise<SocialLinks> {
+    const { data, error } = await this.supabase
+      .from("business_claim")
+      .update({ social_links: socialLinks })
+      .eq("venue_id", venueId)
+      .eq("status", "approved")
+      .select("social_links")
+      .single();
+
+    if (error) throw new Error(`updateApprovedClaimSocialLinks failed: ${error.message}`);
+    return (data?.social_links as SocialLinks | null) ?? {};
   }
 }

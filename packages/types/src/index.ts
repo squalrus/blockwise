@@ -9,6 +9,19 @@ export interface HealthCheckResponse {
 
 export type NeighborhoodStatus = "onboarding" | "active";
 
+// Instagram links and social media integration (BACKLOG.md Ref 30) -- a
+// generic platform->url map rather than one field per platform, so adding a
+// new platform is a type change, not a migration. Known keys get typed
+// convenience; any other string key is still accepted for forward
+// compatibility with platforms not listed here yet.
+export type SocialPlatform =
+  | "instagram"
+  | "twitter"
+  | "tiktok"
+  | "facebook"
+  | "website";
+export type SocialLinks = Partial<Record<SocialPlatform, string>>;
+
 export interface Neighborhood {
   id: string;
   name: string;
@@ -23,6 +36,7 @@ export interface Neighborhood {
   center_lng: number;
   status: NeighborhoodStatus;
   created_at: string;
+  social_links: SocialLinks;
 }
 
 export type CategoryStatus = "active" | "archived";
@@ -108,6 +122,9 @@ export interface VenueDetail {
   // page's "back to neighborhood" link.
   neighborhood_slug: string;
   neighborhood_name: string;
+  // From the venue's approved business_claim, if any (BACKLOG.md Ref 30) --
+  // empty for venues with no approved claim.
+  social_links: SocialLinks;
 }
 
 // Business claiming + GPS check-in (BACKLOG.md, README §4/§5/§14.2).
@@ -182,6 +199,7 @@ export interface BusinessClaim {
   // claim time (see CreateBusinessClaimRequest) -- null for the
   // still-supported anonymous submission path.
   claimed_by_user_id: string | null;
+  social_links: SocialLinks;
 }
 
 export interface CreateBusinessClaimRequest {
@@ -189,6 +207,10 @@ export interface CreateBusinessClaimRequest {
   contact_method: BusinessClaimContactMethod;
   contact_value: string;
   note?: string;
+}
+
+export interface UpdateSocialLinksRequest {
+  social_links: SocialLinks;
 }
 
 // Real user authentication (BACKLOG.md, README §14.2/§14.3).
@@ -279,6 +301,7 @@ export interface NeighborhoodProfile {
   city: string;
   state: string;
   pois: Poi[];
+  social_links: SocialLinks;
 }
 
 // Neighborhood membership (BACKLOG.md "Neighborhoods on landing page and user
@@ -318,6 +341,7 @@ export interface NeighborhoodDashboardSummary {
   description: string | null;
   pois: Poi[];
   events: Event[];
+  social_links: SocialLinks;
 }
 
 export interface UpdateNeighborhoodDescriptionRequest {
@@ -342,6 +366,7 @@ export interface VenueDashboardSummary {
   checkin_count: number;
   announcements: Announcement[];
   events: Event[];
+  social_links: SocialLinks;
 }
 
 // Category mapping admin tool (BACKLOG.md) -- manual override for venues the

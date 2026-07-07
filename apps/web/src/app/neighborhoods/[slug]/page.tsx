@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Event, NeighborhoodProfile, VenueListItem } from "@blockwise/types";
+import type { Event, NeighborhoodProfile, SocialLinks, VenueListItem } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { JoinNeighborhoodButton } from "./JoinNeighborhoodButton";
 import { VenuesView } from "./VenuesView";
+
+const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
+  { key: "instagram", label: "Instagram" },
+  { key: "twitter", label: "Twitter / X" },
+  { key: "tiktok", label: "TikTok" },
+  { key: "facebook", label: "Facebook" },
+  { key: "website", label: "Website" },
+];
 
 async function getNeighborhood(slug: string): Promise<NeighborhoodProfile | null> {
   const res = await fetch(apiUrl(`/neighborhoods/${slug}`), { cache: "no-store" });
@@ -63,6 +71,24 @@ export default async function NeighborhoodProfilePage({
 
       {neighborhood.description && (
         <p className="text-sm text-zinc-700 dark:text-zinc-300">{neighborhood.description}</p>
+      )}
+
+      {Object.keys(neighborhood.social_links).length > 0 && (
+        <div className="flex flex-wrap gap-4 text-sm">
+          {SOCIAL_PLATFORM_LABELS.filter(({ key }) => neighborhood.social_links[key]).map(
+            ({ key, label }) => (
+              <a
+                key={key}
+                href={neighborhood.social_links[key]}
+                target="_blank"
+                rel="noreferrer"
+                className="text-zinc-600 underline hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+              >
+                {label}
+              </a>
+            )
+          )}
+        </div>
       )}
 
       <div>

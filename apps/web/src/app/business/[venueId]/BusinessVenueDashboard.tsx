@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Announcement, AppUser, Event, VenueDashboardSummary } from "@blockwise/types";
+import type { Announcement, AppUser, Event, SocialLinks, VenueDashboardSummary } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { AnnouncementForm } from "./AnnouncementForm";
 import { EventForm } from "./EventForm";
+import { SocialLinksForm } from "./SocialLinksForm";
 
 type State =
   | { status: "loading" }
@@ -79,6 +80,12 @@ export function BusinessVenueDashboard({ venueId }: { venueId: string }) {
     );
   }
 
+  function handleSocialLinksSaved(socialLinks: SocialLinks) {
+    setState((prev) =>
+      prev.status === "ready" ? { ...prev, summary: { ...prev.summary, social_links: socialLinks } } : prev
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
       <a href="/business" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
@@ -141,6 +148,15 @@ export function BusinessVenueDashboard({ venueId }: { venueId: string }) {
               <p className="text-sm text-zinc-600 dark:text-zinc-400">Check-ins</p>
             </div>
           </div>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Social links</h2>
+            <SocialLinksForm
+              venueId={venueId}
+              initialSocialLinks={state.summary.social_links}
+              onSaved={handleSocialLinksSaved}
+            />
+          </section>
 
           <section className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Announcements</h2>

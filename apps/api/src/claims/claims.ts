@@ -1,4 +1,9 @@
-import type { BusinessClaim, BusinessClaimContactMethod, BusinessClaimStatus } from "@blockwise/types";
+import type {
+  BusinessClaim,
+  BusinessClaimContactMethod,
+  BusinessClaimStatus,
+  SocialLinks,
+} from "@blockwise/types";
 import type { ClaimRecord, ClaimRepository } from "./repository";
 
 function toBusinessClaim(record: ClaimRecord): BusinessClaim {
@@ -14,6 +19,7 @@ function toBusinessClaim(record: ClaimRecord): BusinessClaim {
     reviewed_at: record.reviewedAt,
     reviewed_note: record.reviewedNote,
     claimed_by_user_id: record.claimedByUserId,
+    social_links: record.socialLinks,
   };
 }
 
@@ -89,4 +95,22 @@ export async function reviewClaim(
       : await repository.rejectClaim(claimId, reviewedNote);
 
   return { status: "updated", claim: toBusinessClaim(updated) };
+}
+
+// venueOwnerGate already proves the caller holds an approved claim on this
+// venue before either of these run, so no not_found/ownership branching is
+// needed here the way updateNeighborhoodSocialLinks needs it.
+export async function getVenueSocialLinks(
+  venueId: string,
+  repository: ClaimRepository
+): Promise<SocialLinks> {
+  return repository.getApprovedClaimSocialLinks(venueId);
+}
+
+export async function updateVenueSocialLinks(
+  venueId: string,
+  socialLinks: SocialLinks,
+  repository: ClaimRepository
+): Promise<SocialLinks> {
+  return repository.updateApprovedClaimSocialLinks(venueId, socialLinks);
 }

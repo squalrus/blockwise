@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.18.0] — 2026-07-07
+
+### Added
+
+- **Instagram links and social media integration.** Business profile pages and neighborhood profile pages were read-only — there was no way to link out to a business or neighborhood's own social media presence. Claimed business owners and neighborhood admins can now add outbound links (Instagram, Twitter/X, TikTok, Facebook, website) from their respective dashboards, stored as a generic `social_links` JSON map (`business_claim.social_links`, `neighborhood.social_links`) rather than one column per platform, so a new platform is a type change, not a migration. Links show up as a row of outbound links on the public venue detail page and neighborhood profile page. New endpoints: `PATCH /business/venues/:id/social-links`, `PATCH /neighborhood-admin/neighborhoods/:id/social-links`; `GET /venues/:id` and `GET /neighborhoods/:slug` now include `social_links`. Links-only for now — feed embedding was considered but dropped due to API/display-terms complexity. (`supabase/migrations/20260706120000_social_links.sql`, `apps/api/src/claims/`, `apps/api/src/neighborhoods/`, `apps/api/src/venues/`, `apps/api/src/app.ts`, `apps/web/src/app/business/[venueId]/SocialLinksForm.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodId]/SocialLinksForm.tsx`, `apps/web/src/app/venues/[id]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`, `packages/types/src/index.ts`)
+
 ## [0.17.0] — 2026-07-06
 
 ### Added

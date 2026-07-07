@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SocialLinks } from "@blockwise/types";
 import type { NeighborhoodRecord, NeighborhoodRepository } from "./repository";
 
 function toRecord(row: {
@@ -8,6 +9,7 @@ function toRecord(row: {
   description: string | null;
   city: string;
   state: string;
+  social_links: SocialLinks | null;
 }): NeighborhoodRecord {
   return {
     id: row.id,
@@ -16,10 +18,11 @@ function toRecord(row: {
     description: row.description,
     city: row.city,
     state: row.state,
+    social_links: row.social_links ?? {},
   };
 }
 
-const NEIGHBORHOOD_COLUMNS = "id, name, slug, description, city, state";
+const NEIGHBORHOOD_COLUMNS = "id, name, slug, description, city, state, social_links";
 
 export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -55,6 +58,18 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
       .single();
 
     if (error) throw new Error(`updateDescription failed: ${error.message}`);
+    return toRecord(data);
+  }
+
+  async updateSocialLinks(id: string, socialLinks: SocialLinks): Promise<NeighborhoodRecord> {
+    const { data, error } = await this.supabase
+      .from("neighborhood")
+      .update({ social_links: socialLinks })
+      .eq("id", id)
+      .select(NEIGHBORHOOD_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`updateSocialLinks failed: ${error.message}`);
     return toRecord(data);
   }
 

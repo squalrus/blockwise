@@ -21,6 +21,7 @@ const BASE_RECORD: VenueDetailRecord = {
   enrichment: null,
   neighborhoodSlug: "phinneywood",
   neighborhoodName: "Phinneywood",
+  socialLinks: {},
 };
 
 class FakeRepository implements VenueDetailRepository {

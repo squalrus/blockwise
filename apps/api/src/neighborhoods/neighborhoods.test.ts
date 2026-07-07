@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getNeighborhoodBySlug, updateNeighborhoodDescription } from "./neighborhoods";
+import type { SocialLinks } from "@blockwise/types";
+import {
+  getNeighborhoodBySlug,
+  updateNeighborhoodDescription,
+  updateNeighborhoodSocialLinks,
+} from "./neighborhoods";
 import type { NeighborhoodRecord, NeighborhoodRepository } from "./repository";
 
 // In-memory fake, mirroring the pattern used for EventRepository tests.
@@ -20,6 +25,13 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
     neighborhood.description = description;
     return neighborhood;
   }
+
+  async updateSocialLinks(id: string, socialLinks: SocialLinks): Promise<NeighborhoodRecord> {
+    const neighborhood = this.neighborhoods.find((n) => n.id === id);
+    if (!neighborhood) throw new Error("not found");
+    neighborhood.social_links = socialLinks;
+    return neighborhood;
+  }
 }
 
 const PHINNEYWOOD: NeighborhoodRecord = {
@@ -29,6 +41,7 @@ const PHINNEYWOOD: NeighborhoodRecord = {
   description: null,
   city: "Seattle",
   state: "WA",
+  social_links: {},
 };
 
 describe("getNeighborhoodBySlug", () => {
@@ -59,6 +72,30 @@ describe("updateNeighborhoodDescription", () => {
   it("returns not_found for a nonexistent neighborhood", async () => {
     const repo = new FakeNeighborhoodRepository([]);
     const result = await updateNeighborhoodDescription("nope", "A great place.", repo);
+    expect(result).toEqual({ status: "not_found" });
+  });
+});
+
+describe("updateNeighborhoodSocialLinks", () => {
+  it("updates the social links of an existing neighborhood", async () => {
+    const repo = new FakeNeighborhoodRepository([{ ...PHINNEYWOOD }]);
+    const result = await updateNeighborhoodSocialLinks(
+      "neighborhood-1",
+      { instagram: "https://instagram.com/phinneywood" },
+      repo
+    );
+
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      expect(result.neighborhood.social_links).toEqual({
+        instagram: "https://instagram.com/phinneywood",
+      });
+    }
+  });
+
+  it("returns not_found for a nonexistent neighborhood", async () => {
+    const repo = new FakeNeighborhoodRepository([]);
+    const result = await updateNeighborhoodSocialLinks("nope", { instagram: "x" }, repo);
     expect(result).toEqual({ status: "not_found" });
   });
 });

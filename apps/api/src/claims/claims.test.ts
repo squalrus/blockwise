@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { listClaims, reviewClaim, submitClaim } from "./claims";
+import type { SocialLinks } from "@blockwise/types";
+import {
+  getVenueSocialLinks,
+  listClaims,
+  reviewClaim,
+  submitClaim,
+  updateVenueSocialLinks,
+} from "./claims";
 import type {
   ClaimedVenue,
   ClaimRecord,
@@ -33,6 +40,7 @@ class FakeClaimRepository implements ClaimRepository {
       reviewedAt: null,
       reviewedNote: null,
       claimedByUserId: input.claimedByUserId,
+      socialLinks: {},
     };
     this.claims.push(record);
     return record;
@@ -71,6 +79,18 @@ class FakeClaimRepository implements ClaimRepository {
     claim.reviewedAt = new Date().toISOString();
     claim.reviewedNote = reviewedNote;
     return claim;
+  }
+
+  async getApprovedClaimSocialLinks(venueId: string): Promise<SocialLinks> {
+    const claim = this.claims.find((c) => c.venueId === venueId && c.status === "approved");
+    return claim?.socialLinks ?? {};
+  }
+
+  async updateApprovedClaimSocialLinks(venueId: string, socialLinks: SocialLinks): Promise<SocialLinks> {
+    const claim = this.claims.find((c) => c.venueId === venueId && c.status === "approved");
+    if (!claim) throw new Error("no approved claim for venue");
+    claim.socialLinks = socialLinks;
+    return claim.socialLinks;
   }
 }
 
@@ -153,5 +173,26 @@ describe("listClaims", () => {
     const pending = await listClaims(repo, "pending");
     expect(pending).toHaveLength(1);
     expect(pending[0].venue_id).toBe("venue-2");
+  });
+});
+
+describe("venue social links", () => {
+  it("defaults to empty and can be updated for an approved claim", async () => {
+    const repo = new FakeClaimRepository(new Map([["venue-1", false]]));
+    const created = await submitClaim("venue-1", CONTACT, repo);
+    if (created.status !== "created") throw new Error("expected claim to be created");
+    await reviewClaim(created.claim.id, "approve", null, repo);
+
+    expect(await getVenueSocialLinks("venue-1", repo)).toEqual({});
+
+    const updated = await updateVenueSocialLinks(
+      "venue-1",
+      { instagram: "https://instagram.com/example" },
+      repo
+    );
+    expect(updated).toEqual({ instagram: "https://instagram.com/example" });
+    expect(await getVenueSocialLinks("venue-1", repo)).toEqual({
+      instagram: "https://instagram.com/example",
+    });
   });
 });

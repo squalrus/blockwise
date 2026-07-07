@@ -7,6 +7,8 @@ import type {
   NeighborhoodDashboardSummary,
   NeighborhoodProfile,
   NeighborhoodSummary,
+  SocialLinks,
+  SocialPlatform,
   VenueDashboardSummary,
 } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
@@ -20,7 +22,13 @@ import { SupabaseAuthRepository } from "./auth/supabaseRepository";
 import { verifyAccessToken } from "./auth/verifyToken";
 import { performCheckin } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
-import { listClaims, reviewClaim, submitClaim } from "./claims/claims";
+import {
+  getVenueSocialLinks,
+  listClaims,
+  reviewClaim,
+  submitClaim,
+  updateVenueSocialLinks,
+} from "./claims/claims";
 import { requireVenueOwner } from "./claims/requireVenueOwner";
 import { SupabaseClaimRepository } from "./claims/supabaseRepository";
 import {
@@ -49,6 +57,7 @@ import {
   getNeighborhoodById,
   getNeighborhoodBySlug,
   updateNeighborhoodDescription,
+  updateNeighborhoodSocialLinks,
 } from "./neighborhoods/neighborhoods";
 import { SupabaseNeighborhoodRepository } from "./neighborhoods/supabaseRepository";
 import {
@@ -69,6 +78,23 @@ import { SupabaseVenueDetailRepository } from "./venues/supabaseDetailRepository
 const CONTACT_METHODS: BusinessClaimContactMethod[] = ["phone", "email", "domain"];
 const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"];
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
+const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
+
+// Shared by the neighborhood-admin and business-owner social-links PATCH
+// routes -- rejects unknown platform keys and non-string values rather than
+// silently dropping or coercing them, since this is user-facing settings
+// data with no other validation layer (no zod in this repo).
+function parseSocialLinks(body: unknown): SocialLinks | null {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return null;
+
+  const links: SocialLinks = {};
+  for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+    if (!SOCIAL_PLATFORMS.includes(key as SocialPlatform)) return null;
+    if (typeof value !== "string") return null;
+    if (value.length > 0) links[key as SocialPlatform] = value;
+  }
+  return links;
+}
 
 function bearerToken(req: express.Request): string | null {
   const header = req.header("authorization");
@@ -327,6 +353,7 @@ export function createApp() {
         city: neighborhood.city,
         state: neighborhood.state,
         pois,
+        social_links: neighborhood.social_links,
       };
       res.json(profile);
     } catch (err) {
@@ -1010,11 +1037,12 @@ export function createApp() {
         return;
       }
 
-      const [followerCount, checkinCount, announcements, events] = await Promise.all([
+      const [followerCount, checkinCount, announcements, events, socialLinks] = await Promise.all([
         getFavoriteRepository().countFavoritesForVenue(req.params.id),
         getCheckinRepository().countCheckinsForVenue(req.params.id),
         listAnnouncementsForVenue(req.params.id, getAnnouncementRepository()),
         listEventsForVenue(req.params.id, getEventRepository()),
+        getVenueSocialLinks(req.params.id, getClaimRepository()),
       ]);
 
       const summary: VenueDashboardSummary = {
@@ -1025,11 +1053,28 @@ export function createApp() {
         checkin_count: checkinCount,
         announcements,
         events,
+        social_links: socialLinks,
       };
       res.json(summary);
     } catch (err) {
       console.error(`GET /business/venues/${req.params.id}/dashboard failed:`, err);
       res.status(500).json({ error: "Failed to load venue dashboard" });
+    }
+  });
+
+  app.patch("/business/venues/:id/social-links", venueOwnerGate, async (req, res) => {
+    const socialLinks = parseSocialLinks(req.body?.social_links);
+    if (!socialLinks) {
+      res.status(400).json({ error: "social_links must be a map of known platforms to string URLs" });
+      return;
+    }
+
+    try {
+      const updated = await updateVenueSocialLinks(req.params.id, socialLinks, getClaimRepository());
+      res.json({ social_links: updated });
+    } catch (err) {
+      console.error(`PATCH /business/venues/${req.params.id}/social-links failed:`, err);
+      res.status(500).json({ error: "Failed to update social links" });
     }
   });
 
@@ -1136,6 +1181,7 @@ export function createApp() {
           description: neighborhood.description,
           pois,
           events,
+          social_links: neighborhood.social_links,
         };
         res.json(summary);
       } catch (err) {
@@ -1168,6 +1214,37 @@ export function createApp() {
       res.status(500).json({ error: "Failed to update neighborhood" });
     }
   });
+
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/social-links",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const socialLinks = parseSocialLinks(req.body?.social_links);
+      if (!socialLinks) {
+        res.status(400).json({ error: "social_links must be a map of known platforms to string URLs" });
+        return;
+      }
+
+      try {
+        const result = await updateNeighborhoodSocialLinks(
+          req.params.id,
+          socialLinks,
+          getNeighborhoodRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+        res.json(result.neighborhood);
+      } catch (err) {
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/social-links failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to update social links" });
+      }
+    }
+  );
 
   app.post(
     "/neighborhood-admin/neighborhoods/:id/events",

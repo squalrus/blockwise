@@ -80,5 +80,6 @@ export async function getVenueDetailWithFreshEnrichment(
     enrichment: enrichment ?? null,
     neighborhood_slug: record.neighborhoodSlug,
     neighborhood_name: record.neighborhoodName,
+    social_links: record.socialLinks,
   };
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AppUser, Event, NeighborhoodDashboardSummary, Poi } from "@blockwise/types";
+import type { AppUser, Event, NeighborhoodDashboardSummary, Poi, SocialLinks } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { DescriptionForm } from "./DescriptionForm";
 import { EventForm } from "./EventForm";
 import { PoiForm } from "./PoiForm";
+import { SocialLinksForm } from "./SocialLinksForm";
 
 type State =
   | { status: "loading" }
@@ -83,6 +84,12 @@ export function NeighborhoodAdminDashboard({ neighborhoodId }: { neighborhoodId:
     );
   }
 
+  function handleSocialLinksSaved(socialLinks: SocialLinks) {
+    setState((prev) =>
+      prev.status === "ready" ? { ...prev, summary: { ...prev.summary, social_links: socialLinks } } : prev
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
       <a href="/neighborhood-admin" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
@@ -132,6 +139,15 @@ export function NeighborhoodAdminDashboard({ neighborhoodId }: { neighborhoodId:
               neighborhoodId={neighborhoodId}
               initialDescription={state.summary.description}
               onSaved={handleDescriptionSaved}
+            />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Social links</h2>
+            <SocialLinksForm
+              neighborhoodId={neighborhoodId}
+              initialSocialLinks={state.summary.social_links}
+              onSaved={handleSocialLinksSaved}
             />
           </section>
 

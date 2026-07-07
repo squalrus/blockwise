@@ -1,4 +1,4 @@
-import type { BusinessClaimContactMethod, BusinessClaimStatus } from "@blockwise/types";
+import type { BusinessClaimContactMethod, BusinessClaimStatus, SocialLinks } from "@blockwise/types";
 
 export interface VenueClaimStatus {
   id: string;
@@ -17,6 +17,7 @@ export interface ClaimRecord {
   reviewedAt: string | null;
   reviewedNote: string | null;
   claimedByUserId: string | null;
+  socialLinks: SocialLinks;
 }
 
 export interface CreateClaimInput {
@@ -58,4 +59,10 @@ export interface ClaimRepository {
   // listClaimedVenuesForUser, which is for listing every venue a business
   // owns rather than checking one in particular.
   isVenueClaimedByUser(userId: string, venueId: string): Promise<boolean>;
+  // Instagram links and social media integration (BACKLOG.md Ref 30) --
+  // scoped to the venue's approved claim (venueOwnerGate already proves one
+  // exists before either of these is called), not a specific claim id, since
+  // the business owner dashboard only knows the venue it's editing.
+  getApprovedClaimSocialLinks(venueId: string): Promise<SocialLinks>;
+  updateApprovedClaimSocialLinks(venueId: string, socialLinks: SocialLinks): Promise<SocialLinks>;
 }

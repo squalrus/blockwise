@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Poi, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import type { Poi, SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
 import type {
   UpsertEnrichmentInput,
   VenueDetailRecord,
@@ -69,23 +69,33 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
       ? venue.neighborhood[0]
       : venue.neighborhood;
 
-    const [{ data: pois, error: poisError }, { data: enrichment, error: enrichmentError }] =
-      await Promise.all([
-        this.supabase.from("poi").select("id, venue_id, neighborhood_id, name, description, type").eq(
-          "venue_id",
-          venueId
-        ),
-        this.supabase
-          .from("venue_enrichment_cache")
-          .select("venue_id, source, rating, review_snippet, price_tier, photo_url, fetched_at")
-          .eq("venue_id", venueId)
-          .eq("source", "google")
-          .maybeSingle(),
-      ]);
+    const [
+      { data: pois, error: poisError },
+      { data: enrichment, error: enrichmentError },
+      { data: claim, error: claimError },
+    ] = await Promise.all([
+      this.supabase.from("poi").select("id, venue_id, neighborhood_id, name, description, type").eq(
+        "venue_id",
+        venueId
+      ),
+      this.supabase
+        .from("venue_enrichment_cache")
+        .select("venue_id, source, rating, review_snippet, price_tier, photo_url, fetched_at")
+        .eq("venue_id", venueId)
+        .eq("source", "google")
+        .maybeSingle(),
+      this.supabase
+        .from("business_claim")
+        .select("social_links")
+        .eq("venue_id", venueId)
+        .eq("status", "approved")
+        .maybeSingle(),
+    ]);
 
     if (poisError) throw new Error(`getVenueDetail (pois) failed: ${poisError.message}`);
     if (enrichmentError)
       throw new Error(`getVenueDetail (enrichment) failed: ${enrichmentError.message}`);
+    if (claimError) throw new Error(`getVenueDetail (claim) failed: ${claimError.message}`);
 
     return {
       id: venue.id,
@@ -100,6 +110,7 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
       enrichment: (enrichment as VenueEnrichmentCache | null) ?? null,
       neighborhoodSlug: neighborhoodEmbed.slug,
       neighborhoodName: neighborhoodEmbed.name,
+      socialLinks: (claim?.social_links as SocialLinks | null) ?? {},
     };
   }
 
