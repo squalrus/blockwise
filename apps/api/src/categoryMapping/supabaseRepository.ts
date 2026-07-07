@@ -60,6 +60,7 @@ export class SupabaseCategoryMappingRepository implements CategoryMappingReposit
       .from("category")
       .select("id, name, parent:parent_category_id(name)")
       .not("parent_category_id", "is", null)
+      .eq("status", "active")
       .order("name");
 
     if (error) throw new Error(`listCategories failed: ${error.message}`);
@@ -87,6 +88,7 @@ export class SupabaseCategoryMappingRepository implements CategoryMappingReposit
       .select("id")
       .eq("id", categoryId)
       .not("parent_category_id", "is", null)
+      .eq("status", "active")
       .maybeSingle();
 
     if (error) throw new Error(`getLeafCategory failed: ${error.message}`);
