@@ -1,3 +1,5 @@
+import type { SocialLinks } from "@blockwise/types";
+
 export interface NeighborhoodRecord {
   id: string;
   name: string;
@@ -5,6 +7,7 @@ export interface NeighborhoodRecord {
   description: string | null;
   city: string;
   state: string;
+  social_links: SocialLinks;
 }
 
 // Abstracts persistence so getNeighborhoodBySlug/updateNeighborhoodDescription
@@ -14,6 +17,7 @@ export interface NeighborhoodRepository {
   getNeighborhoodBySlug(slug: string): Promise<NeighborhoodRecord | null>;
   getNeighborhoodById(id: string): Promise<NeighborhoodRecord | null>;
   updateDescription(id: string, description: string): Promise<NeighborhoodRecord>;
+  updateSocialLinks(id: string, socialLinks: SocialLinks): Promise<NeighborhoodRecord>;
   // Landing page (BACKLOG.md "Neighborhoods on landing page and user
   // profile") -- every neighborhood in the network, for the "all
   // neighborhoods" browse/join list. Not filtered by status: nothing else in

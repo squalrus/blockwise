@@ -27,7 +27,6 @@ Tracks future features, improvements, and known bugs. Items here are not committ
 |---|---|---|---|---|
 | 29 | [Google Maps POI import and neighborhood curation](#google-maps-poi-import-and-neighborhood-curation) | M | H | — |
 | 1 | [Native apps (React Native)](#native-apps-react-native) | L | H | — |
-| 30 | [Instagram links and social media integration](#instagram-links-and-social-media-integration) | M | M | — |
 | 2 | [Venue wishlist](#venue-wishlist) | S | M | — |
 | 3 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | S | M | 20 |
 | 5 | [Business announcements](#business-announcements) | M | M | — |
@@ -78,13 +77,6 @@ No open limitations.
 **Depends:** —
 **Why** — Neighborhood admins currently can only manually create POIs one at a time via the admin dashboard. Blockwise already ingests Google Places data at sync time; exposing that full entity list (parks, transit stops, landmarks, etc.) within the neighborhood's boundary lets admins bulk-import, filter, or selectively approve entries as POIs, greatly speeding up neighborhood setup and ongoing curation without leaving the tool.
 **Notes:** Extend the `GET /neighborhoods/:id/events` data fetch pattern to also query Google Places for all entities matching the neighborhood's boundary, presenting them in a filterable list (by category, etc.). Allow admins to bulk-select and convert matching entries to `poi` rows, or individually delete/hide entries. Touches `supabase/migrations`, `apps/api/src/pois/`, `apps/api/src/places/`, `apps/web/src/app/neighborhood-admin/`. Open question: should this also surface a "hide" flag for venues (the user saw this in Ref 11 "Business omission") so admins can suppress a Google Places entry without deleting it?
-
-### Instagram links and social media integration
-**Ref:** 30
-**Type:** feature
-**Depends:** —
-**Why** — Business profile pages and neighborhood profile pages are read-only today. Linking to business/neighborhood social media (Instagram, Twitter, etc.) gives visitors context and drives external engagement; embedding posts/images (as new announcement content types) could enhance discovery without requiring the business to re-post into Blockwise itself.
-**Notes:** Add social media URL fields to `business_claim` and `neighborhood` (Instagram, Twitter, TikTok, etc., or a generic `social_links` JSON field). Profile pages show these as outbound links. Stretch: explore Instagram Graph API or Twitter API for public feed embedding (though APIs may have strict terms around display/attribution), or consider RSS feeds as a simpler alternative. Schema: `supabase/migrations`, `packages/types/`, `apps/api/src/businesses/`, `apps/api/src/neighborhoods/`. UI: business owner dashboard and neighborhood admin dashboard forms + public profile pages.
 
 ### SimCity-style UI redesign for neighborhood management
 **Ref:** 31

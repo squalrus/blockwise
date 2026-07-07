@@ -1,3 +1,4 @@
+import type { SocialLinks } from "@blockwise/types";
 import type { NeighborhoodRecord, NeighborhoodRepository } from "./repository";
 
 export async function getNeighborhoodBySlug(
@@ -31,5 +32,21 @@ export async function updateNeighborhoodDescription(
   if (!existing) return { status: "not_found" };
 
   const neighborhood = await repository.updateDescription(id, description);
+  return { status: "updated", neighborhood };
+}
+
+export type UpdateNeighborhoodSocialLinksResult =
+  | { status: "not_found" }
+  | { status: "updated"; neighborhood: NeighborhoodRecord };
+
+export async function updateNeighborhoodSocialLinks(
+  id: string,
+  socialLinks: SocialLinks,
+  repository: NeighborhoodRepository
+): Promise<UpdateNeighborhoodSocialLinksResult> {
+  const existing = await repository.getNeighborhoodById(id);
+  if (!existing) return { status: "not_found" };
+
+  const neighborhood = await repository.updateSocialLinks(id, socialLinks);
   return { status: "updated", neighborhood };
 }

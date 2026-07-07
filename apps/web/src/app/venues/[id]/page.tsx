@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Announcement, Event, VenueDetail } from "@blockwise/types";
+import type { Announcement, Event, SocialLinks, VenueDetail } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { CheckInButton } from "./CheckInButton";
 import { ClaimBusinessForm } from "./ClaimBusinessForm";
 import { FavoriteButton } from "./FavoriteButton";
+
+const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
+  { key: "instagram", label: "Instagram" },
+  { key: "twitter", label: "Twitter / X" },
+  { key: "tiktok", label: "TikTok" },
+  { key: "facebook", label: "Facebook" },
+  { key: "website", label: "Website" },
+];
 
 async function getVenue(id: string): Promise<VenueDetail | null> {
   const res = await fetch(apiUrl(`/venues/${id}`), { cache: "no-store" });
@@ -66,6 +74,22 @@ export default async function VenueDetailPage({
           {venue.category_name ?? "Uncategorized"} · {venue.address}
         </p>
       </div>
+
+      {Object.keys(venue.social_links).length > 0 && (
+        <div className="flex flex-wrap gap-4 text-sm">
+          {SOCIAL_PLATFORM_LABELS.filter(({ key }) => venue.social_links[key]).map(({ key, label }) => (
+            <a
+              key={key}
+              href={venue.social_links[key]}
+              target="_blank"
+              rel="noreferrer"
+              className="text-zinc-600 underline hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      )}
 
       <FavoriteButton venueId={venue.id} />
 

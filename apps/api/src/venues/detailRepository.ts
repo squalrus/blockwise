@@ -1,4 +1,4 @@
-import type { Poi, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import type { Poi, SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
 
 export interface VenueDetailRecord {
   id: string;
@@ -13,6 +13,9 @@ export interface VenueDetailRecord {
   enrichment: VenueEnrichmentCache | null;
   neighborhoodSlug: string;
   neighborhoodName: string;
+  // From the venue's approved business_claim, if any (BACKLOG.md Ref 30) --
+  // empty for venues with no approved claim.
+  socialLinks: SocialLinks;
 }
 
 export interface UpsertEnrichmentInput {
