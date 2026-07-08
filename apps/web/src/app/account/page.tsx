@@ -10,7 +10,6 @@ import type {
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { NearestVenues } from "./NearestVenues";
-import { ProfileForm } from "./ProfileForm";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
 
 type State =
@@ -26,11 +25,12 @@ type State =
       points: number;
     };
 
-// Aggregates the account state that's scattered across its own flows today
-// (BACKLOG.md "My account page"): identity from GET /auth/me, favorites
-// from GET /me/favorites, check-in history from GET /me/checkins. Wishlist
-// and coupons are placeholders -- neither has shipped yet (separate backlog
-// items), so those sections show a "coming soon" note instead of real data.
+// Activity/action hub (BACKLOG.md "My account page"): identity from GET
+// /auth/me, favorites from GET /me/favorites, check-in history from GET
+// /me/checkins. Wishlist and coupons are placeholders -- neither has shipped
+// yet (separate backlog items), so those sections show a "coming soon" note
+// instead of real data. Profile editing and neighborhood-membership
+// management live at /account/settings (BACKLOG.md Ref 48).
 export default function AccountPage() {
   const [state, setState] = useState<State>({ status: "loading" });
 
@@ -77,32 +77,16 @@ export default function AccountPage() {
     };
   }, []);
 
-  function handleProfileSaved(user: AppUser) {
-    if (state.status !== "ready") return;
-    setState({ ...state, user });
-  }
-
-  async function setHome(neighborhoodId: string) {
-    if (state.status !== "ready") return;
-    const token = await getAccessToken();
-    const res = await fetch(clientApiUrl(`/neighborhoods/${neighborhoodId}/home`), {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return;
-
-    setState({
-      ...state,
-      neighborhoods: state.neighborhoods.map((n) => ({
-        ...n,
-        is_primary: n.neighborhood_id === neighborhoodId,
-      })),
-    });
-  }
-
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
-      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">My account</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">My account</h1>
+        {state.status === "ready" && (
+          <a href="/account/settings" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+            Settings
+          </a>
+        )}
+      </div>
 
       {state.status === "loading" && (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>
@@ -135,68 +119,6 @@ export default function AccountPage() {
             <NearestVenues
               homeNeighborhoodId={state.neighborhoods.find((n) => n.is_primary)?.neighborhood_id ?? null}
             />
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Account details</h2>
-            <div className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]">
-              <p className="text-black dark:text-zinc-50">{state.user.email ?? state.user.phone ?? "Anonymous account"}</p>
-              <p className="text-zinc-600 dark:text-zinc-400">
-                {state.user.account_type === "business" ? "Business account" : "Consumer account"}
-                {state.user.is_neighborhood_admin ? " · Neighborhood admin" : ""}
-              </p>
-              <p className="text-zinc-600 dark:text-zinc-400">
-                Member since {new Date(state.user.created_at).toLocaleDateString()}
-              </p>
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Profile</h2>
-            <ProfileForm user={state.user} onSaved={handleProfileSaved} />
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Neighborhoods</h2>
-            {state.neighborhoods.length === 0 ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                No neighborhoods joined yet -- join one from the{" "}
-                <a href="/" className="underline">
-                  home page
-                </a>
-                .
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {state.neighborhoods.map((n) => (
-                  <li
-                    key={n.neighborhood_id}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-                  >
-                    <div>
-                      <a
-                        href={`/neighborhoods/${n.slug}`}
-                        className="font-medium text-black hover:underline dark:text-zinc-50"
-                      >
-                        {n.name}
-                      </a>
-                      <p className="text-zinc-600 dark:text-zinc-400">
-                        {n.city}, {n.state}
-                        {n.is_primary ? " · Home" : ""}
-                      </p>
-                    </div>
-                    {!n.is_primary && (
-                      <button
-                        onClick={() => setHome(n.neighborhood_id)}
-                        className="shrink-0 rounded-md border border-black/[.08] px-3 py-1 text-xs font-medium text-black dark:border-white/[.145] dark:text-zinc-50"
-                      >
-                        Set as home
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
           </section>
 
           <section id="favorites" className="flex flex-col gap-2 scroll-mt-16">

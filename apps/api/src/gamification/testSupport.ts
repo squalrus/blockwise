@@ -136,6 +136,14 @@ export class FakeGamificationRepository implements GamificationRepository {
     return true;
   }
 
+  badgesByCode = new Map<string, string>(); // code -> badgeId, for tests that care which badge was awarded
+
+  async awardBadgeByCode(userId: string, code: string): Promise<void> {
+    const badgeId = this.badgesByCode.get(code) ?? code;
+    if (this.badges.some((b) => b.userId === userId && b.badgeId === badgeId)) return;
+    this.badges.push({ userId, badgeId, challengeId: null });
+  }
+
   async getLeaderboard(neighborhoodId: string, limit: number): Promise<LeaderboardRow[]> {
     const totals = new Map<string, number>();
     for (const event of this.pointEvents) {

@@ -17,7 +17,9 @@ apps/web/src/app/
 ├── login/page.tsx                                 /login — P
 ├── signup/page.tsx                                /signup — P
 ├── auth/callback/page.tsx                         /auth/callback — P (OAuth redirect target, sets session)
-├── account/page.tsx                               /account — C — profile summary (points/favorite/check-in counts), nearest-venue check-in, profile, joined neighborhoods, favorites, check-ins
+├── account/
+│   ├── page.tsx                                    /account — C — profile summary (points/favorite/check-in counts), nearest-venue check-in, favorites, check-ins
+│   └── settings/page.tsx                           /account/settings — C — profile editing, account details, joined neighborhoods (home-neighborhood picker)
 ├── profile/
 │   └── [username]/page.tsx                        /profile/:username — P — public user profile, neighborhoods, recent check-ins
 ├── neighborhoods/

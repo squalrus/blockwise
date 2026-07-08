@@ -64,9 +64,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 24 | [Slide-to-check-in](#slide-to-check-in) | improvement | S | M | — |
-| 49 | [Backfill points for existing check-ins/favorites](#backfill-points-for-existing-check-insfavorites) | improvement | S | M | — |
-| 50 | [Founding member badge](#founding-member-badge) | feature | S | M | — |
-| 48 | [Account settings page](#account-settings-page) | improvement | S | M | — |
+| 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 14 | [Connect with other users](#connect-with-other-users) | feature | M | M | — |
@@ -311,29 +309,13 @@ No open limitations.
 **Why** — Check-in today (v0.6.0, `CheckInButton.tsx`) is a plain tap button. Once [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) (Ref 20) ships its physical-friction slide gesture (project plan §13.2), reusing the same control for check-in gives one consistent "commit to this action" interaction across the app instead of two different patterns for conceptually similar moments.
 **Notes:** Extract the slide gesture as a shared component used by both flows — whichever of check-in or coupons is built first should design it as reusable rather than coupon-specific, so this isn't a hard dependency in either direction. Check-in's version doesn't need the "server writes the authoritative timestamp, locked after use" redemption semantics from §13.2 — just the slide-to-confirm interaction itself.
 
-#### Backfill points for existing check-ins/favorites
+#### Turn off founder badge auto-award at v1.0.0
 
-**Ref:** 49
+**Ref:** 52
 **Type:** improvement
 **Depends:** —
-**Why** — Points/badges (v0.22.0) only accrue from check-ins/favorites made after it shipped — existing check-in and favorite history from before that earns nothing retroactively, so early users' leaderboard totals understate their actual activity.
-**Notes:** One-off script (not a reusable admin tool) that reads existing `checkin`/`favorite` rows and inserts the `point_event` rows they would have earned, respecting the same uniqueness rules already enforced by `awardPoints` (`apps/api/src/gamification/supabaseRepository.ts`) — one point event per checkin, first-favorite-only per venue. Run once against prod, then discard.
-
-#### Founding member badge
-
-**Ref:** 50
-**Type:** feature
-**Depends:** —
-**Why** — The app's earliest users signed up before any public launch — a distinct badge (e.g. "Founder" or "Beta tester") recognizes that early participation the same way completing a challenge already earns a badge (v0.22.0), and gives early users something a later signup can't retroactively claim.
-**Notes:** Simplest version: a `badge` row (e.g. `code = 'founder'`) manually awarded via a one-off script to `app_user` rows created before a cutoff (e.g. today's date, or whenever v1.0.0 ships). A later version could auto-award at signup while `created_at` is before the cutoff, but since the app hasn't reached v1.0.0 yet, a one-time manual award is enough for now. Open question: exact name and exact cutoff date/version.
-
-#### Account settings page
-
-**Ref:** 48
-**Type:** improvement
-**Depends:** —
-**Why** — Now that the account page is an activity/action-focused hub (profile summary card + check-in, shipped v0.23.0), profile editing, account details, and neighborhood-membership management need a home that isn't competing with that for space — a dedicated settings page keeps the main account page focused on "what have I done / what should I do next" instead of form fields.
-**Notes:** Mostly a relocation of what's already on `/account` today (`ProfileForm.tsx`, joined-neighborhoods management) to a new `/account/settings` route, rather than new functionality.
+**Why** — Every account currently auto-awards a "founder" badge at signup (shipped v0.24.0), which is correct while the app is pre-launch but wrong forever — once v1.0.0 actually ships, a signup after that point isn't a founder and shouldn't get the badge.
+**Notes:** Remove (or gate behind a cutoff date check against `created_at`/`now()`) the `awardFounderBadge` call in the `/auth/complete-signup` handler (`apps/api/src/app.ts`). Simplest version is deleting the call entirely once v1.0.0 ships, since by then every pre-launch account already holds the badge via the v0.24.0 migration backfill and auto-award.
 
 #### Apple social sign-in (Sign in with Apple)
 
@@ -425,4 +407,4 @@ No open limitations.
 **Type:** known issue
 **Depends:** —
 **Why** — The seeded "Woodland Park" POI (Phinneywood) has `lat`/`lng` = `null`. It predates the v0.22.0 migration that added location columns to `poi` — the row was created manually before POI had coordinates at all, and the seed migration's `where not exists` dedup guard correctly found it already there and skipped re-inserting it, so it never got backfilled with real coordinates. `POST /pois/:id/checkins` requires a non-null `lat`/`lng` to resolve the check-in target, so checking in to Woodland Park currently 404s — meaning the seeded "Explore Woodland Park" challenge is permanently uncompletable as-is.
-**Notes:** One-row `UPDATE poi SET lat = ..., lng = ... WHERE name = 'Woodland Park'` (e.g. to the neighborhood's center point, same value the seed migration would have used). Related to but distinct from [Backfill points for existing check-ins/favorites](#backfill-points-for-existing-check-insfavorites) (Ref 49) — that's missing `point_event` rows, this is a missing location on one `poi` row.
+**Notes:** One-row `UPDATE poi SET lat = ..., lng = ... WHERE name = 'Woodland Park'` (e.g. to the neighborhood's center point, same value the seed migration would have used). Related to but distinct from "Backfill points for existing check-ins/favorites" (Ref 49, shipped v0.24.0) — that was missing `point_event` rows, this is a missing location on one `poi` row.

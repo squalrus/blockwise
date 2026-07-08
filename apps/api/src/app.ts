@@ -57,6 +57,7 @@ import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import { listChallengesWithProgress } from "./gamification/challenges";
+import { awardFounderBadge } from "./gamification/founderBadge";
 import { awardFavoritePoints, getLeaderboard, getUserPoints } from "./gamification/points";
 import { awardCheckinRewards } from "./gamification/rewards";
 import { SupabaseGamificationRepository } from "./gamification/supabaseRepository";
@@ -1100,6 +1101,7 @@ export function createApp() {
         anonymous_device_id ?? null,
         getAuthRepository()
       );
+      await awardFounderBadge(user.id, getGamificationRepository());
       const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(user.id);
       res.status(200).json(toAppUser(user, isAdmin));
     } catch (err) {
