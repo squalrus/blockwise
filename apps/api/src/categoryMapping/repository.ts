@@ -11,6 +11,7 @@ export interface VenueCategoryRecord {
   lat: number;
   lng: number;
   googlePlaceId: string | null;
+  claimedByBusiness: boolean;
 }
 
 export interface CategoryRecord {

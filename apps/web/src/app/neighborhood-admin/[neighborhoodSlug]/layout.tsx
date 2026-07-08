@@ -18,16 +18,17 @@ const TABS = [
   { href: "", label: "Overview" },
   { href: "/boundary", label: "Boundary" },
   { href: "/claims", label: "Business claims" },
-  { href: "/venues", label: "Venues" },
+  { href: "/locations", label: "Locations" },
 ];
 
 // Neighborhood profile pages (BACKLOG.md) + docs/url-map.md refactor: single
-// enforcement point for the three neighborhood-admin tabs (Overview, Business
-// claims, Venues -- category reassignment plus omission/reclassification,
-// BACKLOG.md Ref 11). Resolves the route's slug against the list of
-// neighborhoods this account administers -- admin-of-this-specific-neighborhood
-// is still enforced server-side per route (neighborhoodAdminGate), this is
-// just the client-side UX for loading/forbidden state and the tab nav itself.
+// enforcement point for the neighborhood-admin tabs (Overview, Business
+// claims, Locations -- merged venue/POI management: category reassignment,
+// omission/reclassification (BACKLOG.md Ref 11), and full POI CRUD (Ref 29)).
+// Resolves the route's slug against the list of neighborhoods this account
+// administers -- admin-of-this-specific-neighborhood is still enforced
+// server-side per route (neighborhoodAdminGate), this is just the
+// client-side UX for loading/forbidden state and the tab nav itself.
 export default function NeighborhoodAdminLayout({ children }: { children: React.ReactNode }) {
   const { neighborhoodSlug } = useParams<{ neighborhoodSlug: string }>();
   const pathname = usePathname();

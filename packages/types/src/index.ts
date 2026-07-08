@@ -88,6 +88,9 @@ export interface Poi {
   // Ref 29/46), e.g. via "convert venue to POI" (Ref 11).
   google_place_id: string | null;
   address: string | null;
+  // Hide/restore parity with venue.status (BACKLOG.md Ref 29/11).
+  status: VenueStatus;
+  created_at: string;
 }
 
 export type EnrichmentSource = "google";
@@ -468,6 +471,22 @@ export interface CreateNeighborhoodPoiRequest {
   lng: number;
 }
 
+// POI edit (BACKLOG.md Ref 29) -- same fields as CreateNeighborhoodPoiRequest,
+// all optional since an edit may only touch one field at a time.
+export interface UpdatePoiRequest {
+  name?: string;
+  description?: string;
+  type?: string;
+  lat?: number;
+  lng?: number;
+  address?: string;
+}
+
+// POI hide/restore (BACKLOG.md Ref 29), mirroring SetVenueStatusRequest.
+export interface SetPoiStatusRequest {
+  status: VenueStatus;
+}
+
 // GET /business/venues/:id/dashboard -- follower count is a count of
 // `favorite` rows (there's no separate "follow" table; favoriting a venue is
 // the follow relationship, per the backlog item's own notes), check-in count
@@ -499,10 +518,40 @@ export interface VenueCategoryMapping {
   lat: number;
   lng: number;
   google_place_id: string | null;
+  // Surfaced as a "Claimed" pill in the Locations admin tab (BACKLOG.md
+  // Ref 29) -- the underlying venue.claimed_by_business column already
+  // existed for the business-claim flow, just wasn't selected here before.
+  claimed_by_business: boolean;
 }
 
 export interface SetVenueStatusRequest {
   status: VenueStatus;
+}
+
+// Locations admin tab (BACKLOG.md Ref 29) -- a single merged view over
+// venue (business) and poi rows for one neighborhood, so an admin doesn't
+// have to cross-reference two separate lists to see everything geographically
+// in the neighborhood. Read-only composition: each row's own kind-specific
+// fields (category reassignment, POI type/description) are still edited
+// through the existing venue/POI endpoints, not through this shape.
+export interface LocationListItem {
+  id: string;
+  kind: "venue" | "poi";
+  name: string;
+  address: string | null;
+  // Business: the assigned category name. POI: the free-text type. Never
+  // both, since a row is exactly one kind.
+  category_or_type: string;
+  // Business only -- backs the category-reassign dropdown's selected value;
+  // null for POI rows (and for a business with no category mapped yet).
+  category_id: string | null;
+  status: VenueStatus;
+  claimed_by_business: boolean;
+  // Null only for legacy POI rows that predate lat/lng (BACKLOG.md Ref 51) --
+  // always populated for venues.
+  lat: number | null;
+  lng: number | null;
+  google_place_id: string | null;
 }
 
 // Only leaf categories (see supabase/migrations/.../category_taxonomy.sql)

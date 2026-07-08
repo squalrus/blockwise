@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Event, NeighborhoodDashboardSummary, Poi, SocialLinks } from "@blockwise/types";
+import type { Event, NeighborhoodDashboardSummary, SocialLinks } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "./NeighborhoodAdminContext";
 import { DescriptionForm } from "./DescriptionForm";
 import { EventForm } from "./EventForm";
-import { PoiForm } from "./PoiForm";
 import { SocialLinksForm } from "./SocialLinksForm";
 
 type State =
@@ -20,7 +19,7 @@ type State =
 // and Venue categories became sibling tabs). Signed-in/forbidden handling now
 // lives in layout.tsx, which is why this only tracks loading/ready/error.
 export default function NeighborhoodAdminOverviewPage() {
-  const { neighborhoodId } = useNeighborhoodAdmin();
+  const { neighborhoodId, slug } = useNeighborhoodAdmin();
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
@@ -57,14 +56,6 @@ export default function NeighborhoodAdminOverviewPage() {
     setState((prev) =>
       prev.status === "ready"
         ? { ...prev, summary: { ...prev.summary, events: [...prev.summary.events, event] } }
-        : prev
-    );
-  }
-
-  function handlePoiCreated(poi: Poi) {
-    setState((prev) =>
-      prev.status === "ready"
-        ? { ...prev, summary: { ...prev.summary, pois: [...prev.summary.pois, poi] } }
         : prev
     );
   }
@@ -127,12 +118,19 @@ export default function NeighborhoodAdminOverviewPage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Points of interest</h2>
-        <PoiForm neighborhoodId={neighborhoodId} onCreated={handlePoiCreated} />
-        {state.summary.pois.length === 0 ? (
+        <a
+          href={`/neighborhood-admin/${slug}/locations`}
+          className="self-start text-sm text-zinc-600 hover:underline dark:text-zinc-400"
+        >
+          Manage in Locations tab →
+        </a>
+        {state.summary.pois.filter((poi) => poi.status === "active").length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-500">No points of interest yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {state.summary.pois.map((poi) => (
+            {state.summary.pois
+              .filter((poi) => poi.status === "active")
+              .map((poi) => (
               <li
                 key={poi.id}
                 className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"

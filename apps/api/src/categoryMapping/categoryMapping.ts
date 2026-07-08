@@ -13,6 +13,7 @@ function toVenueCategoryMapping(record: VenueCategoryRecord): VenueCategoryMappi
     lat: record.lat,
     lng: record.lng,
     google_place_id: record.googlePlaceId,
+    claimed_by_business: record.claimedByBusiness,
   };
 }
 
