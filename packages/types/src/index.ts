@@ -83,6 +83,11 @@ export interface Poi {
   // GPS-verified check-in target.
   lat: number | null;
   lng: number | null;
+  // Both nullable -- every POI today is created manually with neither.
+  // Populated when a POI traces back to a Google Places entity (BACKLOG.md
+  // Ref 29/46), e.g. via "convert venue to POI" (Ref 11).
+  google_place_id: string | null;
+  address: string | null;
 }
 
 export type EnrichmentSource = "google";
@@ -481,6 +486,8 @@ export interface VenueDashboardSummary {
 // Category mapping admin tool (BACKLOG.md) -- manual override for venues the
 // sync's category-normalization step (README §1.4 step 3) mapped incorrectly.
 
+export type VenueStatus = "active" | "hidden";
+
 export interface VenueCategoryMapping {
   id: string;
   name: string;
@@ -488,6 +495,14 @@ export interface VenueCategoryMapping {
   category_id: string | null;
   category_name: string | null;
   category_group: string | null;
+  status: VenueStatus;
+  lat: number;
+  lng: number;
+  google_place_id: string | null;
+}
+
+export interface SetVenueStatusRequest {
+  status: VenueStatus;
 }
 
 // Only leaf categories (see supabase/migrations/.../category_taxonomy.sql)

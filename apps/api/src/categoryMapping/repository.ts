@@ -1,3 +1,5 @@
+import type { VenueStatus } from "@blockwise/types";
+
 export interface VenueCategoryRecord {
   id: string;
   name: string;
@@ -5,6 +7,10 @@ export interface VenueCategoryRecord {
   categoryId: string | null;
   categoryName: string | null;
   categoryGroup: string | null;
+  status: VenueStatus;
+  lat: number;
+  lng: number;
+  googlePlaceId: string | null;
 }
 
 export interface CategoryRecord {
@@ -32,4 +38,8 @@ export interface CategoryMappingRepository {
   getVenue(venueId: string): Promise<{ id: string } | null>;
   getLeafCategory(categoryId: string): Promise<{ id: string } | null>;
   updateVenueCategory(venueId: string, categoryId: string): Promise<VenueCategoryRecord>;
+  // Venue omission (BACKLOG.md Ref 11) -- flips active/hidden without
+  // touching any other column, so existing checkin/favorite/claim FKs are
+  // untouched.
+  setVenueStatus(venueId: string, status: VenueStatus): Promise<VenueCategoryRecord>;
 }

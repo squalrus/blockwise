@@ -44,7 +44,7 @@ apps/web/src/app/
 │       ├── page.tsx                                /neighborhood-admin/:slug — Overview tab (description, social links, events, POIs)
 │       ├── boundary/page.tsx                       /neighborhood-admin/:slug/boundary — Boundary tab (draw/edit + dry-run Places preview)
 │       ├── claims/page.tsx                         /neighborhood-admin/:slug/claims — Business claims tab (approve/reject)
-│       └── venues/page.tsx                         /neighborhood-admin/:slug/venues — Venue categories tab (reassign category)
+│       └── venues/page.tsx                         /neighborhood-admin/:slug/venues — Venues tab (reassign category; hide/restore/convert to POI, BACKLOG.md Ref 11)
 └── admin/
     └── category-taxonomy/page.tsx                  /admin/category-taxonomy — S (requireAdmin) — global category CRUD
 ```
@@ -124,7 +124,8 @@ Auth gates:
     ├── claims/:claimId/approve                          POST — neighborhoodAdmin
     ├── claims/:claimId/reject                           POST — neighborhoodAdmin
     ├── venues                                           GET — neighborhoodAdmin — ?search= filter
-    └── venues/:venueId/category                         PATCH — neighborhoodAdmin
+    ├── venues/:venueId/category                         PATCH — neighborhoodAdmin
+    └── venues/:venueId/status                           PATCH — neighborhoodAdmin — active|hidden (BACKLOG.md Ref 11)
 
 /admin/
 ├── categories                                        GET — admin — assignable leaf categories (global, not neighborhood-owned)

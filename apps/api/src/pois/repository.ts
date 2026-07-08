@@ -6,6 +6,8 @@ export interface PoiRecord {
   type: string;
   lat: number | null;
   lng: number | null;
+  googlePlaceId: string | null;
+  address: string | null;
 }
 
 export interface CreateNeighborhoodPoiInput {
@@ -15,6 +17,8 @@ export interface CreateNeighborhoodPoiInput {
   type: string;
   lat: number;
   lng: number;
+  googlePlaceId: string | null;
+  address: string | null;
 }
 
 export interface PoiLocation {
