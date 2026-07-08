@@ -17,7 +17,7 @@ apps/web/src/app/
 ├── login/page.tsx                                 /login — P
 ├── signup/page.tsx                                /signup — P
 ├── auth/callback/page.tsx                         /auth/callback — P (OAuth redirect target, sets session)
-├── account/page.tsx                               /account — C — profile, joined neighborhoods, favorites, check-ins
+├── account/page.tsx                               /account — C — profile summary (points/favorite/check-in counts), nearest-venue check-in, profile, joined neighborhoods, favorites, check-ins
 ├── profile/
 │   └── [username]/page.tsx                        /profile/:username — P — public user profile, neighborhoods, recent check-ins
 ├── neighborhoods/
@@ -87,6 +87,7 @@ Auth gates:
 ├── checkins                                          GET — auth
 ├── favorites                                          GET — auth
 ├── neighborhoods                                      GET — auth
+├── points                                              GET — auth — all-time, all-neighborhood points total
 └── profile                                            PATCH — auth — display_name/avatar_url/username/visibility
 
 /users/:username                                     GET — public — profile (only reachable if visibility = public)

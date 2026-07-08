@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FAVORITE_POINTS, awardFavoritePoints, getLeaderboard } from "./points";
+import { FAVORITE_POINTS, awardFavoritePoints, getLeaderboard, getUserPoints } from "./points";
 import { FakeGamificationRepository } from "./testSupport";
 
 describe("awardFavoritePoints", () => {
@@ -69,5 +69,23 @@ describe("getLeaderboard", () => {
       { user_id: "user-2", display_name: "Sam", username: "sam", avatar_url: null, points: 30, rank: 1 },
       { user_id: "user-1", display_name: "Alex", username: "alex", avatar_url: null, points: 15, rank: 2 },
     ]);
+  });
+});
+
+describe("getUserPoints", () => {
+  it("sums a user's points across every neighborhood", async () => {
+    const repo = new FakeGamificationRepository();
+    repo.pointEvents.push(
+      { id: "e1", userId: "user-1", neighborhoodId: "neighborhood-1", eventType: "checkin", points: 10 },
+      { id: "e2", userId: "user-1", neighborhoodId: "neighborhood-2", eventType: "favorite", points: 5 },
+      { id: "e3", userId: "user-2", neighborhoodId: "neighborhood-1", eventType: "checkin", points: 100 }
+    );
+
+    expect(await getUserPoints("user-1", repo)).toEqual({ points: 15 });
+  });
+
+  it("returns zero for a user with no point events", async () => {
+    const repo = new FakeGamificationRepository();
+    expect(await getUserPoints("user-1", repo)).toEqual({ points: 0 });
   });
 });

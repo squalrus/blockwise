@@ -159,6 +159,12 @@ export class FakeGamificationRepository implements GamificationRepository {
       .sort((a, b) => b.points - a.points)
       .slice(0, limit);
   }
+
+  async getUserPointsTotal(userId: string): Promise<number> {
+    return this.pointEvents
+      .filter((e) => e.userId === userId)
+      .reduce((sum, e) => sum + e.points, 0);
+  }
 }
 
 export function makeBadge(overrides: Partial<BadgeRecord> = {}): BadgeRecord {

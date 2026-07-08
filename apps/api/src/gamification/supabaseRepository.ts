@@ -270,4 +270,14 @@ export class SupabaseGamificationRepository implements GamificationRepository {
       .sort((a, b) => b.points - a.points)
       .slice(0, limit);
   }
+
+  async getUserPointsTotal(userId: string): Promise<number> {
+    const { data, error } = await this.supabase
+      .from("point_event")
+      .select("points")
+      .eq("user_id", userId);
+
+    if (error) throw new Error(`getUserPointsTotal failed: ${error.message}`);
+    return (data ?? []).reduce((sum, row) => sum + (row.points as number), 0);
+  }
 }
