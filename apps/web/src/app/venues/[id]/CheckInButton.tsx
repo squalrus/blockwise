@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { clientApiUrl } from "@/lib/clientApi";
 import { getOrCreateDeviceId } from "@/lib/deviceId";
+import { getCurrentPosition } from "@/lib/geolocation";
 
 type Status =
   | { state: "idle" }
@@ -13,15 +14,6 @@ type Status =
   | { state: "error"; message: string };
 
 export type CheckinTarget = { type: "venue"; id: string } | { type: "poi"; id: string };
-
-function getCurrentPosition(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 10_000,
-    });
-  });
-}
 
 // Shared by the venue detail page and the neighborhood page's POI list
 // (BACKLOG.md Ref 6 -- check-ins can target a neighborhood POI as well as a

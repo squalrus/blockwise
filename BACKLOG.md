@@ -32,6 +32,9 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | 27 |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 8 | [Admin portal: neighborhood boundary drawing](#admin-portal-neighborhood-boundary-drawing) | feature | M | M | — |
+| 44 | [Neighborhood page: map-default venues + events/challenges subnav](#neighborhood-page-map-default-venues--eventschallenges-subnav) | improvement | M | M | — |
+| 45 | [POIs merged into the venue list/map](#pois-merged-into-the-venue-listmap) | improvement | M | M | — |
+| 46 | [POI landing pages](#poi-landing-pages) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 27 | [What's happening now](#whats-happening-now) | feature | M | M | 5 |
 | 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
@@ -42,7 +45,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 32 | [Business claim requires existing account](#business-claim-requires-existing-account) | improvement | S | H | — |
 | 22 | [Category browsing & filtering](#category-browsing--filtering) | improvement | S | M | — |
-| 23 | [Sort venues by proximity](#sort-venues-by-proximity) | improvement | S | M | — |
 | 3 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | feature | S | M | 20 |
 | 5 | [Business announcements](#business-announcements) | feature | M | M | — |
 | 7 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | feature | M | M | — |
@@ -62,6 +64,9 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 24 | [Slide-to-check-in](#slide-to-check-in) | improvement | S | M | — |
+| 49 | [Backfill points for existing check-ins/favorites](#backfill-points-for-existing-check-insfavorites) | improvement | S | M | — |
+| 50 | [Founding member badge](#founding-member-badge) | feature | S | M | — |
+| 48 | [Account settings page](#account-settings-page) | improvement | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 14 | [Connect with other users](#connect-with-other-users) | feature | M | M | — |
@@ -80,7 +85,9 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 ### Known issues
 
-No open known issues.
+| Ref | Item | Type | Effort | Value | Depends |
+|---|---|---|---|---|---|
+| 51 | [Woodland Park POI missing coordinates](#woodland-park-poi-missing-coordinates) | known issue | S | M | — |
 
 ### Limitations
 
@@ -124,6 +131,30 @@ No open limitations.
 **Why** — Makes onboarding a second neighborhood after Phinneywood a data workflow instead of a code change (project plan §12.3, §12.5).
 **Notes:** Interactive polygon-drawing tool (Mapbox GL Draw or Google Maps Drawing Library) gated to internal staff, with a dry-run Places query preview before committing the boundary, per project plan §12.6. Also covers re-editing an existing neighborhood's boundary (not create-only), per the same section.
 
+#### Neighborhood page: map-default venues + events/challenges subnav
+
+**Ref:** 44
+**Type:** improvement
+**Depends:** —
+**Why** — The neighborhood page (`/neighborhoods/[slug]`) has grown from just a venue list into venues, events, challenges, a leaderboard, and POIs, all stacked vertically as flat sections — the page is long and there's no wayfinding between them. Map view (shipped v0.7.0, already color-codes markers by category group) is also a more natural default than the alphabetical list for a "what's near me" browsing experience.
+**Notes:** `VenuesView.tsx` already has a List/Map toggle; flip its default to Map. Add a simple subnav (tabs), mirroring the pattern already used in `/neighborhood-admin/[neighborhoodSlug]/layout.tsx` (Overview/Claims/Venues), splitting Venues (default, map-first) / Events / Challenges into separate tabs instead of one long scroll. Open question: does the leaderboard get its own tab or live under Challenges?
+
+#### POIs merged into the venue list/map
+
+**Ref:** 45
+**Type:** improvement
+**Depends:** —
+**Why** — Neighborhood-owned POIs (parks, transit, landmarks) currently live in a separate "Points of interest" section, disconnected from the venues map/list where users actually browse and check in — folding them into the same browsable surface (with a distinct marker/card style so a park doesn't read as a business) makes POIs discoverable the same way venues are, and surfaces the POI check-in challenge (BACKLOG.md, shipped v0.22.0) naturally instead of requiring a user to scroll past everything else to find it.
+**Notes:** `GET /neighborhoods/:id/venues` and the map/list components (`VenuesView.tsx`) would need to accept a combined venue+POI list, tagged with a discriminator (`kind: "venue" | "poi"`) the UI uses for distinct styling (icon/color/badge). Pairs naturally with [Neighborhood page: map-default venues + events/challenges subnav](#neighborhood-page-map-default-venues--eventschallenges-subnav) landing in the same Venues tab.
+
+#### POI landing pages
+
+**Ref:** 46
+**Type:** feature
+**Depends:** —
+**Why** — POIs have no detail page today — the check-in button only exists inline in the neighborhood page's POI list. A dedicated page (mirroring `/venues/:id`) gives a POI a shareable URL and a proper home for its description/photo and check-in action, consistent with how venues already work.
+**Notes:** New route `apps/web/src/app/pois/[id]/page.tsx` plus a new `GET /pois/:id` endpoint (only list-for-neighborhood and create exist today, per `apps/api/src/pois/`). (Future) POIs may eventually be created from the Google Places sync pipeline by converting a business/venue entity into a POI, per [Google Maps POI import and neighborhood curation](#google-maps-poi-import-and-neighborhood-curation)'s existing plan to let admins convert matching Google entities to POI rows — that would give POI and Venue the same backing data source while still allowing a POI to be added manually, same as today.
+
 #### Neighborhood notifications
 
 **Ref:** 9
@@ -165,14 +196,6 @@ No open limitations.
 **Depends:** —
 **Why** — The 39-category taxonomy (project plan §2, shipped v0.4.0) exists server-side, but the venue list only shows category as plain text next to the address — there's no way to filter or browse by category today.
 **Notes:** Filter chips or a category picker on the venues list and map view (map view shipped v0.7.0, already color-codes markers by category group per project plan §1.7). Reuses the existing `Category`/`source_mapping_json` data, no new schema needed.
-
-#### Sort venues by proximity
-
-**Ref:** 23
-**Type:** improvement
-**Depends:** —
-**Why** — The venues list orders results alphabetically by name (`supabaseDetailRepository.ts`'s `.order("name")`) regardless of where the user is standing — in a walkable neighborhood app, "what's closest to me" is a more useful default ordering than alphabetical for finding somewhere to go right now.
-**Notes:** Sort by distance from the device's current lat/lng (already collected for GPS check-in, project plan §4) using the existing `Venue.lat`/`lng` columns — no new schema needed, just a distance calculation (haversine) applied client- or server-side and a toggle if alphabetical should remain an option.
 
 #### Coupon redemption also checks you in
 
@@ -288,6 +311,30 @@ No open limitations.
 **Why** — Check-in today (v0.6.0, `CheckInButton.tsx`) is a plain tap button. Once [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) (Ref 20) ships its physical-friction slide gesture (project plan §13.2), reusing the same control for check-in gives one consistent "commit to this action" interaction across the app instead of two different patterns for conceptually similar moments.
 **Notes:** Extract the slide gesture as a shared component used by both flows — whichever of check-in or coupons is built first should design it as reusable rather than coupon-specific, so this isn't a hard dependency in either direction. Check-in's version doesn't need the "server writes the authoritative timestamp, locked after use" redemption semantics from §13.2 — just the slide-to-confirm interaction itself.
 
+#### Backfill points for existing check-ins/favorites
+
+**Ref:** 49
+**Type:** improvement
+**Depends:** —
+**Why** — Points/badges (v0.22.0) only accrue from check-ins/favorites made after it shipped — existing check-in and favorite history from before that earns nothing retroactively, so early users' leaderboard totals understate their actual activity.
+**Notes:** One-off script (not a reusable admin tool) that reads existing `checkin`/`favorite` rows and inserts the `point_event` rows they would have earned, respecting the same uniqueness rules already enforced by `awardPoints` (`apps/api/src/gamification/supabaseRepository.ts`) — one point event per checkin, first-favorite-only per venue. Run once against prod, then discard.
+
+#### Founding member badge
+
+**Ref:** 50
+**Type:** feature
+**Depends:** —
+**Why** — The app's earliest users signed up before any public launch — a distinct badge (e.g. "Founder" or "Beta tester") recognizes that early participation the same way completing a challenge already earns a badge (v0.22.0), and gives early users something a later signup can't retroactively claim.
+**Notes:** Simplest version: a `badge` row (e.g. `code = 'founder'`) manually awarded via a one-off script to `app_user` rows created before a cutoff (e.g. today's date, or whenever v1.0.0 ships). A later version could auto-award at signup while `created_at` is before the cutoff, but since the app hasn't reached v1.0.0 yet, a one-time manual award is enough for now. Open question: exact name and exact cutoff date/version.
+
+#### Account settings page
+
+**Ref:** 48
+**Type:** improvement
+**Depends:** —
+**Why** — Now that the account page is an activity/action-focused hub (profile summary card + check-in, shipped v0.23.0), profile editing, account details, and neighborhood-membership management need a home that isn't competing with that for space — a dedicated settings page keeps the main account page focused on "what have I done / what should I do next" instead of form fields.
+**Notes:** Mostly a relocation of what's already on `/account` today (`ProfileForm.tsx`, joined-neighborhoods management) to a new `/account/settings` route, rather than new functionality.
+
 #### Apple social sign-in (Sign in with Apple)
 
 **Ref:** 17
@@ -369,3 +416,13 @@ No open limitations.
 **Depends:** —
 **Why** — project plan §1.6 lists two required attribution items ("Powered by Google" per Maps Platform terms, ODbL attribution if OpenStreetMap is used) as unchecked checkboxes — neither has shipped, and it's a licensing-compliance requirement rather than optional polish.
 **Notes:** Google attribution needed wherever Places-sourced data or a Google map renders (map view, venue detail pages). OSM attribution only applies once/if the optional OSM backup source (project plan §1.2) is actually used — otherwise that half can be skipped.
+
+### Known issues
+
+#### Woodland Park POI missing coordinates
+
+**Ref:** 51
+**Type:** known issue
+**Depends:** —
+**Why** — The seeded "Woodland Park" POI (Phinneywood) has `lat`/`lng` = `null`. It predates the v0.22.0 migration that added location columns to `poi` — the row was created manually before POI had coordinates at all, and the seed migration's `where not exists` dedup guard correctly found it already there and skipped re-inserting it, so it never got backfilled with real coordinates. `POST /pois/:id/checkins` requires a non-null `lat`/`lng` to resolve the check-in target, so checking in to Woodland Park currently 404s — meaning the seeded "Explore Woodland Park" challenge is permanently uncompletable as-is.
+**Notes:** One-row `UPDATE poi SET lat = ..., lng = ... WHERE name = 'Woodland Park'` (e.g. to the neighborhood's center point, same value the seed migration would have used). Related to but distinct from [Backfill points for existing check-ins/favorites](#backfill-points-for-existing-check-insfavorites) (Ref 49) — that's missing `point_event` rows, this is a missing location on one `poi` row.

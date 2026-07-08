@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.23.0] — 2026-07-07
+
+### Added
+
+- **Account page profile summary and check-in-first layout.** The account page now opens with a profile summary card (avatar, favorite count, check-in count, and an all-time points total via a new `GET /me/points`), with the favorite/check-in counts linking down to their full lists on the same page. Below it, a new "Check in" section lists the nearest venues in the user's home neighborhood (sorted by device location when available, falling back to alphabetical), each with its own one-tap check-in button, so checking in doesn't require navigating to a specific venue page first. (`apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/account/NearestVenues.tsx`, `apps/web/src/app/account/page.tsx`, `apps/api/src/gamification/`, `apps/api/src/app.ts`, `packages/types/src/index.ts`)
+- **Sort neighborhood venues by proximity.** The venues list on a neighborhood page now has an A-Z / Nearest toggle alongside the existing List/Map toggle — "Nearest" sorts by distance from the device's current location (prompting for location access on first use) instead of always defaulting to alphabetical. (`apps/web/src/app/neighborhoods/[slug]/VenuesView.tsx`, `apps/web/src/lib/geo.ts`, `apps/web/src/lib/geolocation.ts`)
+
 ## [0.22.0] — 2026-07-07
 
 ### Added

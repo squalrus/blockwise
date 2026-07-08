@@ -1,4 +1,4 @@
-import type { LeaderboardEntry } from "@blockwise/types";
+import type { LeaderboardEntry, UserPointsSummary } from "@blockwise/types";
 import type { GamificationRepository } from "./repository";
 
 // BACKLOG.md Ref 6: check-in = 10pts, first-time favorite/follow = 5pts.
@@ -35,4 +35,12 @@ export async function getLeaderboard(
     points: row.points,
     rank: index + 1,
   }));
+}
+
+export async function getUserPoints(
+  userId: string,
+  repository: GamificationRepository
+): Promise<UserPointsSummary> {
+  const points = await repository.getUserPointsTotal(userId);
+  return { points };
 }

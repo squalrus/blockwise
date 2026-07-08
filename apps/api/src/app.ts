@@ -57,7 +57,7 @@ import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import { listChallengesWithProgress } from "./gamification/challenges";
-import { awardFavoritePoints, getLeaderboard } from "./gamification/points";
+import { awardFavoritePoints, getLeaderboard, getUserPoints } from "./gamification/points";
 import { awardCheckinRewards } from "./gamification/rewards";
 import { SupabaseGamificationRepository } from "./gamification/supabaseRepository";
 import {
@@ -751,6 +751,19 @@ export function createApp() {
     } catch (err) {
       console.error("GET /me/favorites failed:", err);
       res.status(500).json({ error: "Failed to list favorite venues" });
+    }
+  });
+
+  // Account page profile summary card (BACKLOG.md Ref 47) -- an all-time,
+  // all-neighborhood points total (unlike GET /neighborhoods/:slug/leaderboard,
+  // which is neighborhood-scoped and public-visibility-only).
+  app.get("/me/points", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const summary = await getUserPoints(req.appUser!.id, getGamificationRepository());
+      res.json(summary);
+    } catch (err) {
+      console.error("GET /me/points failed:", err);
+      res.status(500).json({ error: "Failed to load points total" });
     }
   });
 

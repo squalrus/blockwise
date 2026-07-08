@@ -9,7 +9,9 @@ import type {
 } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { NearestVenues } from "./NearestVenues";
 import { ProfileForm } from "./ProfileForm";
+import { ProfileSummaryCard } from "./ProfileSummaryCard";
 
 type State =
   | { status: "loading" }
@@ -21,6 +23,7 @@ type State =
       favorites: FavoriteVenueSummary[];
       checkins: CheckinHistoryItem[];
       neighborhoods: NeighborhoodMembership[];
+      points: number;
     };
 
 // Aggregates the account state that's scattered across its own flows today
@@ -44,23 +47,26 @@ export default function AccountPage() {
 
       const token = await getAccessToken();
       const headers = { Authorization: `Bearer ${token}` };
-      const [favoritesRes, checkinsRes, neighborhoodsRes] = await Promise.all([
+      const [favoritesRes, checkinsRes, neighborhoodsRes, pointsRes] = await Promise.all([
         fetch(clientApiUrl("/me/favorites"), { headers }),
         fetch(clientApiUrl("/me/checkins"), { headers }),
         fetch(clientApiUrl("/me/neighborhoods"), { headers }),
+        fetch(clientApiUrl("/me/points"), { headers }),
       ]);
       if (cancelled) return;
-      if (!favoritesRes.ok || !checkinsRes.ok || !neighborhoodsRes.ok) {
+      if (!favoritesRes.ok || !checkinsRes.ok || !neighborhoodsRes.ok || !pointsRes.ok) {
         setState({ status: "error", message: "Failed to load your account" });
         return;
       }
 
+      const pointsBody = await pointsRes.json();
       setState({
         status: "ready",
         user,
         favorites: await favoritesRes.json(),
         checkins: await checkinsRes.json(),
         neighborhoods: await neighborhoodsRes.json(),
+        points: pointsBody.points,
       });
     }
 
@@ -117,6 +123,20 @@ export default function AccountPage() {
 
       {state.status === "ready" && (
         <>
+          <ProfileSummaryCard
+            user={state.user}
+            favoriteCount={state.favorites.length}
+            checkinCount={state.checkins.length}
+            points={state.points}
+          />
+
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Check in</h2>
+            <NearestVenues
+              homeNeighborhoodId={state.neighborhoods.find((n) => n.is_primary)?.neighborhood_id ?? null}
+            />
+          </section>
+
           <section className="flex flex-col gap-2">
             <h2 className="text-sm font-medium text-black dark:text-zinc-50">Account details</h2>
             <div className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]">
@@ -179,7 +199,7 @@ export default function AccountPage() {
             )}
           </section>
 
-          <section className="flex flex-col gap-2">
+          <section id="favorites" className="flex flex-col gap-2 scroll-mt-16">
             <h2 className="text-sm font-medium text-black dark:text-zinc-50">Favorite venues</h2>
             {state.favorites.length === 0 ? (
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -205,7 +225,7 @@ export default function AccountPage() {
             )}
           </section>
 
-          <section className="flex flex-col gap-2">
+          <section id="checkins" className="flex flex-col gap-2 scroll-mt-16">
             <h2 className="text-sm font-medium text-black dark:text-zinc-50">Recent check-ins</h2>
             {state.checkins.length === 0 ? (
               <p className="text-sm text-zinc-600 dark:text-zinc-400">

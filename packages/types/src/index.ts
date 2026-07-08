@@ -517,3 +517,9 @@ export interface LeaderboardEntry {
   points: number;
   rank: number;
 }
+
+// GET /me/points (BACKLOG.md Ref 47) -- an all-time, all-neighborhood total,
+// for the account page's profile summary card.
+export interface UserPointsSummary {
+  points: number;
+}

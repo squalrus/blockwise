@@ -114,4 +114,8 @@ export interface GamificationRepository {
   completeChallenge(input: CompleteChallengeInput): Promise<boolean>;
 
   getLeaderboard(neighborhoodId: string, limit: number): Promise<LeaderboardRow[]>;
+
+  // All-time total across every neighborhood (BACKLOG.md Ref 47's account
+  // page profile summary), unlike getLeaderboard which is neighborhood-scoped.
+  getUserPointsTotal(userId: string): Promise<number>;
 }
