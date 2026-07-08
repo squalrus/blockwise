@@ -571,19 +571,30 @@ export function createApp() {
             .status(429)
             .json({ error: "Check-in cooldown still active", retry_at: result.retryAt });
           return;
-        case "created":
+        case "created": {
+          // Points/challenges (BACKLOG.md Ref 6) -- awaited before the
+          // response is sent (rather than fired-and-forgotten after it) since
+          // this API runs as a Netlify/Lambda function: the runtime can
+          // freeze the container as soon as the HTTP response completes, so
+          // work still pending in the event loop after res.json() isn't
+          // guaranteed to run. A failure here is still swallowed -- the
+          // check-in itself already succeeded and shouldn't be undone by a
+          // points/challenge error.
+          try {
+            await awardCheckinRewards(
+              {
+                userId: result.checkin.user_id,
+                checkinId: result.checkin.id,
+                venueId: req.params.id,
+              },
+              getGamificationRepository()
+            );
+          } catch (err) {
+            console.error(`awardCheckinRewards (venue ${req.params.id}) failed:`, err);
+          }
           res.status(201).json(result.checkin);
-          // Points/challenges (BACKLOG.md Ref 6) -- best-effort, after the
-          // check-in itself has already succeeded and been returned.
-          awardCheckinRewards(
-            {
-              userId: result.checkin.user_id,
-              checkinId: result.checkin.id,
-              venueId: req.params.id,
-            },
-            getGamificationRepository()
-          ).catch((err) => console.error(`awardCheckinRewards (venue ${req.params.id}) failed:`, err));
           return;
+        }
       }
     } catch (err) {
       console.error(`POST /venues/${req.params.id}/checkins failed:`, err);
@@ -628,17 +639,26 @@ export function createApp() {
             .status(429)
             .json({ error: "Check-in cooldown still active", retry_at: result.retryAt });
           return;
-        case "created":
+        case "created": {
+          // See the /venues/:id/checkins handler above for why this is
+          // awaited before the response is sent rather than fired-and-forgotten
+          // after it (Netlify/Lambda can freeze the container once the
+          // response completes).
+          try {
+            await awardCheckinRewards(
+              {
+                userId: result.checkin.user_id,
+                checkinId: result.checkin.id,
+                poiId: req.params.id,
+              },
+              getGamificationRepository()
+            );
+          } catch (err) {
+            console.error(`awardCheckinRewards (poi ${req.params.id}) failed:`, err);
+          }
           res.status(201).json(result.checkin);
-          awardCheckinRewards(
-            {
-              userId: result.checkin.user_id,
-              checkinId: result.checkin.id,
-              poiId: req.params.id,
-            },
-            getGamificationRepository()
-          ).catch((err) => console.error(`awardCheckinRewards (poi ${req.params.id}) failed:`, err));
           return;
+        }
       }
     } catch (err) {
       console.error(`POST /pois/${req.params.id}/checkins failed:`, err);
@@ -701,15 +721,21 @@ export function createApp() {
         res.status(404).json({ error: "Venue not found" });
         return;
       }
-      res.status(result.status === "created" ? 201 : 200).json(result.favorite);
       if (result.status === "created") {
         // BACKLOG.md Ref 6: 5pts the first time a venue is favorited/followed
-        // -- best-effort, after the response has already been sent.
-        awardFavoritePoints(
-          { userId: result.favorite.user_id, venueId: req.params.id },
-          getGamificationRepository()
-        ).catch((err) => console.error(`awardFavoritePoints (venue ${req.params.id}) failed:`, err));
+        // -- awaited before the response is sent, since this API runs as a
+        // Netlify/Lambda function that can freeze once the response
+        // completes (see the checkin routes' comment for the same reasoning).
+        try {
+          await awardFavoritePoints(
+            { userId: result.favorite.user_id, venueId: req.params.id },
+            getGamificationRepository()
+          );
+        } catch (err) {
+          console.error(`awardFavoritePoints (venue ${req.params.id}) failed:`, err);
+        }
       }
+      res.status(result.status === "created" ? 201 : 200).json(result.favorite);
     } catch (err) {
       console.error(`POST /venues/${req.params.id}/favorites failed:`, err);
       res.status(500).json({ error: "Failed to add favorite" });
