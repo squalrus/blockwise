@@ -123,38 +123,35 @@ export class SupabaseAuthRepository implements AuthRepository {
     return toRecord(data);
   }
 
-  // Not wrapped in a single DB transaction (no RPC/stored procedure defined
-  // for it yet) -- same accepted-risk pattern as claims/supabaseRepository.ts
-  // approveClaim at this project's scale. A failure between these steps
-  // could leave check-ins reassigned without the device id moved over, but
-  // never loses data.
+  // Delegates to the merge_anonymous_user_history() DB function
+  // (supabase/migrations/20260708000000_fix_merge_anonymous_history_data_loss.sql)
+  // so the checkin/point_event/favorite/user_badge/user_challenge_completion
+  // reassignment and the anonymous row's deletion happen in one transaction.
+  // A prior version did this as separate client calls and deleted the
+  // anonymous app_user row without migrating point_event/favorite/user_badge/
+  // user_challenge_completion first, which cascade-deleted them (all
+  // "on delete cascade" against app_user) and silently lost the device's
+  // earned points/badges.
   async mergeAnonymousHistory(
     targetUserId: string,
     anonymousUserId: string,
     deviceId: string
   ): Promise<AppUserRecord> {
-    const { error: checkinError } = await this.supabase
-      .from("checkin")
-      .update({ user_id: targetUserId })
-      .eq("user_id", anonymousUserId);
+    const { error: mergeError } = await this.supabase.rpc("merge_anonymous_user_history", {
+      p_target_user_id: targetUserId,
+      p_anonymous_user_id: anonymousUserId,
+      p_device_id: deviceId,
+    });
 
-    if (checkinError) throw new Error(`mergeAnonymousHistory (checkins) failed: ${checkinError.message}`);
+    if (mergeError) throw new Error(`mergeAnonymousHistory failed: ${mergeError.message}`);
 
-    const { error: deleteError } = await this.supabase
+    const { data, error } = await this.supabase
       .from("app_user")
-      .delete()
-      .eq("id", anonymousUserId);
-
-    if (deleteError) throw new Error(`mergeAnonymousHistory (delete anon row) failed: ${deleteError.message}`);
-
-    const { data, error: updateError } = await this.supabase
-      .from("app_user")
-      .update({ anonymous_device_id: deviceId })
-      .eq("id", targetUserId)
       .select(USER_COLUMNS)
+      .eq("id", targetUserId)
       .single();
 
-    if (updateError) throw new Error(`mergeAnonymousHistory (attach device) failed: ${updateError.message}`);
+    if (error) throw new Error(`mergeAnonymousHistory (reload) failed: ${error.message}`);
     return toRecord(data);
   }
 

@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.25.0] — 2026-07-08
+
+### Fixed
+
+- **Check-ins/favorites made right after signing in could silently lose their points.** `mergeAnonymousHistory` (run when a device with prior anonymous check-in history logs into an account) reassigned check-ins onto the account but then deleted the anonymous row outright, which cascade-deleted that row's `point_event`/`favorite`/`user_badge`/`user_challenge_completion` rows before they could be moved over — wiping out already-earned points and badges even though the check-ins themselves survived. The merge now runs as a single DB transaction (`merge_anonymous_user_history`) that migrates those rows first. A new backfill recovers points lost to this bug for existing accounts. (`supabase/migrations/20260708000000_fix_merge_anonymous_history_data_loss.sql`, `supabase/migrations/20260708000001_backfill_missing_checkin_favorite_points.sql`, `apps/api/src/auth/supabaseRepository.ts`)
+- **Points could silently fail to award on a fresh check-in or favorite.** The points/challenge award ran as a fire-and-forget promise *after* the HTTP response was already sent; since this API runs as a Netlify/Lambda function, the runtime can freeze the execution environment as soon as the response completes, so that pending work wasn't guaranteed to finish. Points are now awarded before the response is sent (still without failing the check-in/favorite itself if the award errors). (`apps/api/src/app.ts`)
+
 ## [0.24.0] — 2026-07-07
 
 ### Added
