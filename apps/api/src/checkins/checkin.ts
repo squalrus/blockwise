@@ -30,10 +30,17 @@ export interface EvaluateCheckinInput {
   globalCooldownMs?: number;
 }
 
+// Which cooldown produced the retryAt -- "target" means this same venue/POI
+// was checked into recently, "global" means a *different* venue/POI was
+// checked into recently (the cross-venue anti-gaming cooldown). The two need
+// distinct copy since "you checked in here recently" is false when the
+// global cooldown is what's actually blocking the request.
+export type CheckinCooldownScope = "target" | "global";
+
 export type CheckinDecision =
   | { allowed: true }
   | { allowed: false; reason: "too_far"; distanceMeters: number }
-  | { allowed: false; reason: "cooldown"; retryAt: string };
+  | { allowed: false; reason: "cooldown"; retryAt: string; scope: CheckinCooldownScope };
 
 function cooldownRetryAt(lastCheckin: CheckinRecord, now: number, cooldownMs: number): Date | null {
   const elapsedMs = now - new Date(lastCheckin.checkedInAt).getTime();
@@ -51,14 +58,19 @@ export function evaluateCheckin(input: EvaluateCheckinInput): CheckinDecision {
     return { allowed: false, reason: "too_far", distanceMeters };
   }
 
-  const candidates = [
-    input.lastCheckinForTarget && cooldownRetryAt(input.lastCheckinForTarget, input.now, cooldownMs),
-    input.lastCheckinAnywhere && cooldownRetryAt(input.lastCheckinAnywhere, input.now, globalCooldownMs),
-  ].filter((candidate): candidate is Date => candidate !== null && candidate !== undefined);
+  const targetRetryAt =
+    input.lastCheckinForTarget && cooldownRetryAt(input.lastCheckinForTarget, input.now, cooldownMs);
+  const globalRetryAt =
+    input.lastCheckinAnywhere && cooldownRetryAt(input.lastCheckinAnywhere, input.now, globalCooldownMs);
+
+  const candidates: { scope: CheckinCooldownScope; retryAt: Date }[] = [
+    ...(targetRetryAt ? [{ scope: "target" as const, retryAt: targetRetryAt }] : []),
+    ...(globalRetryAt ? [{ scope: "global" as const, retryAt: globalRetryAt }] : []),
+  ];
 
   if (candidates.length > 0) {
-    const retryAt = candidates.reduce((latest, candidate) => (candidate > latest ? candidate : latest));
-    return { allowed: false, reason: "cooldown", retryAt: retryAt.toISOString() };
+    const winner = candidates.reduce((latest, candidate) => (candidate.retryAt > latest.retryAt ? candidate : latest));
+    return { allowed: false, reason: "cooldown", retryAt: winner.retryAt.toISOString(), scope: winner.scope };
   }
 
   return { allowed: true };
@@ -68,7 +80,7 @@ export type CheckinResult =
   | { status: "created"; checkin: Checkin }
   | { status: "not_found" }
   | { status: "too_far"; distanceMeters: number }
-  | { status: "cooldown"; retryAt: string };
+  | { status: "cooldown"; retryAt: string; scope: CheckinCooldownScope };
 
 function toCheckin(record: CheckinRecord): Checkin {
   return {
@@ -112,7 +124,7 @@ export async function performCheckin(
     if (decision.reason === "too_far") {
       return { status: "too_far", distanceMeters: decision.distanceMeters };
     }
-    return { status: "cooldown", retryAt: decision.retryAt };
+    return { status: "cooldown", retryAt: decision.retryAt, scope: decision.scope };
   }
 
   const created = await repository.createCheckin({

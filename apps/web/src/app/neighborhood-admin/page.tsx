@@ -56,7 +56,17 @@ export default function NeighborhoodAdminPortalPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 font-sans sm:p-16">
-      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Neighborhood admin</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Neighborhood admin</h1>
+        {state.status === "ready" && (
+          <a
+            href="/neighborhood-admin/new"
+            className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-black"
+          >
+            New neighborhood
+          </a>
+        )}
+      </div>
 
       {state.status === "loading" && (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>

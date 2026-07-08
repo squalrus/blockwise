@@ -22,6 +22,15 @@ export type SocialPlatform =
   | "website";
 export type SocialLinks = Partial<Record<SocialPlatform, string>>;
 
+// Admin portal boundary drawing (BACKLOG.md Ref 8, project plan §12.6) draws
+// and edits this directly rather than any hand-authored coordinates -- a
+// single outer ring only, no interior holes (mirrors the same assumption in
+// apps/api/src/places/geo.ts's isPointInPolygon).
+export interface GeoJsonPolygon {
+  type: "Polygon";
+  coordinates: number[][][];
+}
+
 export interface Neighborhood {
   id: string;
   name: string;
@@ -31,7 +40,7 @@ export interface Neighborhood {
   state: string;
   country: string;
   timezone: string;
-  boundary_geojson: Record<string, unknown> | null;
+  boundary_geojson: GeoJsonPolygon | null;
   center_lat: number;
   center_lng: number;
   status: NeighborhoodStatus;
@@ -385,6 +394,59 @@ export interface NeighborhoodDashboardSummary {
   pois: Poi[];
   events: Event[];
   social_links: SocialLinks;
+}
+
+// Admin portal boundary drawing (BACKLOG.md Ref 8, project plan §12.6).
+
+export interface NeighborhoodBoundary {
+  boundary_geojson: GeoJsonPolygon | null;
+  center_lat: number;
+  center_lng: number;
+}
+
+export interface UpdateNeighborhoodBoundaryRequest {
+  boundary_geojson: GeoJsonPolygon;
+}
+
+export interface CreateNeighborhoodRequest {
+  name: string;
+  slug: string;
+  city: string;
+  state: string;
+  country: string;
+  timezone: string;
+  boundary_geojson: GeoJsonPolygon;
+}
+
+export interface CreateNeighborhoodResponse {
+  id: string;
+  name: string;
+  slug: string;
+  city: string;
+  state: string;
+  country: string;
+  timezone: string;
+  status: NeighborhoodStatus;
+  boundary_geojson: GeoJsonPolygon;
+  center_lat: number;
+  center_lng: number;
+}
+
+// Dry-run Google Places query preview (project plan §12.6) -- plotted as
+// markers on the same map before the admin commits the drawn boundary.
+export interface BoundaryPreviewCandidate {
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+  category_name: string | null;
+}
+
+export interface BoundaryPreviewReport {
+  tiles_queried: number;
+  api_calls_made: number;
+  calls_at_result_cap: number;
+  candidates: BoundaryPreviewCandidate[];
 }
 
 export interface UpdateNeighborhoodDescriptionRequest {

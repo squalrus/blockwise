@@ -1,4 +1,4 @@
-import type { SocialLinks } from "@blockwise/types";
+import type { GeoJsonPolygon, SocialLinks } from "@blockwise/types";
 
 export interface NeighborhoodRecord {
   id: string;
@@ -8,6 +8,47 @@ export interface NeighborhoodRecord {
   city: string;
   state: string;
   social_links: SocialLinks;
+}
+
+export interface NeighborhoodBoundaryRecord {
+  boundaryGeojson: GeoJsonPolygon | null;
+  centerLat: number;
+  centerLng: number;
+}
+
+export interface CreateNeighborhoodInput {
+  name: string;
+  slug: string;
+  city: string;
+  state: string;
+  country: string;
+  timezone: string;
+  boundaryGeojson: GeoJsonPolygon;
+}
+
+export interface CreatedNeighborhood {
+  id: string;
+  name: string;
+  slug: string;
+  city: string;
+  state: string;
+  country: string;
+  timezone: string;
+  status: string;
+  boundaryGeojson: GeoJsonPolygon;
+  centerLat: number;
+  centerLng: number;
+}
+
+// Admin portal create-neighborhood form (BACKLOG.md Ref 8) hitting the
+// `neighborhood.slug` unique constraint -- mirrors UsernameTakenError
+// (auth/repository.ts) for the same "translate a DB uniqueness violation
+// into a typed error the route can catch" pattern.
+export class SlugTakenError extends Error {
+  constructor(slug: string) {
+    super(`Neighborhood slug "${slug}" is already taken`);
+    this.name = "SlugTakenError";
+  }
 }
 
 // Abstracts persistence so getNeighborhoodBySlug/updateNeighborhoodDescription
@@ -26,4 +67,8 @@ export interface NeighborhoodRepository {
   // business claims, its own public profile page) -- filtering it out here
   // would hide the only neighborhood that exists.
   listAll(): Promise<NeighborhoodRecord[]>;
+  // Admin portal boundary drawing (BACKLOG.md Ref 8, project plan §12.6).
+  getBoundary(id: string): Promise<NeighborhoodBoundaryRecord | null>;
+  updateBoundary(id: string, boundaryGeojson: GeoJsonPolygon): Promise<NeighborhoodBoundaryRecord>;
+  createNeighborhood(input: CreateNeighborhoodInput): Promise<CreatedNeighborhood>;
 }

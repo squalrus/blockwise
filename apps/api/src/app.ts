@@ -62,11 +62,15 @@ import { awardFavoritePoints, getLeaderboard, getUserPoints } from "./gamificati
 import { awardCheckinRewards } from "./gamification/rewards";
 import { SupabaseGamificationRepository } from "./gamification/supabaseRepository";
 import {
+  createNeighborhood,
+  getNeighborhoodBoundary,
   getNeighborhoodById,
   getNeighborhoodBySlug,
+  updateNeighborhoodBoundary,
   updateNeighborhoodDescription,
   updateNeighborhoodSocialLinks,
 } from "./neighborhoods/neighborhoods";
+import { SlugTakenError } from "./neighborhoods/repository";
 import { SupabaseNeighborhoodRepository } from "./neighborhoods/supabaseRepository";
 import {
   joinNeighborhood,
@@ -75,8 +79,11 @@ import {
   setHomeNeighborhood,
 } from "./neighborhoodMembers/neighborhoodMembers";
 import { SupabaseNeighborhoodMemberRepository } from "./neighborhoodMembers/supabaseRepository";
-import { LivePlacesClient, type PlaceDetailsClient } from "./places/client";
+import { LivePlacesClient, type GooglePlacesClient, type PlaceDetailsClient } from "./places/client";
+import { isValidPolygon } from "./places/geo";
 import { MockPlacesClient } from "./places/mockClient";
+import { previewNeighborhoodBoundary } from "./places/preview";
+import { SupabasePlacesRepository } from "./places/supabaseRepository";
 import { createNeighborhoodPoi, listPoisForNeighborhood } from "./pois/pois";
 import { SupabasePoiRepository } from "./pois/supabaseRepository";
 import { getSupabaseClient } from "./supabase";
@@ -126,8 +133,11 @@ const FUNCTION_PATH_PREFIX = /^\/\.netlify\/functions\/[^/]+/;
 const PUBLIC_PATH_PREFIX = /^\/api(?=\/|$)/;
 
 // Mirrors the LivePlacesClient/MockPlacesClient choice in scripts/syncPlaces.ts:
-// falls back to mock Place Details when no API key is configured, e.g. local dev.
-function getPlacesClient(): PlaceDetailsClient {
+// falls back to mock Place Details when no API key is configured, e.g. local
+// dev. Both classes implement GooglePlacesClient (searchNearby) as well as
+// PlaceDetailsClient, so the same cached instance also backs the boundary
+// preview route's Nearby Search calls.
+function getPlacesClient(): GooglePlacesClient & PlaceDetailsClient {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   return apiKey ? new LivePlacesClient(apiKey) : new MockPlacesClient();
 }
@@ -142,10 +152,16 @@ function getVenueRepository(): SupabaseVenueDetailRepository {
   return venueRepository;
 }
 
-let placesClient: PlaceDetailsClient | undefined;
-function getCachedPlacesClient(): PlaceDetailsClient {
+let placesClient: (GooglePlacesClient & PlaceDetailsClient) | undefined;
+function getCachedPlacesClient(): GooglePlacesClient & PlaceDetailsClient {
   placesClient ??= getPlacesClient();
   return placesClient;
+}
+
+let placesRepository: SupabasePlacesRepository | undefined;
+function getPlacesRepository(): SupabasePlacesRepository {
+  placesRepository ??= new SupabasePlacesRepository(getSupabaseClient());
+  return placesRepository;
 }
 
 let checkinRepository: SupabaseCheckinRepository | undefined;
@@ -569,7 +585,7 @@ export function createApp() {
         case "cooldown":
           res
             .status(429)
-            .json({ error: "Check-in cooldown still active", retry_at: result.retryAt });
+            .json({ error: "Check-in cooldown still active", retry_at: result.retryAt, scope: result.scope });
           return;
         case "created": {
           // Points/challenges (BACKLOG.md Ref 6) -- awaited before the
@@ -637,7 +653,7 @@ export function createApp() {
         case "cooldown":
           res
             .status(429)
-            .json({ error: "Check-in cooldown still active", retry_at: result.retryAt });
+            .json({ error: "Check-in cooldown still active", retry_at: result.retryAt, scope: result.scope });
           return;
         case "created": {
           // See the /venues/:id/checkins handler above for why this is
@@ -975,6 +991,99 @@ export function createApp() {
       }
     }
   );
+
+  // Admin portal: neighborhood boundary drawing (BACKLOG.md Ref 8, project
+  // plan §12.3/§12.6). Gated by adminGate (admin of *any* neighborhood, same
+  // rationale as GET /neighborhood-admin/neighborhoods) since a brand-new
+  // neighborhood has no :id yet to scope a neighborhoodAdminGate check by.
+  app.post("/admin/neighborhoods/preview-boundary", adminGate, async (req, res) => {
+    const { boundary_geojson } = req.body ?? {};
+    if (!isValidPolygon(boundary_geojson)) {
+      res.status(400).json({ error: "boundary_geojson must be a closed GeoJSON Polygon" });
+      return;
+    }
+
+    try {
+      const categories = await getPlacesRepository().listCategories();
+      const report = await previewNeighborhoodBoundary(
+        boundary_geojson,
+        getCachedPlacesClient(),
+        categories
+      );
+      res.json({
+        tiles_queried: report.tilesQueried,
+        api_calls_made: report.apiCallsMade,
+        calls_at_result_cap: report.callsAtResultCap,
+        candidates: report.candidates.map((c) => ({
+          name: c.name,
+          lat: c.lat,
+          lng: c.lng,
+          address: c.address,
+          category_name: c.categoryName,
+        })),
+      });
+    } catch (err) {
+      console.error("POST /admin/neighborhoods/preview-boundary failed:", err);
+      res.status(500).json({ error: "Failed to preview boundary" });
+    }
+  });
+
+  app.post("/admin/neighborhoods", adminGate, async (req, res) => {
+    const { name, slug, city, state, country, timezone, boundary_geojson } = req.body ?? {};
+    if (
+      typeof name !== "string" ||
+      !name.trim() ||
+      typeof slug !== "string" ||
+      !slug.trim() ||
+      typeof city !== "string" ||
+      !city.trim() ||
+      typeof state !== "string" ||
+      !state.trim() ||
+      typeof country !== "string" ||
+      !country.trim() ||
+      typeof timezone !== "string" ||
+      !timezone.trim()
+    ) {
+      res.status(400).json({ error: "name, slug, city, state, country, and timezone are required" });
+      return;
+    }
+    if (!isValidPolygon(boundary_geojson)) {
+      res.status(400).json({ error: "boundary_geojson must be a closed GeoJSON Polygon" });
+      return;
+    }
+
+    try {
+      const created = await createNeighborhood(
+        { name, slug, city, state, country, timezone, boundaryGeojson: boundary_geojson },
+        getNeighborhoodRepository()
+      );
+      // The creator has no standing admin row for this brand-new
+      // neighborhood id -- grant it now so neighborhoodAdminGate doesn't lock
+      // them out of the boundary/description/etc. tools right after creating it.
+      await getNeighborhoodAdminRepository().addNeighborhoodAdmin(req.appUser!.id, created.id);
+
+      res.status(201).json({
+        id: created.id,
+        name: created.name,
+        slug: created.slug,
+        city: created.city,
+        state: created.state,
+        country: created.country,
+        timezone: created.timezone,
+        status: created.status,
+        boundary_geojson: created.boundaryGeojson,
+        center_lat: created.centerLat,
+        center_lng: created.centerLng,
+      });
+    } catch (err) {
+      if (err instanceof SlugTakenError) {
+        res.status(409).json({ error: err.message });
+        return;
+      }
+      console.error("POST /admin/neighborhoods failed:", err);
+      res.status(500).json({ error: "Failed to create neighborhood" });
+    }
+  });
 
   app.get("/admin/categories", adminGate, async (_req, res) => {
     try {
@@ -1405,6 +1514,62 @@ export function createApp() {
       res.status(500).json({ error: "Failed to update neighborhood" });
     }
   });
+
+  // Admin portal: neighborhood boundary drawing (BACKLOG.md Ref 8, project
+  // plan §12.6) -- also covers re-editing an existing neighborhood's
+  // boundary, not just the create flow above.
+  app.get("/neighborhood-admin/neighborhoods/:id/boundary", neighborhoodAdminGate, async (req, res) => {
+    try {
+      const result = await getNeighborhoodBoundary(req.params.id, getNeighborhoodRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Neighborhood not found" });
+        return;
+      }
+      res.json({
+        boundary_geojson: result.boundary.boundaryGeojson,
+        center_lat: result.boundary.centerLat,
+        center_lng: result.boundary.centerLng,
+      });
+    } catch (err) {
+      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/boundary failed:`, err);
+      res.status(500).json({ error: "Failed to load neighborhood boundary" });
+    }
+  });
+
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/boundary",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { boundary_geojson } = req.body ?? {};
+      if (!isValidPolygon(boundary_geojson)) {
+        res.status(400).json({ error: "boundary_geojson must be a closed GeoJSON Polygon" });
+        return;
+      }
+
+      try {
+        const result = await updateNeighborhoodBoundary(
+          req.params.id,
+          boundary_geojson,
+          getNeighborhoodRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+        res.json({
+          boundary_geojson: result.boundary.boundaryGeojson,
+          center_lat: result.boundary.centerLat,
+          center_lng: result.boundary.centerLng,
+        });
+      } catch (err) {
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/boundary failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to update neighborhood boundary" });
+      }
+    }
+  );
 
   app.patch(
     "/neighborhood-admin/neighborhoods/:id/social-links",

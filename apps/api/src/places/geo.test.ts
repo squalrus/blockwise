@@ -3,6 +3,7 @@ import {
   generateCoverageGrid,
   haversineMeters,
   isPointInPolygon,
+  isValidPolygon,
   type GeoJsonPolygon,
 } from "./geo";
 
@@ -35,6 +36,35 @@ const SQUARE: GeoJsonPolygon = {
     ],
   ],
 };
+
+describe("isValidPolygon", () => {
+  it("accepts a closed square ring", () => {
+    expect(isValidPolygon(SQUARE)).toBe(true);
+  });
+
+  it("rejects a ring that isn't closed (first point !== last point)", () => {
+    const open = { type: "Polygon", coordinates: [SQUARE.coordinates[0].slice(0, -1)] };
+    expect(isValidPolygon(open)).toBe(false);
+  });
+
+  it("rejects fewer than 3 distinct vertices", () => {
+    const tooFew = {
+      type: "Polygon",
+      coordinates: [[[-122.36, 47.66], [-122.34, 47.66], [-122.36, 47.66]]],
+    };
+    expect(isValidPolygon(tooFew)).toBe(false);
+  });
+
+  it("rejects a non-Polygon type", () => {
+    expect(isValidPolygon({ type: "Point", coordinates: [-122.35, 47.67] })).toBe(false);
+  });
+
+  it("rejects null and non-object values", () => {
+    expect(isValidPolygon(null)).toBe(false);
+    expect(isValidPolygon("not a polygon")).toBe(false);
+    expect(isValidPolygon(undefined)).toBe(false);
+  });
+});
 
 describe("isPointInPolygon", () => {
   it("returns true for a point inside the ring", () => {

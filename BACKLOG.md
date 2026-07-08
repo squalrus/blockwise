@@ -31,7 +31,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 29 | [Google Maps POI import and neighborhood curation](#google-maps-poi-import-and-neighborhood-curation) | feature | M | H | — |
 | 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | 27 |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
-| 8 | [Admin portal: neighborhood boundary drawing](#admin-portal-neighborhood-boundary-drawing) | feature | M | M | — |
 | 45 | [POIs merged into the venue list/map](#pois-merged-into-the-venue-listmap) | improvement | M | M | — |
 | 46 | [POI landing pages](#poi-landing-pages) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
@@ -119,14 +118,6 @@ No open limitations.
 **Depends:** —
 **Why** — Today Blockwise is free to set up a neighborhood. Supporting an upfront licensing fee (or tiered options for larger neighborhoods, more venues, higher API quotas per project plan §1.5) makes it viable to cover infrastructure/support costs as the platform scales. Limiting boundary syncs to every 24 hours is the primary cost control.
 **Notes:** Add a `neighborhood.tier` column (free|starter|pro, or similar) and corresponding quota limits (e.g., free = 100 venues, starter = 1000, pro = 10k). Rate-limit boundary re-syncs and Google Places queries per tier. Integrate Stripe for tier upgrades. Open question: launch with free-only, or start with tiers from day one?
-
-#### Admin portal: neighborhood boundary drawing
-
-**Ref:** 8
-**Type:** feature
-**Depends:** —
-**Why** — Makes onboarding a second neighborhood after Phinneywood a data workflow instead of a code change (project plan §12.3, §12.5).
-**Notes:** Interactive polygon-drawing tool (Mapbox GL Draw or Google Maps Drawing Library) gated to internal staff, with a dry-run Places query preview before committing the boundary, per project plan §12.6. Also covers re-editing an existing neighborhood's boundary (not create-only), per the same section.
 
 #### POIs merged into the venue list/map
 

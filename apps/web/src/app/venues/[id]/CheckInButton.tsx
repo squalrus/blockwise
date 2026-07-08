@@ -10,7 +10,7 @@ type Status =
   | { state: "checking" }
   | { state: "success"; checkedInAt: string }
   | { state: "too_far"; distanceMeters: number }
-  | { state: "cooldown"; retryAt: string }
+  | { state: "cooldown"; retryAt: string; scope: "target" | "global" }
   | { state: "error"; message: string };
 
 export type CheckinTarget = { type: "venue"; id: string } | { type: "poi"; id: string };
@@ -42,7 +42,7 @@ export function CheckInButton({ target }: { target: CheckinTarget }) {
       } else if (res.status === 400 && typeof body.distance_meters === "number") {
         setStatus({ state: "too_far", distanceMeters: body.distance_meters });
       } else if (res.status === 429) {
-        setStatus({ state: "cooldown", retryAt: body.retry_at });
+        setStatus({ state: "cooldown", retryAt: body.retry_at, scope: body.scope === "target" ? "target" : "global" });
       } else {
         setStatus({ state: "error", message: body.error ?? "Check-in failed" });
       }
@@ -76,8 +76,10 @@ export function CheckInButton({ target }: { target: CheckinTarget }) {
       )}
       {status.state === "cooldown" && (
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Already checked in here recently. Try again after{" "}
-          {new Date(status.retryAt).toLocaleTimeString()}.
+          {status.scope === "target"
+            ? "Already checked in here recently."
+            : "You checked in somewhere else recently."}{" "}
+          Try again after {new Date(status.retryAt).toLocaleTimeString()}.
         </p>
       )}
       {status.state === "error" && (

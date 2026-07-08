@@ -1,7 +1,7 @@
-import { buildGoogleTypeIndex, matchCategory } from "./categorize";
+import { buildGoogleTypeIndex, matchCategory, type CategoryRecord } from "./categorize";
 import type { GooglePlacesClient, RawGooglePlace } from "./client";
 import { findDuplicate } from "./dedup";
-import { generateCoverageGrid, isPointInPolygon } from "./geo";
+import { generateCoverageGrid, isPointInPolygon, type GeoJsonPolygon, type LatLng } from "./geo";
 import type { PlacesRepository } from "./repository";
 
 // Small enough that a dense commercial block is unlikely to exceed Nearby
@@ -20,6 +20,97 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+export interface PlaceSearchCandidate {
+  raw: RawGooglePlace;
+  name: string;
+  location: LatLng;
+  category: CategoryRecord | null;
+}
+
+export interface PlaceSearchResult {
+  tilesQueried: number;
+  apiCallsMade: number;
+  callsAtResultCap: number;
+  skippedClosedPermanently: number;
+  skippedOutOfBoundary: number;
+  unmappedTypes: { name: string; types: string[] }[];
+  places: PlaceSearchCandidate[];
+}
+
+// The tiling/search/boundary-filter/categorize pipeline (README §1.4 steps
+// 1-3), shared by the real sync (syncNeighborhoodPlaces, which additionally
+// dedupes and upserts) and the admin boundary-drawing dry-run preview
+// (preview.ts, which stops here -- BACKLOG.md Ref 8, project plan §12.6).
+export async function searchPlacesInPolygon(
+  polygon: GeoJsonPolygon,
+  client: GooglePlacesClient,
+  categories: CategoryRecord[],
+  tileRadiusMeters = DEFAULT_TILE_RADIUS_METERS
+): Promise<PlaceSearchResult> {
+  const tiles = generateCoverageGrid(polygon, tileRadiusMeters);
+
+  const categoryIndex = buildGoogleTypeIndex(categories);
+  // Restricts the search server-side to Google types the taxonomy actually
+  // maps -- an earlier unrestricted run pulled in schools, churches, and
+  // apartment buildings alongside real businesses.
+  const includedTypesChunks = chunk([...categoryIndex.keys()], MAX_INCLUDED_TYPES_PER_REQUEST);
+
+  const requests = tiles.flatMap((center) =>
+    includedTypesChunks.map((includedTypes) => ({ center, includedTypes }))
+  );
+  const callResults = await Promise.all(
+    requests.map(({ center, includedTypes }) =>
+      client.searchNearby({ center, radiusMeters: tileRadiusMeters, includedTypes })
+    )
+  );
+
+  // Tiles overlap by design (see generateCoverageGrid), and a tile split
+  // across multiple type chunks can also repeat a place -- collapse by
+  // Google's place ID before the per-place pipeline below runs.
+  const rawPlacesById = new Map<string, RawGooglePlace>();
+  for (const results of callResults) {
+    for (const place of results) rawPlacesById.set(place.id, place);
+  }
+
+  let skippedClosedPermanently = 0;
+  let skippedOutOfBoundary = 0;
+  const unmappedTypes: { name: string; types: string[] }[] = [];
+  const places: PlaceSearchCandidate[] = [];
+
+  for (const place of rawPlacesById.values()) {
+    if (place.businessStatus === "CLOSED_PERMANENTLY") {
+      skippedClosedPermanently++;
+      continue;
+    }
+
+    const location = { lat: place.location.latitude, lng: place.location.longitude };
+    if (!isPointInPolygon(location, polygon)) {
+      skippedOutOfBoundary++;
+      continue;
+    }
+
+    const name = place.displayName.text;
+    const category =
+      matchCategory({ primaryType: place.primaryType, types: place.types }, categoryIndex) ?? null;
+    // Flagged every run a venue's category is still unmapped, not just the
+    // run that first inserted it -- otherwise re-syncing a previously-seen,
+    // still-uncategorized venue silently drops off this report.
+    if (!category) unmappedTypes.push({ name, types: place.types });
+
+    places.push({ raw: place, name, location, category });
+  }
+
+  return {
+    tilesQueried: tiles.length,
+    apiCallsMade: requests.length,
+    callsAtResultCap: callResults.filter((results) => results.length >= PLACES_API_RESULT_CAP).length,
+    skippedClosedPermanently,
+    skippedOutOfBoundary,
+    unmappedTypes,
+    places,
+  };
+}
+
 export interface SyncReport {
   tilesQueried: number;
   apiCallsMade: number;
@@ -31,21 +122,6 @@ export interface SyncReport {
   skippedClaimed: string[];
   skippedDuplicates: { candidate: string; matchedExisting: string }[];
   unmappedTypes: { name: string; types: string[] }[];
-}
-
-function emptyReport(): SyncReport {
-  return {
-    tilesQueried: 0,
-    apiCallsMade: 0,
-    callsAtResultCap: 0,
-    inserted: [],
-    updated: [],
-    skippedOutOfBoundary: 0,
-    skippedClosedPermanently: 0,
-    skippedClaimed: [],
-    skippedDuplicates: [],
-    unmappedTypes: [],
-  };
 }
 
 // Runs the full ingestion pipeline (README §1.4 steps 1-3, 5) for one
@@ -68,43 +144,26 @@ export async function syncNeighborhoodPlaces(
   }
 
   const polygon = neighborhood.boundaryGeojson;
-  const tiles = generateCoverageGrid(polygon, tileRadiusMeters);
 
   const [categories, existingVenuesFromRepo] = await Promise.all([
     repository.listCategories(),
     repository.listVenuesByNeighborhood(neighborhood.id),
   ]);
 
-  const categoryIndex = buildGoogleTypeIndex(categories);
-  // Restricts the search server-side to Google types the taxonomy actually
-  // maps -- an earlier unrestricted run pulled in schools, churches, and
-  // apartment buildings alongside real businesses.
-  const includedTypesChunks = chunk([...categoryIndex.keys()], MAX_INCLUDED_TYPES_PER_REQUEST);
+  const search = await searchPlacesInPolygon(polygon, client, categories, tileRadiusMeters);
 
-  const requests = tiles.flatMap((center) =>
-    includedTypesChunks.map((includedTypes) => ({ center, includedTypes }))
-  );
-  const callResults = await Promise.all(
-    requests.map(({ center, includedTypes }) =>
-      client.searchNearby({ center, radiusMeters: tileRadiusMeters, includedTypes })
-    )
-  );
-
-  const report = emptyReport();
-  report.tilesQueried = tiles.length;
-  report.apiCallsMade = requests.length;
-  report.callsAtResultCap = callResults.filter(
-    (results) => results.length >= PLACES_API_RESULT_CAP
-  ).length;
-
-  // Tiles overlap by design (see generateCoverageGrid), and a tile split
-  // across multiple type chunks can also repeat a place -- collapse by
-  // Google's place ID before the per-place pipeline below runs.
-  const rawPlacesById = new Map<string, RawGooglePlace>();
-  for (const results of callResults) {
-    for (const place of results) rawPlacesById.set(place.id, place);
-  }
-  const rawPlaces = [...rawPlacesById.values()];
+  const report: SyncReport = {
+    tilesQueried: search.tilesQueried,
+    apiCallsMade: search.apiCallsMade,
+    callsAtResultCap: search.callsAtResultCap,
+    inserted: [],
+    updated: [],
+    skippedOutOfBoundary: search.skippedOutOfBoundary,
+    skippedClosedPermanently: search.skippedClosedPermanently,
+    skippedClaimed: [],
+    skippedDuplicates: [],
+    unmappedTypes: search.unmappedTypes,
+  };
 
   // Grows as new venues are inserted below, so two duplicate places returned
   // in the *same* sync run (Google itself sometimes lists one business twice
@@ -112,28 +171,7 @@ export async function syncNeighborhoodPlaces(
   // venues from a prior run.
   const existingVenues = [...existingVenuesFromRepo];
 
-  for (const place of rawPlaces) {
-    if (place.businessStatus === "CLOSED_PERMANENTLY") {
-      report.skippedClosedPermanently++;
-      continue;
-    }
-
-    const location = { lat: place.location.latitude, lng: place.location.longitude };
-    if (!isPointInPolygon(location, polygon)) {
-      report.skippedOutOfBoundary++;
-      continue;
-    }
-
-    const name = place.displayName.text;
-    const category = matchCategory(
-      { primaryType: place.primaryType, types: place.types },
-      categoryIndex
-    );
-    // Flagged every run a venue's category is still unmapped, not just the
-    // run that first inserted it -- otherwise re-syncing a previously-seen,
-    // still-uncategorized venue silently drops off this report.
-    if (!category) report.unmappedTypes.push({ name, types: place.types });
-
+  for (const { raw: place, name, location, category } of search.places) {
     const existingByPlaceId = existingVenues.find((v) => v.googlePlaceId === place.id);
 
     if (existingByPlaceId) {

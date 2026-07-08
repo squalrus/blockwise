@@ -59,7 +59,7 @@ describe("evaluateCheckin", () => {
       now,
     });
     expect(decision.allowed).toBe(false);
-    expect(decision).toMatchObject({ reason: "cooldown" });
+    expect(decision).toMatchObject({ reason: "cooldown", scope: "target" });
   });
 
   it("rejects a check-in within the global cross-venue cooldown even at a new venue", () => {
@@ -82,7 +82,7 @@ describe("evaluateCheckin", () => {
       now,
     });
     expect(decision.allowed).toBe(false);
-    expect(decision).toMatchObject({ reason: "cooldown" });
+    expect(decision).toMatchObject({ reason: "cooldown", scope: "global" });
   });
 
   it("allows a check-in once both cooldown windows have elapsed", () => {
@@ -208,6 +208,7 @@ describe("performCheckin", () => {
     await performCheckin({ kind: "venue", id: "venue-1" }, "device-1", AT_VENUE, repo);
     const result = await performCheckin({ kind: "venue", id: "venue-1" }, "device-1", AT_VENUE, repo);
     expect(result.status).toBe("cooldown");
+    if (result.status === "cooldown") expect(result.scope).toBe("target");
   });
 
   it("blocks a check-in at a different venue within the global cooldown window", async () => {
@@ -225,6 +226,7 @@ describe("performCheckin", () => {
 
     const result = await performCheckin({ kind: "venue", id: "venue-1" }, "device-1", AT_VENUE, repo);
     expect(result.status).toBe("cooldown");
+    if (result.status === "cooldown") expect(result.scope).toBe("global");
   });
 
   it("allows a check-in at a different venue once the global cooldown has elapsed", async () => {

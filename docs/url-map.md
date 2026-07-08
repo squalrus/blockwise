@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-07-07 (neighborhood profile page split into Leaderboard/Challenges/Upcoming events/Points of interest/Venues subnav tabs, BACKLOG.md Ref 44).
+Last reviewed: 2026-07-07 (admin portal neighborhood boundary drawing -- create-neighborhood flow, per-neighborhood Boundary tab, and boundary dry-run preview endpoint, BACKLOG.md Ref 8).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -37,9 +37,12 @@ apps/web/src/app/
 │   └── [venueId]/page.tsx                         /business/:venueId — S (requireVenueOwner) — owner dashboard
 ├── neighborhood-admin/
 │   ├── page.tsx                                    /neighborhood-admin — C — list neighborhoods this account administers
+│   ├── new/page.tsx                                /neighborhood-admin/new — S (POST /admin/neighborhoods) — create a neighborhood + draw its boundary
+│   ├── BoundaryMap.tsx                             (shared component, no route — Google Maps Drawing Library polygon editor)
 │   └── [neighborhoodSlug]/
 │       ├── layout.tsx                              — S (neighborhoodAdminGate on every tab's data calls) — resolves slug→id, tab nav, scope gate
 │       ├── page.tsx                                /neighborhood-admin/:slug — Overview tab (description, social links, events, POIs)
+│       ├── boundary/page.tsx                       /neighborhood-admin/:slug/boundary — Boundary tab (draw/edit + dry-run Places preview)
 │       ├── claims/page.tsx                         /neighborhood-admin/:slug/claims — Business claims tab (approve/reject)
 │       └── venues/page.tsx                         /neighborhood-admin/:slug/venues — Venue categories tab (reassign category)
 └── admin/
@@ -113,6 +116,7 @@ Auth gates:
 └── neighborhoods/:id/
     ├── dashboard                                       GET — neighborhoodAdmin
     ├── (root)                                          PATCH — neighborhoodAdmin — description
+    ├── boundary                                         GET, PATCH — neighborhoodAdmin — boundary_geojson/center (BACKLOG.md Ref 8)
     ├── social-links                                     PATCH — neighborhoodAdmin
     ├── events                                           POST — neighborhoodAdmin
     ├── pois                                             POST — neighborhoodAdmin
@@ -124,6 +128,8 @@ Auth gates:
 
 /admin/
 ├── categories                                        GET — admin — assignable leaf categories (global, not neighborhood-owned)
+├── neighborhoods                                     POST — admin — create a neighborhood + boundary (BACKLOG.md Ref 8); creator becomes its admin
+├── neighborhoods/preview-boundary                    POST — admin — dry-run Google Places query against a drawn (not-yet-saved) polygon
 └── category-taxonomy/
     ├── (root)                                          GET, POST — admin
     ├── :id                                              PATCH — admin

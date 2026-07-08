@@ -52,4 +52,12 @@ export class SupabaseNeighborhoodAdminRepository implements NeighborhoodAdminRep
       };
     });
   }
+
+  async addNeighborhoodAdmin(userId: string, neighborhoodId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("neighborhood_admin")
+      .insert({ user_id: userId, neighborhood_id: neighborhoodId });
+
+    if (error) throw new Error(`addNeighborhoodAdmin failed: ${error.message}`);
+  }
 }

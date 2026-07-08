@@ -16,6 +16,7 @@ type State =
 
 const TABS = [
   { href: "", label: "Overview" },
+  { href: "/boundary", label: "Boundary" },
   { href: "/claims", label: "Business claims" },
   { href: "/venues", label: "Venue categories" },
 ];

@@ -1,6 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { SocialLinks } from "@blockwise/types";
-import type { NeighborhoodRecord, NeighborhoodRepository } from "./repository";
+import type { GeoJsonPolygon, SocialLinks } from "@blockwise/types";
+import type {
+  CreatedNeighborhood,
+  CreateNeighborhoodInput,
+  NeighborhoodBoundaryRecord,
+  NeighborhoodRecord,
+  NeighborhoodRepository,
+} from "./repository";
+import { SlugTakenError } from "./repository";
+
+const UNIQUE_VIOLATION = "23505";
 
 function toRecord(row: {
   id: string;
@@ -82,4 +91,93 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
     if (error) throw new Error(`listAll failed: ${error.message}`);
     return (data ?? []).map(toRecord);
   }
+
+  async getBoundary(id: string): Promise<NeighborhoodBoundaryRecord | null> {
+    // .rpc() results aren't row-typed on this untyped SupabaseClient (no
+    // generated Database generic) -- indexed access + an explicit row shape
+    // mirrors the same pattern places/supabaseRepository.ts already uses for
+    // get_neighborhood_for_sync, rather than chaining .maybeSingle()/.single(),
+    // which resolve to {}/unknown here instead of the actual row shape.
+    const { data, error } = await this.supabase.rpc("get_neighborhood_boundary_for_admin", {
+      p_id: id,
+    });
+
+    if (error) throw new Error(`getBoundary failed: ${error.message}`);
+    const row = (data as BoundaryRow[] | null)?.[0];
+    if (!row) return null;
+    return {
+      boundaryGeojson: row.boundary_geojson,
+      centerLat: row.center_lat,
+      centerLng: row.center_lng,
+    };
+  }
+
+  async updateBoundary(id: string, boundaryGeojson: GeoJsonPolygon): Promise<NeighborhoodBoundaryRecord> {
+    const { data, error } = await this.supabase.rpc("set_neighborhood_boundary", {
+      p_id: id,
+      p_boundary_geojson: JSON.stringify(boundaryGeojson),
+    });
+
+    if (error) throw new Error(`updateBoundary failed: ${error.message}`);
+    const row = (data as BoundaryRow[]).at(0);
+    if (!row) throw new Error("updateBoundary failed: neighborhood not found");
+    return {
+      boundaryGeojson: row.boundary_geojson,
+      centerLat: row.center_lat,
+      centerLng: row.center_lng,
+    };
+  }
+
+  async createNeighborhood(input: CreateNeighborhoodInput): Promise<CreatedNeighborhood> {
+    const { data, error } = await this.supabase.rpc("create_neighborhood", {
+      p_name: input.name,
+      p_slug: input.slug,
+      p_city: input.city,
+      p_state: input.state,
+      p_country: input.country,
+      p_timezone: input.timezone,
+      p_boundary_geojson: JSON.stringify(input.boundaryGeojson),
+    });
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) throw new SlugTakenError(input.slug);
+      throw new Error(`createNeighborhood failed: ${error.message}`);
+    }
+
+    const row = (data as CreateNeighborhoodRow[]).at(0);
+    if (!row) throw new Error("createNeighborhood failed: no row returned");
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      city: row.city,
+      state: row.state,
+      country: row.country,
+      timezone: row.timezone,
+      status: row.status,
+      boundaryGeojson: row.boundary_geojson,
+      centerLat: row.center_lat,
+      centerLng: row.center_lng,
+    };
+  }
+}
+
+interface BoundaryRow {
+  boundary_geojson: GeoJsonPolygon | null;
+  center_lat: number;
+  center_lng: number;
+}
+
+interface CreateNeighborhoodRow {
+  id: string;
+  name: string;
+  slug: string;
+  city: string;
+  state: string;
+  country: string;
+  timezone: string;
+  status: string;
+  boundary_geojson: GeoJsonPolygon;
+  center_lat: number;
+  center_lng: number;
 }
