@@ -20,7 +20,7 @@ type PreviewStatus = { state: "idle" | "loading" | "error"; message?: string };
 // re-editing an *existing* neighborhood's boundary_geojson rather than
 // starting from a blank map.
 export default function NeighborhoodBoundaryPage() {
-  const { neighborhoodId } = useNeighborhoodAdmin();
+  const { neighborhoodId, slug } = useNeighborhoodAdmin();
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [polygon, setPolygon] = useState<GeoJsonPolygon | null>(null);
   const [preview, setPreview] = useState<BoundaryPreviewReport | null>(null);
@@ -154,7 +154,15 @@ export default function NeighborhoodBoundaryPage() {
         {saveStatus.state === "saving" ? "Saving…" : "Save boundary"}
       </button>
       {saveStatus.state === "saved" && (
-        <p className="text-sm text-green-700 dark:text-green-400">Boundary saved.</p>
+        <p className="flex items-center gap-3 text-sm text-green-700 dark:text-green-400">
+          Boundary saved.
+          <a
+            href={`/neighborhood-admin/${slug}/locations/review`}
+            className="rounded-md border border-black/[.08] px-3 py-1 text-black dark:border-white/[.145] dark:text-zinc-50"
+          >
+            Review changes now →
+          </a>
+        </p>
       )}
       {saveStatus.state === "error" && (
         <p className="text-sm text-red-600 dark:text-red-400">{saveStatus.message}</p>

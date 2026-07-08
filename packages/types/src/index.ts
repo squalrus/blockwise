@@ -554,6 +554,73 @@ export interface LocationListItem {
   google_place_id: string | null;
 }
 
+// Bulk Places review (BACKLOG.md Ref 29) -- a Google Places entity inside the
+// neighborhood's boundary that isn't yet a venue or POI. Admin-triggered
+// (costs a real Places API query each run), not surfaced automatically.
+export interface LocationReviewCandidate {
+  google_place_id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+  // The sync pipeline's own category match, shown as a suggested default --
+  // still overridable by the admin when classifying as a business.
+  suggested_category_id: string | null;
+  suggested_category_name: string | null;
+}
+
+// Boundary reconciliation (BACKLOG.md Ref 54): an *active* venue or POI
+// still on record whose location no longer falls inside the neighborhood's
+// current (saved) boundary -- e.g. after a redraw. Surfaced for explicit
+// admin approval rather than silently staying attached or silently hidden.
+export interface LocationRemovalCandidate {
+  kind: "venue" | "poi";
+  id: string;
+  name: string;
+  address: string | null;
+}
+
+export interface LocationReviewReport {
+  tiles_queried: number;
+  api_calls_made: number;
+  calls_at_result_cap: number;
+  new_candidates: LocationReviewCandidate[];
+  proposed_removals: LocationRemovalCandidate[];
+}
+
+export type LocationClassification = "business" | "poi" | "omit";
+
+export interface LocationReviewClassificationInput {
+  google_place_id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+  classification: LocationClassification;
+  // Required when classification is "business".
+  category_id?: string;
+  // Required when classification is "poi".
+  type?: string;
+}
+
+export interface LocationRemovalApproval {
+  kind: "venue" | "poi";
+  id: string;
+}
+
+export interface CommitLocationReviewRequest {
+  classifications: LocationReviewClassificationInput[];
+  removals: LocationRemovalApproval[];
+}
+
+export interface CommitLocationReviewResult {
+  created_businesses: string[];
+  created_pois: string[];
+  omitted: string[];
+  hidden: string[];
+  failed: { name: string; error: string }[];
+}
+
 // Only leaf categories (see supabase/migrations/.../category_taxonomy.sql)
 // are valid assignment targets -- the 6 top-level group rows are
 // organizational only, so this list excludes them.

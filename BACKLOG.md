@@ -28,7 +28,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 29 | [Google Maps POI import and neighborhood curation](#google-maps-poi-import-and-neighborhood-curation) | feature | M | H | — |
 | 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | 27 |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 45 | [POIs merged into the venue list/map](#pois-merged-into-the-venue-listmap) | improvement | M | M | — |
@@ -36,7 +35,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 27 | [What's happening now](#whats-happening-now) | feature | M | M | 5 |
 | 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
-| 54 | [Neighborhood boundary re-map wizard](#neighborhood-boundary-re-map-wizard) | feature | L | M | — |
 | 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
 
 ### Business & Venue
@@ -96,14 +94,6 @@ No open limitations.
 
 ### Neighborhood
 
-#### Google Maps POI import and neighborhood curation
-
-**Ref:** 29
-**Type:** feature
-**Depends:** —
-**Why** — Neighborhood admins currently can only manually create POIs one at a time via the admin dashboard. Blockwise already ingests Google Places data at sync time; exposing that full entity list (parks, transit stops, landmarks, etc.) within the neighborhood's boundary lets admins bulk-import, filter, or selectively approve entries as POIs, greatly speeding up neighborhood setup and ongoing curation without leaving the tool.
-**Notes:** Extend the `GET /neighborhoods/:id/events` data fetch pattern to also query Google Places for all entities matching the neighborhood's boundary, presenting them in a filterable list (by category, etc.). Allow admins to bulk-select and convert matching entries to `poi` rows, or individually delete/hide entries. Touches `supabase/migrations`, `apps/api/src/pois/`, `apps/api/src/places/`, `apps/web/src/app/neighborhood-admin/`. Open question: should this also surface a "hide" flag for venues (the user saw this in Ref 11 "Business omission") so admins can suppress a Google Places entry without deleting it? Ref 11 (v0.27.0) already added `venue.status` (active/hidden) and `poi.google_place_id`/`poi.address` columns — the latter two mean a bulk-imported POI can carry the same Places linkage a venue would, so this item's dedupe-against-re-sync logic can key off `poi.google_place_id` the same way `places/dedup.ts` already does for `venue.google_place_id`. **Foundational step shipped in v0.28.0:** POI reached CRUD parity with venue (`poi.status` for hide/restore, plus GET/PATCH/DELETE endpoints — delete blocked when checkin/point_event/challenge history exists) and the admin "Venues" tab became a merged "Locations" tab (venue + POI, with a claimed-business pill). Remaining scope: the actual Google Places bulk-review/import flow itself (querying Places for the neighborhood's boundary, listing candidates, bulk business/POI/omit classification) — see also [Neighborhood boundary re-map wizard](#neighborhood-boundary-re-map-wizard) (Ref 54), which needs a similar candidate-review UI and should be reconciled with this one rather than built twice.
-
 #### iCal/webcal event feed import
 
 **Ref:** 30
@@ -134,7 +124,7 @@ No open limitations.
 **Type:** feature
 **Depends:** —
 **Why** — POIs have no detail page today — the check-in button only exists inline in the neighborhood page's POI list. A dedicated page (mirroring `/venues/:id`) gives a POI a shareable URL and a proper home for its description/photo and check-in action, consistent with how venues already work.
-**Notes:** New route `apps/web/src/app/pois/[id]/page.tsx` plus a new `GET /pois/:id` endpoint (only list-for-neighborhood and create exist today, per `apps/api/src/pois/`). (Future) POIs may eventually be created from the Google Places sync pipeline by converting a business/venue entity into a POI, per [Google Maps POI import and neighborhood curation](#google-maps-poi-import-and-neighborhood-curation)'s existing plan to let admins convert matching Google entities to POI rows — that would give POI and Venue the same backing data source while still allowing a POI to be added manually, same as today. Ref 11 (v0.27.0) already took the first step: `poi` gained `google_place_id` and `address` columns (mirroring `venue`'s), populated when a venue is hidden and converted to a POI from the neighborhood-admin Venues tab — this detail page can rely on `address` being present for Places-sourced POIs the same way `/venues/:id` does.
+**Notes:** New route `apps/web/src/app/pois/[id]/page.tsx` — a `GET /neighborhood-admin/neighborhoods/:id/pois/:poiId` endpoint already exists (shipped v0.28.0) but there's still no *public* single-POI fetch. POIs already gained a real Google Places data source: Ref 11 (v0.27.0) added `google_place_id`/`address` for the "convert venue to POI" action, and Ref 29's bulk Places review (v0.28.0/v0.29.0) lets an admin classify a fresh Places candidate directly as a POI (`apps/api/src/locations/review.ts`) — this detail page can rely on `address` being present for any Places-sourced POI the same way `/venues/:id` does.
 
 #### Neighborhood notifications
 
@@ -158,15 +148,7 @@ No open limitations.
 **Type:** improvement
 **Depends:** —
 **Why** — The neighborhood management interface (admin dashboard, map-based POI curation, boundary drawing) is functional but text-heavy and utilitarian. A more playful, visual "SimCity" aesthetic (colorful neighborhoods as zoned regions, venues as draggable/filterable objects, pixel-art or stylized map) would make the admin experience more engaging and reinforce the neighborhood-as-a-place concept for users browsing from the landing page.
-**Notes:** Primarily a design/CSS/component refactor; no schema or API changes. Could include custom map styling (already supported by Mapbox), themed icons/colors per category, card-based layout with visual hierarchy, interactive dragging/filtering. Likely pairs well with Ref 29's POI curation UI. Scope: from polish (tweaks to existing components) to full redesign (new neighborhood detail cards, animated transitions, etc.) — worth scoping early with the user.
-
-#### Neighborhood boundary re-map wizard
-
-**Ref:** 54
-**Type:** feature
-**Depends:** —
-**Why** — Redrawing or re-editing a neighborhood's boundary (Ref 8, shipped v0.26.0) changes which venues/POIs geographically belong to the neighborhood, but today saving a new boundary doesn't do anything about that mismatch: venues that fall outside the new shape stay attached, and new places the redrawn boundary now covers are never picked up except by manually re-running the sync script. Admins need a guided way to reconcile the neighborhood's venue/POI set with a boundary change, rather than the boundary tool being purely cosmetic.
-**Notes:** A 3-step wizard that runs after a boundary is drawn/saved, before it's treated as "live": (1) **Removals** — diff the neighborhood's current venues/POIs against the new polygon (`isPointInPolygon`, `apps/api/src/places/geo.ts`) and list anything now outside it; the admin must explicitly accept each removal. Removal must be a soft hide (`venue.status = 'hidden'`, shipped v0.27.0 — Ref 11) rather than a delete — existing `checkin`/`favorite`/`point_event`/`user_badge` rows referencing that venue must survive untouched, per the user's explicit ask that past activity isn't erased by a boundary edit. (2) **New entries** — reuse the existing dry-run preview (`apps/api/src/places/preview.ts`, shipped v0.26.0) to list candidate places inside the new boundary not yet represented, with a per-candidate choice: claimable Business (creates a `venue` row, later claimable same as the sync pipeline's normal output), neighborhood-owned POI (creates a `poi` row, not claimable — carrying `google_place_id`/`address` the same way the v0.27.0 "convert venue to POI" action does), or Omit (skipped, not created). (3) **Summary/confirm** — a final screen totaling removals/new businesses/new POIs/omissions before committing everything in one action. Overlaps conceptually with [Google Maps POI import and neighborhood curation](#google-maps-poi-import-and-neighborhood-curation) (Ref 29), which already proposes a similar "convert a Places candidate to POI or hide it" flow but isn't tied to a boundary-redraw event specifically — worth reconciling the two so the classification UI isn't built twice. Open question: should this wizard be the *only* way to commit a boundary change (i.e. `PATCH .../boundary` always triggers it), or an optional follow-up an admin can defer?
+**Notes:** Primarily a design/CSS/component refactor; no schema or API changes. Could include custom map styling (already supported by Mapbox), themed icons/colors per category, card-based layout with visual hierarchy, interactive dragging/filtering. Likely pairs well with the Locations tab's Places review/curation UI (shipped v0.28.0/v0.29.0). Scope: from polish (tweaks to existing components) to full redesign (new neighborhood detail cards, animated transitions, etc.) — worth scoping early with the user.
 
 #### Venues tab: default to map view
 

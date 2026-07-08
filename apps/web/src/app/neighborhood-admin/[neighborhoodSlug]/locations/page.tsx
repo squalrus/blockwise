@@ -15,7 +15,7 @@ type Filter = "all" | "venue" | "poi" | "hidden";
 // Venues tab had (category reassign, hide/restore, convert-to-POI) and adds
 // full POI CRUD (create/edit/hide/restore/delete) plus a "Claimed" pill.
 export default function NeighborhoodAdminLocationsPage() {
-  const { neighborhoodId } = useNeighborhoodAdmin();
+  const { neighborhoodId, slug } = useNeighborhoodAdmin();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [locations, setLocations] = useState<LocationListItem[] | null>(null);
@@ -217,7 +217,7 @@ export default function NeighborhoodAdminLocationsPage() {
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      <div>
+      <div className="flex gap-2">
         <button
           type="button"
           onClick={() => setAddingPoi((prev) => !prev)}
@@ -225,6 +225,14 @@ export default function NeighborhoodAdminLocationsPage() {
         >
           {addingPoi ? "Cancel" : "+ Add point of interest"}
         </button>
+        <a
+          href={`/neighborhood-admin/${slug}/locations/review`}
+          className="rounded-md border border-black/[.08] px-3 py-1 text-sm dark:border-white/[.145]"
+        >
+          Review Places →
+        </a>
+      </div>
+      <div>
         {addingPoi && (
           <div className="mt-3">
             <PoiForm

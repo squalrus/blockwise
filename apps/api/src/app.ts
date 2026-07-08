@@ -87,6 +87,11 @@ import { MockPlacesClient } from "./places/mockClient";
 import { previewNeighborhoodBoundary } from "./places/preview";
 import { SupabasePlacesRepository } from "./places/supabaseRepository";
 import {
+  commitLocationReview,
+  reviewNeighborhoodLocations,
+  type LocationClassification,
+} from "./locations/review";
+import {
   createNeighborhoodPoi,
   deletePoiForNeighborhood,
   getPoiForNeighborhood,
@@ -2083,6 +2088,153 @@ export function createApp() {
       res.status(500).json({ error: "Failed to list locations" });
     }
   });
+
+  // Bulk Places review (BACKLOG.md Ref 29) -- an admin-triggered dry-run
+  // Google Places query against the neighborhood's *saved* boundary (never
+  // an unsaved draft -- that's what /admin/neighborhoods/preview-boundary is
+  // for), listing places not yet represented as a venue or POI. Costs a real
+  // Places API call each time it runs, same as preview-boundary.
+  app.get(
+    "/neighborhood-admin/neighborhoods/:id/locations/review",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      try {
+        const boundaryResult = await getNeighborhoodBoundary(req.params.id, getNeighborhoodRepository());
+        if (boundaryResult.status === "not_found" || !boundaryResult.boundary.boundaryGeojson) {
+          res.status(400).json({ error: "Neighborhood has no boundary set" });
+          return;
+        }
+
+        const report = await reviewNeighborhoodLocations(
+          req.params.id,
+          boundaryResult.boundary.boundaryGeojson,
+          getCachedPlacesClient(),
+          getPlacesRepository(),
+          getPoiRepository(),
+          getCategoryMappingRepository()
+        );
+
+        res.json({
+          tiles_queried: report.tilesQueried,
+          api_calls_made: report.apiCallsMade,
+          calls_at_result_cap: report.callsAtResultCap,
+          new_candidates: report.newCandidates.map((c) => ({
+            google_place_id: c.googlePlaceId,
+            name: c.name,
+            lat: c.lat,
+            lng: c.lng,
+            address: c.address,
+            suggested_category_id: c.suggestedCategoryId,
+            suggested_category_name: c.suggestedCategoryName,
+          })),
+          proposed_removals: report.proposedRemovals.map((r) => ({
+            kind: r.kind,
+            id: r.id,
+            name: r.name,
+            address: r.address,
+          })),
+        });
+      } catch (err) {
+        console.error(
+          `GET /neighborhood-admin/neighborhoods/${req.params.id}/locations/review failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to review locations" });
+      }
+    }
+  );
+
+  const LOCATION_CLASSIFICATIONS: LocationClassification[] = ["business", "poi", "omit"];
+
+  app.post(
+    "/neighborhood-admin/neighborhoods/:id/locations/review/commit",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { classifications, removals } = req.body ?? {};
+      if (!Array.isArray(classifications)) {
+        res.status(400).json({ error: "classifications must be an array" });
+        return;
+      }
+      if (!Array.isArray(removals)) {
+        res.status(400).json({ error: "removals must be an array" });
+        return;
+      }
+      for (const item of removals) {
+        if (
+          typeof item !== "object" ||
+          item === null ||
+          (item.kind !== "venue" && item.kind !== "poi") ||
+          typeof item.id !== "string" ||
+          !item.id
+        ) {
+          res.status(400).json({ error: "each removal requires a kind ('venue' or 'poi') and an id" });
+          return;
+        }
+      }
+      for (const item of classifications) {
+        if (
+          typeof item !== "object" ||
+          item === null ||
+          typeof item.google_place_id !== "string" ||
+          !item.google_place_id ||
+          typeof item.name !== "string" ||
+          !item.name ||
+          typeof item.lat !== "number" ||
+          typeof item.lng !== "number" ||
+          typeof item.address !== "string" ||
+          !LOCATION_CLASSIFICATIONS.includes(item.classification)
+        ) {
+          res.status(400).json({
+            error:
+              "each classification requires google_place_id, name, lat, lng, address, and a valid classification",
+          });
+          return;
+        }
+        if (item.classification === "business" && typeof item.category_id !== "string") {
+          res.status(400).json({ error: "category_id is required to classify as a business" });
+          return;
+        }
+        if (item.classification === "poi" && typeof item.type !== "string") {
+          res.status(400).json({ error: "type is required to classify as a point of interest" });
+          return;
+        }
+      }
+
+      try {
+        const result = await commitLocationReview(
+          req.params.id,
+          classifications.map((item) => ({
+            googlePlaceId: item.google_place_id,
+            name: item.name,
+            lat: item.lat,
+            lng: item.lng,
+            address: item.address,
+            classification: item.classification,
+            categoryId: item.category_id,
+            type: item.type,
+          })),
+          removals.map((item) => ({ kind: item.kind, id: item.id })),
+          getPlacesRepository(),
+          getPoiRepository(),
+          getCategoryMappingRepository()
+        );
+
+        res.json({
+          created_businesses: result.createdBusinesses,
+          created_pois: result.createdPois,
+          omitted: result.omitted,
+          hidden: result.hidden,
+          failed: result.failed,
+        });
+      } catch (err) {
+        console.error(
+          `POST /neighborhood-admin/neighborhoods/${req.params.id}/locations/review/commit failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to commit location review" });
+      }
+    }
+  );
 
   return app;
 }
