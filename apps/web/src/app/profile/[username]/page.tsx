@@ -26,7 +26,7 @@ export default async function PublicProfilePage({
   if (!profile) notFound();
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <Link href="/" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
         ← Home
       </Link>

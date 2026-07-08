@@ -32,12 +32,12 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | 27 |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 8 | [Admin portal: neighborhood boundary drawing](#admin-portal-neighborhood-boundary-drawing) | feature | M | M | — |
-| 44 | [Neighborhood page: map-default venues + events/challenges subnav](#neighborhood-page-map-default-venues--eventschallenges-subnav) | improvement | M | M | — |
 | 45 | [POIs merged into the venue list/map](#pois-merged-into-the-venue-listmap) | improvement | M | M | — |
 | 46 | [POI landing pages](#poi-landing-pages) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 27 | [What's happening now](#whats-happening-now) | feature | M | M | 5 |
 | 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
+| 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
 
 ### Business & Venue
 
@@ -70,7 +70,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 14 | [Connect with other users](#connect-with-other-users) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | 14 |
 | 33 | [Friends/neighbors on profile](#friendsneighbors-on-profile) | feature | L | M | — |
-| 42 | [Badge icon rendering](#badge-icon-rendering) | improvement | S | L | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
@@ -129,21 +128,13 @@ No open limitations.
 **Why** — Makes onboarding a second neighborhood after Phinneywood a data workflow instead of a code change (project plan §12.3, §12.5).
 **Notes:** Interactive polygon-drawing tool (Mapbox GL Draw or Google Maps Drawing Library) gated to internal staff, with a dry-run Places query preview before committing the boundary, per project plan §12.6. Also covers re-editing an existing neighborhood's boundary (not create-only), per the same section.
 
-#### Neighborhood page: map-default venues + events/challenges subnav
-
-**Ref:** 44
-**Type:** improvement
-**Depends:** —
-**Why** — The neighborhood page (`/neighborhoods/[slug]`) has grown from just a venue list into venues, events, challenges, a leaderboard, and POIs, all stacked vertically as flat sections — the page is long and there's no wayfinding between them. Map view (shipped v0.7.0, already color-codes markers by category group) is also a more natural default than the alphabetical list for a "what's near me" browsing experience.
-**Notes:** `VenuesView.tsx` already has a List/Map toggle; flip its default to Map. Add a simple subnav (tabs), mirroring the pattern already used in `/neighborhood-admin/[neighborhoodSlug]/layout.tsx` (Overview/Claims/Venues), splitting Venues (default, map-first) / Events / Challenges into separate tabs instead of one long scroll. Open question: does the leaderboard get its own tab or live under Challenges?
-
 #### POIs merged into the venue list/map
 
 **Ref:** 45
 **Type:** improvement
 **Depends:** —
 **Why** — Neighborhood-owned POIs (parks, transit, landmarks) currently live in a separate "Points of interest" section, disconnected from the venues map/list where users actually browse and check in — folding them into the same browsable surface (with a distinct marker/card style so a park doesn't read as a business) makes POIs discoverable the same way venues are, and surfaces the POI check-in challenge (BACKLOG.md, shipped v0.22.0) naturally instead of requiring a user to scroll past everything else to find it.
-**Notes:** `GET /neighborhoods/:id/venues` and the map/list components (`VenuesView.tsx`) would need to accept a combined venue+POI list, tagged with a discriminator (`kind: "venue" | "poi"`) the UI uses for distinct styling (icon/color/badge). Pairs naturally with [Neighborhood page: map-default venues + events/challenges subnav](#neighborhood-page-map-default-venues--eventschallenges-subnav) landing in the same Venues tab.
+**Notes:** `GET /neighborhoods/:id/venues` and the map/list components (`VenuesView.tsx`) would need to accept a combined venue+POI list, tagged with a discriminator (`kind: "venue" | "poi"`) the UI uses for distinct styling (icon/color/badge). The neighborhood page's Venues tab (shipped v0.24.1) is the landing spot for this once it exists.
 
 #### POI landing pages
 
@@ -176,6 +167,14 @@ No open limitations.
 **Depends:** —
 **Why** — The neighborhood management interface (admin dashboard, map-based POI curation, boundary drawing) is functional but text-heavy and utilitarian. A more playful, visual "SimCity" aesthetic (colorful neighborhoods as zoned regions, venues as draggable/filterable objects, pixel-art or stylized map) would make the admin experience more engaging and reinforce the neighborhood-as-a-place concept for users browsing from the landing page.
 **Notes:** Primarily a design/CSS/component refactor; no schema or API changes. Could include custom map styling (already supported by Mapbox), themed icons/colors per category, card-based layout with visual hierarchy, interactive dragging/filtering. Likely pairs well with Ref 29's POI curation UI. Scope: from polish (tweaks to existing components) to full redesign (new neighborhood detail cards, animated transitions, etc.) — worth scoping early with the user.
+
+#### Venues tab: default to map view
+
+**Ref:** 53
+**Type:** improvement
+**Depends:** —
+**Why** — The neighborhood page's subnav split (shipped v0.24.1) carried the Venues tab's List/Map toggle over as-is, defaulting to List; the original subnav proposal floated Map as a more natural "what's near me" default, but that part didn't ship with the split.
+**Notes:** `VenuesView.tsx` already has the List/Map toggle (shipped v0.7.0/v0.23.0); just flip its initial `useState` to `"map"`. Small, self-contained — no schema or API changes.
 
 ### Business & Venue
 
@@ -356,14 +355,6 @@ No open limitations.
 **Depends:** —
 **Why** — Users today can see profiles and activity, but have no way to explicitly connect with people they've met at venues or events. A friend/follower model lets users build a social graph and see what their friends are up to, especially the venues they've checked in to.
 **Notes:** Add a `user_connection` table with (user_id, connected_user_id, status: 'pending'|'accepted'|'blocked', created_at) and a partial unique index. Endpoints: `POST /users/:id/connect` (send request), `POST /users/:id/connect/:connectionId/accept` (accept), `DELETE /users/:id/connect/:connectionId` (remove). Show "Friends" section on public profiles. Open question: model this as one-way "follows" or mutual "friends"? Geolocation-based "nearby users" suggestion is separate scope.
-
-#### Badge icon rendering
-
-**Ref:** 42
-**Type:** improvement
-**Depends:** —
-**Why** — Badges earned from completing a challenge (Challenges + badges/points, shipped v0.22.0) currently store `icon` as a plain text code (e.g. `"coffee"`, `"compass"`) with no actual artwork wired up anywhere in the UI, so an earned badge has no visual identity — just a name in a list.
-**Notes:** Map the existing `badge.icon` code to a real icon/emoji set (or an uploaded image) and render it wherever badges show up (challenge list, a future "my badges" section on profile). Small, self-contained follow-up — no schema change needed since `icon` already exists as a column.
 
 #### Leaderboard aggregation performance
 

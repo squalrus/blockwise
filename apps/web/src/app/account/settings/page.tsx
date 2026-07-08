@@ -73,7 +73,7 @@ export default function AccountSettingsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <div className="flex items-center gap-3">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Settings</h1>
         <a href="/account" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">

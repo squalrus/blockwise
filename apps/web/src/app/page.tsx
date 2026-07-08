@@ -18,7 +18,7 @@ export default async function Home() {
   const apiHealth = await getApiHealth();
 
   return (
-    <div className="flex min-h-screen flex-col items-center gap-6 bg-zinc-50 p-16 font-sans dark:bg-black">
+    <div className="flex min-h-screen flex-col items-center gap-6 bg-zinc-50 p-4 font-sans dark:bg-black sm:p-16">
       <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
         Blockwise
       </h1>
