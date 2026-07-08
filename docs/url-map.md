@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-07-09 (Locations tab -- merged venue/POI admin view with full POI CRUD and hide/restore, BACKLOG.md Ref 29).
+Last reviewed: 2026-07-09 (Boundary reconciliation -- the review wizard also surfaces active venues/POIs outside a redrawn boundary for explicit hide approval, BACKLOG.md Ref 54).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -42,9 +42,10 @@ apps/web/src/app/
 │   └── [neighborhoodSlug]/
 │       ├── layout.tsx                              — S (neighborhoodAdminGate on every tab's data calls) — resolves slug→id, tab nav, scope gate
 │       ├── page.tsx                                /neighborhood-admin/:slug — Overview tab (description, social links, events, read-only active POIs)
-│       ├── boundary/page.tsx                       /neighborhood-admin/:slug/boundary — Boundary tab (draw/edit + dry-run Places preview)
+│       ├── boundary/page.tsx                       /neighborhood-admin/:slug/boundary — Boundary tab (draw/edit + dry-run Places preview); a successful save links into the Locations review wizard (Ref 54) rather than reconciling automatically
 │       ├── claims/page.tsx                         /neighborhood-admin/:slug/claims — Business claims tab (approve/reject)
-│       └── locations/page.tsx                      /neighborhood-admin/:slug/locations — Locations tab (merged venue+POI list; reassign category, hide/restore/convert-to-POI for venues (BACKLOG.md Ref 11); create/edit/hide/restore/delete for POIs (Ref 29))
+│       ├── locations/page.tsx                      /neighborhood-admin/:slug/locations — Locations tab (merged venue+POI list; reassign category, hide/restore/convert-to-POI for venues (BACKLOG.md Ref 11); create/edit/hide/restore/delete for POIs (Ref 29))
+│       └── locations/review/page.tsx                /neighborhood-admin/:slug/locations/review — bulk Google Places review + boundary reconciliation wizard: admin-triggered query against the saved boundary, classify each new candidate as business/POI/omit (Ref 29), approve hiding active venues/POIs no longer inside the boundary (Ref 54)
 └── admin/
     └── category-taxonomy/page.tsx                  /admin/category-taxonomy — S (requireAdmin) — global category CRUD
 ```
@@ -128,7 +129,9 @@ Auth gates:
     ├── venues                                           GET — neighborhoodAdmin — ?search= filter
     ├── venues/:venueId/category                         PATCH — neighborhoodAdmin
     ├── venues/:venueId/status                           PATCH — neighborhoodAdmin — active|hidden (BACKLOG.md Ref 11)
-    └── locations                                         GET — neighborhoodAdmin — ?search= filter, merged read-only venue+POI list backing the Locations tab (BACKLOG.md Ref 29)
+    ├── locations                                         GET — neighborhoodAdmin — ?search= filter, merged read-only venue+POI list backing the Locations tab (BACKLOG.md Ref 29)
+    ├── locations/review                                  GET — neighborhoodAdmin — dry-run Google Places query against the *saved* boundary excluding already-known venues/POIs (Ref 29), plus every active venue/POI no longer inside that boundary (Ref 54)
+    └── locations/review/commit                           POST — neighborhoodAdmin — bulk-applies business/POI/omit classifications and approved hide-removals from the review above
 
 /admin/
 ├── categories                                        GET — admin — assignable leaf categories (global, not neighborhood-owned)
@@ -144,5 +147,7 @@ Identifier note: every neighborhood-identifying path param in the API is the **i
 
 ## History
 
+- **2026-07-09** — The Locations review wizard also reconciles a redrawn neighborhood boundary: every *active* venue/POI whose location no longer falls inside the neighborhood's saved boundary is listed as a "proposed removal," which the admin must explicitly check before it's hidden (never auto-hidden, never deleted — the same `venue.status`/`poi.status = 'hidden'` mechanism as Ref 11/29, so checkin/favorite/point_event history survives). The boundary editor (`boundary/page.tsx`) links into this wizard after a successful save via a "Review changes now" CTA, rather than the `PATCH .../boundary` endpoint itself triggering anything — so a boundary edit never silently changes what's attached to the neighborhood. Completes BACKLOG.md Ref 54 and the last open piece of Ref 29. See `CHANGELOG.md`.
+- **2026-07-09** — The Locations tab gained a bulk Places review wizard (`/neighborhood-admin/:slug/locations/review`): an admin-triggered dry-run query against the neighborhood's saved boundary lists candidate places not yet a venue or POI (deduped by `google_place_id` then the same name/location heuristic the real sync uses), and the admin bulk-classifies each as a claimable business, a neighborhood-owned POI, or omits it. Second step of BACKLOG.md Ref 29 — the "removals" step for venues/POIs that fall outside a redrawn boundary (Ref 54) remains open. See `CHANGELOG.md`.
 - **2026-07-09** — The Venues tab was replaced by a Locations tab merging venue and POI rows into one list, with a "Claimed" pill for `claimed_by_business` venues. POI management reached parity with venue: `poi` gained a `status` column (hide/restore) plus `created_at`/`updated_at`, and the API gained GET (list-with-search, single), PATCH (edit, status), and DELETE (blocked with 409 if the POI has checkin/point_event/challenge history, since those all cascade-delete). A new `GET /neighborhood-admin/neighborhoods/:id/locations` composes the venue and POI lists for the tab. See `CHANGELOG.md`, BACKLOG.md Ref 29.
 - **2026-07-07** — Business claim review and venue-category reassignment folded from global `/admin/claims`/`/admin/venues` (gated only by "admin of *some* neighborhood," no per-neighborhood filter) into `/neighborhood-admin/neighborhoods/:id/{claims,venues}` (properly `neighborhoodAdminGate`-scoped). Web URLs switched from the neighborhood's UUID to its slug (`/neighborhood-admin/[neighborhoodId]` → `/neighborhood-admin/[neighborhoodSlug]`), with a shared `layout.tsx` adding a secondary tab nav (Overview / Business claims / Venue categories). See `CHANGELOG.md`.

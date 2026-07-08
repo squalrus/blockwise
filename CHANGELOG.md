@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.29.0] — 2026-07-09
+
+### Added
+
+- **Bulk Google Places review, and boundary redraw reconciliation.** The Locations tab gained a "Review Places" wizard (`/neighborhood-admin/:slug/locations/review`): an admin-triggered query against the neighborhood's saved boundary lists Google Places candidates not yet a business or POI (deduped against existing rows the same way the sync pipeline already dedupes), and the admin bulk-classifies each as a claimable business, a neighborhood-owned point of interest, or omits it. The same wizard also reconciles a redrawn boundary — every active business/POI whose location no longer falls inside the neighborhood's current boundary is listed as a proposed removal, which the admin must explicitly check before it's hidden (never auto-hidden, never deleted, so check-in/points history survives). The Boundary tab now links into this wizard with a "Review changes now" prompt after a successful save, rather than reconciling automatically. Completes BACKLOG.md Ref 29 and Ref 54. (`apps/api/src/locations/review.ts`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/review/`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/boundary/page.tsx`, `packages/types/src/index.ts`, `docs/url-map.md`, `BACKLOG.md`)
+
 ## [0.28.0] — 2026-07-09
 
 ### Added
