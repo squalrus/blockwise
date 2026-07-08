@@ -1,20 +1,44 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AppUser } from "@blockwise/types";
-import { getCurrentUser, logOut } from "@/lib/auth";
+import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
+import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
+import { clientApiUrl } from "@/lib/clientApi";
 
-type State = { status: "loading" } | { status: "signed_out" } | { status: "signed_in"; user: AppUser };
+type State =
+  | { status: "loading" }
+  | { status: "signed_out" }
+  | { status: "signed_in"; user: AppUser; homeNeighborhood: NeighborhoodMembership | null };
 
 export function AccountNav() {
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
+
+    async function load() {
+      const user = await getCurrentUser();
+      if (cancelled) return;
+      if (!user) {
+        setState({ status: "signed_out" });
+        return;
+      }
+
+      const token = await getAccessToken();
+      const res = await fetch(clientApiUrl("/me/neighborhoods"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (cancelled) return;
+      const neighborhoods: NeighborhoodMembership[] = res.ok ? await res.json() : [];
+      setState({
+        status: "signed_in",
+        user,
+        homeNeighborhood: neighborhoods.find((n) => n.is_primary) ?? null,
+      });
+    }
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    getCurrentUser().then((user) => {
-      if (!cancelled) setState(user ? { status: "signed_in", user } : { status: "signed_out" });
-    });
+    load();
     return () => {
       cancelled = true;
     };
@@ -31,6 +55,14 @@ export function AccountNav() {
         Blockwise
       </a>
       <div className="ml-auto flex items-center gap-4">
+        {state.status === "signed_in" && state.homeNeighborhood && (
+          <a
+            href={`/neighborhoods/${state.homeNeighborhood.slug}`}
+            className="text-zinc-600 hover:underline dark:text-zinc-400"
+          >
+            {state.homeNeighborhood.name}
+          </a>
+        )}
         {state.status === "signed_in" && (
           <a href="/account" className="text-zinc-600 hover:underline dark:text-zinc-400">
             My account

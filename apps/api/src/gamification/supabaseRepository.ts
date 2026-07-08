@@ -237,6 +237,21 @@ export class SupabaseGamificationRepository implements GamificationRepository {
     return true;
   }
 
+  async awardBadgeByCode(userId: string, code: string): Promise<void> {
+    const { data: badge, error: badgeError } = await this.supabase
+      .from("badge")
+      .select("id")
+      .eq("code", code)
+      .maybeSingle();
+    if (badgeError) throw new Error(`awardBadgeByCode (lookup) failed: ${badgeError.message}`);
+    if (!badge) return;
+
+    const { error } = await this.supabase.from("user_badge").insert({ user_id: userId, badge_id: badge.id });
+    if (error && error.code !== UNIQUE_VIOLATION) {
+      throw new Error(`awardBadgeByCode failed: ${error.message}`);
+    }
+  }
+
   async getLeaderboard(neighborhoodId: string, limit: number): Promise<LeaderboardRow[]> {
     const { data, error } = await this.supabase
       .from("point_event")

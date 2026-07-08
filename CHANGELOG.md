@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.24.0] — 2026-07-07
+
+### Added
+
+- **Founding member badge.** Every account now automatically earns a "Founder" badge at signup, recognizing early participation while Blockwise is still pre-launch — the same recognition a completed challenge already earns (v0.22.0), just for being here first. All pre-existing accounts were backfilled with the badge too. This auto-award is meant to stop once v1.0.0 ships (tracked in `BACKLOG.md` Ref 52). (`supabase/migrations/20260707060000_founder_badge.sql`, `supabase/migrations/20260707070000_founder_badge_backfill.sql`, `apps/api/src/gamification/founderBadge.ts`, `apps/api/src/gamification/repository.ts`, `apps/api/src/app.ts`)
+- **Account settings page.** Profile editing, account details, and neighborhood-membership management (including the home-neighborhood picker) moved off the main account page onto a new `/account/settings` page, linked from a new "Settings" link on `/account` — keeping the main account page focused on activity (profile summary, check-in, favorites, check-ins) instead of competing with form fields. (`apps/web/src/app/account/settings/page.tsx`, `apps/web/src/app/account/page.tsx`, `docs/url-map.md`)
+- **Home neighborhood shown in the main nav.** Signed-in users now see a link to their home neighborhood in the top nav bar, alongside the existing account/business/admin links. (`apps/web/src/app/AccountNav.tsx`)
+
+### Fixed
+
+- **Backfilled points for check-ins/favorites made before points existed.** Points/badges (v0.22.0) only accrued from check-ins and favorites made after it shipped; existing history now earns the same points it would have live (10pts/check-in, 5pts/first-time favorite), so early users' leaderboard totals reflect their actual activity. (`supabase/migrations/20260707080000_backfill_checkin_favorite_points.sql`)
+
 ## [0.23.0] — 2026-07-07
 
 ### Added

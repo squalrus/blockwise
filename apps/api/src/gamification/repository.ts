@@ -113,6 +113,11 @@ export interface GamificationRepository {
   // completed), awards the bonus points, and awards the badge if any.
   completeChallenge(input: CompleteChallengeInput): Promise<boolean>;
 
+  // Awards a badge outside of challenge completion (BACKLOG.md Ref 50's
+  // founder badge) -- idempotent (a repeat call for a badge the user already
+  // holds is a no-op) and a no-op if no badge with this code exists.
+  awardBadgeByCode(userId: string, code: string): Promise<void>;
+
   getLeaderboard(neighborhoodId: string, limit: number): Promise<LeaderboardRow[]>;
 
   // All-time total across every neighborhood (BACKLOG.md Ref 47's account
