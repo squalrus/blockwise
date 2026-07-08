@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CategoryOption, VenueCategoryMapping } from "@blockwise/types";
+import type { CategoryOption, Poi, VenueCategoryMapping, VenueStatus } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "../NeighborhoodAdminContext";
+import { PoiForm } from "../PoiForm";
 
-// Venue categories tab (docs/url-map.md refactor -- was the global
-// admin/venues page, gated only by "admin of some neighborhood" with no
-// per-neighborhood filter). Signed-in/forbidden handling lives in
+// Venues tab (docs/url-map.md refactor -- was the global admin/venues page,
+// gated only by "admin of some neighborhood" with no per-neighborhood
+// filter). Now covers category reassignment plus omission/reclassification
+// (BACKLOG.md Ref 11): hide a venue, restore it, or convert a hidden one
+// into a neighborhood-owned POI. Signed-in/forbidden handling lives in
 // layout.tsx; /admin/categories itself stays global (categories aren't
 // neighborhood-owned data).
 export default function NeighborhoodAdminVenuesPage() {
@@ -18,6 +21,7 @@ export default function NeighborhoodAdminVenuesPage() {
   const [categories, setCategories] = useState<CategoryOption[] | null>(null);
   const [error, setError] = useState<"failed" | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [convertingVenueId, setConvertingVenueId] = useState<string | null>(null);
 
   async function loadVenues(activeSearch: string) {
     setError(null);
@@ -80,6 +84,32 @@ export default function NeighborhoodAdminVenuesPage() {
     setVenues((prev) => prev?.map((v) => (v.id === venueId ? updated : v)) ?? null);
   }
 
+  async function handleStatusChange(venueId: string, status: VenueStatus) {
+    setSavingId(venueId);
+    setError(null);
+    const token = await getAccessToken();
+    const res = await fetch(
+      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/venues/${venueId}/status`),
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status }),
+      }
+    );
+    setSavingId(null);
+    if (!res.ok) {
+      setError("failed");
+      return;
+    }
+    const updated: VenueCategoryMapping = await res.json();
+    setVenues((prev) => prev?.map((v) => (v.id === venueId ? updated : v)) ?? null);
+    if (status !== "hidden") setConvertingVenueId(null);
+  }
+
+  function handlePoiCreated(_poi: Poi) {
+    setConvertingVenueId(null);
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <form onSubmit={handleSearchSubmit} className="flex gap-2 text-sm">
@@ -109,7 +139,14 @@ export default function NeighborhoodAdminVenuesPage() {
             key={venue.id}
             className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
           >
-            <p className="font-medium text-black dark:text-zinc-50">{venue.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-black dark:text-zinc-50">{venue.name}</p>
+              {venue.status === "hidden" && (
+                <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                  Hidden
+                </span>
+              )}
+            </div>
             <p className="text-zinc-600 dark:text-zinc-400">{venue.address}</p>
             <div className="mt-2 flex items-center gap-2">
               <select
@@ -127,10 +164,58 @@ export default function NeighborhoodAdminVenuesPage() {
                   </option>
                 ))}
               </select>
+
+              {venue.status === "active" ? (
+                <button
+                  type="button"
+                  disabled={savingId === venue.id}
+                  onClick={() => handleStatusChange(venue.id, "hidden")}
+                  className="rounded-md border border-black/[.08] px-3 py-1 text-sm dark:border-white/[.145]"
+                >
+                  Hide
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={savingId === venue.id}
+                    onClick={() => handleStatusChange(venue.id, "active")}
+                    className="rounded-md border border-black/[.08] px-3 py-1 text-sm dark:border-white/[.145]"
+                  >
+                    Restore as business
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConvertingVenueId((prev) => (prev === venue.id ? null : venue.id))
+                    }
+                    className="rounded-md border border-black/[.08] px-3 py-1 text-sm dark:border-white/[.145]"
+                  >
+                    Convert to POI
+                  </button>
+                </>
+              )}
+
               {savingId === venue.id && (
                 <span className="text-xs text-zinc-500 dark:text-zinc-500">Saving…</span>
               )}
             </div>
+
+            {convertingVenueId === venue.id && (
+              <div className="mt-3">
+                <PoiForm
+                  neighborhoodId={neighborhoodId}
+                  onCreated={handlePoiCreated}
+                  initial={{
+                    name: venue.name,
+                    lat: venue.lat,
+                    lng: venue.lng,
+                    address: venue.address,
+                    googlePlaceId: venue.google_place_id,
+                  }}
+                />
+              </div>
+            )}
           </li>
         ))}
       </ul>

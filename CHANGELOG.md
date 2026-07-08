@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.27.0] — 2026-07-08
+
+### Added
+
+- **Venue omission and reclassification.** Neighborhood admins can now hide a venue from the Venues tab without deleting it — checkin/favorite/claim history stays intact, and the venue simply drops off the neighborhood's public venue list/map and its own detail page. A hidden venue can be restored as a business again, or converted into a neighborhood-owned point of interest (prefilling the existing "Add POI" form with the venue's name/location/address). `poi` rows gained `google_place_id`/`address` columns so a POI created this way keeps the same Google Places linkage a venue would. (`supabase/migrations/20260708020000_venue_status.sql`, `apps/api/src/categoryMapping/`, `apps/api/src/pois/`, `apps/api/src/venues/supabaseDetailRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/venues/page.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/PoiForm.tsx`, `packages/types/src/index.ts`, `docs/url-map.md`)
+
 ## [0.26.0] — 2026-07-08
 
 ### Added

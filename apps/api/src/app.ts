@@ -45,6 +45,7 @@ import {
   listAssignableCategories,
   listVenueCategoryMappingsForNeighborhood,
   reassignVenueCategoryForNeighborhood,
+  updateVenueStatusForNeighborhood,
 } from "./categoryMapping/categoryMapping";
 import { SupabaseCategoryMappingRepository } from "./categoryMapping/supabaseRepository";
 import {
@@ -1646,7 +1647,7 @@ export function createApp() {
   );
 
   app.post("/neighborhood-admin/neighborhoods/:id/pois", neighborhoodAdminGate, async (req, res) => {
-    const { name, description, type, lat, lng } = req.body ?? {};
+    const { name, description, type, lat, lng, google_place_id, address } = req.body ?? {};
     if (typeof name !== "string" || !name || typeof type !== "string" || !type) {
       res.status(400).json({ error: "name and type are required" });
       return;
@@ -1659,11 +1660,19 @@ export function createApp() {
       res.status(400).json({ error: "lat and lng are required" });
       return;
     }
+    if (google_place_id !== undefined && typeof google_place_id !== "string") {
+      res.status(400).json({ error: "google_place_id must be a string" });
+      return;
+    }
+    if (address !== undefined && typeof address !== "string") {
+      res.status(400).json({ error: "address must be a string" });
+      return;
+    }
 
     try {
       const poi = await createNeighborhoodPoi(
         req.params.id,
-        { name, description, type, lat, lng },
+        { name, description, type, lat, lng, googlePlaceId: google_place_id, address },
         getPoiRepository()
       );
       res.status(201).json(poi);
@@ -1802,6 +1811,44 @@ export function createApp() {
           err
         );
         res.status(500).json({ error: "Failed to reassign category" });
+      }
+    }
+  );
+
+  // Venue omission (BACKLOG.md Ref 11): hide/restore, not delete, so any
+  // existing checkin/favorite/claim rows keep pointing at a valid venue.
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/venues/:venueId/status",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { status } = req.body ?? {};
+      if (status !== "active" && status !== "hidden") {
+        res.status(400).json({ error: "status must be 'active' or 'hidden'" });
+        return;
+      }
+
+      try {
+        const result = await updateVenueStatusForNeighborhood(
+          req.params.id,
+          req.params.venueId,
+          status,
+          getCategoryMappingRepository()
+        );
+
+        switch (result.status) {
+          case "venue_not_found":
+            res.status(404).json({ error: "Venue not found" });
+            return;
+          case "updated":
+            res.json(result.venue);
+            return;
+        }
+      } catch (err) {
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/venues/${req.params.venueId}/status failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to update venue status" });
       }
     }
   );

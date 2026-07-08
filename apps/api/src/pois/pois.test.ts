@@ -16,6 +16,8 @@ class FakePoiRepository implements PoiRepository {
       type: input.type,
       lat: input.lat,
       lng: input.lng,
+      googlePlaceId: input.googlePlaceId,
+      address: input.address,
     };
     this.pois.push(record);
     return record;
@@ -40,6 +42,27 @@ describe("createNeighborhoodPoi", () => {
     expect(poi.description).toBeNull();
     expect(poi.lat).toBe(47.67);
     expect(poi.lng).toBe(-122.35);
+    expect(poi.google_place_id).toBeNull();
+    expect(poi.address).toBeNull();
+  });
+
+  it("carries an optional google_place_id/address through, e.g. converting a venue to a POI", async () => {
+    const repo = new FakePoiRepository();
+    const poi = await createNeighborhoodPoi(
+      "neighborhood-1",
+      {
+        name: "Woodland Park Rose Garden",
+        type: "park",
+        lat: 47.67,
+        lng: -122.35,
+        googlePlaceId: "places-123",
+        address: "700 N 50th St, Seattle, WA",
+      },
+      repo
+    );
+
+    expect(poi.google_place_id).toBe("places-123");
+    expect(poi.address).toBe("700 N 50th St, Seattle, WA");
   });
 });
 

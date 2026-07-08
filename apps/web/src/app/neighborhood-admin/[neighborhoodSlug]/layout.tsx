@@ -18,12 +18,13 @@ const TABS = [
   { href: "", label: "Overview" },
   { href: "/boundary", label: "Boundary" },
   { href: "/claims", label: "Business claims" },
-  { href: "/venues", label: "Venue categories" },
+  { href: "/venues", label: "Venues" },
 ];
 
 // Neighborhood profile pages (BACKLOG.md) + docs/url-map.md refactor: single
 // enforcement point for the three neighborhood-admin tabs (Overview, Business
-// claims, Venue categories). Resolves the route's slug against the list of
+// claims, Venues -- category reassignment plus omission/reclassification,
+// BACKLOG.md Ref 11). Resolves the route's slug against the list of
 // neighborhoods this account administers -- admin-of-this-specific-neighborhood
 // is still enforced server-side per route (neighborhoodAdminGate), this is
 // just the client-side UX for loading/forbidden state and the tab nav itself.

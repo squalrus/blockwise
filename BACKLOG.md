@@ -36,6 +36,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 27 | [What's happening now](#whats-happening-now) | feature | M | M | 5 |
 | 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
+| 54 | [Neighborhood boundary re-map wizard](#neighborhood-boundary-re-map-wizard) | feature | L | M | — |
 | 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
 
 ### Business & Venue
@@ -47,7 +48,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 3 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | feature | S | M | 20 |
 | 5 | [Business announcements](#business-announcements) | feature | M | M | — |
 | 7 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | feature | M | M | — |
-| 11 | [Business omission & venue merging](#business-omission--venue-merging) | feature | M | M | — |
 | 18 | [Business-editable venue basic data](#business-editable-venue-basic-data) | feature | M | M | — |
 | 38 | [Map on business page](#map-on-business-page) | feature | M | M | — |
 | 12 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | feature | M | M | 20 |
@@ -61,6 +61,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
+| 55 | [Show badges / badge summary on user profile](#show-badges--badge-summary-on-user-profile) | feature | S | M | — |
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 24 | [Slide-to-check-in](#slide-to-check-in) | improvement | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
@@ -101,7 +102,7 @@ No open limitations.
 **Type:** feature
 **Depends:** —
 **Why** — Neighborhood admins currently can only manually create POIs one at a time via the admin dashboard. Blockwise already ingests Google Places data at sync time; exposing that full entity list (parks, transit stops, landmarks, etc.) within the neighborhood's boundary lets admins bulk-import, filter, or selectively approve entries as POIs, greatly speeding up neighborhood setup and ongoing curation without leaving the tool.
-**Notes:** Extend the `GET /neighborhoods/:id/events` data fetch pattern to also query Google Places for all entities matching the neighborhood's boundary, presenting them in a filterable list (by category, etc.). Allow admins to bulk-select and convert matching entries to `poi` rows, or individually delete/hide entries. Touches `supabase/migrations`, `apps/api/src/pois/`, `apps/api/src/places/`, `apps/web/src/app/neighborhood-admin/`. Open question: should this also surface a "hide" flag for venues (the user saw this in Ref 11 "Business omission") so admins can suppress a Google Places entry without deleting it?
+**Notes:** Extend the `GET /neighborhoods/:id/events` data fetch pattern to also query Google Places for all entities matching the neighborhood's boundary, presenting them in a filterable list (by category, etc.). Allow admins to bulk-select and convert matching entries to `poi` rows, or individually delete/hide entries. Touches `supabase/migrations`, `apps/api/src/pois/`, `apps/api/src/places/`, `apps/web/src/app/neighborhood-admin/`. Open question: should this also surface a "hide" flag for venues (the user saw this in Ref 11 "Business omission") so admins can suppress a Google Places entry without deleting it? Ref 11 (v0.27.0) already added `venue.status` (active/hidden) and `poi.google_place_id`/`poi.address` columns — the latter two mean a bulk-imported POI can carry the same Places linkage a venue would, so this item's dedupe-against-re-sync logic can key off `poi.google_place_id` the same way `places/dedup.ts` already does for `venue.google_place_id`.
 
 #### iCal/webcal event feed import
 
@@ -133,7 +134,7 @@ No open limitations.
 **Type:** feature
 **Depends:** —
 **Why** — POIs have no detail page today — the check-in button only exists inline in the neighborhood page's POI list. A dedicated page (mirroring `/venues/:id`) gives a POI a shareable URL and a proper home for its description/photo and check-in action, consistent with how venues already work.
-**Notes:** New route `apps/web/src/app/pois/[id]/page.tsx` plus a new `GET /pois/:id` endpoint (only list-for-neighborhood and create exist today, per `apps/api/src/pois/`). (Future) POIs may eventually be created from the Google Places sync pipeline by converting a business/venue entity into a POI, per [Google Maps POI import and neighborhood curation](#google-maps-poi-import-and-neighborhood-curation)'s existing plan to let admins convert matching Google entities to POI rows — that would give POI and Venue the same backing data source while still allowing a POI to be added manually, same as today.
+**Notes:** New route `apps/web/src/app/pois/[id]/page.tsx` plus a new `GET /pois/:id` endpoint (only list-for-neighborhood and create exist today, per `apps/api/src/pois/`). (Future) POIs may eventually be created from the Google Places sync pipeline by converting a business/venue entity into a POI, per [Google Maps POI import and neighborhood curation](#google-maps-poi-import-and-neighborhood-curation)'s existing plan to let admins convert matching Google entities to POI rows — that would give POI and Venue the same backing data source while still allowing a POI to be added manually, same as today. Ref 11 (v0.27.0) already took the first step: `poi` gained `google_place_id` and `address` columns (mirroring `venue`'s), populated when a venue is hidden and converted to a POI from the neighborhood-admin Venues tab — this detail page can rely on `address` being present for Places-sourced POIs the same way `/venues/:id` does.
 
 #### Neighborhood notifications
 
@@ -158,6 +159,14 @@ No open limitations.
 **Depends:** —
 **Why** — The neighborhood management interface (admin dashboard, map-based POI curation, boundary drawing) is functional but text-heavy and utilitarian. A more playful, visual "SimCity" aesthetic (colorful neighborhoods as zoned regions, venues as draggable/filterable objects, pixel-art or stylized map) would make the admin experience more engaging and reinforce the neighborhood-as-a-place concept for users browsing from the landing page.
 **Notes:** Primarily a design/CSS/component refactor; no schema or API changes. Could include custom map styling (already supported by Mapbox), themed icons/colors per category, card-based layout with visual hierarchy, interactive dragging/filtering. Likely pairs well with Ref 29's POI curation UI. Scope: from polish (tweaks to existing components) to full redesign (new neighborhood detail cards, animated transitions, etc.) — worth scoping early with the user.
+
+#### Neighborhood boundary re-map wizard
+
+**Ref:** 54
+**Type:** feature
+**Depends:** —
+**Why** — Redrawing or re-editing a neighborhood's boundary (Ref 8, shipped v0.26.0) changes which venues/POIs geographically belong to the neighborhood, but today saving a new boundary doesn't do anything about that mismatch: venues that fall outside the new shape stay attached, and new places the redrawn boundary now covers are never picked up except by manually re-running the sync script. Admins need a guided way to reconcile the neighborhood's venue/POI set with a boundary change, rather than the boundary tool being purely cosmetic.
+**Notes:** A 3-step wizard that runs after a boundary is drawn/saved, before it's treated as "live": (1) **Removals** — diff the neighborhood's current venues/POIs against the new polygon (`isPointInPolygon`, `apps/api/src/places/geo.ts`) and list anything now outside it; the admin must explicitly accept each removal. Removal must be a soft hide (`venue.status = 'hidden'`, shipped v0.27.0 — Ref 11) rather than a delete — existing `checkin`/`favorite`/`point_event`/`user_badge` rows referencing that venue must survive untouched, per the user's explicit ask that past activity isn't erased by a boundary edit. (2) **New entries** — reuse the existing dry-run preview (`apps/api/src/places/preview.ts`, shipped v0.26.0) to list candidate places inside the new boundary not yet represented, with a per-candidate choice: claimable Business (creates a `venue` row, later claimable same as the sync pipeline's normal output), neighborhood-owned POI (creates a `poi` row, not claimable — carrying `google_place_id`/`address` the same way the v0.27.0 "convert venue to POI" action does), or Omit (skipped, not created). (3) **Summary/confirm** — a final screen totaling removals/new businesses/new POIs/omissions before committing everything in one action. Overlaps conceptually with [Google Maps POI import and neighborhood curation](#google-maps-poi-import-and-neighborhood-curation) (Ref 29), which already proposes a similar "convert a Places candidate to POI or hide it" flow but isn't tied to a boundary-redraw event specifically — worth reconciling the two so the classification UI isn't built twice. Open question: should this wizard be the *only* way to commit a boundary change (i.e. `PATCH .../boundary` always triggers it), or an optional follow-up an admin can defer?
 
 #### Venues tab: default to map view
 
@@ -208,14 +217,6 @@ No open limitations.
 **Depends:** —
 **Why** — Solves GPS accuracy issues for multi-POI venues (markets, food halls) and rounds out the check-in system started earlier.
 **Notes:** QR code generation per Venue/POI linking to a signed check-in URL (project plan §4 Phase 2), POI curation tooling for admins/businesses (project plan §3), public leaderboards.
-
-#### Business omission & venue merging
-
-**Ref:** 11
-**Type:** feature
-**Depends:** —
-**Why** — The sync pipeline's dedup pass (project plan §1.4 step 2) only catches fuzzy name/geo matches automatically; it has no way to handle cases a human needs to judge — a venue that shouldn't be listed at all (e.g. closed, or a residential false-positive from Google), or multiple Google Places entries that are actually sub-units of one physical building (the market/food-hall multi-POI case §3 already anticipates for check-ins).
-**Notes:** Two related capabilities: (a) an explicit hide/omit flag on `Venue` so admin curation can suppress a listing without deleting the row (preserves check-in/history integrity), and (b) an admin merge action that collapses duplicate `Venue` rows into one, reparenting their `POI`/`checkin`/enrichment-cache records — worth having before [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) is exercised at scale on multi-POI venues.
 
 #### Business-editable venue basic data
 
@@ -282,6 +283,14 @@ No open limitations.
 **Notes:** `Coupon` as an attachment to `Announcement`, `CouponRedemption` with server-authoritative timestamps and atomic check-and-increment against redemption caps, per project plan §13. Real user authentication (project plan §14.3), needed for redemption itself, has already shipped (v0.8.0); the remaining blocker is Business announcements.
 
 ### User
+
+#### Show badges / badge summary on user profile
+
+**Ref:** 55
+**Type:** feature
+**Depends:** —
+**Why** — Users earn badges from completing challenges (shipped v0.22.0) and from joining early as founders (shipped v0.24.0), but those badges currently only show in the neighborhood's challenge list, not on the user's own public profile — making accomplishments invisible to visitors. A badge carousel, grid, or section on `/profile/:username` and `/account` surfaces what a user has earned and encourages challenge participation.
+**Notes:** Badges are already in the schema (`badge` table + `user_badge` join rows) and the API serves them as part of the neighborhood's `challenges` endpoint response; this is purely a UI surface to fetch and display them on the profile pages. Could show both "earned badges" (challenges completed) and "account badges" (founder, etc.) together. No schema changes needed. Touches `apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/app/account/page.tsx`, and possibly a new shared `BadgeList` or `BadgeGrid` component (the v0.25.1 work already added `BadgeIcon.tsx` for rendering individual badge emoji, so reuse that).
 
 #### Venue wishlist
 

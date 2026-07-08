@@ -10,9 +10,14 @@ type Status = { state: "idle" | "submitting" | "error"; message?: string };
 export function PoiForm({
   neighborhoodId,
   onCreated,
+  initial,
 }: {
   neighborhoodId: string;
   onCreated: (poi: Poi) => void;
+  // Prefills the form from an existing venue, e.g. "Convert to POI"
+  // (BACKLOG.md Ref 11) -- googlePlaceId isn't user-editable, so it's
+  // attached directly to the submitted body rather than read from a field.
+  initial?: { name: string; lat: number; lng: number; address?: string; googlePlaceId?: string | null };
 }) {
   const [status, setStatus] = useState<Status>({ state: "idle" });
 
@@ -26,8 +31,10 @@ export function PoiForm({
       name: String(data.get("name") ?? ""),
       type: String(data.get("type") ?? ""),
       description: String(data.get("description") ?? "") || undefined,
+      address: String(data.get("address") ?? "") || undefined,
       lat: Number(data.get("lat")),
       lng: Number(data.get("lng")),
+      ...(initial?.googlePlaceId ? { google_place_id: initial.googlePlaceId } : {}),
     };
 
     try {
@@ -62,6 +69,7 @@ export function PoiForm({
       <input
         name="name"
         required
+        defaultValue={initial?.name}
         placeholder="Name (e.g. Woodland Park)"
         className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
       />
@@ -77,12 +85,19 @@ export function PoiForm({
         rows={2}
         className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
       />
+      <input
+        name="address"
+        defaultValue={initial?.address}
+        placeholder="Optional address"
+        className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+      />
       <div className="flex gap-3">
         <input
           name="lat"
           type="number"
           step="any"
           required
+          defaultValue={initial?.lat}
           placeholder="Latitude"
           className="w-1/2 rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
         />
@@ -91,6 +106,7 @@ export function PoiForm({
           type="number"
           step="any"
           required
+          defaultValue={initial?.lng}
           placeholder="Longitude"
           className="w-1/2 rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
         />

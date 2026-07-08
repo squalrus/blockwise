@@ -38,6 +38,7 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
         "id, name, address, lat, lng, category:category_id(name, parent:parent_category_id(name))"
       )
       .eq("neighborhood_id", neighborhoodId)
+      .eq("status", "active")
       .order("name");
 
     if (error) throw new Error(`listVenues failed: ${error.message}`);
@@ -60,6 +61,7 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
         "id, google_place_id, name, address, lat, lng, claimed_by_business, category:category_id(name), neighborhood:neighborhood_id(slug, name)"
       )
       .eq("id", venueId)
+      .eq("status", "active")
       .maybeSingle();
 
     if (venueError) throw new Error(`getVenueDetail failed: ${venueError.message}`);

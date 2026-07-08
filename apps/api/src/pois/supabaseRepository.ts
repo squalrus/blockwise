@@ -9,6 +9,8 @@ function toRecord(row: {
   type: string;
   lat: number | null;
   lng: number | null;
+  google_place_id: string | null;
+  address: string | null;
 }): PoiRecord {
   return {
     id: row.id,
@@ -18,10 +20,12 @@ function toRecord(row: {
     type: row.type,
     lat: row.lat,
     lng: row.lng,
+    googlePlaceId: row.google_place_id,
+    address: row.address,
   };
 }
 
-const POI_COLUMNS = "id, neighborhood_id, name, description, type, lat, lng";
+const POI_COLUMNS = "id, neighborhood_id, name, description, type, lat, lng, google_place_id, address";
 
 export class SupabasePoiRepository implements PoiRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -36,6 +40,8 @@ export class SupabasePoiRepository implements PoiRepository {
         type: input.type,
         lat: input.lat,
         lng: input.lng,
+        google_place_id: input.googlePlaceId,
+        address: input.address,
       })
       .select(POI_COLUMNS)
       .single();

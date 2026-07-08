@@ -4,6 +4,7 @@ import {
   listVenueCategoryMappingsForNeighborhood,
   reassignVenueCategory,
   reassignVenueCategoryForNeighborhood,
+  updateVenueStatusForNeighborhood,
 } from "./categoryMapping";
 import type { CategoryMappingRepository, CategoryRecord, VenueCategoryRecord } from "./repository";
 
@@ -50,6 +51,12 @@ class FakeCategoryMappingRepository implements CategoryMappingRepository {
     venue.categoryGroup = category.groupName;
     return venue;
   }
+
+  async setVenueStatus(venueId: string, status: VenueCategoryRecord["status"]): Promise<VenueCategoryRecord> {
+    const venue = this.venues.find((v) => v.id === venueId)!;
+    venue.status = status;
+    return venue;
+  }
 }
 
 const VENUES: VenueCategoryRecord[] = [
@@ -60,6 +67,10 @@ const VENUES: VenueCategoryRecord[] = [
     categoryId: "cat-restaurant",
     categoryName: "Restaurant",
     categoryGroup: "Food & Drink",
+    status: "active",
+    lat: 47.67,
+    lng: -122.35,
+    googlePlaceId: "places-venue-1",
   },
   {
     id: "venue-2",
@@ -68,6 +79,10 @@ const VENUES: VenueCategoryRecord[] = [
     categoryId: null,
     categoryName: null,
     categoryGroup: null,
+    status: "active",
+    lat: 47.68,
+    lng: -122.36,
+    googlePlaceId: null,
   },
 ];
 
@@ -165,5 +180,38 @@ describe("reassignVenueCategoryForNeighborhood", () => {
     const repo = new FakeCategoryMappingRepository(VENUES, CATEGORIES, VENUE_NEIGHBORHOODS);
     const result = await reassignVenueCategoryForNeighborhood("neighborhood-1", "venue-2", "cat-missing", repo);
     expect(result).toEqual({ status: "invalid_category" });
+  });
+});
+
+describe("updateVenueStatusForNeighborhood", () => {
+  it("hides an active venue", async () => {
+    const repo = new FakeCategoryMappingRepository(VENUES, CATEGORIES, VENUE_NEIGHBORHOODS);
+    const result = await updateVenueStatusForNeighborhood("neighborhood-1", "venue-1", "hidden", repo);
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      expect(result.venue.status).toBe("hidden");
+    }
+  });
+
+  it("restores a hidden venue back to active", async () => {
+    const repo = new FakeCategoryMappingRepository(VENUES, CATEGORIES, VENUE_NEIGHBORHOODS);
+    await updateVenueStatusForNeighborhood("neighborhood-1", "venue-1", "hidden", repo);
+    const result = await updateVenueStatusForNeighborhood("neighborhood-1", "venue-1", "active", repo);
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      expect(result.venue.status).toBe("active");
+    }
+  });
+
+  it("returns venue_not_found when the venue belongs to a different neighborhood", async () => {
+    const repo = new FakeCategoryMappingRepository(VENUES, CATEGORIES, VENUE_NEIGHBORHOODS);
+    const result = await updateVenueStatusForNeighborhood("neighborhood-2", "venue-1", "hidden", repo);
+    expect(result).toEqual({ status: "venue_not_found" });
+  });
+
+  it("returns venue_not_found for a genuinely missing venue id", async () => {
+    const repo = new FakeCategoryMappingRepository(VENUES, CATEGORIES, VENUE_NEIGHBORHOODS);
+    const result = await updateVenueStatusForNeighborhood("neighborhood-1", "missing-venue", "hidden", repo);
+    expect(result).toEqual({ status: "venue_not_found" });
   });
 });

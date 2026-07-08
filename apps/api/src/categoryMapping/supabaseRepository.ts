@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { VenueStatus } from "@blockwise/types";
 import type { CategoryMappingRepository, CategoryRecord, VenueCategoryRecord } from "./repository";
 
 interface CategoryEmbed {
@@ -21,7 +22,8 @@ function categoryGroupName(embed: CategoryEmbed[] | CategoryEmbed | null): strin
   return categoryName(category.parent ?? null) ?? category.name;
 }
 
-const VENUE_COLUMNS = "id, name, address, category:category_id(name, parent:parent_category_id(name))";
+const VENUE_COLUMNS =
+  "id, name, address, status, lat, lng, google_place_id, category:category_id(name, parent:parent_category_id(name))";
 
 function toVenueCategoryRecord(row: {
   id: string;
@@ -29,6 +31,10 @@ function toVenueCategoryRecord(row: {
   address: string;
   category_id: string | null;
   category: CategoryEmbed[] | CategoryEmbed | null;
+  status: VenueStatus;
+  lat: number;
+  lng: number;
+  google_place_id: string | null;
 }): VenueCategoryRecord {
   return {
     id: row.id,
@@ -37,6 +43,10 @@ function toVenueCategoryRecord(row: {
     categoryId: row.category_id,
     categoryName: categoryName(row.category),
     categoryGroup: categoryGroupName(row.category),
+    status: row.status,
+    lat: row.lat,
+    lng: row.lng,
+    googlePlaceId: row.google_place_id,
   };
 }
 
@@ -116,6 +126,18 @@ export class SupabaseCategoryMappingRepository implements CategoryMappingReposit
       .single();
 
     if (error) throw new Error(`updateVenueCategory failed: ${error.message}`);
+    return toVenueCategoryRecord(data);
+  }
+
+  async setVenueStatus(venueId: string, status: VenueStatus): Promise<VenueCategoryRecord> {
+    const { data, error } = await this.supabase
+      .from("venue")
+      .update({ status })
+      .eq("id", venueId)
+      .select(`${VENUE_COLUMNS}, category_id`)
+      .single();
+
+    if (error) throw new Error(`setVenueStatus failed: ${error.message}`);
     return toVenueCategoryRecord(data);
   }
 }
