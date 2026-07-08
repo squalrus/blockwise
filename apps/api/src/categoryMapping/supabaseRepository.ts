@@ -23,7 +23,7 @@ function categoryGroupName(embed: CategoryEmbed[] | CategoryEmbed | null): strin
 }
 
 const VENUE_COLUMNS =
-  "id, name, address, status, lat, lng, google_place_id, category:category_id(name, parent:parent_category_id(name))";
+  "id, name, address, status, lat, lng, google_place_id, claimed_by_business, category:category_id(name, parent:parent_category_id(name))";
 
 function toVenueCategoryRecord(row: {
   id: string;
@@ -35,6 +35,7 @@ function toVenueCategoryRecord(row: {
   lat: number;
   lng: number;
   google_place_id: string | null;
+  claimed_by_business: boolean;
 }): VenueCategoryRecord {
   return {
     id: row.id,
@@ -47,6 +48,7 @@ function toVenueCategoryRecord(row: {
     lat: row.lat,
     lng: row.lng,
     googlePlaceId: row.google_place_id,
+    claimedByBusiness: row.claimed_by_business,
   };
 }
 

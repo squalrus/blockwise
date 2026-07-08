@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.28.0] — 2026-07-09
+
+### Added
+
+- **Locations tab: full POI management, merged with venues.** The neighborhood-admin "Venues" tab is now "Locations," listing businesses and neighborhood-owned points of interest (parks, transit stops, landmarks) together, with a "Claimed" pill on businesses that have an approved claim. POIs reach CRUD parity with venues: admins can create, edit, hide/restore, and delete a POI directly from this tab (delete is blocked with a clear message if the POI has check-in or points history, since it would otherwise be silently wiped rather than preserved). All existing venue actions (category reassignment, hide/restore, convert-to-POI) are unchanged. First step of BACKLOG.md Ref 29 — bulk Google Places review/curation remains open. (`supabase/migrations/20260709010000_poi_status.sql`, `apps/api/src/pois/`, `apps/api/src/categoryMapping/`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/PoiForm.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/page.tsx`, `packages/types/src/index.ts`, `docs/url-map.md`)
+
 ## [0.27.0] — 2026-07-08
 
 ### Added

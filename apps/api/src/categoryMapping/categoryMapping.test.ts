@@ -71,6 +71,7 @@ const VENUES: VenueCategoryRecord[] = [
     lat: 47.67,
     lng: -122.35,
     googlePlaceId: "places-venue-1",
+    claimedByBusiness: false,
   },
   {
     id: "venue-2",
@@ -83,6 +84,7 @@ const VENUES: VenueCategoryRecord[] = [
     lat: 47.68,
     lng: -122.36,
     googlePlaceId: null,
+    claimedByBusiness: false,
   },
 ];
 

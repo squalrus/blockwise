@@ -10,16 +10,25 @@ type Status = { state: "idle" | "submitting" | "error"; message?: string };
 export function PoiForm({
   neighborhoodId,
   onCreated,
+  onUpdated,
+  onCancel,
   initial,
+  existing,
 }: {
   neighborhoodId: string;
-  onCreated: (poi: Poi) => void;
+  onCreated?: (poi: Poi) => void;
+  // Edit mode (BACKLOG.md Ref 29): when `existing` is set, submitting PATCHes
+  // that POI instead of POSTing a new one, reusing the same fields/layout.
+  onUpdated?: (poi: Poi) => void;
+  onCancel?: () => void;
   // Prefills the form from an existing venue, e.g. "Convert to POI"
   // (BACKLOG.md Ref 11) -- googlePlaceId isn't user-editable, so it's
   // attached directly to the submitted body rather than read from a field.
   initial?: { name: string; lat: number; lng: number; address?: string; googlePlaceId?: string | null };
+  existing?: Poi;
 }) {
   const [status, setStatus] = useState<Status>({ state: "idle" });
+  const isEdit = existing !== undefined;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,25 +48,32 @@ export function PoiForm({
 
     try {
       const token = await getAccessToken();
-      const res = await fetch(
-        clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/pois`),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body),
-        }
-      );
+      const url = isEdit
+        ? clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/pois/${existing.id}`)
+        : clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/pois`);
+      const res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
       const responseBody = await res.json();
 
-      if (res.status === 201) {
-        onCreated(responseBody as Poi);
+      if (res.ok) {
+        if (isEdit) {
+          onUpdated?.(responseBody as Poi);
+        } else {
+          onCreated?.(responseBody as Poi);
+          form.reset();
+        }
         setStatus({ state: "idle" });
-        form.reset();
       } else {
-        setStatus({ state: "error", message: responseBody.error ?? "Failed to create point of interest" });
+        setStatus({
+          state: "error",
+          message: responseBody.error ?? `Failed to ${isEdit ? "update" : "create"} point of interest`,
+        });
       }
     } catch {
-      setStatus({ state: "error", message: "Failed to create point of interest" });
+      setStatus({ state: "error", message: `Failed to ${isEdit ? "update" : "create"} point of interest` });
     }
   }
 
@@ -69,25 +85,27 @@ export function PoiForm({
       <input
         name="name"
         required
-        defaultValue={initial?.name}
+        defaultValue={existing?.name ?? initial?.name}
         placeholder="Name (e.g. Woodland Park)"
         className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
       />
       <input
         name="type"
         required
+        defaultValue={existing?.type}
         placeholder="Type (e.g. park, transit, landmark)"
         className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
       />
       <textarea
         name="description"
+        defaultValue={existing?.description ?? ""}
         placeholder="Optional description"
         rows={2}
         className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
       />
       <input
         name="address"
-        defaultValue={initial?.address}
+        defaultValue={existing?.address ?? initial?.address ?? ""}
         placeholder="Optional address"
         className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
       />
@@ -97,7 +115,7 @@ export function PoiForm({
           type="number"
           step="any"
           required
-          defaultValue={initial?.lat}
+          defaultValue={existing?.lat ?? initial?.lat ?? undefined}
           placeholder="Latitude"
           className="w-1/2 rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
         />
@@ -106,18 +124,35 @@ export function PoiForm({
           type="number"
           step="any"
           required
-          defaultValue={initial?.lng}
+          defaultValue={existing?.lng ?? initial?.lng ?? undefined}
           placeholder="Longitude"
           className="w-1/2 rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
         />
       </div>
-      <button
-        type="submit"
-        disabled={status.state === "submitting"}
-        className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-      >
-        {status.state === "submitting" ? "Adding…" : "Add point of interest"}
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={status.state === "submitting"}
+          className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        >
+          {status.state === "submitting"
+            ? isEdit
+              ? "Saving…"
+              : "Adding…"
+            : isEdit
+              ? "Save changes"
+              : "Add point of interest"}
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145]"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
       {status.state === "error" && (
         <p className="text-sm text-red-600 dark:text-red-400">{status.message}</p>
       )}
