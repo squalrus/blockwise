@@ -61,4 +61,11 @@ export interface CheckinRepository {
   listCheckinsForUser(userId: string): Promise<CheckinVenue[]>;
   // Backs the business owner venue dashboard's "check-in count" (BACKLOG.md).
   countCheckinsForVenue(venueId: string): Promise<number>;
+  // POI detail page stat card (BACKLOG.md Ref 58), mirroring countCheckinsForVenue.
+  countCheckinsForPoi(poiId: string): Promise<number>;
+  // Neighborhood profile stats (BACKLOG.md Ref 58) -- checkin has no
+  // neighborhood_id of its own, so this sums check-ins reachable through
+  // either venue.neighborhood_id or poi.neighborhood_id (a check-in always
+  // targets exactly one of the two, never both, so summing can't double-count).
+  countCheckinsForNeighborhood(neighborhoodId: string): Promise<number>;
 }

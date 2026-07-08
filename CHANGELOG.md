@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.30.0] — 2026-07-08
+
+### Added
+
+- **POI landing pages.** Points of interest (parks, transit stops, landmarks) now have their own detail page at `/pois/:id`, mirroring the venue detail page: name, type, address, description, and the check-in button, plus a link back to the owning neighborhood. The neighborhood profile's Points of interest tab now links each POI's name to its new page instead of showing plain text. Backed by a new public `GET /pois/:id` endpoint (hidden POIs 404, same as a missing one). Completes BACKLOG.md Ref 46. (`apps/api/src/pois/`, `apps/api/src/app.ts`, `apps/web/src/app/pois/[id]/`, `apps/web/src/app/neighborhoods/[slug]/pois/page.tsx`, `packages/types/src/index.ts`, `docs/url-map.md`)
+- **Profile stats on neighborhood and POI pages.** The neighborhood profile page now shows stat cards for business count, active POI count, member count, and total check-ins across the neighborhood's venues and POIs — none of that was visible anywhere before. The new POI detail page shows its own check-in count, using the same stat-card style already used on the business owner dashboard. Completes BACKLOG.md Ref 58. (`apps/api/src/checkins/`, `apps/api/src/pois/`, `apps/api/src/venues/`, `apps/api/src/neighborhoodMembers/`, `apps/api/src/app.ts`, `apps/web/src/app/StatCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/layout.tsx`, `apps/web/src/app/pois/[id]/`, `packages/types/src/index.ts`)
+
 ## [0.29.0] — 2026-07-09
 
 ### Added

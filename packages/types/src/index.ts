@@ -93,6 +93,17 @@ export interface Poi {
   created_at: string;
 }
 
+// POI landing page (BACKLOG.md Ref 46).
+export interface PoiDetail extends Poi {
+  // The neighborhood this POI belongs to, for the POI detail page's "back to
+  // neighborhood" link -- mirrors VenueDetail's neighborhood_slug/name.
+  neighborhood_slug: string;
+  neighborhood_name: string;
+  // Profile stats (BACKLOG.md Ref 58), mirroring the neighborhood/venue/user
+  // stat-card convention.
+  checkin_count: number;
+}
+
 export type EnrichmentSource = "google";
 
 export interface VenueEnrichmentCache {
@@ -349,6 +360,13 @@ export interface NeighborhoodProfile {
   state: string;
   pois: Poi[];
   social_links: SocialLinks;
+  // Profile stats (BACKLOG.md Ref 58) -- venue_count/poi_count are
+  // active-only, mirroring the public venue/POI list filters; checkin_count
+  // sums check-ins against both this neighborhood's venues and POIs.
+  venue_count: number;
+  poi_count: number;
+  member_count: number;
+  checkin_count: number;
 }
 
 // Neighborhood membership (BACKLOG.md "Neighborhoods on landing page and user

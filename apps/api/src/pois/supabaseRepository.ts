@@ -74,6 +74,17 @@ export class SupabasePoiRepository implements PoiRepository {
     return (data ?? []).map(toRecord);
   }
 
+  async countActivePoisForNeighborhood(neighborhoodId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("poi")
+      .select("id", { count: "exact", head: true })
+      .eq("neighborhood_id", neighborhoodId)
+      .eq("status", "active");
+
+    if (error) throw new Error(`countActivePoisForNeighborhood failed: ${error.message}`);
+    return count ?? 0;
+  }
+
   async getPoiById(poiId: string): Promise<PoiRecord | null> {
     const { data, error } = await this.supabase
       .from("poi")

@@ -27,6 +27,8 @@ export interface NeighborhoodMemberRepository {
   createMembership(userId: string, neighborhoodId: string): Promise<NeighborhoodMemberRecord>;
   deleteMembership(userId: string, neighborhoodId: string): Promise<void>;
   listMembershipsForUser(userId: string): Promise<NeighborhoodMembershipSummary[]>;
+  // Neighborhood profile stats (BACKLOG.md Ref 58).
+  countMembersForNeighborhood(neighborhoodId: string): Promise<number>;
   // Clears is_primary on every other membership row for this user, then sets
   // it on neighborhoodId's -- the partial unique index (migration
   // 20260706100000) only allows one true per user, so this must run as two

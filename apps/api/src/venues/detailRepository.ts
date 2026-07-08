@@ -34,6 +34,9 @@ export interface VenueDetailRepository {
   // always scoped to a single neighborhood rather than listing every venue.
   listVenues(neighborhoodId: string): Promise<VenueListItem[]>;
   getVenueDetail(venueId: string): Promise<VenueDetailRecord | null>;
+  // Neighborhood profile stats (BACKLOG.md Ref 58) -- active-only, mirroring
+  // listVenues's own status filter.
+  countActiveVenuesForNeighborhood(neighborhoodId: string): Promise<number>;
   upsertEnrichment(input: UpsertEnrichmentInput): Promise<VenueEnrichmentCache>;
   // Just the cached Google photo reference (see venues/enrichment.ts), for
   // the GET /venues/:id/photo proxy route -- avoids assembling the full

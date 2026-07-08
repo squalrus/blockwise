@@ -71,6 +71,16 @@ export class SupabaseNeighborhoodMemberRepository implements NeighborhoodMemberR
     if (error) throw new Error(`deleteMembership failed: ${error.message}`);
   }
 
+  async countMembersForNeighborhood(neighborhoodId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("neighborhood_member")
+      .select("id", { count: "exact", head: true })
+      .eq("neighborhood_id", neighborhoodId);
+
+    if (error) throw new Error(`countMembersForNeighborhood failed: ${error.message}`);
+    return count ?? 0;
+  }
+
   async listMembershipsForUser(userId: string): Promise<NeighborhoodMembershipSummary[]> {
     const { data, error } = await this.supabase
       .from("neighborhood_member")

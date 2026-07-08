@@ -32,6 +32,8 @@ apps/web/src/app/
 │       └── venues/page.tsx                         /neighborhoods/:slug/venues — Venues tab (list/map toggle)
 ├── venues/
 │   └── [id]/page.tsx                              /venues/:id — P — venue detail, claim form, favorite/check-in
+├── pois/
+│   └── [id]/page.tsx                              /pois/:id — P — POI detail, check-in (BACKLOG.md Ref 46)
 ├── business/
 │   ├── page.tsx                                   /business — C — venues this account has claimed
 │   └── [venueId]/page.tsx                         /business/:venueId — S (requireVenueOwner) — owner dashboard
@@ -93,6 +95,7 @@ Auth gates:
 ├── favorites                                            GET, POST, DELETE — mixed (GET public, POST/DELETE auth) — POST awards first-time favorite points
 
 /pois/:id/
+├── (root)                                            GET — public — detail (BACKLOG.md Ref 46)
 └── checkins                                          POST — public (optional auth) — POI check-in, same geofence/cooldown as venue check-in
 
 /me/

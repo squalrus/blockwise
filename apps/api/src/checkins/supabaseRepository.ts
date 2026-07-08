@@ -164,4 +164,34 @@ export class SupabaseCheckinRepository implements CheckinRepository {
     if (error) throw new Error(`countCheckinsForVenue failed: ${error.message}`);
     return count ?? 0;
   }
+
+  async countCheckinsForPoi(poiId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("checkin")
+      .select("id", { count: "exact", head: true })
+      .eq("poi_id", poiId);
+
+    if (error) throw new Error(`countCheckinsForPoi failed: ${error.message}`);
+    return count ?? 0;
+  }
+
+  async countCheckinsForNeighborhood(neighborhoodId: string): Promise<number> {
+    const [venueScoped, poiScoped] = await Promise.all([
+      this.supabase
+        .from("checkin")
+        .select("id, venue:venue_id!inner(neighborhood_id)", { count: "exact", head: true })
+        .eq("venue.neighborhood_id", neighborhoodId),
+      this.supabase
+        .from("checkin")
+        .select("id, poi:poi_id!inner(neighborhood_id)", { count: "exact", head: true })
+        .eq("poi.neighborhood_id", neighborhoodId),
+    ]);
+
+    if (venueScoped.error)
+      throw new Error(`countCheckinsForNeighborhood (venue) failed: ${venueScoped.error.message}`);
+    if (poiScoped.error)
+      throw new Error(`countCheckinsForNeighborhood (poi) failed: ${poiScoped.error.message}`);
+
+    return (venueScoped.count ?? 0) + (poiScoped.count ?? 0);
+  }
 }

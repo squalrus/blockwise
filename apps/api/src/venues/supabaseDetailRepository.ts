@@ -54,6 +54,17 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
     }));
   }
 
+  async countActiveVenuesForNeighborhood(neighborhoodId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("venue")
+      .select("id", { count: "exact", head: true })
+      .eq("neighborhood_id", neighborhoodId)
+      .eq("status", "active");
+
+    if (error) throw new Error(`countActiveVenuesForNeighborhood failed: ${error.message}`);
+    return count ?? 0;
+  }
+
   async getVenueDetail(venueId: string): Promise<VenueDetailRecord | null> {
     const { data: venue, error: venueError } = await this.supabase
       .from("venue")
