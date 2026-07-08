@@ -2,6 +2,16 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.26.0] — 2026-07-08
+
+### Added
+
+- **Admin portal: neighborhood boundary drawing.** Internal staff can now draw a neighborhood's geographic boundary directly on a map instead of hand-authoring GeoJSON — click to place vertices, drag to adjust, then run a dry-run Google Places query against the drawn shape (plotted as markers on the same map) to confirm it captures the right businesses before saving. A new `/neighborhood-admin/new` page creates a neighborhood (name/slug/city/state/country/timezone) together with its boundary in one step, starting in `onboarding` status; a new "Boundary" tab on each neighborhood's admin page re-edits an existing boundary the same way. Turns onboarding a second neighborhood into a data workflow instead of a code change. (`supabase/migrations/20260708010000_neighborhood_boundary_admin_fns.sql`, `apps/api/src/neighborhoods/`, `apps/api/src/places/preview.ts`, `apps/api/src/places/sync.ts`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/BoundaryMap.tsx`, `apps/web/src/app/neighborhood-admin/new/`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/boundary/`, `packages/types/src/index.ts`, `docs/url-map.md`)
+
+### Fixed
+
+- **Check-in cooldown message didn't say which cooldown was active.** "Already checked in here recently" showed even when the block was actually the 2-minute cross-venue cooldown from checking in somewhere *else* seconds ago — not this venue. The check-in API now reports which cooldown fired (`target` vs. `global`), and the check-in button shows the correct message for each. (`apps/api/src/checkins/checkin.ts`, `apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/CheckInButton.tsx`)
+
 ## [0.25.1] — 2026-07-08
 
 ### Added

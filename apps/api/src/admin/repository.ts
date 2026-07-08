@@ -14,4 +14,10 @@ export interface NeighborhoodAdminRepository {
   // only proves "admin of at least one neighborhood".
   isNeighborhoodAdminFor(userId: string, neighborhoodId: string): Promise<boolean>;
   listNeighborhoodsForAdmin(userId: string): Promise<NeighborhoodAdminSummaryRecord[]>;
+  // Admin portal create-neighborhood flow (BACKLOG.md Ref 8): a brand-new
+  // neighborhood has no admins yet, so whoever creates it (already proven to
+  // be an admin of *some* neighborhood, via requireAdmin) is granted admin of
+  // this one too -- otherwise neighborhoodAdminGate would lock everyone,
+  // including its creator, out of managing it afterward.
+  addNeighborhoodAdmin(userId: string, neighborhoodId: string): Promise<void>;
 }

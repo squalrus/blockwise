@@ -1,3 +1,7 @@
+import type { GeoJsonPolygon } from "@blockwise/types";
+
+export type { GeoJsonPolygon };
+
 const EARTH_RADIUS_METERS = 6_371_000;
 
 export interface LatLng {
@@ -5,9 +9,28 @@ export interface LatLng {
   lng: number;
 }
 
-export interface GeoJsonPolygon {
-  type: "Polygon";
-  coordinates: number[][][];
+// Request-body validation for the admin boundary-drawing routes (BACKLOG.md
+// Ref 8) -- catches a malformed shape before it reaches st_geomfromgeojson,
+// which would otherwise surface as an opaque Postgres error instead of a
+// clean 400. Requires a closed ring (first point === last point, GeoJSON's
+// own requirement) of at least 4 positions (3 distinct vertices + the
+// closing repeat) -- doesn't attempt to validate self-intersection.
+export function isValidPolygon(value: unknown): value is GeoJsonPolygon {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as { type?: unknown; coordinates?: unknown };
+  if (candidate.type !== "Polygon") return false;
+  if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) return false;
+
+  const ring = candidate.coordinates[0];
+  if (!Array.isArray(ring) || ring.length < 4) return false;
+
+  const isPosition = (p: unknown): p is [number, number] =>
+    Array.isArray(p) && p.length >= 2 && typeof p[0] === "number" && typeof p[1] === "number";
+  if (!ring.every(isPosition)) return false;
+
+  const [firstLng, firstLat] = ring[0] as [number, number];
+  const [lastLng, lastLat] = ring[ring.length - 1] as [number, number];
+  return firstLng === lastLng && firstLat === lastLat;
 }
 
 export function haversineMeters(a: LatLng, b: LatLng): number {
