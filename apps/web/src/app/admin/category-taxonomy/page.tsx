@@ -134,7 +134,7 @@ export default function AdminCategoryTaxonomyPage() {
 
   if (tokenState.status === "signed_out") {
     return (
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-16 font-sans">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: category taxonomy</h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           You need to be signed in to view this page.{" "}
@@ -148,7 +148,7 @@ export default function AdminCategoryTaxonomyPage() {
 
   if (error === "forbidden") {
     return (
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-16 font-sans">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: category taxonomy</h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           You&apos;re signed in, but your account isn&apos;t a neighborhood admin.
@@ -159,7 +159,7 @@ export default function AdminCategoryTaxonomyPage() {
 
   if (error === "unauthorized") {
     return (
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-16 font-sans">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: category taxonomy</h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           Your session expired.{" "}
@@ -256,7 +256,7 @@ export default function AdminCategoryTaxonomyPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: category taxonomy</h1>
 
       {error === "failed" && <p className="text-sm text-red-600 dark:text-red-400">Something went wrong.</p>}

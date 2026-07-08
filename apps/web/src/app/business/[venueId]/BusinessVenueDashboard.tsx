@@ -87,7 +87,7 @@ export function BusinessVenueDashboard({ venueId }: { venueId: string }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <a href="/business" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
         ← Business portal
       </a>

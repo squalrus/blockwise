@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.25.1] — 2026-07-08
+
+### Added
+
+- **Badge icons.** Badges earned from challenges now render an actual glyph (currently an emoji mapped from the existing `badge.icon` code, e.g. ☕ for "coffee", 🧭 for "compass", ⭐ for "star", with a 🏅 fallback for unrecognized codes) instead of just showing up as a name in the challenge list. (`apps/web/src/app/BadgeIcon.tsx`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+
+### Changed
+
+- **Neighborhood page split into subnav tabs.** The neighborhood profile page's Venues, Challenges, Upcoming events, Points of interest, and Leaderboard sections — previously one long vertical scroll — are now separate tabs (Leaderboard is the default landing tab), each its own route so it's directly linkable and only fetches the data it needs. (`apps/web/src/app/neighborhoods/[slug]/layout.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/challenges/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/events/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/pois/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/venues/page.tsx`, `docs/url-map.md`)
+- **Tighter page padding on mobile.** Every top-level page's outer container used a fixed `p-16` (64px) padding regardless of viewport, eating a large share of the screen width on phones. Padding now scales down to `p-4` (16px) below the `sm` breakpoint and stays at `p-16` above it, across all 14 top-level pages. (`apps/web/src/app/**/page.tsx`, `apps/web/src/app/**/layout.tsx`, `apps/web/src/app/business/[venueId]/BusinessVenueDashboard.tsx`)
+
 ## [0.25.0] — 2026-07-08
 
 ### Fixed

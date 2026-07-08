@@ -78,7 +78,7 @@ export default function AccountPage() {
   }, []);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-16 font-sans">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <div className="flex items-center gap-3">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">My account</h1>
         {state.status === "ready" && (

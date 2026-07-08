@@ -38,7 +38,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-16 font-sans">
+    <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
       <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Sign up</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">

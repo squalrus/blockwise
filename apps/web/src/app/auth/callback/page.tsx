@@ -21,7 +21,7 @@ export default function AuthCallbackPage() {
   }, [router]);
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-16 font-sans">
+    <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
       {status.state === "loading" ? (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">Signing you in…</p>
       ) : (

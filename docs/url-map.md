@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-07-07 (neighborhood-admin claims/venues tabs + slug URLs, see `CHANGELOG.md`).
+Last reviewed: 2026-07-07 (neighborhood profile page split into Leaderboard/Challenges/Upcoming events/Points of interest/Venues subnav tabs, BACKLOG.md Ref 44).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -23,7 +23,13 @@ apps/web/src/app/
 ├── profile/
 │   └── [username]/page.tsx                        /profile/:username — P — public user profile, neighborhoods, recent check-ins
 ├── neighborhoods/
-│   └── [slug]/page.tsx                            /neighborhoods/:slug — P — public neighborhood profile, venues, events, POIs, challenges, leaderboard
+│   └── [slug]/
+│       ├── layout.tsx                              — P — shared header (description, social links, join button), subnav tab bar
+│       ├── page.tsx                                /neighborhoods/:slug — Leaderboard tab (default)
+│       ├── challenges/page.tsx                     /neighborhoods/:slug/challenges — Challenges tab
+│       ├── events/page.tsx                         /neighborhoods/:slug/events — Upcoming events tab
+│       ├── pois/page.tsx                           /neighborhoods/:slug/pois — Points of interest tab
+│       └── venues/page.tsx                         /neighborhoods/:slug/venues — Venues tab (list/map toggle)
 ├── venues/
 │   └── [id]/page.tsx                              /venues/:id — P — venue detail, claim form, favorite/check-in
 ├── business/
