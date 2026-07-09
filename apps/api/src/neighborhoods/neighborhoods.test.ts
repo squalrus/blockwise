@@ -13,6 +13,7 @@ import type {
   CreatedNeighborhood,
   CreateNeighborhoodInput,
   NeighborhoodBoundaryRecord,
+  NeighborhoodListCounts,
   NeighborhoodRecord,
   NeighborhoodRepository,
 } from "./repository";
@@ -64,6 +65,10 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
 
   async listAll(): Promise<NeighborhoodRecord[]> {
     return this.neighborhoods;
+  }
+
+  async listCounts(): Promise<NeighborhoodListCounts[]> {
+    return this.neighborhoods.map((n) => ({ neighborhood_id: n.id, business_count: 0, member_count: 0 }));
   }
 
   async getBoundary(id: string): Promise<NeighborhoodBoundaryRecord | null> {

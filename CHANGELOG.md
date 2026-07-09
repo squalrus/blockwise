@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.35.0] — 2026-07-09
+
+### Added
+
+- **Full marketing homepage.** The landing page stub (hero + a link to `/neighborhoods`) is replaced with a complete marketing homepage: hero with an app-preview mockup, "How Spored works" three-step section, leaderboard teaser with live-style stats, a neighborhood coverage map, a business pitch section with a claim-your-listing card, and a final call-to-action — plus its own sticky nav (How it works / Neighborhoods / For businesses anchors, Sign in, Get the app) and footer. A new `SiteChrome.tsx` swaps out the shared `AccountNav`/`Footer` for this page's own nav/footer on `/` only, leaving every other route unchanged. (`apps/web/src/app/page.tsx`, `apps/web/src/app/SiteChrome.tsx`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/globals.css`)
+- **Search box and business/member counts on the "All neighborhoods" browse list.** Each neighborhood card now shows its active business count and member count (🍄/👥), and a search box filters the list by name/city/state as you type. Backed by a new `GET /neighborhoods` field (`business_count`, `member_count`) sourced from a new `get_neighborhood_list_counts` Postgres RPC that aggregates both counts for every neighborhood in one grouped query, rather than the per-neighborhood count calls the single-neighborhood profile page uses. (`apps/web/src/app/neighborhoods/NeighborhoodsSection.tsx`, `apps/api/src/app.ts`, `apps/api/src/neighborhoods/repository.ts`, `apps/api/src/neighborhoods/supabaseRepository.ts`, `packages/types/src/index.ts`, `supabase/migrations/20260709030000_neighborhood_list_counts_fn.sql`)
+
 ## [0.34.0] — 2026-07-09
 
 ### Added

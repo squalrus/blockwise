@@ -428,6 +428,8 @@ export interface NeighborhoodSummary {
   // Populated only when the request is authenticated -- null for anonymous
   // visitors browsing the landing page's full neighborhood list.
   joined: boolean;
+  business_count: number;
+  member_count: number;
 }
 
 export interface NeighborhoodAdminSummary {

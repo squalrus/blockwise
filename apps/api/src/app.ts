@@ -368,7 +368,10 @@ export function createApp() {
     attachOptionalAuthUser(getSupabaseClient, getAuthRepository),
     async (req, res) => {
       try {
-        const neighborhoods = await getNeighborhoodRepository().listAll();
+        const [neighborhoods, counts] = await Promise.all([
+          getNeighborhoodRepository().listAll(),
+          getNeighborhoodRepository().listCounts(),
+        ]);
         const joinedIds = req.appUser
           ? new Set(
               (await listMembershipsForUser(req.appUser.id, getNeighborhoodMemberRepository())).map(
@@ -376,6 +379,7 @@ export function createApp() {
               )
             )
           : new Set<string>();
+        const countsById = new Map(counts.map((c) => [c.neighborhood_id, c]));
 
         const summaries: NeighborhoodSummary[] = neighborhoods.map((n) => ({
           id: n.id,
@@ -384,6 +388,8 @@ export function createApp() {
           city: n.city,
           state: n.state,
           joined: joinedIds.has(n.id),
+          business_count: countsById.get(n.id)?.business_count ?? 0,
+          member_count: countsById.get(n.id)?.member_count ?? 0,
         }));
         res.json(summaries);
       } catch (err) {
