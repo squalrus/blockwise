@@ -52,6 +52,12 @@ export interface CompleteChallengeInput {
   badgeId: string | null;
 }
 
+export interface UserBadgeRecord {
+  badge: BadgeRecord;
+  challengeId: string | null;
+  awardedAt: string;
+}
+
 export interface LeaderboardRow {
   userId: string;
   displayName: string | null;
@@ -123,4 +129,10 @@ export interface GamificationRepository {
   // All-time total across every neighborhood (BACKLOG.md Ref 47's account
   // page profile summary), unlike getLeaderboard which is neighborhood-scoped.
   getUserPointsTotal(userId: string): Promise<number>;
+
+  // Every badge this user has ever earned, across every neighborhood
+  // (BACKLOG.md Ref 55's profile/account badge display) -- unlike
+  // listChallengesForNeighborhood, this isn't scoped to one neighborhood's
+  // challenge templates, and includes non-challenge awards (e.g. founder).
+  getUserBadges(userId: string): Promise<UserBadgeRecord[]>;
 }

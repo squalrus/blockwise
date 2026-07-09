@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.31.0] — 2026-07-08
+
+### Added
+
+- **Badges on the public profile and account pages.** Badges earned from completing neighborhood challenges or from the founder award previously only showed up inside a neighborhood's challenge list, invisible everywhere else. Both `/profile/:username` and `/account` now show a "Badges" section listing every badge a user has earned across every neighborhood, reusing the existing badge-emoji icon. Backed by a new `GET /me/badges` endpoint and a `badges` field on `GET /users/:username`, both reading from a new cross-neighborhood `getUserBadges` repository method (previously, badge data only existed scoped to one neighborhood's challenge templates). Completes BACKLOG.md Ref 55. (`apps/api/src/gamification/`, `apps/api/src/app.ts`, `apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/app/account/page.tsx`, `packages/types/src/index.ts`)
+
 ## [0.30.0] — 2026-07-08
 
 ### Added

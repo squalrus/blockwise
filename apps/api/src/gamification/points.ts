@@ -1,4 +1,4 @@
-import type { LeaderboardEntry, UserPointsSummary } from "@blockwise/types";
+import type { LeaderboardEntry, UserBadge, UserPointsSummary } from "@blockwise/types";
 import type { GamificationRepository } from "./repository";
 
 // BACKLOG.md Ref 6: check-in = 10pts, first-time favorite/follow = 5pts.
@@ -43,4 +43,23 @@ export async function getUserPoints(
 ): Promise<UserPointsSummary> {
   const points = await repository.getUserPointsTotal(userId);
   return { points };
+}
+
+// BACKLOG.md Ref 55: every badge a user has earned, across every
+// neighborhood, for the public profile and account pages.
+export async function getUserBadges(
+  userId: string,
+  repository: GamificationRepository
+): Promise<UserBadge[]> {
+  const records = await repository.getUserBadges(userId);
+  return records.map((record) => ({
+    badge: {
+      id: record.badge.id,
+      code: record.badge.code,
+      name: record.badge.name,
+      description: record.badge.description,
+      icon: record.badge.icon,
+    },
+    awarded_at: record.awardedAt,
+  }));
 }

@@ -7,6 +7,7 @@ import type {
   GamificationRepository,
   LeaderboardRow,
   PoiContext,
+  UserBadgeRecord,
   VenueContext,
 } from "./repository";
 
@@ -294,5 +295,20 @@ export class SupabaseGamificationRepository implements GamificationRepository {
 
     if (error) throw new Error(`getUserPointsTotal failed: ${error.message}`);
     return (data ?? []).reduce((sum, row) => sum + (row.points as number), 0);
+  }
+
+  async getUserBadges(userId: string): Promise<UserBadgeRecord[]> {
+    const { data, error } = await this.supabase
+      .from("user_badge")
+      .select("challenge_id, awarded_at, badge:badge_id(id, code, name, description, icon)")
+      .eq("user_id", userId)
+      .order("awarded_at", { ascending: false });
+
+    if (error) throw new Error(`getUserBadges failed: ${error.message}`);
+    return (data ?? []).map((row) => ({
+      badge: single(row.badge as BadgeRecord | BadgeRecord[] | null) as BadgeRecord,
+      challengeId: row.challenge_id as string | null,
+      awardedAt: row.awarded_at as string,
+    }));
   }
 }

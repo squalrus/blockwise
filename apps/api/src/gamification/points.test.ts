@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { FAVORITE_POINTS, awardFavoritePoints, getLeaderboard, getUserPoints } from "./points";
-import { FakeGamificationRepository } from "./testSupport";
+import { FAVORITE_POINTS, awardFavoritePoints, getLeaderboard, getUserBadges, getUserPoints } from "./points";
+import { FakeGamificationRepository, makeBadge } from "./testSupport";
 
 describe("awardFavoritePoints", () => {
   it("awards points the first time a venue is favorited", async () => {
@@ -87,5 +87,36 @@ describe("getUserPoints", () => {
   it("returns zero for a user with no point events", async () => {
     const repo = new FakeGamificationRepository();
     expect(await getUserPoints("user-1", repo)).toEqual({ points: 0 });
+  });
+});
+
+describe("getUserBadges", () => {
+  it("returns every badge a user has earned, most recent first, from any award path", async () => {
+    const repo = new FakeGamificationRepository();
+    const coffeeBadge = makeBadge({ id: "badge-coffee", code: "coffee_crawler", name: "Coffee Crawler" });
+    const founderBadge = makeBadge({ id: "badge-founder", code: "founder", name: "Founder", icon: "star" });
+    repo.badgeCatalog.set(coffeeBadge.id, coffeeBadge);
+    repo.badgeCatalog.set(founderBadge.id, founderBadge);
+    repo.badgesByCode.set("founder", founderBadge.id);
+
+    // Awarded via challenge completion first...
+    await repo.completeChallenge({
+      userId: "user-1",
+      challengeId: "challenge-1",
+      neighborhoodId: "neighborhood-1",
+      pointsReward: 0,
+      badgeId: coffeeBadge.id,
+    });
+    // ...then awarded directly (founder badge's actual award path), not tied to any challenge.
+    await repo.awardBadgeByCode("user-1", "founder");
+
+    const badges = await getUserBadges("user-1", repo);
+
+    expect(badges.map((b) => b.badge.name)).toEqual(["Founder", "Coffee Crawler"]);
+  });
+
+  it("returns an empty list for a user with no badges", async () => {
+    const repo = new FakeGamificationRepository();
+    expect(await getUserBadges("user-1", repo)).toEqual([]);
   });
 });
