@@ -4,6 +4,7 @@ import type {
   CreatedNeighborhood,
   CreateNeighborhoodInput,
   NeighborhoodBoundaryRecord,
+  NeighborhoodListCounts,
   NeighborhoodRecord,
   NeighborhoodRepository,
 } from "./repository";
@@ -92,6 +93,17 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
     return (data ?? []).map(toRecord);
   }
 
+  async listCounts(): Promise<NeighborhoodListCounts[]> {
+    const { data, error } = await this.supabase.rpc("get_neighborhood_list_counts");
+
+    if (error) throw new Error(`listCounts failed: ${error.message}`);
+    return (data as ListCountsRow[] | null ?? []).map((row) => ({
+      neighborhood_id: row.neighborhood_id,
+      business_count: row.business_count,
+      member_count: row.member_count,
+    }));
+  }
+
   async getBoundary(id: string): Promise<NeighborhoodBoundaryRecord | null> {
     // .rpc() results aren't row-typed on this untyped SupabaseClient (no
     // generated Database generic) -- indexed access + an explicit row shape
@@ -160,6 +172,12 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
       centerLng: row.center_lng,
     };
   }
+}
+
+interface ListCountsRow {
+  neighborhood_id: string;
+  business_count: number;
+  member_count: number;
 }
 
 interface BoundaryRow {

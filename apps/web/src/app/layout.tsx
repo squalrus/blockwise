@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Baloo_2, Nunito } from "next/font/google";
 import Script from "next/script";
-import { AccountNav } from "./AccountNav";
-import { Footer } from "./Footer";
+import { SiteChrome } from "./SiteChrome";
 import "./globals.css";
 
 // Mirrors lib/theme.ts's storage key and apply logic in plain JS so the
@@ -49,9 +48,7 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
         </Script>
-        <AccountNav />
-        <div className="flex flex-1 flex-col">{children}</div>
-        <Footer />
+        <SiteChrome>{children}</SiteChrome>
       </body>
     </html>
   );

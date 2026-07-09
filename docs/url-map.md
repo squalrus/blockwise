@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-07-09 (Landing page split into a stub homepage and a dedicated /neighborhoods browse page).
+Last reviewed: 2026-07-09 (Landing page stub replaced with a full marketing homepage; /neighborhoods gained search + business/member counts).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -12,8 +12,9 @@ Legend: **P** = public, no auth · **C** = client-side auth check only (soft) ·
 
 ```text
 apps/web/src/app/
-├── layout.tsx                                    (root layout — wraps every page in AccountNav)
-├── page.tsx                                       / — P — landing page stub (hero, link to /neighborhoods)
+├── layout.tsx                                    (root layout — SiteChrome swaps in the marketing nav/footer on "/", AccountNav/Footer elsewhere)
+├── SiteChrome.tsx                                 (client component, no route — hides AccountNav/Footer on "/" in favor of the homepage's own nav/footer)
+├── page.tsx                                       / — P — marketing homepage (hero, how-it-works, leaderboard teaser, neighborhood map, business pitch, final CTA)
 ├── login/page.tsx                                 /login — P
 ├── signup/page.tsx                                /signup — P
 ├── auth/callback/page.tsx                         /auth/callback — P (OAuth redirect target, sets session)
@@ -23,7 +24,7 @@ apps/web/src/app/
 ├── profile/
 │   └── [username]/page.tsx                        /profile/:username — P — public user profile, neighborhoods, recent check-ins
 ├── neighborhoods/
-│   ├── page.tsx                                    /neighborhoods — P — browse/join every active neighborhood (NeighborhoodsSection, split off the landing page)
+│   ├── page.tsx                                    /neighborhoods — P — browse/join every active neighborhood (NeighborhoodsSection: search box, business/member counts per card)
 │   └── [slug]/
 │       ├── layout.tsx                              — P — shared header (description, social links, join button), subnav tab bar
 │       ├── page.tsx                                /neighborhoods/:slug — Leaderboard tab (default)
@@ -75,7 +76,7 @@ Auth gates:
 ├── me                                                GET — auth
 └── promote-to-business                               POST — auth
 
-/neighborhoods                                       GET — public — list, joined-flag if authed
+/neighborhoods                                       GET — public — list, joined-flag if authed, business_count/member_count per neighborhood
 ├── :slug/
 │   ├── (root)                                        GET — public — profile
 │   ├── leaderboard                                   GET — public — points leaderboard, public-visibility users only
@@ -151,6 +152,7 @@ Identifier note: every neighborhood-identifying path param in the API is the **i
 
 ## History
 
+- **2026-07-09** — The landing page stub was replaced with a full marketing homepage (hero, how-it-works, leaderboard teaser, neighborhood map, business pitch, final CTA), with its own nav/footer instead of the shared `AccountNav`/`Footer` (`SiteChrome.tsx` swaps chrome based on route). `/neighborhoods` gained a client-side search box and per-card business/member counts, backed by a new `GET /neighborhoods` field (`business_count`, `member_count`) sourced from a new `get_neighborhood_list_counts` Postgres RPC (one grouped query for all neighborhoods, avoiding an N+1 count-per-neighborhood). See `CHANGELOG.md`.
 - **2026-07-09** — The landing page (`/`) no longer bundles the full neighborhoods browse/join list and the API health-check widget -- it's now a minimal stub (hero + a link to /neighborhoods), pending a future homepage redesign. `NeighborhoodsSection.tsx` (browse every active neighborhood, join/leave in place) moved as-is to a new `/neighborhoods` index page. See `CHANGELOG.md`.
 - **2026-07-09** — The Locations review wizard also reconciles a redrawn neighborhood boundary: every *active* venue/POI whose location no longer falls inside the neighborhood's saved boundary is listed as a "proposed removal," which the admin must explicitly check before it's hidden (never auto-hidden, never deleted — the same `venue.status`/`poi.status = 'hidden'` mechanism as Ref 11/29, so checkin/favorite/point_event history survives). The boundary editor (`boundary/page.tsx`) links into this wizard after a successful save via a "Review changes now" CTA, rather than the `PATCH .../boundary` endpoint itself triggering anything — so a boundary edit never silently changes what's attached to the neighborhood. Completes BACKLOG.md Ref 54 and the last open piece of Ref 29. See `CHANGELOG.md`.
 - **2026-07-09** — The Locations tab gained a bulk Places review wizard (`/neighborhood-admin/:slug/locations/review`): an admin-triggered dry-run query against the neighborhood's saved boundary lists candidate places not yet a venue or POI (deduped by `google_place_id` then the same name/location heuristic the real sync uses), and the admin bulk-classifies each as a claimable business, a neighborhood-owned POI, or omits it. Second step of BACKLOG.md Ref 29 — the "removals" step for venues/POIs that fall outside a redrawn boundary (Ref 54) remains open. See `CHANGELOG.md`.

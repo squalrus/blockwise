@@ -10,6 +10,12 @@ export interface NeighborhoodRecord {
   social_links: SocialLinks;
 }
 
+export interface NeighborhoodListCounts {
+  neighborhood_id: string;
+  business_count: number;
+  member_count: number;
+}
+
 export interface NeighborhoodBoundaryRecord {
   boundaryGeojson: GeoJsonPolygon | null;
   centerLat: number;
@@ -67,6 +73,11 @@ export interface NeighborhoodRepository {
   // business claims, its own public profile page) -- filtering it out here
   // would hide the only neighborhood that exists.
   listAll(): Promise<NeighborhoodRecord[]>;
+  // Business/member counts for every neighborhood in one call (the "all
+  // neighborhoods" browse list card), rather than the per-neighborhood
+  // countActiveVenuesForNeighborhood/countMembersForNeighborhood calls the
+  // single-neighborhood profile page uses.
+  listCounts(): Promise<NeighborhoodListCounts[]>;
   // Admin portal boundary drawing (BACKLOG.md Ref 8, project plan §12.6).
   getBoundary(id: string): Promise<NeighborhoodBoundaryRecord | null>;
   updateBoundary(id: string, boundaryGeojson: GeoJsonPolygon): Promise<NeighborhoodBoundaryRecord>;
