@@ -71,7 +71,7 @@ export function NeighborhoodsSection() {
   }
 
   if (state.status === "loading") {
-    return <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading neighborhoods…</p>;
+    return <p className="text-sm text-muted">Loading neighborhoods…</p>;
   }
   if (state.status === "error") {
     return <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>;
@@ -82,21 +82,15 @@ export function NeighborhoodsSection() {
   return (
     <div className="flex w-full max-w-2xl flex-col gap-6">
       {joined.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-black dark:text-zinc-50">Your neighborhoods</h2>
+        <section className="flex flex-col gap-2.5">
+          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Your neighborhoods</h2>
           <ul className="flex flex-col gap-2">
             {joined.map((n) => (
-              <li
-                key={n.id}
-                className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-              >
-                <a
-                  href={`/neighborhoods/${n.slug}`}
-                  className="font-medium text-black hover:underline dark:text-zinc-50"
-                >
+              <li key={n.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+                <a href={`/neighborhoods/${n.slug}`} className="font-extrabold text-foreground hover:text-brand-purple">
                   {n.name}
                 </a>
-                <p className="text-zinc-600 dark:text-zinc-400">
+                <p className="text-muted">
                   {n.city}, {n.state}
                 </p>
               </li>
@@ -105,25 +99,22 @@ export function NeighborhoodsSection() {
         </section>
       )}
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-black dark:text-zinc-50">All neighborhoods</h2>
+      <section className="flex flex-col gap-2.5">
+        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">All neighborhoods</h2>
         {state.neighborhoods.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No neighborhoods yet.</p>
+          <p className="text-sm text-muted">No neighborhoods yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {state.neighborhoods.map((n) => (
               <li
                 key={n.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
+                className="flex items-center justify-between gap-4 rounded-2xl bg-card-alt px-4 py-3 text-sm"
               >
                 <div>
-                  <a
-                    href={`/neighborhoods/${n.slug}`}
-                    className="font-medium text-black hover:underline dark:text-zinc-50"
-                  >
+                  <a href={`/neighborhoods/${n.slug}`} className="font-extrabold text-foreground hover:text-brand-purple">
                     {n.name}
                   </a>
-                  <p className="text-zinc-600 dark:text-zinc-400">
+                  <p className="text-muted">
                     {n.city}, {n.state}
                   </p>
                 </div>
@@ -131,14 +122,16 @@ export function NeighborhoodsSection() {
                   <button
                     onClick={() => toggleJoined(n)}
                     disabled={pendingId === n.id}
-                    className="shrink-0 rounded-md border border-black/[.08] px-3 py-1 text-xs font-medium text-black disabled:opacity-50 dark:border-white/[.145] dark:text-zinc-50"
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold disabled:opacity-50 ${
+                      n.joined ? "bg-brand-green text-on-accent" : "border-2 border-foreground text-foreground"
+                    }`}
                   >
-                    {n.joined ? "Joined" : "Join"}
+                    {n.joined ? "✓ Joined" : "Join"}
                   </button>
                 ) : (
                   <a
                     href="/login"
-                    className="shrink-0 rounded-md border border-black/[.08] px-3 py-1 text-xs font-medium text-black dark:border-white/[.145] dark:text-zinc-50"
+                    className="shrink-0 rounded-full border-2 border-foreground px-3 py-1.5 text-xs font-extrabold text-foreground"
                   >
                     Log in to join
                   </a>

@@ -26,26 +26,24 @@ export default async function PoiDetailPage({
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <Link
         href={`/neighborhoods/${poi.neighborhood_slug}`}
-        className="text-sm text-zinc-600 hover:underline dark:text-zinc-400"
+        className="text-sm font-bold text-brand-purple hover:text-brand-orange"
       >
         ← {poi.neighborhood_name}
       </Link>
 
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
+        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
           {poi.name}
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-[12.5px] font-bold text-muted">
           {poi.type}
           {poi.address ? ` · ${poi.address}` : ""}
         </p>
       </div>
 
-      {poi.description && (
-        <p className="text-sm text-zinc-700 dark:text-zinc-300">{poi.description}</p>
-      )}
+      {poi.description && <p className="text-sm text-body-text">{poi.description}</p>}
 
-      <StatCard value={poi.checkin_count} label="Check-ins" />
+      <StatCard value={poi.checkin_count} label="Check-ins" accent="green" />
 
       <CheckInButton target={{ type: "poi", id: poi.id }} />
     </div>

@@ -2,6 +2,25 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.33.0] — 2026-07-09
+
+### Added
+
+- **Spored visual rebrand with light/dark theme support.** The app is reskinned end to end under a new "Spored" mycelial-network identity, replacing the previous plain black/white/zinc styling: a warm cream/umber palette in light mode and a deep umber/charcoal palette in dark mode (`prefers-color-scheme`), Baloo 2 (headings) and Nunito (body) fonts in place of Geist, and a new mushroom-mark logo (`MushroomLogo.tsx`) used as the nav brand mark, map/list pins, and the check-in control's thumb icon — its cap color and glow respond to the active theme automatically instead of being frozen to one palette. New shared design tokens (`--card`, `--card-alt`, `--nav`, `--muted`, `--body-text`, `--ink`, `--on-accent`, `--brand-orange/amber/green/purple`) back every restyled surface. (`apps/web/src/app/globals.css`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/MushroomLogo.tsx`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/Footer.tsx`, `apps/web/src/app/page.tsx`)
+- **Drag-to-check-in gesture on the venue page.** The venue detail page's check-in button is replaced with a full-width slide-to-confirm control (`SlideToCheckIn.tsx`) — drag the mushroom thumb past 70% of the track to check in, mirroring the physical-friction interaction planned for coupon redemption (BACKLOG.md Ref 20/24). The plain tap button (`CheckInButton.tsx`) remains for compact contexts (account page's nearby-venues list, neighborhood POI list) and now shares the same GPS geofence/cooldown logic via an extracted `useCheckIn` hook rather than duplicating it. (`apps/web/src/app/venues/[id]/SlideToCheckIn.tsx`, `apps/web/src/app/venues/[id]/useCheckIn.ts`, `apps/web/src/app/venues/[id]/CheckInButton.tsx`, `apps/web/src/app/venues/[id]/page.tsx`)
+- **Level/points progress bar on the account page, and challenge progress bars.** The account page's profile summary now shows a "Level N forager" progress bar toward the next level (50 points per level) alongside favorite/check-in/point stat tiles, and each neighborhood challenge card shows a visual progress bar toward its target instead of a bare "x/y" count — both driven by a new shared `ProgressBar` component. (`apps/web/src/app/ProgressBar.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+- **Collapsible "today's hours" on the venue page.** Opening hours now show a single collapsed "today" line by default, expanding to the full weekly list on tap, instead of always listing every day. (`apps/web/src/app/venues/[id]/VenueHours.tsx`, `apps/web/src/app/venues/[id]/page.tsx`)
+- **Decorative mycelial map banner on neighborhood pages.** Neighborhood profile pages gain a stylized two-tone map banner with scattered mushroom pins (not tied to real venue coordinates) as a header visual. (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodMapArt.tsx`, `apps/web/src/app/neighborhoods/[slug]/layout.tsx`)
+
+### Changed
+
+- **Venue page: photo strip promoted above the fold, reviews get avatar chips.** The venue detail page now shows the photo strip immediately under the back link (previously buried inside the enrichment card) and gives each review an avatar-style initial chip colored per reviewer name instead of a plain italic quote list. (`apps/web/src/app/venues/[id]/page.tsx`)
+- **Account page: Wishlist/Coupons placeholders now sit side by side, and the check-in section is relabeled "Check in nearby".** (`apps/web/src/app/account/page.tsx`)
+
+### Fixed
+
+- Two dark-mode contrast bugs introduced while restyling: the leaderboard's #1 row and the slide-to-check-in track were using the theme's page background/foreground tokens instead of the always-dark nav tokens, so they rendered as a bright bar in dark mode instead of staying dark chrome. (`apps/web/src/app/neighborhoods/[slug]/page.tsx`, `apps/web/src/app/venues/[id]/SlideToCheckIn.tsx`)
+
 ## [0.32.1] — 2026-07-08
 
 ### Changed
