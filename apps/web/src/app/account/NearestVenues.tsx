@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import type { VenueListItem } from "@blockwise/types";
 import { clientApiUrl } from "@/lib/clientApi";
 import { sortByDistance, type LatLng } from "@/lib/geo";
 import { getCurrentPosition } from "@/lib/geolocation";
-import { CheckInButton } from "../venues/[id]/CheckInButton";
+import { PlaceListItem } from "../PlaceListItem";
+import { SlideToCheckIn } from "../venues/[id]/SlideToCheckIn";
 
-const NEAREST_LIMIT = 10;
+const NEAREST_LIMIT = 5;
 
 type State =
   | { status: "loading" }
@@ -80,22 +80,15 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
 
   return (
     <ul className="flex flex-col gap-2.5">
-      {state.venues.map((venue) => (
-        <li key={venue.id} className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
-          <div>
-            <Link
-              href={`/venues/${venue.id}`}
-              className="font-extrabold text-foreground hover:text-brand-purple"
-            >
-              {venue.name}
-            </Link>
-            <p className="text-muted">
-              {venue.category_name ?? "Uncategorized"} · {venue.address}
-            </p>
-          </div>
-          <div className="mt-2.5">
-            <CheckInButton target={{ type: "venue", id: venue.id }} />
-          </div>
+      {state.venues.map((venue, index) => (
+        <li key={venue.id}>
+          <PlaceListItem
+            href={`/venues/${venue.id}`}
+            id={venue.id}
+            name={venue.name}
+            subtitle={`${venue.category_name ?? "Uncategorized"} · ${venue.address}`}
+            action={index === 0 ? <SlideToCheckIn target={{ type: "venue", id: venue.id }} /> : undefined}
+          />
         </li>
       ))}
     </ul>

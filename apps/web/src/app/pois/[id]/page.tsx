@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { PoiDetail } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { StatCard } from "../../StatCard";
-import { CheckInButton } from "../../venues/[id]/CheckInButton";
+import { SlideToCheckIn } from "../../venues/[id]/SlideToCheckIn";
 
 async function getPoi(id: string): Promise<PoiDetail | null> {
   const res = await fetch(apiUrl(`/pois/${id}`), { cache: "no-store" });
@@ -45,7 +45,7 @@ export default async function PoiDetailPage({
 
       <StatCard value={poi.checkin_count} label="Check-ins" accent="green" />
 
-      <CheckInButton target={{ type: "poi", id: poi.id }} />
+      <SlideToCheckIn target={{ type: "poi", id: poi.id }} />
     </div>
   );
 }

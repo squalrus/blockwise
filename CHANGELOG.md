@@ -2,6 +2,27 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.34.0] — 2026-07-09
+
+### Added
+
+- **Hamburger menu with a Light/Dark/System theme picker.** The top nav's flat row of account links (home neighborhood, My account, Business portal, Neighborhood admin, log in/out) is replaced with a hamburger button opening a dropdown menu, which now also includes an explicit theme toggle — previously the app only followed the OS's `prefers-color-scheme`, with no way to override it. The choice persists in `localStorage` and applies via a `data-theme` attribute, set by a pre-hydration script so there's no flash of the wrong theme on load. (`apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/ThemeToggle.tsx`, `apps/web/src/lib/theme.ts`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/globals.css`)
+- **Dedicated `/neighborhoods` browse page.** Neighborhood browsing and join/leave (`NeighborhoodsSection`) moves off the landing page onto its own `/neighborhoods` route, so it has room to grow independently of the homepage. (`apps/web/src/app/neighborhoods/page.tsx`, `apps/web/src/app/neighborhoods/NeighborhoodsSection.tsx`)
+- **Shared `PlaceListItem` row style for venue/POI lists.** A new component (colored mushroom pin, bold name, muted subtitle line) unifies how venues and POIs are listed across the app — previously each list (neighborhood Venues/POI tabs, account page's nearby/favorite venues, public profile check-ins) had its own slightly different markup. (`apps/web/src/app/PlaceListItem.tsx`)
+
+### Changed
+
+- **Landing page (`/`) simplified to a stub.** The full neighborhoods browse/join list and the API health-check debug widget are gone from `/` (the former moved to `/neighborhoods`, the latter was dev-only scaffolding) — `/` is now just a hero and a "Browse neighborhoods" link, pending a future homepage redesign. (`apps/web/src/app/page.tsx`)
+- **Account settings page and profile form now follow the theme system.** These had been left on the pre-rebrand hardcoded black/zinc color classes and didn't respond to the theme picker above; they're restyled onto the same design tokens (`bg-card-alt`, `text-foreground`, `text-muted`, `text-brand-purple`, …) as the rest of the app. (`apps/web/src/app/account/settings/page.tsx`, `apps/web/src/app/account/ProfileForm.tsx`)
+- **Every check-in touchpoint now uses the slide-to-check-in gesture.** The POI detail page and the account page's top nearby-venue row previously used a plain tap button (`CheckInButton.tsx`); both now use the same full-width slide gesture as the venue detail page, so there's one consistent "commit to this action" interaction everywhere instead of two. Completes BACKLOG.md Ref 24. (`apps/web/src/app/pois/[id]/page.tsx`, `apps/web/src/app/account/NearestVenues.tsx`, `apps/web/src/app/venues/[id]/SlideToCheckIn.tsx`, `apps/web/src/app/venues/[id]/useCheckIn.ts`)
+- **Account page's "Check in nearby" now caps at 5 venues** (was 10), with the slide-to-check-in control only on the first row — the rest list as plain rows, keeping the section a quick nearby-venues glance rather than a long list of sliders. (`apps/web/src/app/account/NearestVenues.tsx`)
+- Neighborhood Venues/POI tabs, account page's Favorite venues, and public profile's Recent check-ins now use the shared `PlaceListItem` row style instead of each having their own markup. (`apps/web/src/app/neighborhoods/[slug]/VenuesView.tsx`, `apps/web/src/app/neighborhoods/[slug]/pois/page.tsx`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/profile/[username]/page.tsx`)
+
+### Removed
+
+- **Per-row check-in link on the neighborhood POI list.** Check-in is still available from a POI's own detail page; the list row itself is now just a link to that page, matching the plain-link style of the Venues tab. (`apps/web/src/app/neighborhoods/[slug]/pois/page.tsx`)
+- `CheckInButton.tsx`, now unused — every former caller was migrated to `SlideToCheckIn`. (`apps/web/src/app/venues/[id]/CheckInButton.tsx`)
+
 ## [0.33.0] — 2026-07-09
 
 ### Added

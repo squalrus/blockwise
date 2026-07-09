@@ -48,8 +48,13 @@
   --font-heading: var(--font-baloo);
 }
 
+/* Dark palette applies when the OS prefers dark and the user hasn't
+   explicitly forced light (system default), or when the user has explicitly
+   forced dark regardless of OS preference. See lib/theme.ts -- the
+   data-theme attribute is set on <html> by the pre-hydration script in
+   layout.tsx and by the account-menu theme toggle. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #1c130c;
     --foreground: #f5e8d3;
     --card: #241b15;
@@ -69,6 +74,27 @@
     --brand-purple: #b98af2;
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --background: #1c130c;
+  --foreground: #f5e8d3;
+  --card: #241b15;
+  --card-alt: #2e2118;
+  --border: #4a392a;
+  --muted: #9c8b72;
+  --muted-strong: #c9b8a0;
+  --body-text: #c9b8a0;
+  --nav: #120d0a;
+  --nav-foreground: #f5e8d3;
+  --nav-muted: #9c8b72;
+  --ink: #120d0a;
+  --on-accent: #120d0a;
+  --brand-orange: #ff6b3d;
+  --brand-amber: #ffc65c;
+  --brand-green: #6bbf5e;
+  --brand-purple: #b98af2;
+  color-scheme: dark;
 }
 
 body {
@@ -102,7 +128,11 @@ a {
 }
 
 @media (prefers-color-scheme: dark) {
-  .icon-glow {
+  :root:not([data-theme="light"]) .icon-glow {
     filter: drop-shadow(0 0 6px currentColor);
   }
+}
+
+:root[data-theme="dark"] .icon-glow {
+  filter: drop-shadow(0 0 6px currentColor);
 }

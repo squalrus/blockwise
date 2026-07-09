@@ -75,19 +75,17 @@ export default function AccountSettingsPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <div className="flex items-center gap-3">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Settings</h1>
-        <a href="/account" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+        <h1 className="font-heading text-xl font-extrabold text-foreground">Settings</h1>
+        <a href="/account" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
           Back to account
         </a>
       </div>
 
-      {state.status === "loading" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>
-      )}
+      {state.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
 
       {state.status === "signed_out" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          <a href="/login" className="underline">
+        <p className="text-sm text-muted">
+          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
             Log in
           </a>{" "}
           to manage your account settings.
@@ -100,31 +98,33 @@ export default function AccountSettingsPage() {
 
       {state.status === "ready" && (
         <>
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Account details</h2>
-            <div className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]">
-              <p className="text-black dark:text-zinc-50">{state.user.email ?? state.user.phone ?? "Anonymous account"}</p>
-              <p className="text-zinc-600 dark:text-zinc-400">
+          <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Account details</h2>
+            <div className="rounded-xl bg-card-alt px-4 py-3 text-sm">
+              <p className="font-extrabold text-foreground">
+                {state.user.email ?? state.user.phone ?? "Anonymous account"}
+              </p>
+              <p className="text-muted">
                 {state.user.account_type === "business" ? "Business account" : "Consumer account"}
                 {state.user.is_neighborhood_admin ? " · Neighborhood admin" : ""}
               </p>
-              <p className="text-zinc-600 dark:text-zinc-400">
+              <p className="text-muted">
                 Member since {new Date(state.user.created_at).toLocaleDateString()}
               </p>
             </div>
           </section>
 
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Profile</h2>
+          <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Profile</h2>
             <ProfileForm user={state.user} onSaved={handleProfileSaved} />
           </section>
 
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Neighborhoods</h2>
+          <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Neighborhoods</h2>
             {state.neighborhoods.length === 0 ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-muted">
                 No neighborhoods joined yet -- join one from the{" "}
-                <a href="/" className="underline">
+                <a href="/" className="font-bold text-brand-purple hover:text-brand-orange">
                   home page
                 </a>
                 .
@@ -134,16 +134,16 @@ export default function AccountSettingsPage() {
                 {state.neighborhoods.map((n) => (
                   <li
                     key={n.neighborhood_id}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
+                    className="flex items-center justify-between gap-4 rounded-xl bg-card-alt px-4 py-3 text-sm"
                   >
                     <div>
                       <a
                         href={`/neighborhoods/${n.slug}`}
-                        className="font-medium text-black hover:underline dark:text-zinc-50"
+                        className="font-extrabold text-foreground hover:text-brand-purple"
                       >
                         {n.name}
                       </a>
-                      <p className="text-zinc-600 dark:text-zinc-400">
+                      <p className="text-muted">
                         {n.city}, {n.state}
                         {n.is_primary ? " · Home" : ""}
                       </p>
@@ -151,7 +151,7 @@ export default function AccountSettingsPage() {
                     {!n.is_primary && (
                       <button
                         onClick={() => setHome(n.neighborhood_id)}
-                        className="shrink-0 rounded-md border border-black/[.08] px-3 py-1 text-xs font-medium text-black dark:border-white/[.145] dark:text-zinc-50"
+                        className="shrink-0 rounded-md border border-border px-3 py-1 text-xs font-bold text-foreground hover:bg-card"
                       >
                         Set as home
                       </button>

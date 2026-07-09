@@ -10,11 +10,12 @@ type State =
   | { status: "error"; message: string }
   | { status: "ready"; signedIn: boolean; neighborhoods: NeighborhoodSummary[] };
 
-// Landing page (BACKLOG.md "Neighborhoods on landing page and user
-// profile"): browse every active neighborhood and join/leave in place. A
-// client component (unlike the rest of page.tsx) because join/leave needs
-// the browser-held Supabase session (lib/auth.ts has no server-side
-// counterpart) and per-row pending state for the button.
+// /neighborhoods index (split out from the landing page; BACKLOG.md
+// "Neighborhoods on landing page and user profile"): browse every active
+// neighborhood and join/leave in place. A client component (unlike the rest
+// of page.tsx) because join/leave needs the browser-held Supabase session
+// (lib/auth.ts has no server-side counterpart) and per-row pending state for
+// the button.
 export function NeighborhoodsSection() {
   const [state, setState] = useState<State>({ status: "loading" });
   const [pendingId, setPendingId] = useState<string | null>(null);
