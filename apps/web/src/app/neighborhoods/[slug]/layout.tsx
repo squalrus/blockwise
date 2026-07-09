@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { NeighborhoodProfile, SocialLinks } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
+import { StatCard } from "../../StatCard";
 import { JoinNeighborhoodButton } from "./JoinNeighborhoodButton";
 import { NeighborhoodTabs } from "./NeighborhoodTabs";
 
@@ -58,6 +59,13 @@ export default async function NeighborhoodLayout({
       {neighborhood.description && (
         <p className="text-sm text-zinc-700 dark:text-zinc-300">{neighborhood.description}</p>
       )}
+
+      <div className="flex flex-wrap gap-4">
+        <StatCard value={neighborhood.venue_count} label="Businesses" />
+        <StatCard value={neighborhood.poi_count} label="Points of interest" />
+        <StatCard value={neighborhood.member_count} label="Members" />
+        <StatCard value={neighborhood.checkin_count} label="Check-ins" />
+      </div>
 
       {Object.keys(neighborhood.social_links).length > 0 && (
         <div className="flex flex-wrap gap-4 text-sm">

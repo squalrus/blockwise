@@ -36,6 +36,10 @@ class FakeRepository implements VenueDetailRepository {
     return this.record;
   }
 
+  async countActiveVenuesForNeighborhood(): Promise<number> {
+    return this.record ? 1 : 0;
+  }
+
   async getEnrichmentPhotoReference(): Promise<string | null> {
     return this.record?.enrichment?.photo_url ?? null;
   }

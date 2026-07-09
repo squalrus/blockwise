@@ -48,6 +48,9 @@ export interface PoiLocation {
 export interface PoiRepository {
   createPoiForNeighborhood(input: CreateNeighborhoodPoiInput): Promise<PoiRecord>;
   listPoisForNeighborhood(neighborhoodId: string, search?: string): Promise<PoiRecord[]>;
+  // Neighborhood profile stats (BACKLOG.md Ref 58) -- active-only, unlike
+  // listPoisForNeighborhood which returns every status.
+  countActivePoisForNeighborhood(neighborhoodId: string): Promise<number>;
   getPoiById(poiId: string): Promise<PoiRecord | null>;
   // Backs updatePoiForNeighborhood/deletePoiForNeighborhood's ownership check
   // -- null if the POI doesn't exist, mirroring

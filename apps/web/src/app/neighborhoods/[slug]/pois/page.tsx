@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { CheckInButton } from "../../../venues/[id]/CheckInButton";
@@ -30,7 +31,12 @@ export default async function NeighborhoodPoisPage({
           key={poi.id}
           className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
         >
-          <span className="font-medium text-black dark:text-zinc-50">{poi.name}</span>
+          <Link
+            href={`/pois/${poi.id}`}
+            className="font-medium text-black hover:underline dark:text-zinc-50"
+          >
+            {poi.name}
+          </Link>
           <span className="ml-2 text-zinc-600 dark:text-zinc-400">{poi.type}</span>
           {poi.description && (
             <p className="mt-1 text-zinc-600 dark:text-zinc-400">{poi.description}</p>

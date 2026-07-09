@@ -179,6 +179,14 @@ class FakeCheckinRepository implements CheckinRepository {
   async countCheckinsForVenue(venueId: string): Promise<number> {
     return this.checkins.filter((c) => c.venueId === venueId).length;
   }
+
+  async countCheckinsForPoi(poiId: string): Promise<number> {
+    return this.checkins.filter((c) => c.poiId === poiId).length;
+  }
+
+  async countCheckinsForNeighborhood(): Promise<number> {
+    return this.checkins.length;
+  }
 }
 
 describe("performCheckin", () => {

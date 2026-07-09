@@ -1,4 +1,6 @@
-import type { Poi, VenueStatus } from "@blockwise/types";
+import type { Poi, PoiDetail, VenueStatus } from "@blockwise/types";
+import type { CheckinRepository } from "../checkins/repository";
+import type { NeighborhoodRepository } from "../neighborhoods/repository";
 import type { PoiRecord, PoiRepository, UpdatePoiInput } from "./repository";
 
 function toPoi(record: PoiRecord): Poi {
@@ -74,6 +76,40 @@ export async function getPoiForNeighborhood(
   const record = await repository.getPoiById(poiId);
   if (!record) return { status: "not_found" };
   return { status: "found", poi: toPoi(record) };
+}
+
+export type GetPoiDetailResult = { status: "found"; poi: PoiDetail } | { status: "not_found" };
+
+// Public POI landing page (BACKLOG.md Ref 46) -- unlike
+// getPoiForNeighborhood, this isn't scoped to a caller-supplied
+// neighborhoodId or gated by admin auth; it looks the POI's own
+// neighborhood up instead, purely to carry neighborhood_slug/name for the
+// page's "back to neighborhood" link (mirrors VenueDetail). Hidden POIs
+// 404 here, same as venue's getVenueDetail filtering to status = 'active'.
+export async function getPoiDetail(
+  poiId: string,
+  poiRepository: PoiRepository,
+  neighborhoodRepository: NeighborhoodRepository,
+  checkinRepository: CheckinRepository
+): Promise<GetPoiDetailResult> {
+  const record = await poiRepository.getPoiById(poiId);
+  if (!record || record.status !== "active") return { status: "not_found" };
+
+  const [neighborhood, checkinCount] = await Promise.all([
+    neighborhoodRepository.getNeighborhoodById(record.neighborhoodId),
+    checkinRepository.countCheckinsForPoi(poiId),
+  ]);
+  if (!neighborhood) return { status: "not_found" };
+
+  return {
+    status: "found",
+    poi: {
+      ...toPoi(record),
+      neighborhood_slug: neighborhood.slug,
+      neighborhood_name: neighborhood.name,
+      checkin_count: checkinCount,
+    },
+  };
 }
 
 export type UpdatePoiResult = { status: "updated"; poi: Poi } | { status: "not_found" };

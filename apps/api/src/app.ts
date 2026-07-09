@@ -94,6 +94,7 @@ import {
 import {
   createNeighborhoodPoi,
   deletePoiForNeighborhood,
+  getPoiDetail,
   getPoiForNeighborhood,
   listPoisForNeighborhood,
   updatePoiForNeighborhood,
@@ -396,7 +397,13 @@ export function createApp() {
         return;
       }
 
-      const pois = await listPoisForNeighborhood(neighborhood.id, getPoiRepository());
+      const [pois, venueCount, poiCount, memberCount, checkinCount] = await Promise.all([
+        listPoisForNeighborhood(neighborhood.id, getPoiRepository()),
+        getVenueRepository().countActiveVenuesForNeighborhood(neighborhood.id),
+        getPoiRepository().countActivePoisForNeighborhood(neighborhood.id),
+        getNeighborhoodMemberRepository().countMembersForNeighborhood(neighborhood.id),
+        getCheckinRepository().countCheckinsForNeighborhood(neighborhood.id),
+      ]);
       const profile: NeighborhoodProfile = {
         id: neighborhood.id,
         name: neighborhood.name,
@@ -406,6 +413,10 @@ export function createApp() {
         state: neighborhood.state,
         pois,
         social_links: neighborhood.social_links,
+        venue_count: venueCount,
+        poi_count: poiCount,
+        member_count: memberCount,
+        checkin_count: checkinCount,
       };
       res.json(profile);
     } catch (err) {
@@ -629,6 +640,32 @@ export function createApp() {
     } catch (err) {
       console.error(`POST /venues/${req.params.id}/checkins failed:`, err);
       res.status(500).json({ error: "Failed to check in" });
+    }
+  });
+
+  // POI landing page (BACKLOG.md Ref 46) -- public single-POI fetch,
+  // mirroring GET /venues/:id. Distinct from the neighborhood-admin
+  // GET /neighborhood-admin/neighborhoods/:id/pois/:poiId route, which is
+  // scoped to a caller-supplied neighborhoodId and gated by admin auth.
+  app.get("/pois/:id", async (req, res) => {
+    try {
+      const result = await getPoiDetail(
+        req.params.id,
+        getPoiRepository(),
+        getNeighborhoodRepository(),
+        getCheckinRepository()
+      );
+      switch (result.status) {
+        case "not_found":
+          res.status(404).json({ error: "Point of interest not found" });
+          return;
+        case "found":
+          res.json(result.poi);
+          return;
+      }
+    } catch (err) {
+      console.error(`GET /pois/${req.params.id} failed:`, err);
+      res.status(500).json({ error: "Failed to load point of interest" });
     }
   });
 

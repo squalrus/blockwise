@@ -77,6 +77,10 @@ class FakeNeighborhoodMemberRepository implements NeighborhoodMemberRepository {
       (m) => m.userId === userId && m.neighborhoodId === neighborhoodId
     )!;
   }
+
+  async countMembersForNeighborhood(neighborhoodId: string): Promise<number> {
+    return this.memberships.filter((m) => m.neighborhoodId === neighborhoodId).length;
+  }
 }
 
 function makeRepo() {

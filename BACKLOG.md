@@ -31,10 +31,11 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | 27 |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 45 | [POIs merged into the venue list/map](#pois-merged-into-the-venue-listmap) | improvement | M | M | — |
-| 46 | [POI landing pages](#poi-landing-pages) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 27 | [What's happening now](#whats-happening-now) | feature | M | M | 5 |
 | 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
+| 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
+| 56 | [Locations tab: category filter and hide-hidden-by-default](#locations-tab-category-filter-and-hide-hidden-by-default) | improvement | S | M | — |
 | 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
 
 ### Business & Venue
@@ -83,6 +84,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 51 | [Woodland Park POI missing coordinates](#woodland-park-poi-missing-coordinates) | known issue | S | M | — |
+| 57 | [Category dropdowns: dark-mode option contrast and alphabetization](#category-dropdowns-dark-mode-option-contrast-and-alphabetization) | known issue | S | M | — |
 
 ### Limitations
 
@@ -118,14 +120,6 @@ No open limitations.
 **Why** — Neighborhood-owned POIs (parks, transit, landmarks) currently live in a separate "Points of interest" section, disconnected from the venues map/list where users actually browse and check in — folding them into the same browsable surface (with a distinct marker/card style so a park doesn't read as a business) makes POIs discoverable the same way venues are, and surfaces the POI check-in challenge (BACKLOG.md, shipped v0.22.0) naturally instead of requiring a user to scroll past everything else to find it.
 **Notes:** `GET /neighborhoods/:id/venues` and the map/list components (`VenuesView.tsx`) would need to accept a combined venue+POI list, tagged with a discriminator (`kind: "venue" | "poi"`) the UI uses for distinct styling (icon/color/badge). The neighborhood page's Venues tab (shipped v0.24.1) is the landing spot for this once it exists.
 
-#### POI landing pages
-
-**Ref:** 46
-**Type:** feature
-**Depends:** —
-**Why** — POIs have no detail page today — the check-in button only exists inline in the neighborhood page's POI list. A dedicated page (mirroring `/venues/:id`) gives a POI a shareable URL and a proper home for its description/photo and check-in action, consistent with how venues already work.
-**Notes:** New route `apps/web/src/app/pois/[id]/page.tsx` — a `GET /neighborhood-admin/neighborhoods/:id/pois/:poiId` endpoint already exists (shipped v0.28.0) but there's still no *public* single-POI fetch. POIs already gained a real Google Places data source: Ref 11 (v0.27.0) added `google_place_id`/`address` for the "convert venue to POI" action, and Ref 29's bulk Places review (v0.28.0/v0.29.0) lets an admin classify a fresh Places candidate directly as a POI (`apps/api/src/locations/review.ts`) — this detail page can rely on `address` being present for any Places-sourced POI the same way `/venues/:id` does.
-
 #### Neighborhood notifications
 
 **Ref:** 9
@@ -149,6 +143,22 @@ No open limitations.
 **Depends:** —
 **Why** — The neighborhood management interface (admin dashboard, map-based POI curation, boundary drawing) is functional but text-heavy and utilitarian. A more playful, visual "SimCity" aesthetic (colorful neighborhoods as zoned regions, venues as draggable/filterable objects, pixel-art or stylized map) would make the admin experience more engaging and reinforce the neighborhood-as-a-place concept for users browsing from the landing page.
 **Notes:** Primarily a design/CSS/component refactor; no schema or API changes. Could include custom map styling (already supported by Mapbox), themed icons/colors per category, card-based layout with visual hierarchy, interactive dragging/filtering. Likely pairs well with the Locations tab's Places review/curation UI (shipped v0.28.0/v0.29.0). Scope: from polish (tweaks to existing components) to full redesign (new neighborhood detail cards, animated transitions, etc.) — worth scoping early with the user.
+
+#### Bulk removals: check all / uncheck all toggle
+
+**Ref:** 55
+**Type:** improvement
+**Depends:** —
+**Why** — The Locations review wizard's Removals step (shipped v0.29.0) surfaces every active venue/POI that falls outside a redrawn boundary as a checklist for admin approval. For neighborhoods with many removals, manually checking/unchecking each one is tedious — a "Select all / Clear all" button pair would speed up the workflow when an admin wants to approve or skip the entire removal batch.
+**Notes:** Add a button pair at the top of the removals list (or inline with the count summary) that toggles all checkboxes in that step. Already using `approvedRemovals` state (`Set<string>` of removal keys) in `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/review/page.tsx`, so the UI change is just two buttons + a `setApprovedRemovals` call to either copy the full removal list or clear it. No API/schema changes.
+
+#### Locations tab: category filter and hide-hidden-by-default
+
+**Ref:** 56
+**Type:** improvement
+**Depends:** —
+**Why** — The Locations tab (shipped v0.28.0) only filters by kind (All/Businesses/POIs/Hidden) — there's no way to filter by category, and the default "All" view mixes active and hidden rows together. For a neighborhood with a lot of venues, an admin scanning for a specific category has to read every row, and hidden rows (already-omitted businesses, already-hidden POIs) clutter a view an admin usually wants to be active-only.
+**Notes:** Two independent additions to `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`'s client-side filtering (no API/schema changes needed — `LocationListItem` already carries `category_id`/`category_or_type` and `status`): (1) a category dropdown (reusing the same `categories` list already fetched for the reassign-category action) that filters the merged list by `category_id`; (2) default the "All" chip to excluding `status === "hidden"` rows, with the existing "Hidden" chip remaining the way to see them. Open question: should the category filter also apply to POI rows via their free-text `type` field, or stay business-only since POIs don't use the category taxonomy?
 
 #### Venues tab: default to map view
 
@@ -381,3 +391,11 @@ No open limitations.
 **Depends:** —
 **Why** — The seeded "Woodland Park" POI (Phinneywood) has `lat`/`lng` = `null`. It predates the v0.22.0 migration that added location columns to `poi` — the row was created manually before POI had coordinates at all, and the seed migration's `where not exists` dedup guard correctly found it already there and skipped re-inserting it, so it never got backfilled with real coordinates. `POST /pois/:id/checkins` requires a non-null `lat`/`lng` to resolve the check-in target, so checking in to Woodland Park currently 404s — meaning the seeded "Explore Woodland Park" challenge is permanently uncompletable as-is.
 **Notes:** One-row `UPDATE poi SET lat = ..., lng = ... WHERE name = 'Woodland Park'` (e.g. to the neighborhood's center point, same value the seed migration would have used). Related to but distinct from "Backfill points for existing check-ins/favorites" (Ref 49, shipped v0.24.0) — that was missing `point_event` rows, this is a missing location on one `poi` row.
+
+#### Category dropdowns: dark-mode option contrast and alphabetization
+
+**Ref:** 57
+**Type:** known issue
+**Depends:** —
+**Why** — The category `<select>` dropdowns (venue category reassignment in the Locations tab, and the business classification picker in the Locations review wizard, shipped v0.28.0/v0.29.0) use `dark:bg-transparent` on the `<select>` element with plain, unstyled `<option>` children. In dark mode, the browser falls back to OS-native popup styling for the option list instead of inheriting the page's dark background, which on several platforms renders dark text on a dark background — the options are effectively invisible until the user mouses over one. Separately, the dropdown lists categories sorted by the leaf category's bare `name` (`category.supabaseRepository.ts`'s `.order("name")`), but the label actually shown is `"{group_name} / {name}"` — so the on-screen order doesn't read as alphabetical once categories from different groups interleave.
+**Notes:** Contrast fix: give the `<select>` (and/or `<option>` elements) an explicit solid background color for dark mode (e.g. `dark:bg-zinc-900`) instead of `dark:bg-transparent`, so native option-list rendering has a real color to inherit rather than falling back to system defaults. Alphabetization fix: sort client-side (or server-side in `listAssignableCategories`/`toCategoryOption`) by the same composed label the UI displays (`group_name` then `name`), not just the bare leaf `name`. Affects `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx` and `.../locations/review/page.tsx`, both of which build their category `<option>` list from the same `GET /admin/categories` response.

@@ -40,6 +40,11 @@ class FakePoiRepository implements PoiRepository {
     return inNeighborhood.filter((p) => p.name.toLowerCase().includes(needle));
   }
 
+  async countActivePoisForNeighborhood(neighborhoodId: string): Promise<number> {
+    return this.pois.filter((p) => p.neighborhoodId === neighborhoodId && p.status === "active")
+      .length;
+  }
+
   async getPoiById(poiId: string): Promise<PoiRecord | null> {
     return this.pois.find((p) => p.id === poiId) ?? null;
   }
