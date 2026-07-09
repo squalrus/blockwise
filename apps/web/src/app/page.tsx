@@ -1,22 +1,9 @@
-import type { HealthCheckResponse } from "@blockwise/types";
-import { apiUrl } from "@/lib/api";
-import { NeighborhoodsSection } from "./NeighborhoodsSection";
-
-const HEALTH_URL = apiUrl("/health");
-
-async function getApiHealth(): Promise<HealthCheckResponse | null> {
-  try {
-    const res = await fetch(HEALTH_URL, { cache: "no-store" });
-    if (!res.ok) return null;
-    return (await res.json()) as HealthCheckResponse;
-  } catch {
-    return null;
-  }
-}
-
-export default async function Home() {
-  const apiHealth = await getApiHealth();
-
+// Landing page stub -- split out from what used to combine this hero with
+// the full neighborhoods list and an API health check (BACKLOG.md
+// "Neighborhoods on landing page and user profile"). Neighborhood browsing
+// now lives at /neighborhoods; this page is a placeholder pending a real
+// homepage design.
+export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center gap-6 bg-background p-4 font-sans sm:p-16">
       <h1 className="font-heading text-3xl font-extrabold tracking-tight text-foreground">Spored</h1>
@@ -29,20 +16,12 @@ export default async function Home() {
         </p>
       </div>
 
-      <NeighborhoodsSection />
-
-      <div className="rounded-2xl bg-card-alt px-6 py-4 text-sm">
-        <p className="text-muted">apps/api health check</p>
-        {apiHealth ? (
-          <p className="mt-1 font-bold text-brand-green">
-            {apiHealth.status} — {apiHealth.service} @ {apiHealth.timestamp}
-          </p>
-        ) : (
-          <p className="mt-1 font-bold text-brand-orange">
-            unreachable at {HEALTH_URL} (start apps/api with `npm run dev`)
-          </p>
-        )}
-      </div>
+      <a
+        href="/neighborhoods"
+        className="rounded-full bg-brand-purple px-5 py-2.5 text-sm font-extrabold text-on-accent hover:bg-brand-orange"
+      >
+        Browse neighborhoods
+      </a>
     </div>
   );
 }

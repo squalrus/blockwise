@@ -1,20 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import type { VenueListItem } from "@blockwise/types";
 import { getCurrentPosition } from "@/lib/geolocation";
 import { sortByDistance, type LatLng } from "@/lib/geo";
-import { MushroomLogo } from "../../MushroomLogo";
 import { MapView } from "./MapView";
-
-const PIN_COLORS = ["var(--brand-orange)", "var(--brand-green)", "var(--brand-purple)", "var(--brand-amber)"];
-
-function pinColorFor(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  return PIN_COLORS[Math.abs(hash) % PIN_COLORS.length];
-}
+import { PlaceListItem } from "../../PlaceListItem";
 
 type SortMode = "alpha" | "nearest";
 type LocationState =
@@ -107,16 +98,12 @@ export function VenuesView({ venues }: { venues: VenueListItem[] }) {
         <ul className="flex flex-col gap-2">
           {sortedVenues.map((venue) => (
             <li key={venue.id}>
-              <Link
+              <PlaceListItem
                 href={`/venues/${venue.id}`}
-                className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3 text-sm"
-              >
-                <MushroomLogo size={18} capColor={pinColorFor(venue.id)} />
-                <span className="font-extrabold text-foreground">{venue.name}</span>
-                <span className="text-muted">
-                  {venue.category_name ?? "Uncategorized"} · {venue.address}
-                </span>
-              </Link>
+                id={venue.id}
+                name={venue.name}
+                subtitle={venue.category_name ?? "Uncategorized"}
+              />
             </li>
           ))}
         </ul>

@@ -4,6 +4,7 @@ import type { PublicUserProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { Avatar } from "../../Avatar";
 import { BadgeIcon } from "../../BadgeIcon";
+import { PlaceListItem } from "../../PlaceListItem";
 
 async function getProfile(username: string): Promise<PublicUserProfile | null> {
   const res = await fetch(apiUrl(`/users/${username}`), { cache: "no-store" });
@@ -98,19 +99,13 @@ export default async function PublicProfilePage({
         ) : (
           <ul className="mt-2 flex flex-col gap-2">
             {profile.recent_checkins.map((checkin, index) => (
-              <li
-                key={`${checkin.venue_id}-${checkin.checked_in_at}-${index}`}
-                className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-              >
-                <Link
+              <li key={`${checkin.venue_id}-${checkin.checked_in_at}-${index}`}>
+                <PlaceListItem
                   href={`/venues/${checkin.venue_id}`}
-                  className="font-medium text-black hover:underline dark:text-zinc-50"
-                >
-                  {checkin.name}
-                </Link>
-                <p className="text-zinc-600 dark:text-zinc-400">
-                  {new Date(checkin.checked_in_at).toLocaleString()}
-                </p>
+                  id={checkin.venue_id}
+                  name={checkin.name}
+                  subtitle={new Date(checkin.checked_in_at).toLocaleString()}
+                />
               </li>
             ))}
           </ul>

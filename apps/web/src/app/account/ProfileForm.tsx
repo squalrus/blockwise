@@ -57,42 +57,36 @@ export function ProfileForm({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-3 rounded-lg border border-black/[.08] px-6 py-4 dark:border-white/[.145]"
-    >
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl bg-card-alt px-6 py-4">
       <div className="flex items-center gap-3">
         <Avatar avatarUrl={user.avatar_url} label={user.display_name ?? user.username ?? "?"} size={48} />
         {user.visibility === "public" && user.username && (
-          <a
-            href={`/profile/${user.username}`}
-            className="text-sm text-zinc-600 underline hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
-          >
+          <a href={`/profile/${user.username}`} className="text-sm font-bold text-brand-purple hover:text-brand-orange">
             View public profile
           </a>
         )}
       </div>
-      <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+      <label className="flex flex-col gap-1 text-sm text-muted">
         Display name
         <input
           name="display_name"
           type="text"
           defaultValue={user.display_name ?? ""}
           placeholder="How other users will see you"
-          className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-transparent dark:text-zinc-50"
+          className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+      <label className="flex flex-col gap-1 text-sm text-muted">
         Avatar URL
         <input
           name="avatar_url"
           type="url"
           defaultValue={user.avatar_url ?? ""}
           placeholder="https://..."
-          className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-transparent dark:text-zinc-50"
+          className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+      <label className="flex flex-col gap-1 text-sm text-muted">
         Username
         <input
           name="username"
@@ -100,13 +94,13 @@ export function ProfileForm({
           defaultValue={user.username ?? ""}
           placeholder="lowercase letters, numbers, _ or -"
           pattern="[a-z0-9_-]{3,30}"
-          className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-transparent dark:text-zinc-50"
+          className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
-        <span className="text-xs text-zinc-500 dark:text-zinc-500">
+        <span className="text-xs text-muted">
           Required to make your profile reachable at /profile/:username once public.
         </span>
       </label>
-      <fieldset className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+      <fieldset className="flex flex-col gap-1 text-sm text-muted">
         Profile visibility
         <label className="flex items-center gap-2">
           <input type="radio" name="visibility" value="private" defaultChecked={user.visibility === "private"} />
@@ -120,7 +114,7 @@ export function ProfileForm({
       <button
         type="submit"
         disabled={status.state === "submitting"}
-        className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
       >
         {status.state === "submitting" ? "Saving…" : "Save profile"}
       </button>

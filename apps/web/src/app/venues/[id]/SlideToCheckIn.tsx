@@ -8,10 +8,9 @@ const THUMB_SIZE = 40;
 const TRACK_INSET = 6;
 const COMPLETE_THRESHOLD = 0.7;
 
-// Full-interaction-fidelity take on the mockup's drag-to-check-in gesture
-// (rather than a plain button): drag the thumb across the track and release
-// past 70% to trigger the same GPS check-in useCheckIn's plain button also
-// calls, or it springs back.
+// Full-interaction-fidelity take on the mockup's drag-to-check-in gesture:
+// drag the thumb across the track and release past 70% to trigger the GPS
+// check-in, or it springs back.
 export function SlideToCheckIn({ target }: { target: CheckinTarget }) {
   const { status, checkIn } = useCheckIn(target);
   const trackRef = useRef<HTMLDivElement | null>(null);

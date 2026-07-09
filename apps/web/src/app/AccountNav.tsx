@@ -1,18 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomLogo } from "./MushroomLogo";
+import { ThemeToggle } from "./ThemeToggle";
 
 type State =
   | { status: "loading" }
   | { status: "signed_out" }
   | { status: "signed_in"; user: AppUser; homeNeighborhood: NeighborhoodMembership | null };
 
+function HamburgerIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      {open ? (
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      ) : (
+        <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      )}
+    </svg>
+  );
+}
+
 export function AccountNav() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,55 +60,116 @@ export function AccountNav() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    function handlePointerDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMenuOpen]);
+
   async function handleLogOut() {
     await logOut();
     setState({ status: "signed_out" });
+    setIsMenuOpen(false);
   }
 
   return (
-    <nav className="flex items-center gap-4 bg-nav px-6 py-3 text-sm">
+    <nav className="relative flex items-center gap-4 bg-nav px-6 py-3 text-sm">
       <a href="/" className="flex items-center gap-2 font-heading font-extrabold text-nav-foreground">
         <MushroomLogo size={22} capColor="var(--brand-amber)" stemClassName="text-nav-foreground" />
         Spored
       </a>
-      <div className="ml-auto flex items-center gap-4">
-        {state.status === "signed_in" && state.homeNeighborhood && (
-          <a
-            href={`/neighborhoods/${state.homeNeighborhood.slug}`}
-            className="text-nav-muted hover:text-nav-foreground"
-          >
-            {state.homeNeighborhood.name}
-          </a>
-        )}
-        {state.status === "signed_in" && (
-          <a href="/account" className="text-nav-muted hover:text-nav-foreground">
-            My account
-          </a>
-        )}
-        {state.status === "signed_in" && state.user.account_type === "business" && (
-          <a href="/business" className="text-nav-muted hover:text-nav-foreground">
-            Business portal
-          </a>
-        )}
-        {state.status === "signed_in" && state.user.is_neighborhood_admin && (
-          <a href="/neighborhood-admin" className="text-nav-muted hover:text-nav-foreground">
-            Neighborhood admin
-          </a>
-        )}
-        {state.status === "signed_in" && (
-          <button onClick={handleLogOut} className="text-nav-muted hover:text-nav-foreground">
-            Log out
-          </button>
-        )}
-        {state.status === "signed_out" && (
-          <>
-            <a href="/login" className="text-nav-muted hover:text-nav-foreground">
-              Log in
-            </a>
-            <a href="/signup" className="text-nav-muted hover:text-nav-foreground">
-              Sign up
-            </a>
-          </>
+
+      <div className="ml-auto" ref={menuRef}>
+        <button
+          type="button"
+          onClick={() => setIsMenuOpen((open) => !open)}
+          aria-expanded={isMenuOpen}
+          aria-label="Menu"
+          className="flex items-center justify-center rounded-md p-1 text-nav-foreground hover:text-nav-muted"
+        >
+          <HamburgerIcon open={isMenuOpen} />
+        </button>
+
+        {isMenuOpen && (
+          <div className="absolute right-6 top-full z-10 mt-2 w-56 rounded-lg border border-border bg-card py-2 text-foreground shadow-lg">
+            {state.status === "signed_in" && state.homeNeighborhood && (
+              <a
+                href={`/neighborhoods/${state.homeNeighborhood.slug}`}
+                onClick={() => setIsMenuOpen(false)}
+                className="block px-4 py-2 hover:bg-card-alt"
+              >
+                {state.homeNeighborhood.name}
+              </a>
+            )}
+            {state.status === "signed_in" && (
+              <a href="/account" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
+                My account
+              </a>
+            )}
+            {state.status === "signed_in" && (
+              <a
+                href="/account/settings"
+                onClick={() => setIsMenuOpen(false)}
+                className="block px-4 py-2 hover:bg-card-alt"
+              >
+                Account settings
+              </a>
+            )}
+            {state.status === "signed_in" && state.user.account_type === "business" && (
+              <a href="/business" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
+                Business portal
+              </a>
+            )}
+            {state.status === "signed_in" && state.user.is_neighborhood_admin && (
+              <a
+                href="/neighborhood-admin"
+                onClick={() => setIsMenuOpen(false)}
+                className="block px-4 py-2 hover:bg-card-alt"
+              >
+                Neighborhood admin
+              </a>
+            )}
+            {state.status === "signed_out" && (
+              <>
+                <a href="/login" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
+                  Log in
+                </a>
+                <a href="/signup" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
+                  Sign up
+                </a>
+              </>
+            )}
+
+            <div className="my-2 border-t border-border" />
+
+            <div className="flex items-center justify-between gap-3 px-4 py-1.5">
+              <span className="text-xs font-extrabold tracking-wide text-muted uppercase">Theme</span>
+              <ThemeToggle />
+            </div>
+
+            {state.status === "signed_in" && (
+              <>
+                <div className="my-2 border-t border-border" />
+                <button onClick={handleLogOut} className="block w-full px-4 py-2 text-left hover:bg-card-alt">
+                  Log out
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
     </nav>

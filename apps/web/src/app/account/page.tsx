@@ -11,6 +11,7 @@ import type {
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { BadgeIcon } from "../BadgeIcon";
+import { PlaceListItem } from "../PlaceListItem";
 import { NearestVenues } from "./NearestVenues";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
 
@@ -157,14 +158,13 @@ export default function AccountPage() {
             ) : (
               <ul className="flex flex-col gap-2">
                 {state.favorites.map((venue) => (
-                  <li key={venue.venue_id} className="rounded-xl bg-card-alt px-4 py-3 text-sm">
-                    <a
+                  <li key={venue.venue_id}>
+                    <PlaceListItem
                       href={`/venues/${venue.venue_id}`}
-                      className="font-extrabold text-foreground hover:text-brand-purple"
-                    >
-                      {venue.name}
-                    </a>
-                    <p className="text-muted">{venue.address}</p>
+                      id={venue.venue_id}
+                      name={venue.name}
+                      subtitle={venue.address}
+                    />
                   </li>
                 ))}
               </ul>

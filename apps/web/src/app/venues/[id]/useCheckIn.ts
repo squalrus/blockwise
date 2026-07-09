@@ -15,9 +15,9 @@ export type CheckinStatus =
   | { state: "cooldown"; retryAt: string; scope: "target" | "global" }
   | { state: "error"; message: string };
 
-// Extracted from CheckInButton so the same GPS geofence/cooldown network
-// logic can back two different visuals: the plain button (NearestVenues rows)
-// and the slide-to-check-in control (venue detail page).
+// GPS geofence/cooldown network logic shared by every slide-to-check-in
+// control (venue detail page, POI detail page, and the account page's
+// nearest-venue row).
 export function useCheckIn(target: CheckinTarget) {
   const [status, setStatus] = useState<CheckinStatus>({ state: "idle" });
 
