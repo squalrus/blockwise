@@ -106,17 +106,40 @@ export interface PoiDetail extends Poi {
 
 export type EnrichmentSource = "google";
 
+export interface EnrichmentReview {
+  rating: number | null;
+  text: string | null;
+  author_name: string | null;
+}
+
+export interface EnrichmentAtmosphere {
+  delivery: boolean | null;
+  dine_in: boolean | null;
+  takeout: boolean | null;
+  outdoor_seating: boolean | null;
+  good_for_children: boolean | null;
+  reservable: boolean | null;
+}
+
 export interface VenueEnrichmentCache {
   venue_id: string;
   source: EnrichmentSource;
   rating: number | null;
-  review_snippet: string | null;
+  reviews: EnrichmentReview[];
   price_tier: string | null;
-  // A Google Places API (New) photo *reference* (e.g. "places/.../photos/..."),
-  // not a fetchable URL -- turning it into one requires the API key, which
-  // must stay server-side. Serve it via apps/api's GET /venues/:id/photo
-  // proxy rather than embedding this value directly in client-rendered HTML.
-  photo_url: string | null;
+  // Google Places API (New) photo *references* (e.g. "places/.../photos/..."),
+  // not fetchable URLs -- turning one into a URL requires the API key, which
+  // must stay server-side. Serve them via apps/api's GET /venues/:id/photo
+  // proxy (?index=) rather than embedding these values directly in
+  // client-rendered HTML.
+  photo_refs: string[];
+  phone: string | null;
+  website: string | null;
+  // Human-readable weekday hours (Google's `regularOpeningHours.weekdayDescriptions`),
+  // e.g. ["Monday: 9:00 AM – 5:00 PM", ...] -- avoids parsing raw period data.
+  hours: string[] | null;
+  editorial_summary: string | null;
+  atmosphere: EnrichmentAtmosphere | null;
   fetched_at: string;
 }
 

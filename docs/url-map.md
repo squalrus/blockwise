@@ -87,7 +87,7 @@ Auth gates:
 
 /venues/:id
 ├── (root)                                            GET — public — detail + enrichment cache
-├── photo                                              GET — public
+├── photo                                              GET — public — ?index= selects among cached photos (default 0)
 ├── announcements                                       GET — public
 ├── events                                              GET — public
 ├── claims                                              POST — public (optional auth attaches claimed_by_user_id)

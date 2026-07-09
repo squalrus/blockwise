@@ -40,8 +40,8 @@ class FakeRepository implements VenueDetailRepository {
     return this.record ? 1 : 0;
   }
 
-  async getEnrichmentPhotoReference(): Promise<string | null> {
-    return this.record?.enrichment?.photo_url ?? null;
+  async getEnrichmentPhotoReference(_venueId: string, index: number): Promise<string | null> {
+    return this.record?.enrichment?.photo_refs[index] ?? null;
   }
 
   async upsertEnrichment(input: UpsertEnrichmentInput): Promise<VenueEnrichmentCache> {
@@ -50,9 +50,14 @@ class FakeRepository implements VenueDetailRepository {
       venue_id: input.venueId,
       source: input.source,
       rating: input.rating,
-      review_snippet: input.reviewSnippet,
+      reviews: input.reviews,
       price_tier: input.priceTier,
-      photo_url: input.photoUrl,
+      photo_refs: input.photoRefs,
+      phone: input.phone,
+      website: input.website,
+      hours: input.hours,
+      editorial_summary: input.editorialSummary,
+      atmosphere: input.atmosphere,
       fetched_at: new Date().toISOString(),
     };
     if (this.record) this.record = { ...this.record, enrichment: row };
@@ -66,8 +71,20 @@ class FakePlacesClient implements PlaceDetailsClient {
     id: "google-place-1",
     rating: 4.6,
     priceLevel: "PRICE_LEVEL_MODERATE",
-    reviews: [{ text: { text: "Great espresso." } }],
-    photos: [{ name: "places/google-place-1/photos/1" }],
+    reviews: [
+      { rating: 5, text: { text: "Great espresso." }, authorAttribution: { displayName: "Ava" } },
+    ],
+    photos: [{ name: "places/google-place-1/photos/1" }, { name: "places/google-place-1/photos/2" }],
+    nationalPhoneNumber: "(206) 555-0100",
+    websiteUri: "https://example.com",
+    regularOpeningHours: { weekdayDescriptions: ["Monday: 7:00 AM – 5:00 PM"] },
+    editorialSummary: { text: "Cozy neighborhood coffee shop." },
+    delivery: false,
+    dineIn: true,
+    takeout: true,
+    outdoorSeating: true,
+    goodForChildren: true,
+    reservable: false,
   };
 
   async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
@@ -115,8 +132,20 @@ describe("getVenueDetailWithFreshEnrichment", () => {
     expect(result?.enrichment).toMatchObject({
       rating: 4.6,
       price_tier: "PRICE_LEVEL_MODERATE",
-      review_snippet: "Great espresso.",
-      photo_url: "places/google-place-1/photos/1",
+      reviews: [{ rating: 5, text: "Great espresso.", author_name: "Ava" }],
+      photo_refs: ["places/google-place-1/photos/1", "places/google-place-1/photos/2"],
+      phone: "(206) 555-0100",
+      website: "https://example.com",
+      hours: ["Monday: 7:00 AM – 5:00 PM"],
+      editorial_summary: "Cozy neighborhood coffee shop.",
+      atmosphere: {
+        delivery: false,
+        dine_in: true,
+        takeout: true,
+        outdoor_seating: true,
+        good_for_children: true,
+        reservable: false,
+      },
     });
   });
 
@@ -125,9 +154,14 @@ describe("getVenueDetailWithFreshEnrichment", () => {
       venue_id: "venue-1",
       source: "google",
       rating: 4.5,
-      review_snippet: "Still good.",
+      reviews: [{ rating: 5, text: "Still good.", author_name: "Ava" }],
       price_tier: "PRICE_LEVEL_MODERATE",
-      photo_url: "https://example.com/old-photo",
+      photo_refs: ["https://example.com/old-photo"],
+      phone: "(206) 555-0100",
+      website: "https://example.com",
+      hours: ["Monday: 7:00 AM – 5:00 PM"],
+      editorial_summary: "Cozy neighborhood coffee shop.",
+      atmosphere: null,
       fetched_at: new Date().toISOString(),
     };
     const repository = new FakeRepository({ ...BASE_RECORD, enrichment: fresh });
@@ -145,9 +179,14 @@ describe("getVenueDetailWithFreshEnrichment", () => {
       venue_id: "venue-1",
       source: "google",
       rating: 4.0,
-      review_snippet: "Old review.",
+      reviews: [{ rating: 4, text: "Old review.", author_name: "Sam" }],
       price_tier: "PRICE_LEVEL_MODERATE",
-      photo_url: "https://example.com/old-photo",
+      photo_refs: ["https://example.com/old-photo"],
+      phone: null,
+      website: null,
+      hours: null,
+      editorial_summary: null,
+      atmosphere: null,
       fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
     };
     const repository = new FakeRepository({ ...BASE_RECORD, enrichment: stale });
@@ -174,9 +213,14 @@ describe("getVenueDetailWithFreshEnrichment", () => {
       venue_id: "venue-1",
       source: "google",
       rating: 4.0,
-      review_snippet: "Old review.",
+      reviews: [{ rating: 4, text: "Old review.", author_name: "Sam" }],
       price_tier: "PRICE_LEVEL_MODERATE",
-      photo_url: "https://example.com/old-photo",
+      photo_refs: ["https://example.com/old-photo"],
+      phone: null,
+      website: null,
+      hours: null,
+      editorial_summary: null,
+      atmosphere: null,
       fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
     };
     const repository = new FakeRepository({ ...BASE_RECORD, enrichment: stale });

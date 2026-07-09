@@ -88,7 +88,9 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
     ] = await Promise.all([
       this.supabase
         .from("venue_enrichment_cache")
-        .select("venue_id, source, rating, review_snippet, price_tier, photo_url, fetched_at")
+        .select(
+          "venue_id, source, rating, reviews, price_tier, photo_refs, phone, website, hours, editorial_summary, atmosphere, fetched_at"
+        )
         .eq("venue_id", venueId)
         .eq("source", "google")
         .maybeSingle(),
@@ -128,29 +130,36 @@ export class SupabaseVenueDetailRepository implements VenueDetailRepository {
           venue_id: input.venueId,
           source: input.source,
           rating: input.rating,
-          review_snippet: input.reviewSnippet,
+          reviews: input.reviews,
           price_tier: input.priceTier,
-          photo_url: input.photoUrl,
+          photo_refs: input.photoRefs,
+          phone: input.phone,
+          website: input.website,
+          hours: input.hours,
+          editorial_summary: input.editorialSummary,
+          atmosphere: input.atmosphere,
           fetched_at: new Date().toISOString(),
         },
         { onConflict: "venue_id,source" }
       )
-      .select("venue_id, source, rating, review_snippet, price_tier, photo_url, fetched_at")
+      .select(
+        "venue_id, source, rating, reviews, price_tier, photo_refs, phone, website, hours, editorial_summary, atmosphere, fetched_at"
+      )
       .single();
 
     if (error) throw new Error(`upsertEnrichment failed: ${error.message}`);
     return data as VenueEnrichmentCache;
   }
 
-  async getEnrichmentPhotoReference(venueId: string): Promise<string | null> {
+  async getEnrichmentPhotoReference(venueId: string, index: number): Promise<string | null> {
     const { data, error } = await this.supabase
       .from("venue_enrichment_cache")
-      .select("photo_url")
+      .select("photo_refs")
       .eq("venue_id", venueId)
       .eq("source", "google")
       .maybeSingle();
 
     if (error) throw new Error(`getEnrichmentPhotoReference failed: ${error.message}`);
-    return data?.photo_url ?? null;
+    return (data?.photo_refs as string[] | undefined)?.[index] ?? null;
   }
 }
