@@ -70,6 +70,12 @@ export interface AuthRepository {
     anonymousUserId: string,
     deviceId: string
   ): Promise<AppUserRecord>;
+  // Stamps deviceId onto an already-authenticated account that has nothing
+  // to merge (first time this device has ever been seen) -- without this,
+  // a device that logs into an account before ever checking in on it stays
+  // unlinked, and every check-in it makes afterward silently forks into a
+  // brand-new anonymous app_user instead of attributing to the account.
+  linkDevice(userId: string, deviceId: string): Promise<AppUserRecord>;
   // Flips an existing account's account_type in place -- same row, same
   // identity, no new signup. Used to let a consumer account become a
   // business account (e.g. after claiming a venue) without creating a

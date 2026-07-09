@@ -78,8 +78,9 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   async completeSignup(input: CompleteSignupInput): Promise<AppUserRecord> {
+    let deviceUser: AppUserRecord | null = null;
     if (input.anonymousDeviceId) {
-      const deviceUser = await this.getByAnonymousDeviceId(input.anonymousDeviceId);
+      deviceUser = await this.getByAnonymousDeviceId(input.anonymousDeviceId);
       // Only convert the device's row in place if it's still anonymous --
       // if it's already tied to a different auth user (e.g. a shared or
       // reset device), fall through and create a fresh row rather than
@@ -115,6 +116,12 @@ export class SupabaseAuthRepository implements AuthRepository {
         email: input.email,
         phone: input.phone,
         avatar_url: input.avatarUrl,
+        // Claim this device id on the fresh row only if it isn't already
+        // owned by a different account -- otherwise this device's future
+        // check-ins would have nothing to look it up by and would silently
+        // fork into yet another anonymous app_user (same bug linkDevice/
+        // completeLogin above exists to close).
+        anonymous_device_id: deviceUser ? null : input.anonymousDeviceId,
       })
       .select(USER_COLUMNS)
       .single();
@@ -152,6 +159,18 @@ export class SupabaseAuthRepository implements AuthRepository {
       .single();
 
     if (error) throw new Error(`mergeAnonymousHistory (reload) failed: ${error.message}`);
+    return toRecord(data);
+  }
+
+  async linkDevice(userId: string, deviceId: string): Promise<AppUserRecord> {
+    const { data, error } = await this.supabase
+      .from("app_user")
+      .update({ anonymous_device_id: deviceId })
+      .eq("id", userId)
+      .select(USER_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`linkDevice failed: ${error.message}`);
     return toRecord(data);
   }
 

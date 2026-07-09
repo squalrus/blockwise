@@ -68,7 +68,7 @@ class FakeAuthRepository implements AuthRepository {
       authProvider: input.authProvider,
       email: input.email,
       phone: input.phone,
-      anonymousDeviceId: null,
+      anonymousDeviceId: deviceUser ? null : input.anonymousDeviceId,
       displayName: null,
       avatarUrl: input.avatarUrl,
       username: null,
@@ -77,6 +77,12 @@ class FakeAuthRepository implements AuthRepository {
     };
     this.users.push(created);
     return created;
+  }
+
+  async linkDevice(userId: string, deviceId: string): Promise<AppUserRecord> {
+    const user = this.users.find((u) => u.id === userId)!;
+    user.anonymousDeviceId = deviceId;
+    return user;
   }
 
   async mergeAnonymousHistory(
@@ -322,12 +328,28 @@ describe("completeLogin", () => {
     expect(repo.users).toHaveLength(1);
   });
 
-  it("does not merge when the device has no anonymous history at all", async () => {
+  it("links a device with no anonymous history at all, so future check-ins from it attribute to the account", async () => {
     const repo = new FakeAuthRepository();
     const account = await completeSignup(VERIFIED, "consumer", null, repo);
 
     const result = await completeLogin(VERIFIED, "device-never-seen", repo);
     expect(result.status).toBe("ok");
-    if (result.status === "ok") expect(result.user.id).toBe(account.id);
+    if (result.status === "ok") {
+      expect(result.user.id).toBe(account.id);
+      expect(result.user.anonymousDeviceId).toBe("device-never-seen");
+    }
+    expect(repo.users).toHaveLength(1);
+  });
+
+  it("does not steal a device already linked to a different authenticated account", async () => {
+    const repo = new FakeAuthRepository();
+    const otherVerified: VerifiedAuthUser = { ...VERIFIED, authUserId: "auth-other" };
+    const other = await completeSignup(otherVerified, "consumer", "device-1", repo);
+    await completeSignup(VERIFIED, "consumer", null, repo);
+
+    const result = await completeLogin(VERIFIED, "device-1", repo);
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") expect(result.user.id).not.toBe(other.id);
+    expect(other.anonymousDeviceId).toBe("device-1");
   });
 });
