@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.32.0] — 2026-07-08
+
+### Fixed
+
+- **Check-ins from a device logged into an account for the first time never counted toward that account.** `anonymous_device_id` only got linked to an account when the device already had prior anonymous check-in/favorite history to merge (`completeLogin`) or a matching anonymous row already existed (`completeSignup`) — a device with no history at all (e.g. a second device, like a phone, logged into an existing account before ever checking in on it) was left unlinked. Every check-in made from it afterward looked up that same still-unclaimed device id, found no account, and silently created a brand-new anonymous `app_user` instead — so the check-in and its points never showed up on the real account, even though the underlying `checkin` row existed and still counted toward venue/neighborhood totals. Login and signup now link the current device to the account even when there's no history to merge. Existing check-ins already stranded under a phantom anonymous user recover automatically the next time that device logs out and back in (the merge path itself already migrates them correctly). (`apps/api/src/auth/auth.ts`, `apps/api/src/auth/repository.ts`, `apps/api/src/auth/supabaseRepository.ts`)
+
 ## [0.31.0] — 2026-07-08
 
 ### Added
