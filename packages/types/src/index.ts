@@ -393,6 +393,7 @@ export interface PublicUserProfile {
   joined_at: string;
   neighborhoods: NeighborhoodMembership[];
   recent_checkins: CheckinHistoryItem[];
+  badges: UserBadge[];
 }
 
 export interface NeighborhoodSummary {
@@ -690,6 +691,14 @@ export interface Badge {
   name: string;
   description: string | null;
   icon: string | null;
+}
+
+// A badge a user has earned (BACKLOG.md Ref 55), across every neighborhood
+// and however it was awarded -- challenge completion or a direct award like
+// the founder badge -- shown on the public profile and account pages.
+export interface UserBadge {
+  badge: Badge;
+  awarded_at: string;
 }
 
 export type ChallengeTargetType = "category" | "poi";

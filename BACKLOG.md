@@ -28,14 +28,16 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
+| 59 | [POI enrichment parity with venues](#poi-enrichment-parity-with-venues) | feature | M | H | — |
 | 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | 27 |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
+| 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
+| 56 | [Locations tab: category filter and hide-hidden-by-default](#locations-tab-category-filter-and-hide-hidden-by-default) | improvement | S | M | — |
+| 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 45 | [POIs merged into the venue list/map](#pois-merged-into-the-venue-listmap) | improvement | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 27 | [What's happening now](#whats-happening-now) | feature | M | M | 5 |
 | 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
-| 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
-| 56 | [Locations tab: category filter and hide-hidden-by-default](#locations-tab-category-filter-and-hide-hidden-by-default) | improvement | S | M | — |
 | 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
 
 ### Business & Venue
@@ -51,8 +53,8 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 38 | [Map on business page](#map-on-business-page) | feature | M | M | — |
 | 12 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | feature | M | M | 20 |
 | 16 | [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect) | feature | M | M | — |
+| 41 | [Expand Google Places field mask (hours, contact, multi-photo/review)](#expand-google-places-field-mask-hours-contact-multi-photoreview) | improvement | M | M | — |
 | 19 | [Monetization: credits & entitlements](#monetization-credits--entitlements) | feature | L | M | — |
-| 41 | [Investigate Google API (hours, activity, cost)](#investigate-google-api-hours-activity-cost) | improvement | L | M | — |
 | 21 | [Yelp Fusion enrichment (future)](#yelp-fusion-enrichment-future) | feature | M | L | — |
 | 20 | [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) | feature | M | L | 5 |
 
@@ -60,7 +62,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 55 | [Show badges / badge summary on user profile](#show-badges--badge-summary-on-user-profile) | feature | S | M | — |
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 24 | [Slide-to-check-in](#slide-to-check-in) | improvement | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
@@ -119,6 +120,22 @@ No open limitations.
 **Depends:** —
 **Why** — Neighborhood-owned POIs (parks, transit, landmarks) currently live in a separate "Points of interest" section, disconnected from the venues map/list where users actually browse and check in — folding them into the same browsable surface (with a distinct marker/card style so a park doesn't read as a business) makes POIs discoverable the same way venues are, and surfaces the POI check-in challenge (BACKLOG.md, shipped v0.22.0) naturally instead of requiring a user to scroll past everything else to find it.
 **Notes:** `GET /neighborhoods/:id/venues` and the map/list components (`VenuesView.tsx`) would need to accept a combined venue+POI list, tagged with a discriminator (`kind: "venue" | "poi"`) the UI uses for distinct styling (icon/color/badge). The neighborhood page's Venues tab (shipped v0.24.1) is the landing spot for this once it exists.
+
+#### POI enrichment parity with venues
+
+**Ref:** 59
+**Type:** feature
+**Depends:** —
+**Why** — POIs and businesses are often the same underlying Google Place — `Poi.google_place_id` (`packages/types/src/index.ts`) already exists for exactly this (e.g. via "convert venue to POI", Ref 11) — but only venues get rating/hours/photos/reviews via `venue_enrichment_cache` + `enrichment.ts`; a POI with a `google_place_id` shows none of it today. A neighborhood park's or landmark's POI page should have at least the same enrichment a business page gets, since it comes from the identical Google Places source.
+**Notes:** Generalize `venue_enrichment_cache` (and `enrichment.ts`'s `getVenueDetailWithFreshEnrichment`) to key on either `venue_id` or `poi_id`, mirroring the nullable `checkin.venue_id`/`checkin.poi_id` pattern already in use. `PoiDetail` (`packages/types`) would gain an `enrichment` field alongside `VenueDetail`'s. Naturally picks up whatever fields [Expand Google Places field mask](#expand-google-places-field-mask-hours-contact-multi-photoreview) (Ref 41) adds, but doesn't strictly require it first — can ship against today's field mask and pick up more later.
+
+#### Neighborhood photo strip from venues/POIs
+
+**Ref:** 60
+**Type:** feature
+**Depends:** —
+**Why** — Neighborhood pages are otherwise all text/map, no imagery — a photo strip or mosaic pulled from the neighborhood's own venues/POIs would give it visual life for free, since it's sourced from data already fetched and cached rather than a new content type someone has to author.
+**Notes:** Query a handful of venues (and, once [POI enrichment parity](#poi-enrichment-parity-with-venues) (Ref 59) ships, POIs too) in the neighborhood with a non-null cached photo, and render them via the existing `GET /venues/:id/photo` proxy pattern (no new Places API calls — reuses `venue_enrichment_cache` rows already populated by detail-page views). More venues will have a cached photo, and more photos per venue, once [Expand Google Places field mask](#expand-google-places-field-mask-hours-contact-multi-photoreview) (Ref 41) ships its multi-photo mapping. Open question: curation order (top-rated vs. most recent vs. simple "first N active with a cached photo") — start with the simplest option and revisit if it looks thin.
 
 #### Neighborhood notifications
 
@@ -250,13 +267,13 @@ No open limitations.
 **Why** — Revenue model for the business side; deliberately built after business claiming is proven out, not before, per project plan §11.4.
 **Notes:** `BusinessPlan`, `Entitlement`, `CreditBalance`, `CreditTransaction`, `CreditPack` schema (project plan §1.8, §11.3) plus Stripe billing integration for credit-pack purchases. Free-sample entitlement (1 POI, 1 Event, 1 Announcement) ships first; paid credits follow.
 
-#### Investigate Google API (hours, activity, cost)
+#### Expand Google Places field mask (hours, contact, multi-photo/review)
 
 **Ref:** 41
 **Type:** improvement
 **Depends:** —
-**Why** — Google Places data includes venue hours (regular + special), photos, and real-time open/closed status. Pulling these fields (Contact/Atmosphere tier per project plan §1.1) would enrich business detail pages, but requires evaluating the cost impact (Contact/Atmosphere fields cost significantly more per 1,000 calls).
-**Notes:** Audit Google pricing for Business Hours, Photos, Current Open Status fields on the New Places API. Estimate cost/month for full Phinneywood sync. Decide whether to include in VenueEnrichmentCache TTL refresh (project plan §1.4) or defer to user request. If approved, add the fields to the sync pipeline, Venue schema, and display on detail pages. See CONTRIBUTING.md's licensing warning (project plan §1.1 governs this).
+**Why** — `DETAIL_FIELD_MASK` (`apps/api/src/places/client.ts`) already requests `reviews` and `photos`, which only exist at Google's top "Enterprise + Atmosphere" Places API (New) SKU tier — so the per-call cost ceiling is already being paid regardless. Fields like `regularOpeningHours`/`currentOpeningHours`, `nationalPhoneNumber`, `websiteUri`, `editorialSummary`/`generativeSummary`, and atmosphere flags (`delivery`, `dineIn`, `takeout`, `outdoorSeating`, `goodForChildren`, `reservable`, etc.) live at or below that same tier, so adding them costs nothing extra per call. Separately, `mapPlaceDetails` (`apps/api/src/venues/enrichment.ts`) only reads `photos?.[0]` and `reviews?.[0]` even though Google returns up to 10 photos and 5 reviews — most of each response is already being discarded.
+**Notes:** Widen `DETAIL_FIELD_MASK` and `RawPlaceDetails` to include the fields above. `VenueEnrichmentCache` needs schema changes to store more than a single photo/review (e.g. `photo_urls`/`reviews` as `jsonb` arrays instead of `photo_url`/`review_snippet` scalars) plus new columns for hours/phone/website/atmosphere flags. Update the `GET /venues/:id/photo` proxy route to accept an index/id rather than assuming one photo. Supersedes the old "Investigate Google API (hours, activity, cost)" framing — the cost question is answered (no tier upgrade needed), so this is now a concrete implementation item rather than a research spike. See CONTRIBUTING.md's licensing warning (project plan §1.1 governs this).
 
 #### Yelp Fusion enrichment (future)
 
@@ -275,14 +292,6 @@ No open limitations.
 **Notes:** `Coupon` as an attachment to `Announcement`, `CouponRedemption` with server-authoritative timestamps and atomic check-and-increment against redemption caps, per project plan §13. Real user authentication (project plan §14.3), needed for redemption itself, has already shipped (v0.8.0); the remaining blocker is Business announcements.
 
 ### User
-
-#### Show badges / badge summary on user profile
-
-**Ref:** 55
-**Type:** feature
-**Depends:** —
-**Why** — Users earn badges from completing challenges (shipped v0.22.0) and from joining early as founders (shipped v0.24.0), but those badges currently only show in the neighborhood's challenge list, not on the user's own public profile — making accomplishments invisible to visitors. A badge carousel, grid, or section on `/profile/:username` and `/account` surfaces what a user has earned and encourages challenge participation.
-**Notes:** Badges are already in the schema (`badge` table + `user_badge` join rows) and the API serves them as part of the neighborhood's `challenges` endpoint response; this is purely a UI surface to fetch and display them on the profile pages. Could show both "earned badges" (challenges completed) and "account badges" (founder, etc.) together. No schema changes needed. Touches `apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/app/account/page.tsx`, and possibly a new shared `BadgeList` or `BadgeGrid` component (the v0.25.1 work already added `BadgeIcon.tsx` for rendering individual badge emoji, so reuse that).
 
 #### Venue wishlist
 

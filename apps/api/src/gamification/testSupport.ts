@@ -6,6 +6,7 @@ import type {
   GamificationRepository,
   LeaderboardRow,
   PoiContext,
+  UserBadgeRecord,
   VenueContext,
 } from "./repository";
 
@@ -20,6 +21,11 @@ export class FakeGamificationRepository implements GamificationRepository {
   challenges: ChallengeRecord[] = [];
   completions = new Set<string>(); // `${userId}:${challengeId}`
   badges: { userId: string; badgeId: string; challengeId: string | null }[] = [];
+  // Full badge details keyed by id, for tests that need getUserBadges to
+  // return real name/icon/description rather than a placeholder.
+  badgeCatalog = new Map<string, BadgeRecord>();
+  private badgeAwardedAt = new Map<string, string>();
+  private nextBadgeAwardMs = 1;
   checkins: { userId: string; venueId?: string; poiId?: string; checkedInAt: string }[] = [];
   users = new Map<string, { displayName: string | null; username: string | null; avatarUrl: string | null; visibility: "public" | "private" }>();
   private nextId = 1;
@@ -132,6 +138,10 @@ export class FakeGamificationRepository implements GamificationRepository {
     }
     if (input.badgeId) {
       this.badges.push({ userId: input.userId, badgeId: input.badgeId, challengeId: input.challengeId });
+      this.badgeAwardedAt.set(
+        `${input.userId}:${input.badgeId}`,
+        new Date(this.nextBadgeAwardMs++).toISOString()
+      );
     }
     return true;
   }
@@ -142,6 +152,7 @@ export class FakeGamificationRepository implements GamificationRepository {
     const badgeId = this.badgesByCode.get(code) ?? code;
     if (this.badges.some((b) => b.userId === userId && b.badgeId === badgeId)) return;
     this.badges.push({ userId, badgeId, challengeId: null });
+    this.badgeAwardedAt.set(`${userId}:${badgeId}`, new Date(this.nextBadgeAwardMs++).toISOString());
   }
 
   async getLeaderboard(neighborhoodId: string, limit: number): Promise<LeaderboardRow[]> {
@@ -172,6 +183,17 @@ export class FakeGamificationRepository implements GamificationRepository {
     return this.pointEvents
       .filter((e) => e.userId === userId)
       .reduce((sum, e) => sum + e.points, 0);
+  }
+
+  async getUserBadges(userId: string): Promise<UserBadgeRecord[]> {
+    return this.badges
+      .filter((b) => b.userId === userId)
+      .map((b) => ({
+        badge: this.badgeCatalog.get(b.badgeId) ?? makeBadge({ id: b.badgeId, code: b.badgeId, name: b.badgeId }),
+        challengeId: b.challengeId,
+        awardedAt: this.badgeAwardedAt.get(`${userId}:${b.badgeId}`) ?? new Date(0).toISOString(),
+      }))
+      .sort((a, b) => (a.awardedAt < b.awardedAt ? 1 : -1));
   }
 }
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { PublicUserProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { Avatar } from "../../Avatar";
+import { BadgeIcon } from "../../BadgeIcon";
 
 async function getProfile(username: string): Promise<PublicUserProfile | null> {
   const res = await fetch(apiUrl(`/users/${username}`), { cache: "no-store" });
@@ -41,6 +42,27 @@ export default async function PublicProfilePage({
             @{profile.username} · Joined {new Date(profile.joined_at).toLocaleDateString()}
           </p>
         </div>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Badges</h2>
+        {profile.badges.length === 0 ? (
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">No badges earned yet.</p>
+        ) : (
+          <ul className="mt-2 flex flex-wrap gap-3">
+            {profile.badges.map((userBadge) => (
+              <li
+                key={userBadge.badge.id}
+                className="flex flex-col items-center gap-1 rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
+              >
+                <span className="text-2xl">
+                  <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
+                </span>
+                <span className="font-medium text-black dark:text-zinc-50">{userBadge.badge.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div>

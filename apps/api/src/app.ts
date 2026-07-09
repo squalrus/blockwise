@@ -60,7 +60,7 @@ import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favo
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import { listChallengesWithProgress } from "./gamification/challenges";
 import { awardFounderBadge } from "./gamification/founderBadge";
-import { awardFavoritePoints, getLeaderboard, getUserPoints } from "./gamification/points";
+import { awardFavoritePoints, getLeaderboard, getUserBadges, getUserPoints } from "./gamification/points";
 import { awardCheckinRewards } from "./gamification/rewards";
 import { SupabaseGamificationRepository } from "./gamification/supabaseRepository";
 import {
@@ -861,6 +861,19 @@ export function createApp() {
     }
   });
 
+  // Account page badges section (BACKLOG.md Ref 55) -- every badge the
+  // signed-in user has earned, across every neighborhood, mirroring
+  // GET /me/points above.
+  app.get("/me/badges", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const badges = await getUserBadges(req.appUser!.id, getGamificationRepository());
+      res.json(badges);
+    } catch (err) {
+      console.error("GET /me/badges failed:", err);
+      res.status(500).json({ error: "Failed to load badges" });
+    }
+  });
+
   // My account page (BACKLOG.md "Neighborhoods on landing page and user
   // profile"): neighborhood-joined membership listing for the signed-in
   // user, mirroring GET /me/favorites above.
@@ -956,9 +969,10 @@ export function createApp() {
         return;
       }
 
-      const [checkins, neighborhoods] = await Promise.all([
+      const [checkins, neighborhoods, badges] = await Promise.all([
         getCheckinRepository().listCheckinsForUser(user.id),
         listMembershipsForUser(user.id, getNeighborhoodMemberRepository()),
+        getUserBadges(user.id, getGamificationRepository()),
       ]);
 
       res.json({
@@ -973,6 +987,7 @@ export function createApp() {
           address: c.address,
           checked_in_at: c.checkedInAt,
         })),
+        badges,
       });
     } catch (err) {
       console.error(`GET /users/${req.params.username} failed:`, err);
