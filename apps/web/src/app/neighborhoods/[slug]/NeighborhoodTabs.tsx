@@ -18,7 +18,7 @@ export function NeighborhoodTabs({ slug }: { slug: string }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-wrap gap-2 text-sm">
+    <nav className="flex gap-2 overflow-x-auto pb-1 text-sm">
       {TABS.map((tab) => {
         const href = `/neighborhoods/${slug}${tab.href}`;
         const isActive = pathname === href;
@@ -26,10 +26,10 @@ export function NeighborhoodTabs({ slug }: { slug: string }) {
           <a
             key={tab.href}
             href={href}
-            className={`rounded-md px-3 py-1 ${
+            className={`shrink-0 rounded-full px-4 py-2 font-extrabold whitespace-nowrap ${
               isActive
-                ? "bg-black text-white dark:bg-white dark:text-black"
-                : "border border-black/[.08] text-black dark:border-white/[.145] dark:text-zinc-50"
+                ? "bg-foreground text-ink"
+                : "bg-card-alt text-muted"
             }`}
           >
             {tab.label}

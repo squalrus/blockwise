@@ -14,6 +14,8 @@ import { BadgeIcon } from "../BadgeIcon";
 import { NearestVenues } from "./NearestVenues";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
 
+const TIMELINE_COLORS = ["#E8542A", "#4C8C4A", "#8B5FBF", "#F2A93B"];
+
 type State =
   | { status: "loading" }
   | { status: "signed_out" }
@@ -85,21 +87,19 @@ export default function AccountPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <div className="flex items-center gap-3">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">My account</h1>
+        <h1 className="font-heading text-xl font-extrabold text-foreground">My account</h1>
         {state.status === "ready" && (
-          <a href="/account/settings" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+          <a href="/account/settings" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
             Settings
           </a>
         )}
       </div>
 
-      {state.status === "loading" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>
-      )}
+      {state.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
 
       {state.status === "signed_out" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          <a href="/login" className="underline">
+        <p className="text-sm text-muted">
+          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
             Log in
           </a>{" "}
           to see your account details, favorites, and check-in history.
@@ -119,99 +119,100 @@ export default function AccountPage() {
             points={state.points}
           />
 
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Check in</h2>
+          <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Check in nearby</h2>
             <NearestVenues
               homeNeighborhoodId={state.neighborhoods.find((n) => n.is_primary)?.neighborhood_id ?? null}
             />
           </section>
 
-          <section id="badges" className="flex flex-col gap-2 scroll-mt-16">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Badges</h2>
+          <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Badges</h2>
             {state.badges.length === 0 ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-muted">
                 No badges yet -- complete a neighborhood challenge to earn one.
               </p>
             ) : (
-              <ul className="flex flex-wrap gap-3">
+              <ul className="flex flex-wrap gap-4">
                 {state.badges.map((userBadge) => (
-                  <li
-                    key={userBadge.badge.id}
-                    className="flex flex-col items-center gap-1 rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-                  >
-                    <span className="text-2xl">
+                  <li key={userBadge.badge.id} className="flex flex-col items-center gap-1.5 text-center">
+                    <span className="flex h-13 w-13 items-center justify-center rounded-full border-[3px] border-nav bg-brand-amber text-2xl">
                       <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
                     </span>
-                    <span className="font-medium text-black dark:text-zinc-50">{userBadge.badge.name}</span>
+                    <span className="max-w-16 text-[10.5px] font-extrabold text-foreground">
+                      {userBadge.badge.name}
+                    </span>
                   </li>
                 ))}
               </ul>
             )}
           </section>
 
-          <section id="favorites" className="flex flex-col gap-2 scroll-mt-16">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Favorite venues</h2>
+          <section id="favorites" className="flex flex-col gap-2.5 scroll-mt-16">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Favorite venues</h2>
             {state.favorites.length === 0 ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-muted">
                 No favorites yet -- tap the favorite button on a venue page to save it here.
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {state.favorites.map((venue) => (
-                  <li
-                    key={venue.venue_id}
-                    className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-                  >
+                  <li key={venue.venue_id} className="rounded-xl bg-card-alt px-4 py-3 text-sm">
                     <a
                       href={`/venues/${venue.venue_id}`}
-                      className="font-medium text-black hover:underline dark:text-zinc-50"
+                      className="font-extrabold text-foreground hover:text-brand-purple"
                     >
                       {venue.name}
                     </a>
-                    <p className="text-zinc-600 dark:text-zinc-400">{venue.address}</p>
+                    <p className="text-muted">{venue.address}</p>
                   </li>
                 ))}
               </ul>
             )}
           </section>
 
-          <section id="checkins" className="flex flex-col gap-2 scroll-mt-16">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Recent check-ins</h2>
+          <section id="checkins" className="flex flex-col gap-2.5 scroll-mt-16">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Recent check-ins</h2>
             {state.checkins.length === 0 ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-muted">
                 No check-ins yet -- check in from a venue page when you're there.
               </p>
             ) : (
-              <ul className="flex flex-col gap-2">
-                {state.checkins.map((checkin, index) => (
-                  <li
-                    key={`${checkin.venue_id}-${checkin.checked_in_at}-${index}`}
-                    className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-                  >
-                    <a
-                      href={`/venues/${checkin.venue_id}`}
-                      className="font-medium text-black hover:underline dark:text-zinc-50"
-                    >
-                      {checkin.name}
-                    </a>
-                    <p className="text-zinc-600 dark:text-zinc-400">
-                      {new Date(checkin.checked_in_at).toLocaleString()}
-                    </p>
-                  </li>
-                ))}
-              </ul>
+              <div className="relative pl-4.5">
+                <div className="absolute top-1.5 bottom-1.5 left-1 w-0.5 bg-border" />
+                <ul className="flex flex-col gap-3.5">
+                  {state.checkins.map((checkin, index) => (
+                    <li key={`${checkin.venue_id}-${checkin.checked_in_at}-${index}`} className="relative">
+                      <span
+                        className="absolute top-1 -left-4.5 h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: TIMELINE_COLORS[index % TIMELINE_COLORS.length] }}
+                      />
+                      <a
+                        href={`/venues/${checkin.venue_id}`}
+                        className="text-sm font-extrabold text-foreground hover:text-brand-purple"
+                      >
+                        {checkin.name}
+                      </a>
+                      <p className="text-xs font-bold text-muted">
+                        {new Date(checkin.checked_in_at).toLocaleString()}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </section>
 
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Wishlist</h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">Coming soon.</p>
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Coupons</h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">Coming soon.</p>
-          </section>
+          <div className="flex gap-2.5">
+            <section className="flex-1 rounded-2xl bg-card-alt px-3.5 py-3.5 text-center">
+              <h2 className="text-xs font-extrabold text-foreground">Wishlist</h2>
+              <p className="mt-1 text-[11px] font-bold text-muted">Coming soon</p>
+            </section>
+            <section className="flex-1 rounded-2xl bg-card-alt px-3.5 py-3.5 text-center">
+              <h2 className="text-xs font-extrabold text-foreground">Coupons</h2>
+              <p className="mt-1 text-[11px] font-bold text-muted">Coming soon</p>
+            </section>
+          </div>
         </>
       )}
     </div>

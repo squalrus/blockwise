@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { MushroomLogo } from "./MushroomLogo";
 
 type State =
   | { status: "loading" }
@@ -50,45 +51,46 @@ export function AccountNav() {
   }
 
   return (
-    <nav className="flex items-center gap-4 border-b border-black/[.08] px-6 py-3 text-sm dark:border-white/[.145]">
-      <a href="/" className="font-medium text-black dark:text-zinc-50">
-        Blockwise
+    <nav className="flex items-center gap-4 bg-nav px-6 py-3 text-sm">
+      <a href="/" className="flex items-center gap-2 font-heading font-extrabold text-nav-foreground">
+        <MushroomLogo size={22} capColor="var(--brand-amber)" stemClassName="text-nav-foreground" />
+        Spored
       </a>
       <div className="ml-auto flex items-center gap-4">
         {state.status === "signed_in" && state.homeNeighborhood && (
           <a
             href={`/neighborhoods/${state.homeNeighborhood.slug}`}
-            className="text-zinc-600 hover:underline dark:text-zinc-400"
+            className="text-nav-muted hover:text-nav-foreground"
           >
             {state.homeNeighborhood.name}
           </a>
         )}
         {state.status === "signed_in" && (
-          <a href="/account" className="text-zinc-600 hover:underline dark:text-zinc-400">
+          <a href="/account" className="text-nav-muted hover:text-nav-foreground">
             My account
           </a>
         )}
         {state.status === "signed_in" && state.user.account_type === "business" && (
-          <a href="/business" className="text-zinc-600 hover:underline dark:text-zinc-400">
+          <a href="/business" className="text-nav-muted hover:text-nav-foreground">
             Business portal
           </a>
         )}
         {state.status === "signed_in" && state.user.is_neighborhood_admin && (
-          <a href="/neighborhood-admin" className="text-zinc-600 hover:underline dark:text-zinc-400">
+          <a href="/neighborhood-admin" className="text-nav-muted hover:text-nav-foreground">
             Neighborhood admin
           </a>
         )}
         {state.status === "signed_in" && (
-          <button onClick={handleLogOut} className="text-zinc-600 hover:underline dark:text-zinc-400">
+          <button onClick={handleLogOut} className="text-nav-muted hover:text-nav-foreground">
             Log out
           </button>
         )}
         {state.status === "signed_out" && (
           <>
-            <a href="/login" className="text-zinc-600 hover:underline dark:text-zinc-400">
+            <a href="/login" className="text-nav-muted hover:text-nav-foreground">
               Log in
             </a>
-            <a href="/signup" className="text-zinc-600 hover:underline dark:text-zinc-400">
+            <a href="/signup" className="text-nav-muted hover:text-nav-foreground">
               Sign up
             </a>
           </>

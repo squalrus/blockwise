@@ -1,22 +1,72 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #ede0c8;
+  --foreground: #2b1b12;
+  --card: #fbf2e4;
+  --card-alt: #f5e8d3;
+  --border: #e4d3b8;
+  --muted: #8a7761;
+  --muted-strong: #6b5744;
+  --body-text: #4a3b2c;
+  --nav: #2b1b12;
+  --nav-foreground: #fbf2e4;
+  --nav-muted: #dccba8;
+  /* Always-dark text/icon color for surfaces that stay light-toned in both
+     themes (e.g. amber chips) -- distinct from --on-accent, which flips. */
+  --ink: #2b1b12;
+  /* Contrasting text/icon color for saturated brand-fill buttons/pills --
+     flips per theme since those fills get brighter (and need dark text) in
+     dark mode, but are darker (and need light text) in light mode. */
+  --on-accent: #fbf2e4;
+  --brand-orange: #e8542a;
+  --brand-amber: #f2a93b;
+  --brand-green: #4c8c4a;
+  --brand-purple: #8b5fbf;
   color-scheme: light;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-alt: var(--card-alt);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
+  --color-body-text: var(--body-text);
+  --color-nav: var(--nav);
+  --color-nav-foreground: var(--nav-foreground);
+  --color-nav-muted: var(--nav-muted);
+  --color-ink: var(--ink);
+  --color-on-accent: var(--on-accent);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-amber: var(--brand-amber);
+  --color-brand-green: var(--brand-green);
+  --color-brand-purple: var(--brand-purple);
+  --font-sans: var(--font-nunito);
+  --font-heading: var(--font-baloo);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #1c130c;
+    --foreground: #f5e8d3;
+    --card: #241b15;
+    --card-alt: #2e2118;
+    --border: #4a392a;
+    --muted: #9c8b72;
+    --muted-strong: #c9b8a0;
+    --body-text: #c9b8a0;
+    --nav: #120d0a;
+    --nav-foreground: #f5e8d3;
+    --nav-muted: #9c8b72;
+    --ink: #120d0a;
+    --on-accent: #120d0a;
+    --brand-orange: #ff6b3d;
+    --brand-amber: #ffc65c;
+    --brand-green: #6bbf5e;
+    --brand-purple: #b98af2;
     color-scheme: dark;
   }
 }
@@ -24,5 +74,35 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-nunito), sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-baloo), sans-serif;
+}
+
+a {
+  color: var(--brand-purple);
+}
+
+::selection {
+  background: var(--brand-amber);
+  color: var(--foreground);
+}
+
+/* Dark theme's mushroom-cap accents glow faintly (mycelial/bioluminescent
+   direction); a no-op in light mode. Applied to MushroomLogo's cap path,
+   which sets its own `color` via inline style so `currentColor` here picks
+   up that instance's brand accent. */
+.icon-glow {
+  filter: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .icon-glow {
+    filter: drop-shadow(0 0 6px currentColor);
+  }
 }

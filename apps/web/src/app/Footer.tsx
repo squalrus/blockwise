@@ -4,8 +4,8 @@ import packageJson from "../../package.json";
 // debug by immediately seeing which version they're running.
 export function Footer() {
   return (
-    <footer className="mt-auto px-6 py-3 text-center text-xs text-zinc-500 dark:text-zinc-500">
-      Blockwise v{packageJson.version}
+    <footer className="mt-auto px-6 py-3 text-center text-xs text-muted">
+      Spored v{packageJson.version}
     </footer>
   );
 }

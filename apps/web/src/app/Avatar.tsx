@@ -27,7 +27,7 @@ export function Avatar({
   const initial = label.trim().charAt(0).toUpperCase() || "?";
   return (
     <div
-      className="flex shrink-0 items-center justify-center rounded-full bg-zinc-200 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+      className="flex shrink-0 items-center justify-center rounded-full border-[3px] border-nav bg-brand-amber font-heading font-extrabold text-ink"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
       aria-label={label}
     >

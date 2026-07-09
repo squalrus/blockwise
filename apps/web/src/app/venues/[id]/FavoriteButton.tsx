@@ -62,7 +62,7 @@ export function FavoriteButton({ venueId }: { venueId: string }) {
         onClick={toggleFavorite}
         disabled={status.state === "saving"}
         aria-pressed={favorited}
-        className="rounded-md border border-black/[.08] px-4 py-2 text-sm font-medium text-black disabled:opacity-50 dark:border-white/[.145] dark:text-zinc-50"
+        className="rounded-full border-2 border-foreground px-4 py-2 text-sm font-extrabold text-foreground disabled:opacity-50"
       >
         {favorited ? "★ Favorited" : "☆ Favorite"}
       </button>

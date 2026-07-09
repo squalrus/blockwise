@@ -4,6 +4,7 @@ import type { NeighborhoodProfile, SocialLinks } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { StatCard } from "../../StatCard";
 import { JoinNeighborhoodButton } from "./JoinNeighborhoodButton";
+import { NeighborhoodMapArt } from "./NeighborhoodMapArt";
 import { NeighborhoodTabs } from "./NeighborhoodTabs";
 
 const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
@@ -39,17 +40,19 @@ export default async function NeighborhoodLayout({
   if (!neighborhood) notFound();
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
-      <Link href="/" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 font-sans sm:p-16">
+      <Link href="/" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
         ← All neighborhoods
       </Link>
 
+      <NeighborhoodMapArt />
+
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
+          <h1 className="font-heading text-3xl font-extrabold tracking-tight text-foreground">
             {neighborhood.name}
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-muted">
             {neighborhood.city}, {neighborhood.state}
           </p>
         </div>
@@ -57,18 +60,18 @@ export default async function NeighborhoodLayout({
       </div>
 
       {neighborhood.description && (
-        <p className="text-sm text-zinc-700 dark:text-zinc-300">{neighborhood.description}</p>
+        <p className="text-sm text-body-text">{neighborhood.description}</p>
       )}
 
-      <div className="flex flex-wrap gap-4">
-        <StatCard value={neighborhood.venue_count} label="Businesses" />
-        <StatCard value={neighborhood.poi_count} label="Points of interest" />
-        <StatCard value={neighborhood.member_count} label="Members" />
-        <StatCard value={neighborhood.checkin_count} label="Check-ins" />
+      <div className="grid grid-cols-2 gap-2.5">
+        <StatCard value={neighborhood.venue_count} label="Businesses" accent="orange" />
+        <StatCard value={neighborhood.poi_count} label="Points of interest" accent="green" />
+        <StatCard value={neighborhood.member_count} label="Members" accent="purple" />
+        <StatCard value={neighborhood.checkin_count} label="Check-ins" accent="amber" />
       </div>
 
       {Object.keys(neighborhood.social_links).length > 0 && (
-        <div className="flex flex-wrap gap-4 text-sm">
+        <div className="flex flex-wrap gap-4 text-sm font-bold">
           {SOCIAL_PLATFORM_LABELS.filter(({ key }) => neighborhood.social_links[key]).map(
             ({ key, label }) => (
               <a
@@ -76,7 +79,7 @@ export default async function NeighborhoodLayout({
                 href={neighborhood.social_links[key]}
                 target="_blank"
                 rel="noreferrer"
-                className="text-zinc-600 underline hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+                className="text-brand-purple hover:text-brand-orange"
               >
                 {label}
               </a>

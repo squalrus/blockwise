@@ -5,6 +5,7 @@ import type { ChallengeProgress } from "@blockwise/types";
 import { clientApiUrl } from "@/lib/clientApi";
 import { getOrCreateDeviceId } from "@/lib/deviceId";
 import { BadgeIcon } from "../../BadgeIcon";
+import { ProgressBar } from "../../ProgressBar";
 
 type Status =
   | { state: "loading" }
@@ -42,40 +43,41 @@ export function ChallengesView({ neighborhoodSlug }: { neighborhoodSlug: string 
 
   if (status.state === "loading") return null;
   if (status.state === "error") {
-    return <p className="text-sm text-zinc-600 dark:text-zinc-400">Failed to load challenges.</p>;
+    return <p className="text-sm text-muted">Failed to load challenges.</p>;
   }
   if (status.challenges.length === 0) {
-    return <p className="text-sm text-zinc-600 dark:text-zinc-400">No challenges running right now.</p>;
+    return <p className="text-sm text-muted">No challenges running right now.</p>;
   }
 
   return (
     <ul className="flex flex-col gap-2">
-      {status.challenges.map((challenge) => (
-        <li
-          key={challenge.id}
-          className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-black dark:text-zinc-50">{challenge.title}</span>
-            {challenge.completed && (
-              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                Completed ✓
+      {status.challenges.map((challenge) => {
+        const progress = Math.min(challenge.progress_count, challenge.target_count);
+        const percent = (progress / challenge.target_count) * 100;
+        return (
+          <li key={challenge.id} className="rounded-2xl bg-card-alt px-4 py-4 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-extrabold text-foreground">🍄 {challenge.title}</span>
+              <span className="text-xs font-extrabold text-brand-green">
+                {challenge.completed ? "Completed ✓" : `+${challenge.points_reward} pts`}
               </span>
+            </div>
+            {challenge.description && (
+              <p className="mt-1 text-body-text">{challenge.description}</p>
             )}
-          </div>
-          {challenge.description && (
-            <p className="mt-1 text-zinc-600 dark:text-zinc-400">{challenge.description}</p>
-          )}
-          <p className="mt-1 flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-500">
-            <span>
-              {Math.min(challenge.progress_count, challenge.target_count)}/{challenge.target_count} ·{" "}
-              {challenge.points_reward}pt bonus
-              {challenge.badge ? ` · ${challenge.badge.name} badge` : ""}
-            </span>
-            {challenge.badge && <BadgeIcon icon={challenge.badge.icon} name={challenge.badge.name} />}
-          </p>
-        </li>
-      ))}
+            <div className="mt-2.5">
+              <ProgressBar percent={percent} />
+            </div>
+            <p className="mt-1.5 flex items-center gap-1 text-[11.5px] font-bold text-muted">
+              <span>
+                {progress} of {challenge.target_count} check-ins
+                {challenge.badge ? ` · ${challenge.badge.name} badge` : ""}
+              </span>
+              {challenge.badge && <BadgeIcon icon={challenge.badge.icon} name={challenge.badge.name} />}
+            </p>
+          </li>
+        );
+      })}
     </ul>
   );
 }

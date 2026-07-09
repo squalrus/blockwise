@@ -64,6 +64,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 24 | [Slide-to-check-in](#slide-to-check-in) | improvement | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
+| 61 | [Badge catalog endpoint](#badge-catalog-endpoint) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 14 | [Connect with other users](#connect-with-other-users) | feature | M | M | — |
@@ -307,6 +308,14 @@ No open limitations.
 **Depends:** —
 **Why** — Every account currently auto-awards a "founder" badge at signup (shipped v0.24.0), which is correct while the app is pre-launch but wrong forever — once v1.0.0 actually ships, a signup after that point isn't a founder and shouldn't get the badge.
 **Notes:** Remove (or gate behind a cutoff date check against `created_at`/`now()`) the `awardFounderBadge` call in the `/auth/complete-signup` handler (`apps/api/src/app.ts`). Simplest version is deleting the call entirely once v1.0.0 ships, since by then every pre-launch account already holds the badge via the v0.24.0 migration backfill and auto-award.
+
+#### Badge catalog endpoint
+
+**Ref:** 61
+**Type:** feature
+**Depends:** —
+**Why** — The account page (`GET /me/badges`, `UserBadge[]`) only returns badges a user has already earned — there's no endpoint listing every badge that exists, so the account page can't show "locked" badges a user hasn't earned yet as a preview of what's achievable. This came up restyling the account page's badges section: the mockup showed locked placeholder badges alongside earned ones, but there was no real data to back them, so locked slots were dropped rather than fabricated.
+**Notes:** Add `GET /badges` (or similar) returning all `Badge` rows (`packages/types`'s `Badge` interface already has `id`/`code`/`name`/`description`/`icon`). The account page cross-references this against `state.badges` (`UserBadge[]`) to render earned vs. locked badge cards — locked ones dimmed/outlined per the existing `BadgeIcon` fallback treatment.
 
 #### Apple social sign-in (Sign in with Apple)
 

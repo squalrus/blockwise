@@ -27,19 +27,16 @@ export default async function NeighborhoodEventsPage({
   const events = await getEvents(neighborhood.id);
 
   if (events.length === 0) {
-    return <p className="text-sm text-zinc-600 dark:text-zinc-400">No upcoming events.</p>;
+    return <p className="text-sm text-muted">No upcoming events.</p>;
   }
 
   return (
     <ul className="flex flex-col gap-2">
       {events.map((e) => (
-        <li
-          key={e.id}
-          className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-        >
-          <span className="font-medium text-black dark:text-zinc-50">{e.title}</span>
-          <p className="mt-1 text-zinc-600 dark:text-zinc-400">{e.description}</p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+        <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-4 text-sm">
+          <span className="font-extrabold text-foreground">{e.title}</span>
+          <p className="mt-1 text-body-text">{e.description}</p>
+          <p className="mt-1.5 text-xs font-bold text-muted">
             {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
           </p>
         </li>

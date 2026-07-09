@@ -80,7 +80,7 @@ export function JoinNeighborhoodButton({ neighborhoodId }: { neighborhoodId: str
     return (
       <a
         href="/login"
-        className="rounded-md border border-black/[.08] px-4 py-2 text-sm font-medium text-black dark:border-white/[.145] dark:text-zinc-50"
+        className="shrink-0 rounded-full border-2 border-foreground px-4 py-2 text-sm font-extrabold whitespace-nowrap text-foreground"
       >
         Log in to join
       </a>
@@ -95,9 +95,11 @@ export function JoinNeighborhoodButton({ neighborhoodId }: { neighborhoodId: str
         onClick={toggleJoined}
         disabled={status.state === "saving"}
         aria-pressed={joined}
-        className="rounded-md border border-black/[.08] px-4 py-2 text-sm font-medium text-black disabled:opacity-50 dark:border-white/[.145] dark:text-zinc-50"
+        className={`shrink-0 rounded-full px-4 py-2 text-sm font-extrabold whitespace-nowrap disabled:opacity-50 ${
+          joined ? "bg-brand-green text-on-accent" : "border-2 border-foreground text-foreground"
+        }`}
       >
-        {joined ? "Joined" : "Join neighborhood"}
+        {joined ? "✓ Joined" : "Join neighborhood"}
       </button>
       {status.state === "error" && (
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">{status.message}</p>

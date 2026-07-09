@@ -64,7 +64,7 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
 
   if (state.status === "no_home") {
     return (
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-muted">
         Set a home neighborhood below to see nearby venues to check in to.
       </p>
     );
@@ -75,30 +75,25 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
   }
 
   if (state.venues.length === 0) {
-    return <p className="text-sm text-zinc-600 dark:text-zinc-400">No venues yet in your home neighborhood.</p>;
+    return <p className="text-sm text-muted">No venues yet in your home neighborhood.</p>;
   }
 
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-2.5">
       {state.venues.map((venue) => (
-        <li
-          key={venue.id}
-          className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <Link
-                href={`/venues/${venue.id}`}
-                className="font-medium text-black hover:underline dark:text-zinc-50"
-              >
-                {venue.name}
-              </Link>
-              <p className="text-zinc-600 dark:text-zinc-400">
-                {venue.category_name ?? "Uncategorized"} · {venue.address}
-              </p>
-            </div>
+        <li key={venue.id} className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
+          <div>
+            <Link
+              href={`/venues/${venue.id}`}
+              className="font-extrabold text-foreground hover:text-brand-purple"
+            >
+              {venue.name}
+            </Link>
+            <p className="text-muted">
+              {venue.category_name ?? "Uncategorized"} · {venue.address}
+            </p>
           </div>
-          <div className="mt-2">
+          <div className="mt-2.5">
             <CheckInButton target={{ type: "venue", id: venue.id }} />
           </div>
         </li>

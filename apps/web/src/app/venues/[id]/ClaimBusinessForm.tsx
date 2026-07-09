@@ -55,33 +55,28 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
 
   if (status.state === "submitted") {
     return (
-      <div className="rounded-lg border border-black/[.08] px-6 py-4 text-sm dark:border-white/[.145]">
-        <p className="text-black dark:text-zinc-50">
+      <div className="rounded-2xl bg-card-alt px-6 py-4 text-sm">
+        <p className="font-bold text-foreground">
           Claim submitted — we&apos;ll review it and follow up using the contact info you provided.
         </p>
       </div>
     );
   }
 
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-3 rounded-lg border border-black/[.08] px-6 py-4 dark:border-white/[.145]"
-    >
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">Own this business?</p>
+  const fieldClass =
+    "rounded-lg border-2 border-border bg-card px-3 py-2.5 text-sm font-bold text-foreground placeholder:text-muted placeholder:font-bold";
 
-      <input
-        name="contact_name"
-        required
-        placeholder="Your name"
-        className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
-      />
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2.5 rounded-2xl bg-card-alt px-6 py-4">
+      <p className="text-sm font-extrabold text-foreground">Own this business?</p>
+
+      <input name="contact_name" required placeholder="Your name" className={fieldClass} />
 
       <div className="flex gap-2">
         <select
           value={contactMethod}
           onChange={(e) => setContactMethod(e.target.value as BusinessClaimContactMethod)}
-          className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+          className={fieldClass}
         >
           <option value="email">Email</option>
           <option value="phone">Phone</option>
@@ -97,7 +92,7 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
                 ? "(555) 555-5555"
                 : "yourbusiness.com"
           }
-          className="flex-1 rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+          className={`flex-1 ${fieldClass}`}
         />
       </div>
 
@@ -105,13 +100,13 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
         name="note"
         placeholder="Anything that helps us confirm ownership (optional)"
         rows={2}
-        className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+        className={fieldClass}
       />
 
       <button
         type="submit"
         disabled={status.state === "submitting"}
-        className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="mt-0.5 rounded-lg bg-brand-purple px-4 py-2.5 text-sm font-extrabold text-on-accent disabled:opacity-50"
       >
         {status.state === "submitting" ? "Submitting…" : "Submit claim"}
       </button>
