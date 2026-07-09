@@ -41,15 +41,47 @@ export interface GooglePlacesClient {
 // Contact/Atmosphere fields only (README §1.1/§1.4 step 4) -- requested
 // lazily per-venue when a detail page is opened, never as part of the
 // Basic-field sync above, since these fields are billed at a much higher
-// per-call rate.
-const DETAIL_FIELD_MASK = ["id", "rating", "priceLevel", "reviews", "photos"].join(",");
+// per-call rate. `reviews`/`photos` already put every call at Google's top
+// "Enterprise + Atmosphere" SKU tier (BACKLOG.md Ref 41), so the fields added
+// below cost nothing extra per call -- they live at or below that same tier.
+const DETAIL_FIELD_MASK = [
+  "id",
+  "rating",
+  "priceLevel",
+  "reviews",
+  "photos",
+  "nationalPhoneNumber",
+  "websiteUri",
+  "regularOpeningHours",
+  "editorialSummary",
+  "delivery",
+  "dineIn",
+  "takeout",
+  "outdoorSeating",
+  "goodForChildren",
+  "reservable",
+].join(",");
 
 export interface RawPlaceDetails {
   id: string;
   rating?: number;
   priceLevel?: string;
-  reviews?: { text?: { text: string } }[];
+  reviews?: {
+    rating?: number;
+    text?: { text: string };
+    authorAttribution?: { displayName?: string };
+  }[];
   photos?: { name: string }[];
+  nationalPhoneNumber?: string;
+  websiteUri?: string;
+  regularOpeningHours?: { weekdayDescriptions?: string[] };
+  editorialSummary?: { text?: string };
+  delivery?: boolean;
+  dineIn?: boolean;
+  takeout?: boolean;
+  outdoorSeating?: boolean;
+  goodForChildren?: boolean;
+  reservable?: boolean;
 }
 
 export interface PhotoMedia {

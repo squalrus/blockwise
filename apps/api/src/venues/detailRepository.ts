@@ -1,4 +1,10 @@
-import type { SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import type {
+  EnrichmentAtmosphere,
+  EnrichmentReview,
+  SocialLinks,
+  VenueEnrichmentCache,
+  VenueListItem,
+} from "@blockwise/types";
 
 export interface VenueDetailRecord {
   id: string;
@@ -21,9 +27,14 @@ export interface UpsertEnrichmentInput {
   venueId: string;
   source: "google";
   rating: number | null;
-  reviewSnippet: string | null;
+  reviews: EnrichmentReview[];
   priceTier: string | null;
-  photoUrl: string | null;
+  photoRefs: string[];
+  phone: string | null;
+  website: string | null;
+  hours: string[] | null;
+  editorialSummary: string | null;
+  atmosphere: EnrichmentAtmosphere | null;
 }
 
 // Abstracts persistence so the enrichment refresh logic (enrichment.ts) can
@@ -38,8 +49,9 @@ export interface VenueDetailRepository {
   // listVenues's own status filter.
   countActiveVenuesForNeighborhood(neighborhoodId: string): Promise<number>;
   upsertEnrichment(input: UpsertEnrichmentInput): Promise<VenueEnrichmentCache>;
-  // Just the cached Google photo reference (see venues/enrichment.ts), for
-  // the GET /venues/:id/photo proxy route -- avoids assembling the full
-  // detail record (category join, enrichment) just to serve an image.
-  getEnrichmentPhotoReference(venueId: string): Promise<string | null>;
+  // Just one cached Google photo reference by index (see venues/enrichment.ts
+  // and GET /venues/:id/photo?index=), for the photo proxy route -- avoids
+  // assembling the full detail record (category join, enrichment) just to
+  // serve an image.
+  getEnrichmentPhotoReference(venueId: string, index: number): Promise<string | null>;
 }

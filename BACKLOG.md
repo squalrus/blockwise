@@ -53,7 +53,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 38 | [Map on business page](#map-on-business-page) | feature | M | M | — |
 | 12 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | feature | M | M | 20 |
 | 16 | [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect) | feature | M | M | — |
-| 41 | [Expand Google Places field mask (hours, contact, multi-photo/review)](#expand-google-places-field-mask-hours-contact-multi-photoreview) | improvement | M | M | — |
 | 19 | [Monetization: credits & entitlements](#monetization-credits--entitlements) | feature | L | M | — |
 | 21 | [Yelp Fusion enrichment (future)](#yelp-fusion-enrichment-future) | feature | M | L | — |
 | 20 | [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) | feature | M | L | 5 |
@@ -127,7 +126,7 @@ No open limitations.
 **Type:** feature
 **Depends:** —
 **Why** — POIs and businesses are often the same underlying Google Place — `Poi.google_place_id` (`packages/types/src/index.ts`) already exists for exactly this (e.g. via "convert venue to POI", Ref 11) — but only venues get rating/hours/photos/reviews via `venue_enrichment_cache` + `enrichment.ts`; a POI with a `google_place_id` shows none of it today. A neighborhood park's or landmark's POI page should have at least the same enrichment a business page gets, since it comes from the identical Google Places source.
-**Notes:** Generalize `venue_enrichment_cache` (and `enrichment.ts`'s `getVenueDetailWithFreshEnrichment`) to key on either `venue_id` or `poi_id`, mirroring the nullable `checkin.venue_id`/`checkin.poi_id` pattern already in use. `PoiDetail` (`packages/types`) would gain an `enrichment` field alongside `VenueDetail`'s. Naturally picks up whatever fields [Expand Google Places field mask](#expand-google-places-field-mask-hours-contact-multi-photoreview) (Ref 41) adds, but doesn't strictly require it first — can ship against today's field mask and pick up more later.
+**Notes:** Generalize `venue_enrichment_cache` (and `enrichment.ts`'s `getVenueDetailWithFreshEnrichment`) to key on either `venue_id` or `poi_id`, mirroring the nullable `checkin.venue_id`/`checkin.poi_id` pattern already in use. `PoiDetail` (`packages/types`) would gain an `enrichment` field alongside `VenueDetail`'s. The expanded Google Places field mask (hours, contact, multi-photo/review) shipped in v0.32.1, so this now picks up the full field set from day one.
 
 #### Neighborhood photo strip from venues/POIs
 
@@ -135,7 +134,7 @@ No open limitations.
 **Type:** feature
 **Depends:** —
 **Why** — Neighborhood pages are otherwise all text/map, no imagery — a photo strip or mosaic pulled from the neighborhood's own venues/POIs would give it visual life for free, since it's sourced from data already fetched and cached rather than a new content type someone has to author.
-**Notes:** Query a handful of venues (and, once [POI enrichment parity](#poi-enrichment-parity-with-venues) (Ref 59) ships, POIs too) in the neighborhood with a non-null cached photo, and render them via the existing `GET /venues/:id/photo` proxy pattern (no new Places API calls — reuses `venue_enrichment_cache` rows already populated by detail-page views). More venues will have a cached photo, and more photos per venue, once [Expand Google Places field mask](#expand-google-places-field-mask-hours-contact-multi-photoreview) (Ref 41) ships its multi-photo mapping. Open question: curation order (top-rated vs. most recent vs. simple "first N active with a cached photo") — start with the simplest option and revisit if it looks thin.
+**Notes:** Query a handful of venues (and, once [POI enrichment parity](#poi-enrichment-parity-with-venues) (Ref 59) ships, POIs too) in the neighborhood with a non-empty cached photo list, and render them via the existing `GET /venues/:id/photo?index=` proxy pattern (no new Places API calls — reuses `venue_enrichment_cache` rows already populated by detail-page views). The expanded field mask (multi-photo mapping) shipped in v0.32.1, so more venues now have a cached photo, and more photos per venue, than before. Open question: curation order (top-rated vs. most recent vs. simple "first N active with a cached photo") — start with the simplest option and revisit if it looks thin.
 
 #### Neighborhood notifications
 
@@ -266,14 +265,6 @@ No open limitations.
 **Depends:** —
 **Why** — Revenue model for the business side; deliberately built after business claiming is proven out, not before, per project plan §11.4.
 **Notes:** `BusinessPlan`, `Entitlement`, `CreditBalance`, `CreditTransaction`, `CreditPack` schema (project plan §1.8, §11.3) plus Stripe billing integration for credit-pack purchases. Free-sample entitlement (1 POI, 1 Event, 1 Announcement) ships first; paid credits follow.
-
-#### Expand Google Places field mask (hours, contact, multi-photo/review)
-
-**Ref:** 41
-**Type:** improvement
-**Depends:** —
-**Why** — `DETAIL_FIELD_MASK` (`apps/api/src/places/client.ts`) already requests `reviews` and `photos`, which only exist at Google's top "Enterprise + Atmosphere" Places API (New) SKU tier — so the per-call cost ceiling is already being paid regardless. Fields like `regularOpeningHours`/`currentOpeningHours`, `nationalPhoneNumber`, `websiteUri`, `editorialSummary`/`generativeSummary`, and atmosphere flags (`delivery`, `dineIn`, `takeout`, `outdoorSeating`, `goodForChildren`, `reservable`, etc.) live at or below that same tier, so adding them costs nothing extra per call. Separately, `mapPlaceDetails` (`apps/api/src/venues/enrichment.ts`) only reads `photos?.[0]` and `reviews?.[0]` even though Google returns up to 10 photos and 5 reviews — most of each response is already being discarded.
-**Notes:** Widen `DETAIL_FIELD_MASK` and `RawPlaceDetails` to include the fields above. `VenueEnrichmentCache` needs schema changes to store more than a single photo/review (e.g. `photo_urls`/`reviews` as `jsonb` arrays instead of `photo_url`/`review_snippet` scalars) plus new columns for hours/phone/website/atmosphere flags. Update the `GET /venues/:id/photo` proxy route to accept an index/id rather than assuming one photo. Supersedes the old "Investigate Google API (hours, activity, cost)" framing — the cost question is answered (no tier upgrade needed), so this is now a concrete implementation item rather than a research spike. See CONTRIBUTING.md's licensing warning (project plan §1.1 governs this).
 
 #### Yelp Fusion enrichment (future)
 

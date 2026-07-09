@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.32.1] — 2026-07-08
+
+### Changed
+
+- **Expanded Google Places enrichment: hours, contact, multiple photos/reviews.** Venue pages previously showed only a rating, price tier, one review snippet, and one photo — even though Google's response already included up to 5 reviews and 10 photos at the same billing tier already being paid for (`reviews`/`photos` already put every call at the top "Enterprise + Atmosphere" SKU). Venue detail pages now also show opening hours, phone/website links, an editorial summary, atmosphere badges (dine-in, takeout, delivery, outdoor seating, reservations, good for kids), a scrollable photo strip, and every cached review instead of just the first. `venue_enrichment_cache` moved from single-value `photo_url`/`review_snippet` columns to `photo_refs`/`reviews` arrays plus new `phone`/`website`/`hours`/`editorial_summary`/`atmosphere` columns; `GET /venues/:id/photo` gained an `?index=` param to select among the cached photos. Completes BACKLOG.md Ref 41. (`apps/api/src/places/client.ts`, `apps/api/src/venues/`, `apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/page.tsx`, `packages/types/src/index.ts`, `supabase/migrations/20260709020000_expand_venue_enrichment.sql`, `docs/url-map.md`)
+
 ## [0.32.0] — 2026-07-08
 
 ### Fixed

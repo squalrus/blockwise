@@ -2,8 +2,8 @@ import type { VenueDetail } from "@blockwise/types";
 import type { PlaceDetailsClient, RawPlaceDetails } from "../places/client";
 import type { VenueDetailRepository } from "./detailRepository";
 
-// The venue_enrichment_cache.photo_url column stores a Google photo
-// *reference* (photos[].name), not a fetchable URL -- turning it into an
+// The venue_enrichment_cache.photo_refs column stores Google photo
+// *references* (photos[].name), not fetchable URLs -- turning one into an
 // actual media URL requires the API key, which must never reach the
 // browser. See app.ts's GET /venues/:id/photo route, which proxies the
 // fetch server-side instead.
@@ -19,9 +19,25 @@ export function isStale(fetchedAt: string, now: number, ttlMs: number): boolean 
 function mapPlaceDetails(details: RawPlaceDetails) {
   return {
     rating: details.rating ?? null,
-    reviewSnippet: details.reviews?.[0]?.text?.text ?? null,
+    reviews: (details.reviews ?? []).map((review) => ({
+      rating: review.rating ?? null,
+      text: review.text?.text ?? null,
+      author_name: review.authorAttribution?.displayName ?? null,
+    })),
     priceTier: details.priceLevel ?? null,
-    photoUrl: details.photos?.[0]?.name ?? null,
+    photoRefs: (details.photos ?? []).map((photo) => photo.name),
+    phone: details.nationalPhoneNumber ?? null,
+    website: details.websiteUri ?? null,
+    hours: details.regularOpeningHours?.weekdayDescriptions ?? null,
+    editorialSummary: details.editorialSummary?.text ?? null,
+    atmosphere: {
+      delivery: details.delivery ?? null,
+      dine_in: details.dineIn ?? null,
+      takeout: details.takeout ?? null,
+      outdoor_seating: details.outdoorSeating ?? null,
+      good_for_children: details.goodForChildren ?? null,
+      reservable: details.reservable ?? null,
+    },
   };
 }
 
@@ -59,9 +75,14 @@ export async function getVenueDetailWithFreshEnrichment(
         venueId,
         source: "google",
         rating: mapped.rating,
-        reviewSnippet: mapped.reviewSnippet,
+        reviews: mapped.reviews,
         priceTier: mapped.priceTier,
-        photoUrl: mapped.photoUrl,
+        photoRefs: mapped.photoRefs,
+        phone: mapped.phone,
+        website: mapped.website,
+        hours: mapped.hours,
+        editorialSummary: mapped.editorialSummary,
+        atmosphere: mapped.atmosphere,
       });
     } catch (err) {
       console.error(`enrichment refresh failed for venue ${venueId}:`, err);

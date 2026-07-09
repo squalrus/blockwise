@@ -303,13 +303,21 @@ export function createApp() {
     }
   });
 
-  // Proxies the cached Google photo reference through the server so the
+  // Proxies a cached Google photo reference through the server so the
   // Places API key (needed to build the actual media URL) never reaches
-  // the browser -- see PlaceDetailsClient.fetchPhotoMedia.
+  // the browser -- see PlaceDetailsClient.fetchPhotoMedia. `?index=` selects
+  // which of the cached photos to serve (Google returns up to 10 per venue,
+  // BACKLOG.md Ref 41); defaults to the first.
   app.get("/venues/:id/photo", async (req, res) => {
     try {
+      const index = Number(req.query.index ?? 0);
+      if (!Number.isInteger(index) || index < 0) {
+        res.status(400).json({ error: "index must be a non-negative integer" });
+        return;
+      }
       const photoReference = await getVenueRepository().getEnrichmentPhotoReference(
-        req.params.id
+        req.params.id,
+        index
       );
       if (!photoReference) {
         res.status(404).end();
