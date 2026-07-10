@@ -1,0 +1,12 @@
+# Marketing site (tryspored.com) -- separate Netlify site from apps/web
+# (app.tryspored.com). Static content only, no co-located API function.
+#
+# Dashboard: Package directory = apps/marketing.
+
+[build]
+  base = "apps/marketing"
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

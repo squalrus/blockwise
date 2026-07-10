@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Baloo_2, Nunito } from "next/font/google";
 import Script from "next/script";
-import { SiteChrome } from "./SiteChrome";
+import { baloo2, nunito } from "@blockwise/ui";
+import { AccountNav } from "./AccountNav";
+import { Footer } from "./Footer";
 import "./globals.css";
 
 // Mirrors lib/theme.ts's storage key and apply logic in plain JS so the
@@ -16,18 +17,6 @@ try {
   }
 } catch (e) {}
 `;
-
-const baloo2 = Baloo_2({
-  variable: "--font-baloo",
-  weight: ["500", "600", "700", "800"],
-  subsets: ["latin"],
-});
-
-const nunito = Nunito({
-  variable: "--font-nunito",
-  weight: ["400", "600", "700", "800", "900"],
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Spored",
@@ -48,7 +37,9 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
         </Script>
-        <SiteChrome>{children}</SiteChrome>
+        <AccountNav />
+        <div className="flex flex-1 flex-col">{children}</div>
+        <Footer />
       </body>
     </html>
   );

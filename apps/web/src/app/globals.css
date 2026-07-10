@@ -136,14 +136,3 @@ a {
 :root[data-theme="dark"] .icon-glow {
   filter: drop-shadow(0 0 6px currentColor);
 }
-
-/* Homepage hero/CTA decorative spore icons drift gently in place. */
-@keyframes float-spore {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
-import { MushroomLogo } from "./MushroomLogo";
+import { MushroomLogo } from "@blockwise/ui";
 import { ThemeToggle } from "./ThemeToggle";
 
 type State =
@@ -20,6 +20,20 @@ function HamburgerIcon({ open }: { open: boolean }) {
       ) : (
         <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       )}
+    </svg>
+  );
+}
+
+function CheckinIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
@@ -88,12 +102,24 @@ export function AccountNav() {
 
   return (
     <nav className="relative flex items-center gap-4 bg-nav px-6 py-3 text-sm">
-      <a href="/" className="flex items-center gap-2 font-heading font-extrabold text-nav-foreground">
+      <a
+        href={state.status === "signed_in" && state.homeNeighborhood ? `/neighborhoods/${state.homeNeighborhood.slug}` : "/"}
+        className="flex items-center gap-2 font-heading font-extrabold text-nav-foreground"
+      >
         <MushroomLogo size={22} capColor="var(--brand-amber)" stemClassName="text-nav-foreground" />
         Spored
       </a>
 
-      <div className="ml-auto" ref={menuRef}>
+      <div className="ml-auto flex items-center gap-1" ref={menuRef}>
+        {state.status === "signed_in" && (
+          <a
+            href="/checkin"
+            aria-label="Check in"
+            className="flex items-center justify-center rounded-md p-1 text-nav-foreground hover:text-nav-muted"
+          >
+            <CheckinIcon />
+          </a>
+        )}
         <button
           type="button"
           onClick={() => setIsMenuOpen((open) => !open)}

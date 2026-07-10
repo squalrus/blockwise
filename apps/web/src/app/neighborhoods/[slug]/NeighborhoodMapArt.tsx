@@ -1,4 +1,4 @@
-import { MushroomLogo } from "../../MushroomLogo";
+import { MushroomLogo } from "@blockwise/ui";
 
 const PINS = [
   { left: "14%", top: "45%", size: 18, color: "var(--brand-orange)" },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { MushroomLogo } from "./MushroomLogo";
+import { MushroomLogo } from "@blockwise/ui";
 
 const PIN_COLORS = ["var(--brand-orange)", "var(--brand-green)", "var(--brand-purple)", "var(--brand-amber)"];
 

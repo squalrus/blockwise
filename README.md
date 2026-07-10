@@ -13,14 +13,18 @@ Moving from planning into implementation, web app first. See [CHANGELOG.md](./CH
 ```
 apps/
   web/            Next.js (App Router) — consumer app + business/neighborhood-admin portals
+  marketing/      Next.js (App Router) — static marketing site (homepage; terms/privacy/faq/changelog to come)
   api/            Express API — wrapped as a Netlify Function in production
 packages/
-  types/          Shared TypeScript types used by both apps
+  types/          Shared TypeScript types used across apps
+  ui/             Shared React components (MushroomLogo) and brand fonts/colors, used by web + marketing
 supabase/
   migrations/     Schema changes, in commit order
   seed.sql        Local-only sample data
 docs/             Architecture, route map, and setup guides (see below)
 ```
+
+**Deployment**: `apps/web` and `apps/marketing` are separate Netlify sites (own `netlify.toml` each) deployed to separate domains — `app.tryspored.com` and `tryspored.com` respectively. `apps/marketing` is fully static and never calls `apps/api`; it links back to `apps/web` via the `NEXT_PUBLIC_APP_URL` env var.
 
 ## Getting started
 
@@ -35,19 +39,21 @@ npm install
 ```bash
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
+cp apps/marketing/.env.example apps/marketing/.env.local
 ```
 
 - `apps/api/.env` needs a Supabase project's URL + service-role key, and (optionally) a Google Places API key — see [docs/google-places-setup.md](./docs/google-places-setup.md) if you don't have one yet.
 - `apps/web/.env.local` needs the same Supabase project's URL + anon key (browser-side auth only), plus a Google Maps JavaScript API key for the map view.
+- `apps/marketing/.env.local` — default (`http://localhost:3000`) already points at a locally running `apps/web`, no changes needed for local dev.
 - See [supabase/README.md](./supabase/README.md) for linking to the hosted project or running a local Postgres/Auth/Storage stack instead.
 
-**Run both apps in dev mode** (Turborepo):
+**Run all three apps in dev mode** (Turborepo):
 
 ```bash
 npm run dev
 ```
 
-`apps/web` runs on `:3000`, `apps/api` on `:4000` by default.
+`apps/web` runs on `:3000`, `apps/marketing` on `:3100`, `apps/api` on `:4000` by default.
 
 **Build and test:**
 
