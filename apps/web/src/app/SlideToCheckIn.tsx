@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MushroomLogo } from "@blockwise/ui";
-import { type CheckinTarget, useCheckIn } from "./useCheckIn";
+import { useCheckIn } from "./useCheckIn";
 
 const THUMB_SIZE = 40;
 const TRACK_INSET = 6;
@@ -10,9 +10,10 @@ const COMPLETE_THRESHOLD = 0.7;
 
 // Full-interaction-fidelity take on the mockup's drag-to-check-in gesture:
 // drag the thumb across the track and release past 70% to trigger the GPS
-// check-in, or it springs back.
-export function SlideToCheckIn({ target }: { target: CheckinTarget }) {
-  const { status, checkIn } = useCheckIn(target);
+// check-in, or it springs back. Works identically for a business or a POI
+// (BACKLOG.md "POIs and venues managed almost the same") -- one location id.
+export function SlideToCheckIn({ locationId }: { locationId: string }) {
+  const { status, checkIn } = useCheckIn(locationId);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);

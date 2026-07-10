@@ -158,6 +158,27 @@ export class SupabaseClaimRepository implements ClaimRepository {
     return toRecord(data);
   }
 
+  // Same not-a-single-transaction caveat as approveClaim (see its comment).
+  async revokeClaim(claimId: string, reviewedNote: string | null): Promise<ClaimRecord> {
+    const { data: claim, error: claimError } = await this.supabase
+      .from("business_claim")
+      .update({ status: "rejected", reviewed_at: new Date().toISOString(), reviewed_note: reviewedNote })
+      .eq("id", claimId)
+      .select(CLAIM_COLUMNS)
+      .single();
+
+    if (claimError) throw new Error(`revokeClaim (claim) failed: ${claimError.message}`);
+
+    const { error: venueError } = await this.supabase
+      .from("venue")
+      .update({ claimed_by_business: false })
+      .eq("id", claim.venue_id);
+
+    if (venueError) throw new Error(`revokeClaim (venue) failed: ${venueError.message}`);
+
+    return toRecord(claim);
+  }
+
   async listClaimedVenuesForUser(userId: string): Promise<ClaimedVenue[]> {
     const { data, error } = await this.supabase
       .from("business_claim")

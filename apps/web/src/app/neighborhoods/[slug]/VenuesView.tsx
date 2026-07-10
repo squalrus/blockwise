@@ -99,7 +99,7 @@ export function VenuesView({ venues }: { venues: VenueListItem[] }) {
           {sortedVenues.map((venue) => (
             <li key={venue.id}>
               <PlaceListItem
-                href={`/venues/${venue.id}`}
+                href={`/location/${venue.id}`}
                 id={venue.id}
                 name={venue.name}
                 subtitle={venue.category_name ?? "Uncategorized"}

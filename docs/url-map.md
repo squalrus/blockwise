@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-07-10 (Added apps/marketing's /brand guidelines page; apps/marketing/src/app/MarketingNav.tsx and MarketingFooter.tsx extracted as shared chrome, no route of their own).
+Last reviewed: 2026-07-10 (Merged venue+POI into one `kind`-discriminated entity — see History).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -35,10 +35,8 @@ apps/web/src/app/
 │       ├── events/page.tsx                         /neighborhoods/:slug/events — Upcoming events tab
 │       ├── pois/page.tsx                           /neighborhoods/:slug/pois — Points of interest tab
 │       └── venues/page.tsx                         /neighborhoods/:slug/venues — Venues tab (list/map toggle)
-├── venues/
-│   └── [id]/page.tsx                              /venues/:id — P — venue detail, claim form, favorite/check-in
-├── pois/
-│   └── [id]/page.tsx                              /pois/:id — P — POI detail, check-in (BACKLOG.md Ref 46)
+├── location/
+│   └── [id]/page.tsx                              /location/:id — P — merged business/POI detail page (BACKLOG.md "POIs and venues managed almost the same"), branches on `kind`: claim form/favorite/announcements/events for business, type/description/check-in stat for POI
 ├── business/
 │   ├── page.tsx                                   /business — C — venues this account has claimed
 │   └── [venueId]/page.tsx                         /business/:venueId — S (requireVenueOwner) — owner dashboard
@@ -50,14 +48,14 @@ apps/web/src/app/
 │       ├── layout.tsx                              — S (neighborhoodAdminGate on every tab's data calls) — resolves slug→id, tab nav, scope gate
 │       ├── page.tsx                                /neighborhood-admin/:slug — Overview tab (description, social links, events, read-only active POIs)
 │       ├── boundary/page.tsx                       /neighborhood-admin/:slug/boundary — Boundary tab (draw/edit + dry-run Places preview); a successful save links into the Locations review wizard (Ref 54) rather than reconciling automatically
-│       ├── claims/page.tsx                         /neighborhood-admin/:slug/claims — Business claims tab (approve/reject)
-│       ├── locations/page.tsx                      /neighborhood-admin/:slug/locations — Locations tab (merged venue+POI list; reassign category, hide/restore/convert-to-POI for venues (BACKLOG.md Ref 11); create/edit/hide/restore/delete for POIs (Ref 29))
-│       └── locations/review/page.tsx                /neighborhood-admin/:slug/locations/review — bulk Google Places review + boundary reconciliation wizard: admin-triggered query against the saved boundary, classify each new candidate as business/POI/omit (Ref 29), approve hiding active venues/POIs no longer inside the boundary (Ref 54)
+│       ├── claims/page.tsx                         /neighborhood-admin/:slug/claims — Business claims tab (approve/reject/revoke)
+│       ├── locations/page.tsx                      /neighborhood-admin/:slug/locations — Locations tab (merged business+POI list; reassign category, hide/restore, switch kind in place for either kind (BACKLOG.md "POIs and venues managed almost the same"); create/edit/hide/restore/delete for POIs (Ref 29))
+│       └── locations/review/page.tsx                /neighborhood-admin/:slug/locations/review — bulk Google Places review + boundary reconciliation wizard: admin-triggered query against the saved boundary, classify each new candidate as business/POI/omit (Ref 29), approve hiding active locations no longer inside the boundary (Ref 54)
 └── admin/
     └── category-taxonomy/page.tsx                  /admin/category-taxonomy — S (requireAdmin) — global category CRUD
 ```
 
-Identifier note: neighborhoods are addressed by **slug** everywhere in the web app now (`/neighborhoods/:slug`, `/neighborhood-admin/:slug`); venues are addressed by **id** (UUID) everywhere (`/venues/:id`, `/business/:venueId`).
+Identifier note: neighborhoods are addressed by **slug** everywhere in the web app now (`/neighborhoods/:slug`, `/neighborhood-admin/:slug`); locations (business or POI) are addressed by **id** (UUID) everywhere (`/location/:id`, `/business/:venueId`).
 
 ## Marketing site (`apps/marketing/src/app`, Next.js App Router)
 
@@ -105,18 +103,16 @@ Auth gates:
     ├── join                                            POST, DELETE — auth
     └── home                                            POST — auth
 
-/venues/:id
-├── (root)                                            GET — public — detail + enrichment cache
+/locations/:id
+├── (root)                                            GET — public — merged business/POI detail + enrichment cache (BACKLOG.md "POIs and venues managed almost the same"; was separate GET /venues/:id + GET /pois/:id)
 ├── photo                                              GET — public — ?index= selects among cached photos (default 0)
-├── announcements                                       GET — public
-├── events                                              GET — public
-├── claims                                              POST — public (optional auth attaches claimed_by_user_id)
-├── checkins                                            POST — public (optional auth) — awards check-in points/challenge progress
-├── favorites                                            GET, POST, DELETE — mixed (GET public, POST/DELETE auth) — POST awards first-time favorite points
+└── checkins                                          POST — public (optional auth) — awards check-in points/challenge progress, same geofence/cooldown for either kind
 
-/pois/:id/
-├── (root)                                            GET — public — detail (BACKLOG.md Ref 46)
-└── checkins                                          POST — public (optional auth) — POI check-in, same geofence/cooldown as venue check-in
+/venues/:id
+├── announcements                                       GET — public — business-kind only (empty for a POI id)
+├── events                                              GET — public — business-kind only
+├── claims                                              POST — public (optional auth attaches claimed_by_user_id) — business-kind only, rejected by claim ownership gating for a POI id
+└── favorites                                            GET, POST, DELETE — mixed (GET public, POST/DELETE auth) — POST awards first-time favorite points, business-kind only
 
 /me/
 ├── checkins                                          GET — auth
@@ -143,17 +139,16 @@ Auth gates:
     ├── boundary                                         GET, PATCH — neighborhoodAdmin — boundary_geojson/center (BACKLOG.md Ref 8)
     ├── social-links                                     PATCH — neighborhoodAdmin
     ├── events                                           POST — neighborhoodAdmin
-    ├── pois                                             GET, POST — neighborhoodAdmin — GET takes ?search=
-    ├── pois/:poiId                                       GET, PATCH, DELETE — neighborhoodAdmin — DELETE is 409 if checkin/point_event/challenge history exists (BACKLOG.md Ref 29)
-    ├── pois/:poiId/status                                PATCH — neighborhoodAdmin — active|hidden (BACKLOG.md Ref 29)
     ├── claims                                           GET — neighborhoodAdmin — ?status= filter, venue-joined
     ├── claims/:claimId/approve                          POST — neighborhoodAdmin
     ├── claims/:claimId/reject                           POST — neighborhoodAdmin
-    ├── venues                                           GET — neighborhoodAdmin — ?search= filter
-    ├── venues/:venueId/category                         PATCH — neighborhoodAdmin
-    ├── venues/:venueId/status                           PATCH — neighborhoodAdmin — active|hidden (BACKLOG.md Ref 11)
-    ├── locations                                         GET — neighborhoodAdmin — ?search= filter, merged read-only venue+POI list backing the Locations tab (BACKLOG.md Ref 29)
-    ├── locations/review                                  GET — neighborhoodAdmin — dry-run Google Places query against the *saved* boundary excluding already-known venues/POIs (Ref 29), plus every active venue/POI no longer inside that boundary (Ref 54)
+    ├── claims/:claimId/revoke                            POST — neighborhoodAdmin — un-approves an already-approved claim (BACKLOG.md "POIs and venues managed almost the same"); reviewClaim only handles pending claims, so this is the only path back to claimed_by_business = false, e.g. to unblock switching that business to POI kind
+    ├── locations                                         GET, POST — neighborhoodAdmin — GET takes ?search=, merged business+POI list backing the Locations tab (BACKLOG.md Ref 29, generalized); POST creates a location (kind in body — only "poi" is wired into the admin UI today, "business" accepted for forward compatibility)
+    ├── locations/:locationId                             GET, PATCH, DELETE — neighborhoodAdmin — DELETE is 409 for a business-kind location (hide instead) or if checkin/point_event/challenge/favorite/claim/announcement/event history exists (BACKLOG.md Ref 29)
+    ├── locations/:locationId/category                    PATCH — neighborhoodAdmin — business-kind only in practice
+    ├── locations/:locationId/status                      PATCH — neighborhoodAdmin — active|hidden, either kind (BACKLOG.md Ref 11/29)
+    ├── locations/:locationId/kind                        PATCH — neighborhoodAdmin — switches business⇄poi kind in place (BACKLOG.md "POIs and venues managed almost the same"); 409 if switching a claimed business to poi
+    ├── locations/review                                  GET — neighborhoodAdmin — dry-run Google Places query against the *saved* boundary excluding already-known locations (Ref 29), plus every active location no longer inside that boundary (Ref 54)
     └── locations/review/commit                           POST — neighborhoodAdmin — bulk-applies business/POI/omit classifications and approved hide-removals from the review above
 
 /admin/
@@ -166,9 +161,11 @@ Auth gates:
     └── :id/archive                                       POST — admin
 ```
 
-Identifier note: every neighborhood-identifying path param in the API is the **id** (UUID), except the public `GET /neighborhoods/:slug` family (profile, leaderboard, challenges) — the web app resolves slug→id client-side (via `GET /neighborhood-admin/neighborhoods`) before calling any `:id`-keyed admin route. Venue-identifying params are always **id** (UUID), never slug.
+Identifier note: every neighborhood-identifying path param in the API is the **id** (UUID), except the public `GET /neighborhoods/:slug` family (profile, leaderboard, challenges) — the web app resolves slug→id client-side (via `GET /neighborhood-admin/neighborhoods`) before calling any `:id`-keyed admin route. Location-identifying params (business or POI) are always **id** (UUID), never slug.
 
 ## History
+
+- **2026-07-10** — `venue` and `poi` merged into one table with a `kind` column (`'business' | 'poi'`), so switching a location between the two is a single in-place update instead of the old hide-then-recreate-as-a-new-row "Convert to POI" flow. `checkin`/`point_event`/`challenge`/`venue_enrichment_cache` all lost their separate `poi_id` column in favor of `venue_id` covering both kinds. Public `/venues/:id` + `/pois/:id` merged into `/location/:id` (web) and `GET/POST /locations/:id` (API); admin venue/POI routes merged into `/neighborhood-admin/neighborhoods/:id/locations*`, gaining a new `PATCH .../locations/:id/kind` switch action (blocked while claimed). Added claim revoke (`POST .../claims/:claimId/revoke`) since approving a claim previously had no way back. No redirects from the old `/venues/:id`/`/pois/:id` URLs (pre-launch). See BACKLOG.md "POIs and venues managed almost the same".
 
 - **2026-07-09** — The marketing homepage moved from `apps/web` into a new `apps/marketing` Next.js app, deployed as its own Netlify site to `tryspored.com` (apps/web becomes `app.tryspored.com`-only). `apps/web`'s `/` is now a client-side redirect to `/account` or `/login` instead of marketing content; `SiteChrome.tsx` (which existed only to hide chrome on that route) was removed and its AccountNav/Footer wiring inlined into `layout.tsx`. `MushroomLogo` and the brand fonts/colors moved into a new shared `packages/ui` package consumed by both apps.
 - **2026-07-09** — The "Check in nearby" section (nearest-venue list + `SlideToCheckIn`) moved off `/account` onto a new dedicated `/checkin` page, so checking in doesn't require loading the rest of the account page first. `AccountNav` gained a check-in icon button (signed-in only) to the left of the hamburger menu for quick access; `NearestVenues.tsx` moved from `account/` to `checkin/` alongside it.

@@ -5,9 +5,8 @@ import type {
   CompleteChallengeInput,
   GamificationRepository,
   LeaderboardRow,
-  PoiContext,
+  LocationContext,
   UserBadgeRecord,
-  VenueContext,
 } from "./repository";
 
 // In-memory fake shared by points.test.ts and challenges.test.ts, mirroring
@@ -15,8 +14,7 @@ import type {
 // shared here (rather than duplicated per test file) since both suites
 // exercise the same wide GamificationRepository interface.
 export class FakeGamificationRepository implements GamificationRepository {
-  venues = new Map<string, VenueContext>();
-  pois = new Map<string, PoiContext>();
+  locations = new Map<string, LocationContext>();
   pointEvents: (AwardPointsInput & { id: string })[] = [];
   challenges: ChallengeRecord[] = [];
   completions = new Set<string>(); // `${userId}:${challengeId}`
@@ -26,16 +24,12 @@ export class FakeGamificationRepository implements GamificationRepository {
   badgeCatalog = new Map<string, BadgeRecord>();
   private badgeAwardedAt = new Map<string, string>();
   private nextBadgeAwardMs = 1;
-  checkins: { userId: string; venueId?: string; poiId?: string; checkedInAt: string }[] = [];
+  checkins: { userId: string; venueId: string; checkedInAt: string }[] = [];
   users = new Map<string, { displayName: string | null; username: string | null; avatarUrl: string | null; visibility: "public" | "private" }>();
   private nextId = 1;
 
-  async getVenueContext(venueId: string): Promise<VenueContext | null> {
-    return this.venues.get(venueId) ?? null;
-  }
-
-  async getPoiContext(poiId: string): Promise<PoiContext | null> {
-    return this.pois.get(poiId) ?? null;
+  async getLocationContext(locationId: string): Promise<LocationContext | null> {
+    return this.locations.get(locationId) ?? null;
   }
 
   deviceUsers = new Map<string, string>();
@@ -63,7 +57,7 @@ export class FakeGamificationRepository implements GamificationRepository {
   async getActiveChallengesForTarget(input: {
     neighborhoodId: string;
     categoryId?: string;
-    poiId?: string;
+    venueId?: string;
     now: string;
   }): Promise<ChallengeRecord[]> {
     return this.challenges.filter(
@@ -71,7 +65,8 @@ export class FakeGamificationRepository implements GamificationRepository {
         c.neighborhoodId === input.neighborhoodId &&
         c.startsAt <= input.now &&
         c.endsAt >= input.now &&
-        (input.categoryId ? c.categoryId === input.categoryId : c.poiId === input.poiId)
+        ((input.categoryId && c.categoryId === input.categoryId) ||
+          (input.venueId && c.venueId === input.venueId))
     );
   }
 
@@ -98,24 +93,24 @@ export class FakeGamificationRepository implements GamificationRepository {
             c.venueId &&
             c.checkedInAt >= input.startsAt &&
             c.checkedInAt <= input.endsAt &&
-            this.venues.get(c.venueId)?.categoryId === input.categoryId &&
-            this.venues.get(c.venueId)?.neighborhoodId === input.neighborhoodId
+            this.locations.get(c.venueId)?.categoryId === input.categoryId &&
+            this.locations.get(c.venueId)?.neighborhoodId === input.neighborhoodId
         )
-        .map((c) => c.venueId as string)
+        .map((c) => c.venueId)
     );
     return venueIds.size;
   }
 
-  async hasAnyCheckinForPoi(input: {
+  async hasAnyCheckinForLocation(input: {
     userId: string;
-    poiId: string;
+    venueId: string;
     startsAt: string;
     endsAt: string;
   }): Promise<boolean> {
     return this.checkins.some(
       (c) =>
         c.userId === input.userId &&
-        c.poiId === input.poiId &&
+        c.venueId === input.venueId &&
         c.checkedInAt >= input.startsAt &&
         c.checkedInAt <= input.endsAt
     );
@@ -216,8 +211,8 @@ export function makeChallenge(overrides: Partial<ChallengeRecord> = {}): Challen
     description: null,
     categoryId: null,
     categoryName: null,
-    poiId: null,
-    poiName: null,
+    venueId: null,
+    venueName: null,
     targetCount: 1,
     pointsReward: 0,
     badge: null,

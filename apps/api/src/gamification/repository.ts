@@ -1,10 +1,9 @@
-export interface VenueContext {
+// Shared by both business and POI check-ins/challenges since the venue/poi
+// merge (BACKLOG.md "POIs and venues managed almost the same") -- categoryId
+// is simply null for a poi-kind location.
+export interface LocationContext {
   neighborhoodId: string;
   categoryId: string | null;
-}
-
-export interface PoiContext {
-  neighborhoodId: string;
 }
 
 export type PointEventType = "checkin" | "favorite" | "challenge_completion";
@@ -15,7 +14,6 @@ export interface AwardPointsInput {
   eventType: PointEventType;
   points: number;
   venueId?: string;
-  poiId?: string;
   checkinId?: string;
   challengeId?: string;
 }
@@ -35,8 +33,11 @@ export interface ChallengeRecord {
   description: string | null;
   categoryId: string | null;
   categoryName: string | null;
-  poiId: string | null;
-  poiName: string | null;
+  // Named venueId/venueName internally (challenge.venue_id post-merge) --
+  // the public Challenge/ChallengeProgress DTOs keep poi_id/poi_name for API
+  // stability, mapped in challenges.ts's toChallengeProgress.
+  venueId: string | null;
+  venueName: string | null;
   targetCount: number;
   pointsReward: number;
   badge: BadgeRecord | null;
@@ -70,8 +71,7 @@ export interface LeaderboardRow {
 // the award/completion logic (points.ts, challenges.ts) can be tested
 // against an in-memory fake, mirroring checkins/repository.ts.
 export interface GamificationRepository {
-  getVenueContext(venueId: string): Promise<VenueContext | null>;
-  getPoiContext(poiId: string): Promise<PoiContext | null>;
+  getLocationContext(locationId: string): Promise<LocationContext | null>;
 
   // Read-only lookup (no lazy creation, unlike checkins/favorites'
   // getOrCreateAnonymousUser) -- a device that's never checked in or
@@ -85,11 +85,14 @@ export interface GamificationRepository {
   awardPoints(input: AwardPointsInput): Promise<boolean>;
 
   // Every challenge in this neighborhood whose window contains `now` and
-  // that targets this category or this POI (whichever is provided).
+  // that targets this category or this specific location (whichever is
+  // provided -- either or both may be, since a check-in against a
+  // categorized business can satisfy a category challenge, a
+  // location-specific challenge, or both).
   getActiveChallengesForTarget(input: {
     neighborhoodId: string;
     categoryId?: string;
-    poiId?: string;
+    venueId?: string;
     now: string;
   }): Promise<ChallengeRecord[]>;
 
@@ -108,9 +111,9 @@ export interface GamificationRepository {
     endsAt: string;
   }): Promise<number>;
 
-  hasAnyCheckinForPoi(input: {
+  hasAnyCheckinForLocation(input: {
     userId: string;
-    poiId: string;
+    venueId: string;
     startsAt: string;
     endsAt: string;
   }): Promise<boolean>;

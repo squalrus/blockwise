@@ -54,6 +54,28 @@ export default function NeighborhoodAdminClaimsPage() {
     await loadClaims(status);
   }
 
+  // Un-approves an already-approved claim (BACKLOG.md "POIs and venues
+  // managed almost the same") -- the only way to clear claimed_by_business,
+  // e.g. before switching that business to POI kind in the Locations tab
+  // (which is blocked while claimed).
+  async function handleRevoke(claimId: string) {
+    if (!window.confirm("Revoke this claim? The business will no longer be marked as claimed.")) return;
+    const token = await getAccessToken();
+    const res = await fetch(
+      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/claims/${claimId}/revoke`),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({}),
+      }
+    );
+    if (!res.ok) {
+      setError("failed");
+      return;
+    }
+    await loadClaims(status);
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex gap-2 text-sm">
@@ -99,6 +121,16 @@ export default function NeighborhoodAdminClaimsPage() {
                   className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
                 >
                   Reject
+                </button>
+              </div>
+            )}
+            {claim.status === "approved" && (
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => handleRevoke(claim.id)}
+                  className="rounded-md border border-border px-3 py-1 text-sm font-bold text-red-600 hover:bg-card dark:text-red-400"
+                >
+                  Revoke
                 </button>
               </div>
             )}

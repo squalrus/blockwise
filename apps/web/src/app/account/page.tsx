@@ -142,7 +142,7 @@ export default function AccountPage() {
                 {state.favorites.map((venue) => (
                   <li key={venue.venue_id}>
                     <PlaceListItem
-                      href={`/venues/${venue.venue_id}`}
+                      href={`/location/${venue.venue_id}`}
                       id={venue.venue_id}
                       name={venue.name}
                       subtitle={venue.address}

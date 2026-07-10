@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CategoryOption, LocationListItem, Poi, VenueStatus } from "@blockwise/types";
+import type { CategoryOption, LocationKind, LocationListItem, Venue, VenueStatus } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "../NeighborhoodAdminContext";
 import { PoiForm } from "../PoiForm";
 
-type Filter = "all" | "venue" | "poi" | "hidden";
+type Filter = "all" | "business" | "poi" | "hidden";
 
-// Locations tab (BACKLOG.md Ref 29) -- replaces the old Venues tab, merging
-// venue (business) and POI rows for a neighborhood into one list so an admin
-// doesn't have to cross-reference two separate tabs. Keeps every action the
-// Venues tab had (category reassign, hide/restore, convert-to-POI) and adds
-// full POI CRUD (create/edit/hide/restore/delete) plus a "Claimed" pill.
+// Locations tab (BACKLOG.md Ref 29, generalized by "POIs and venues managed
+// almost the same") -- one merged venue+POI list for a neighborhood, so an
+// admin doesn't have to cross-reference two separate tabs. Category
+// reassign, hide/restore, and switching kind are all in-place actions on the
+// same row now that both kinds live in one table; POI CRUD (create/edit/
+// hide/restore/delete) stays as its own flow since businesses have no
+// manual-create/edit UI.
 export default function NeighborhoodAdminLocationsPage() {
   const { neighborhoodId, slug } = useNeighborhoodAdmin();
   const [search, setSearch] = useState("");
@@ -22,8 +24,7 @@ export default function NeighborhoodAdminLocationsPage() {
   const [categories, setCategories] = useState<CategoryOption[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [convertingVenueId, setConvertingVenueId] = useState<string | null>(null);
-  const [editingPoi, setEditingPoi] = useState<Poi | null>(null);
+  const [editingPoi, setEditingPoi] = useState<Venue | null>(null);
   const [addingPoi, setAddingPoi] = useState(false);
 
   async function loadLocations(activeSearch: string) {
@@ -66,12 +67,12 @@ export default function NeighborhoodAdminLocationsPage() {
     loadLocations(search);
   }
 
-  async function handleCategoryChange(venueId: string, categoryId: string) {
-    setSavingId(venueId);
+  async function handleCategoryChange(locationId: string, categoryId: string) {
+    setSavingId(locationId);
     setError(null);
     const token = await getAccessToken();
     const res = await fetch(
-      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/venues/${venueId}/category`),
+      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/locations/${locationId}/category`),
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -86,12 +87,12 @@ export default function NeighborhoodAdminLocationsPage() {
     await loadLocations(search);
   }
 
-  async function handleVenueStatusChange(venueId: string, status: VenueStatus) {
-    setSavingId(venueId);
+  async function handleStatusChange(locationId: string, status: VenueStatus) {
+    setSavingId(locationId);
     setError(null);
     const token = await getAccessToken();
     const res = await fetch(
-      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/venues/${venueId}/status`),
+      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/locations/${locationId}/status`),
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -103,25 +104,29 @@ export default function NeighborhoodAdminLocationsPage() {
       setError("Something went wrong.");
       return;
     }
-    if (status !== "hidden") setConvertingVenueId(null);
     await loadLocations(search);
   }
 
-  async function handlePoiStatusChange(poiId: string, status: VenueStatus) {
-    setSavingId(poiId);
+  // Switch an existing location between business and poi kind in place
+  // (BACKLOG.md "POIs and venues managed almost the same") -- replaces the
+  // old hide-then-recreate-as-a-new-row "Convert to POI" flow. Blocked (409)
+  // while the location is claimed; the API's error message explains why.
+  async function handleSwitchKind(locationId: string, kind: LocationKind) {
+    setSavingId(locationId);
     setError(null);
     const token = await getAccessToken();
     const res = await fetch(
-      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/pois/${poiId}/status`),
+      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/locations/${locationId}/kind`),
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ kind }),
       }
     );
     setSavingId(null);
     if (!res.ok) {
-      setError("Something went wrong.");
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Something went wrong.");
       return;
     }
     await loadLocations(search);
@@ -131,7 +136,7 @@ export default function NeighborhoodAdminLocationsPage() {
     setError(null);
     const token = await getAccessToken();
     const res = await fetch(
-      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/pois/${poiId}`),
+      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/locations/${poiId}`),
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!res.ok) {
@@ -147,7 +152,7 @@ export default function NeighborhoodAdminLocationsPage() {
     setError(null);
     const token = await getAccessToken();
     const res = await fetch(
-      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/pois/${poiId}`),
+      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/locations/${poiId}`),
       { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
     );
     setSavingId(null);
@@ -176,7 +181,7 @@ export default function NeighborhoodAdminLocationsPage() {
   const filtered =
     locations?.filter((loc) => {
       if (filter === "hidden") return loc.status === "hidden";
-      if (filter === "venue") return loc.kind === "venue";
+      if (filter === "business") return loc.kind === "business";
       if (filter === "poi") return loc.kind === "poi";
       return true;
     }) ?? null;
@@ -196,7 +201,7 @@ export default function NeighborhoodAdminLocationsPage() {
       </form>
 
       <div className="flex gap-2 text-xs">
-        {(["all", "venue", "poi", "hidden"] as Filter[]).map((f) => (
+        {(["all", "business", "poi", "hidden"] as Filter[]).map((f) => (
           <button
             key={f}
             type="button"
@@ -205,7 +210,7 @@ export default function NeighborhoodAdminLocationsPage() {
               filter === f ? "bg-brand-purple text-on-accent" : "border-2 border-foreground text-foreground"
             }`}
           >
-            {f === "all" ? "All" : f === "venue" ? "Businesses" : f === "poi" ? "POIs" : "Hidden"}
+            {f === "all" ? "All" : f === "business" ? "Businesses" : f === "poi" ? "POIs" : "Hidden"}
           </button>
         ))}
       </div>
@@ -247,7 +252,7 @@ export default function NeighborhoodAdminLocationsPage() {
             <div className="flex items-center gap-2">
               <p className="font-extrabold text-foreground">{loc.name}</p>
               <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-bold text-muted-strong">
-                {loc.kind === "venue" ? "Business" : "POI"}
+                {loc.kind === "business" ? "Business" : "POI"}
               </span>
               {loc.claimed_by_business && (
                 <span className="rounded-full bg-brand-green px-2 py-0.5 text-xs font-bold text-on-accent">
@@ -262,7 +267,7 @@ export default function NeighborhoodAdminLocationsPage() {
             </div>
             <p className="text-muted">{loc.address ?? "No address"}</p>
 
-            {loc.kind === "venue" ? (
+            {loc.kind === "business" ? (
               <div className="mt-2 flex items-center gap-2">
                 <select
                   value={loc.category_id ?? ""}
@@ -284,32 +289,30 @@ export default function NeighborhoodAdminLocationsPage() {
                   <button
                     type="button"
                     disabled={savingId === loc.id}
-                    onClick={() => handleVenueStatusChange(loc.id, "hidden")}
+                    onClick={() => handleStatusChange(loc.id, "hidden")}
                     className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
                   >
                     Hide
                   </button>
                 ) : (
-                  <>
-                    <button
-                      type="button"
-                      disabled={savingId === loc.id}
-                      onClick={() => handleVenueStatusChange(loc.id, "active")}
-                      className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
-                    >
-                      Restore as business
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setConvertingVenueId((prev) => (prev === loc.id ? null : loc.id))
-                      }
-                      className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
-                    >
-                      Convert to POI
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    disabled={savingId === loc.id}
+                    onClick={() => handleStatusChange(loc.id, "active")}
+                    className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
+                  >
+                    Restore as business
+                  </button>
                 )}
+                <button
+                  type="button"
+                  disabled={savingId === loc.id || loc.claimed_by_business}
+                  title={loc.claimed_by_business ? "Reject or revoke the business claim first" : undefined}
+                  onClick={() => handleSwitchKind(loc.id, "poi")}
+                  className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card disabled:opacity-50"
+                >
+                  Switch to POI
+                </button>
 
                 {savingId === loc.id && <span className="text-xs font-bold text-muted">Saving…</span>}
               </div>
@@ -327,7 +330,7 @@ export default function NeighborhoodAdminLocationsPage() {
                   <button
                     type="button"
                     disabled={savingId === loc.id}
-                    onClick={() => handlePoiStatusChange(loc.id, "hidden")}
+                    onClick={() => handleStatusChange(loc.id, "hidden")}
                     className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
                   >
                     Hide
@@ -336,12 +339,20 @@ export default function NeighborhoodAdminLocationsPage() {
                   <button
                     type="button"
                     disabled={savingId === loc.id}
-                    onClick={() => handlePoiStatusChange(loc.id, "active")}
+                    onClick={() => handleStatusChange(loc.id, "active")}
                     className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
                   >
                     Restore
                   </button>
                 )}
+                <button
+                  type="button"
+                  disabled={savingId === loc.id}
+                  onClick={() => handleSwitchKind(loc.id, "business")}
+                  className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
+                >
+                  Switch to business
+                </button>
                 <button
                   type="button"
                   disabled={savingId === loc.id}
@@ -351,22 +362,6 @@ export default function NeighborhoodAdminLocationsPage() {
                   Delete
                 </button>
                 {savingId === loc.id && <span className="text-xs font-bold text-muted">Saving…</span>}
-              </div>
-            )}
-
-            {convertingVenueId === loc.id && loc.kind === "venue" && (
-              <div className="mt-3">
-                <PoiForm
-                  neighborhoodId={neighborhoodId}
-                  onCreated={handlePoiCreated}
-                  initial={{
-                    name: loc.name,
-                    lat: loc.lat ?? 0,
-                    lng: loc.lng ?? 0,
-                    address: loc.address ?? undefined,
-                    googlePlaceId: loc.google_place_id,
-                  }}
-                />
               </div>
             )}
 

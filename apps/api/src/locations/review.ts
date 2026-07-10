@@ -1,13 +1,11 @@
 import type { GeoJsonPolygon } from "@blockwise/types";
-import type { CategoryMappingRepository } from "../categoryMapping/repository";
-import { updateVenueStatusForNeighborhood } from "../categoryMapping/categoryMapping";
 import type { GooglePlacesClient } from "../places/client";
 import { findDuplicate } from "../places/dedup";
 import { isPointInPolygon } from "../places/geo";
 import type { PlacesRepository } from "../places/repository";
 import { searchPlacesInPolygon } from "../places/sync";
-import { createNeighborhoodPoi, updatePoiStatusForNeighborhood } from "../pois/pois";
-import type { PoiRepository } from "../pois/repository";
+import { createLocation, updateLocationStatusForNeighborhood } from "./locations";
+import type { LocationRepository } from "./repository";
 
 export interface NewLocationCandidate {
   googlePlaceId: string;
@@ -20,7 +18,6 @@ export interface NewLocationCandidate {
 }
 
 export interface ProposedRemoval {
-  kind: "venue" | "poi";
   id: string;
   name: string;
   address: string | null;
@@ -38,67 +35,55 @@ export interface LocationReviewReport {
 // (BACKLOG.md Ref 54): reuses the same tiling/search/boundary-filter/
 // categorize pipeline as the real sync and the boundary dry-run preview
 // (searchPlacesInPolygon), then excludes anything already known -- first by
-// google_place_id (a POI converted from a venue, or a venue/POI from a prior
-// sync/review run), then by the same name+location heuristic the real sync
-// uses against venues (places/dedup.ts's findDuplicate) so a near-duplicate
-// isn't re-surfaced just because it lacks a matching place id. What's left
-// is genuinely new. Separately, every *active* venue/POI still on record is
-// checked against the same (current, saved) boundary -- anything now outside
-// it is a proposed removal, surfaced for explicit admin approval rather than
-// silently staying attached (today's behavior) or silently auto-hiding.
+// google_place_id (a location converted from the other kind, or a location
+// from a prior sync/review run), then by the same name+location heuristic
+// the real sync uses against venues (places/dedup.ts's findDuplicate) so a
+// near-duplicate isn't re-surfaced just because it lacks a matching place
+// id. What's left is genuinely new. Separately, every *active* location
+// still on record is checked against the same (current, saved) boundary --
+// anything now outside it is a proposed removal, surfaced for explicit
+// admin approval rather than silently staying attached (today's behavior)
+// or silently auto-hiding.
 export async function reviewNeighborhoodLocations(
   neighborhoodId: string,
   polygon: GeoJsonPolygon,
   client: GooglePlacesClient,
   placesRepository: PlacesRepository,
-  poiRepository: PoiRepository,
-  categoryMappingRepository: CategoryMappingRepository
+  locationRepository: LocationRepository
 ): Promise<LocationReviewReport> {
-  const [categories, existingVenues, existingPois, activeVenues] = await Promise.all([
+  const [categories, existingLocations] = await Promise.all([
     placesRepository.listCategories(),
-    placesRepository.listVenuesByNeighborhood(neighborhoodId),
-    poiRepository.listPoisForNeighborhood(neighborhoodId),
-    categoryMappingRepository.listVenuesForNeighborhood(neighborhoodId),
+    locationRepository.listLocationsForNeighborhood(neighborhoodId),
   ]);
 
   const search = await searchPlacesInPolygon(polygon, client, categories);
 
   const proposedRemovals: ProposedRemoval[] = [];
-  for (const venue of activeVenues) {
-    if (venue.status !== "active") continue;
-    if (isPointInPolygon({ lat: venue.lat, lng: venue.lng }, polygon)) continue;
-    proposedRemovals.push({ kind: "venue", id: venue.id, name: venue.name, address: venue.address });
-  }
-  for (const poi of existingPois) {
-    if (poi.status !== "active") continue;
+  for (const location of existingLocations) {
+    if (location.status !== "active") continue;
     // Legacy rows that predate lat/lng (BACKLOG.md Ref 51) can't be tested
     // against the polygon -- left alone rather than guessed at.
-    if (poi.lat === null || poi.lng === null) continue;
-    if (isPointInPolygon({ lat: poi.lat, lng: poi.lng }, polygon)) continue;
-    proposedRemovals.push({ kind: "poi", id: poi.id, name: poi.name, address: poi.address });
+    if (location.lat === null || location.lng === null) continue;
+    if (isPointInPolygon({ lat: location.lat, lng: location.lng }, polygon)) continue;
+    proposedRemovals.push({ id: location.id, name: location.name, address: location.address });
   }
 
   // Grows as candidates are accepted below, mirroring syncNeighborhoodPlaces
   // (sync.ts) -- catches two near-duplicate places returned in the *same*
   // review run (Google itself sometimes lists one place twice under
   // different place IDs), not just duplicates against rows already in the DB.
-  const dedupList = [
-    ...existingVenues.map((v) => ({ name: v.name, location: { lat: v.lat, lng: v.lng } })),
-    // Only POIs with real coordinates can be checked for a near-duplicate
-    // location match -- a handful of legacy rows predate lat/lng (BACKLOG.md
-    // Ref 51) and are simply skipped here, same as they're skipped from
-    // boundary-membership checks elsewhere.
-    ...existingPois
-      .filter((p): p is typeof p & { lat: number; lng: number } => p.lat !== null && p.lng !== null)
-      .map((p) => ({ name: p.name, location: { lat: p.lat, lng: p.lng } })),
-  ];
+  const dedupList = existingLocations
+    // Only locations with real coordinates can be checked for a
+    // near-duplicate location match -- a handful of legacy rows predate
+    // lat/lng (BACKLOG.md Ref 51) and are simply skipped here, same as
+    // they're skipped from boundary-membership checks above.
+    .filter((l): l is typeof l & { lat: number; lng: number } => l.lat !== null && l.lng !== null)
+    .map((l) => ({ name: l.name, location: { lat: l.lat, lng: l.lng } }));
 
   const newCandidates: NewLocationCandidate[] = [];
   for (const place of search.places) {
-    const alreadyAVenue = existingVenues.some((v) => v.googlePlaceId === place.raw.id);
-    if (alreadyAVenue) continue;
-    const alreadyAPoi = existingPois.some((p) => p.googlePlaceId === place.raw.id);
-    if (alreadyAPoi) continue;
+    const alreadyKnown = existingLocations.some((l) => l.googlePlaceId === place.raw.id);
+    if (alreadyKnown) continue;
 
     const dedupCandidate = { name: place.name, location: place.location };
     if (findDuplicate(dedupCandidate, dedupList)) continue;
@@ -140,7 +125,6 @@ export interface LocationReviewClassificationInput {
 }
 
 export interface LocationRemovalApproval {
-  kind: "venue" | "poi";
   id: string;
 }
 
@@ -159,17 +143,16 @@ export interface CommitLocationReviewResult {
 // is never persisted: an omitted candidate has nothing recorded about the
 // decision and will simply reappear on the next review run (an explicit,
 // documented non-goal for this pass -- see BACKLOG.md Ref 29's notes).
-// Removals reuse the exact hide mechanism venue omission/POI hide already
-// use (venue.status/poi.status = "hidden", BACKLOG.md Ref 11/29) -- never a
-// delete, so existing checkin/favorite/point_event history survives, per the
-// explicit ask behind the boundary re-map wizard (Ref 54).
+// Removals reuse the exact hide mechanism location hide/restore already
+// uses (venue.status = "hidden", BACKLOG.md Ref 11/29) -- never a delete, so
+// existing checkin/favorite/point_event history survives, per the explicit
+// ask behind the boundary re-map wizard (Ref 54).
 export async function commitLocationReview(
   neighborhoodId: string,
   classifications: LocationReviewClassificationInput[],
   removals: LocationRemovalApproval[],
   placesRepository: PlacesRepository,
-  poiRepository: PoiRepository,
-  categoryMappingRepository: CategoryMappingRepository
+  locationRepository: LocationRepository
 ): Promise<CommitLocationReviewResult> {
   const result: CommitLocationReviewResult = {
     createdBusinesses: [],
@@ -181,20 +164,14 @@ export async function commitLocationReview(
 
   for (const removal of removals) {
     try {
-      if (removal.kind === "venue") {
-        const outcome = await updateVenueStatusForNeighborhood(
-          neighborhoodId,
-          removal.id,
-          "hidden",
-          categoryMappingRepository
-        );
-        if (outcome.status === "venue_not_found") throw new Error("Venue not found");
-        result.hidden.push(outcome.venue.name);
-      } else {
-        const outcome = await updatePoiStatusForNeighborhood(neighborhoodId, removal.id, "hidden", poiRepository);
-        if (outcome.status === "not_found") throw new Error("Point of interest not found");
-        result.hidden.push(outcome.poi.name);
-      }
+      const outcome = await updateLocationStatusForNeighborhood(
+        neighborhoodId,
+        removal.id,
+        "hidden",
+        locationRepository
+      );
+      if (outcome.status === "not_found") throw new Error("Location not found");
+      result.hidden.push(outcome.location.name);
     } catch (err) {
       result.failed.push({
         name: removal.id,
@@ -212,6 +189,11 @@ export async function commitLocationReview(
 
         case "business": {
           if (!item.categoryId) throw new Error("category_id is required to classify as a business");
+          // The sync pipeline's own venue upsert (places/sync.ts) -- reused
+          // as-is rather than routing through createLocation, since this is
+          // the same "known Google Place, sync into venue" operation the
+          // scheduled sync job already performs. New rows default to kind
+          // "business" at the DB level.
           await placesRepository.upsertVenue({
             googlePlaceId: item.googlePlaceId,
             name: item.name,
@@ -227,9 +209,10 @@ export async function commitLocationReview(
 
         case "poi": {
           if (!item.type) throw new Error("type is required to classify as a point of interest");
-          await createNeighborhoodPoi(
+          await createLocation(
             neighborhoodId,
             {
+              kind: "poi",
               name: item.name,
               type: item.type,
               lat: item.lat,
@@ -237,7 +220,7 @@ export async function commitLocationReview(
               googlePlaceId: item.googlePlaceId,
               address: item.address,
             },
-            poiRepository
+            locationRepository
           );
           result.createdPois.push(item.name);
           break;

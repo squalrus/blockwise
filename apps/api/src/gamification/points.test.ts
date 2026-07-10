@@ -5,7 +5,7 @@ import { FakeGamificationRepository, makeBadge } from "./testSupport";
 describe("awardFavoritePoints", () => {
   it("awards points the first time a venue is favorited", async () => {
     const repo = new FakeGamificationRepository();
-    repo.venues.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: null });
+    repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: null });
 
     await awardFavoritePoints({ userId: "user-1", venueId: "venue-1" }, repo);
 
@@ -19,7 +19,7 @@ describe("awardFavoritePoints", () => {
 
   it("does not award points again on a second favorite of the same venue", async () => {
     const repo = new FakeGamificationRepository();
-    repo.venues.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: null });
+    repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: null });
 
     await awardFavoritePoints({ userId: "user-1", venueId: "venue-1" }, repo);
     await awardFavoritePoints({ userId: "user-1", venueId: "venue-1" }, repo);

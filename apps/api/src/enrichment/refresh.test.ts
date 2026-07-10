@@ -1,53 +1,21 @@
 import { describe, expect, it } from "vitest";
 import type { VenueEnrichmentCache } from "@blockwise/types";
 import type { PlaceDetailsClient, RawPlaceDetails } from "../places/client";
-import type {
-  UpsertEnrichmentInput,
-  VenueDetailRecord,
-  VenueDetailRepository,
-} from "./detailRepository";
-import { getVenueDetailWithFreshEnrichment, isStale } from "./enrichment";
+import { getFreshEnrichment, isStale } from "./refresh";
+import type { EnrichmentRepository, UpsertEnrichmentInput } from "./repository";
 
-const BASE_RECORD: VenueDetailRecord = {
-  id: "venue-1",
-  googlePlaceId: "google-place-1",
-  name: "Diesel Fuel Coffee",
-  address: "5629 University Way NE, Seattle, WA",
-  lat: 47.6772,
-  lng: -122.3549,
-  categoryName: "Coffee Shop",
-  claimedByBusiness: false,
-  enrichment: null,
-  neighborhoodSlug: "phinneywood",
-  neighborhoodName: "Phinneywood",
-  socialLinks: {},
-};
-
-class FakeRepository implements VenueDetailRepository {
+class FakeEnrichmentRepository implements EnrichmentRepository {
   upsertCalls: UpsertEnrichmentInput[] = [];
+  private rows = new Map<string, VenueEnrichmentCache>();
 
-  constructor(private record: VenueDetailRecord | null) {}
-
-  async listVenues() {
-    return [];
-  }
-
-  async getVenueDetail(): Promise<VenueDetailRecord | null> {
-    return this.record;
-  }
-
-  async countActiveVenuesForNeighborhood(): Promise<number> {
-    return this.record ? 1 : 0;
-  }
-
-  async getEnrichmentPhotoReference(_venueId: string, index: number): Promise<string | null> {
-    return this.record?.enrichment?.photo_refs[index] ?? null;
+  async getEnrichment(locationId: string): Promise<VenueEnrichmentCache | null> {
+    return this.rows.get(locationId) ?? null;
   }
 
   async upsertEnrichment(input: UpsertEnrichmentInput): Promise<VenueEnrichmentCache> {
     this.upsertCalls.push(input);
     const row: VenueEnrichmentCache = {
-      venue_id: input.venueId,
+      venue_id: input.locationId,
       source: input.source,
       rating: input.rating,
       reviews: input.reviews,
@@ -60,8 +28,12 @@ class FakeRepository implements VenueDetailRepository {
       atmosphere: input.atmosphere,
       fetched_at: new Date().toISOString(),
     };
-    if (this.record) this.record = { ...this.record, enrichment: row };
+    this.rows.set(input.locationId, row);
     return row;
+  }
+
+  async getPhotoReference(locationId: string, index: number): Promise<string | null> {
+    return this.rows.get(locationId)?.photo_refs[index] ?? null;
   }
 }
 
@@ -111,42 +83,26 @@ describe("isStale", () => {
   });
 });
 
-describe("getVenueDetailWithFreshEnrichment", () => {
-  it("returns null when the venue doesn't exist", async () => {
-    const result = await getVenueDetailWithFreshEnrichment(
-      "missing",
-      new FakeRepository(null),
-      new FakePlacesClient()
-    );
-    expect(result).toBeNull();
-  });
-
+describe("getFreshEnrichment", () => {
   it("fetches and caches enrichment when none exists yet", async () => {
-    const repository = new FakeRepository(BASE_RECORD);
+    const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
 
-    const result = await getVenueDetailWithFreshEnrichment("venue-1", repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", "google-place-1", null, repository, placesClient);
 
     expect(placesClient.calls).toEqual(["google-place-1"]);
     expect(repository.upsertCalls).toHaveLength(1);
-    expect(result?.enrichment).toMatchObject({
-      rating: 4.6,
-      price_tier: "PRICE_LEVEL_MODERATE",
-      reviews: [{ rating: 5, text: "Great espresso.", author_name: "Ava" }],
-      photo_refs: ["places/google-place-1/photos/1", "places/google-place-1/photos/2"],
-      phone: "(206) 555-0100",
-      website: "https://example.com",
-      hours: ["Monday: 7:00 AM – 5:00 PM"],
-      editorial_summary: "Cozy neighborhood coffee shop.",
-      atmosphere: {
-        delivery: false,
-        dine_in: true,
-        takeout: true,
-        outdoor_seating: true,
-        good_for_children: true,
-        reservable: false,
-      },
-    });
+    expect(result).toMatchObject({ rating: 4.6, price_tier: "PRICE_LEVEL_MODERATE" });
+  });
+
+  it("works identically for a former-POI-kind location (BACKLOG.md 'POIs and venues managed almost the same')", async () => {
+    const repository = new FakeEnrichmentRepository();
+    const placesClient = new FakePlacesClient();
+
+    const result = await getFreshEnrichment("poi-1", "google-place-1", null, repository, placesClient);
+
+    expect(repository.upsertCalls).toEqual([expect.objectContaining({ locationId: "poi-1" })]);
+    expect(result).toMatchObject({ venue_id: "poi-1", rating: 4.6 });
   });
 
   it("does not refetch when the cached enrichment is still fresh", async () => {
@@ -164,14 +120,14 @@ describe("getVenueDetailWithFreshEnrichment", () => {
       atmosphere: null,
       fetched_at: new Date().toISOString(),
     };
-    const repository = new FakeRepository({ ...BASE_RECORD, enrichment: fresh });
+    const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
 
-    const result = await getVenueDetailWithFreshEnrichment("venue-1", repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", "google-place-1", fresh, repository, placesClient);
 
     expect(placesClient.calls).toHaveLength(0);
     expect(repository.upsertCalls).toHaveLength(0);
-    expect(result?.enrichment).toEqual(fresh);
+    expect(result).toEqual(fresh);
   });
 
   it("refetches when the cached enrichment has passed the TTL", async () => {
@@ -189,23 +145,23 @@ describe("getVenueDetailWithFreshEnrichment", () => {
       atmosphere: null,
       fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
     };
-    const repository = new FakeRepository({ ...BASE_RECORD, enrichment: stale });
+    const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
 
-    const result = await getVenueDetailWithFreshEnrichment("venue-1", repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", "google-place-1", stale, repository, placesClient);
 
     expect(placesClient.calls).toEqual(["google-place-1"]);
-    expect(result?.enrichment?.rating).toBe(4.6);
+    expect(result?.rating).toBe(4.6);
   });
 
-  it("skips enrichment entirely when the venue has no google_place_id", async () => {
-    const repository = new FakeRepository({ ...BASE_RECORD, googlePlaceId: null });
+  it("skips enrichment entirely when there's no google_place_id", async () => {
+    const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
 
-    const result = await getVenueDetailWithFreshEnrichment("venue-1", repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", null, null, repository, placesClient);
 
     expect(placesClient.calls).toHaveLength(0);
-    expect(result?.enrichment).toBeNull();
+    expect(result).toBeNull();
   });
 
   it("falls back to stale data instead of failing when the refresh errors", async () => {
@@ -223,14 +179,14 @@ describe("getVenueDetailWithFreshEnrichment", () => {
       atmosphere: null,
       fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
     };
-    const repository = new FakeRepository({ ...BASE_RECORD, enrichment: stale });
+    const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
     placesClient.getPlaceDetails = async () => {
       throw new Error("Places API is down");
     };
 
-    const result = await getVenueDetailWithFreshEnrichment("venue-1", repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", "google-place-1", stale, repository, placesClient);
 
-    expect(result?.enrichment).toEqual(stale);
+    expect(result).toEqual(stale);
   });
 });

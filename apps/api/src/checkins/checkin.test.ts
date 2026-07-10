@@ -1,15 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { evaluateCheckin, performCheckin } from "./checkin";
-import type {
-  CheckinRecord,
-  CheckinRepository,
-  CheckinTarget,
-  CheckinVenue,
-  PoiLocation,
-  VenueLocation,
-} from "./repository";
+import type { CheckinRecord, CheckinRepository, CheckinVenue, LocationCoords } from "./repository";
 
-const VENUE: VenueLocation = { id: "venue-1", lat: 47.6062, lng: -122.3321 };
+const VENUE: LocationCoords = { id: "venue-1", lat: 47.6062, lng: -122.3321 };
 const AT_VENUE = { lat: 47.6062, lng: -122.3321 };
 const FAR_AWAY = { lat: 45.5152, lng: -122.6784 }; // ~230km away (Portland)
 const PAST_COOLDOWN_MS = 5 * 60 * 60 * 1000;
@@ -45,7 +38,6 @@ describe("evaluateCheckin", () => {
       id: "checkin-1",
       userId: "user-1",
       venueId: "venue-1",
-      poiId: null,
       deviceLat: AT_VENUE.lat,
       deviceLng: AT_VENUE.lng,
       checkedInAt: new Date(now - 60 * 60 * 1000).toISOString(), // 1 hour ago
@@ -68,7 +60,6 @@ describe("evaluateCheckin", () => {
       id: "checkin-1",
       userId: "user-1",
       venueId: "venue-2",
-      poiId: null,
       deviceLat: AT_VENUE.lat,
       deviceLng: AT_VENUE.lng,
       checkedInAt: new Date(now - 60 * 1000).toISOString(), // 1 minute ago
@@ -91,7 +82,6 @@ describe("evaluateCheckin", () => {
       id: "checkin-1",
       userId: "user-1",
       venueId: "venue-1",
-      poiId: null,
       deviceLat: AT_VENUE.lat,
       deviceLng: AT_VENUE.lng,
       checkedInAt: new Date(now - 5 * 60 * 60 * 1000).toISOString(), // 5 hours ago
@@ -108,23 +98,18 @@ describe("evaluateCheckin", () => {
   });
 });
 
-// In-memory fake, mirroring the pattern used for VenueDetailRepository tests.
+// In-memory fake, mirroring the pattern used for LocationRepository tests.
+// One id space for either kind (business or POI) since the venue/poi merge
+// (BACKLOG.md "POIs and venues managed almost the same").
 class FakeCheckinRepository implements CheckinRepository {
   users = new Map<string, string>(); // anonymousDeviceId -> userId
   checkins: CheckinRecord[] = [];
   private nextId = 1;
 
-  constructor(
-    private readonly venue: VenueLocation | null,
-    private readonly poi: PoiLocation | null = null
-  ) {}
+  constructor(private readonly locations: LocationCoords[] = []) {}
 
-  async getVenueLocation(venueId: string): Promise<VenueLocation | null> {
-    return this.venue && this.venue.id === venueId ? this.venue : null;
-  }
-
-  async getPoiLocation(poiId: string): Promise<PoiLocation | null> {
-    return this.poi && this.poi.id === poiId ? this.poi : null;
+  async getLocation(locationId: string): Promise<LocationCoords | null> {
+    return this.locations.find((l) => l.id === locationId) ?? null;
   }
 
   async getOrCreateAnonymousUser(anonymousDeviceId: string): Promise<string> {
@@ -136,12 +121,8 @@ class FakeCheckinRepository implements CheckinRepository {
     return userId;
   }
 
-  async getLastCheckinForTarget(userId: string, target: CheckinTarget): Promise<CheckinRecord | null> {
-    const matches = this.checkins.filter(
-      (c) =>
-        c.userId === userId &&
-        (target.kind === "venue" ? c.venueId === target.id : c.poiId === target.id)
-    );
+  async getLastCheckinForLocation(userId: string, locationId: string): Promise<CheckinRecord | null> {
+    const matches = this.checkins.filter((c) => c.userId === userId && c.venueId === locationId);
     if (matches.length === 0) return null;
     return matches.sort((a, b) => b.checkedInAt.localeCompare(a.checkedInAt))[0];
   }
@@ -154,16 +135,14 @@ class FakeCheckinRepository implements CheckinRepository {
 
   async createCheckin(input: {
     userId: string;
-    venueId?: string;
-    poiId?: string;
+    venueId: string;
     deviceLat: number;
     deviceLng: number;
   }): Promise<CheckinRecord> {
     const record: CheckinRecord = {
       id: `checkin-${this.nextId++}`,
       userId: input.userId,
-      venueId: input.venueId ?? null,
-      poiId: input.poiId ?? null,
+      venueId: input.venueId,
       deviceLat: input.deviceLat,
       deviceLng: input.deviceLng,
       checkedInAt: new Date().toISOString(),
@@ -176,12 +155,8 @@ class FakeCheckinRepository implements CheckinRepository {
     return [];
   }
 
-  async countCheckinsForVenue(venueId: string): Promise<number> {
-    return this.checkins.filter((c) => c.venueId === venueId).length;
-  }
-
-  async countCheckinsForPoi(poiId: string): Promise<number> {
-    return this.checkins.filter((c) => c.poiId === poiId).length;
+  async countCheckinsForLocation(locationId: string): Promise<number> {
+    return this.checkins.filter((c) => c.venueId === locationId).length;
   }
 
   async countCheckinsForNeighborhood(): Promise<number> {
@@ -190,21 +165,21 @@ class FakeCheckinRepository implements CheckinRepository {
 }
 
 describe("performCheckin", () => {
-  it("returns not_found for an unknown venue", async () => {
-    const repo = new FakeCheckinRepository(null);
-    const result = await performCheckin({ kind: "venue", id: "missing-venue" }, "device-1", AT_VENUE, repo);
+  it("returns not_found for an unknown location", async () => {
+    const repo = new FakeCheckinRepository();
+    const result = await performCheckin("missing-venue", "device-1", AT_VENUE, repo);
     expect(result).toEqual({ status: "not_found" });
   });
 
   it("creates a checkin and reuses the same anonymous user on repeat visits", async () => {
-    const repo = new FakeCheckinRepository(VENUE);
+    const repo = new FakeCheckinRepository([VENUE]);
 
-    const first = await performCheckin({ kind: "venue", id: "venue-1" }, "device-1", AT_VENUE, repo);
+    const first = await performCheckin("venue-1", "device-1", AT_VENUE, repo);
     expect(first.status).toBe("created");
 
     // Same device, well past both cooldowns -> allowed again, same user_id reused.
     const later = Date.now() + PAST_COOLDOWN_MS;
-    const second = await performCheckin({ kind: "venue", id: "venue-1" }, "device-1", AT_VENUE, repo, later);
+    const second = await performCheckin("venue-1", "device-1", AT_VENUE, repo, later);
     expect(second.status).toBe("created");
     if (first.status === "created" && second.status === "created") {
       expect(second.checkin.user_id).toBe(first.checkin.user_id);
@@ -212,38 +187,36 @@ describe("performCheckin", () => {
   });
 
   it("blocks a repeat check-in within the per-venue cooldown window", async () => {
-    const repo = new FakeCheckinRepository(VENUE);
-    await performCheckin({ kind: "venue", id: "venue-1" }, "device-1", AT_VENUE, repo);
-    const result = await performCheckin({ kind: "venue", id: "venue-1" }, "device-1", AT_VENUE, repo);
+    const repo = new FakeCheckinRepository([VENUE]);
+    await performCheckin("venue-1", "device-1", AT_VENUE, repo);
+    const result = await performCheckin("venue-1", "device-1", AT_VENUE, repo);
     expect(result.status).toBe("cooldown");
     if (result.status === "cooldown") expect(result.scope).toBe("target");
   });
 
   it("blocks a check-in at a different venue within the global cooldown window", async () => {
-    const repo = new FakeCheckinRepository(VENUE);
+    const repo = new FakeCheckinRepository([VENUE]);
     repo.checkins.push({
       id: "checkin-0",
       userId: "user-1",
       venueId: "venue-other",
-      poiId: null,
       deviceLat: AT_VENUE.lat,
       deviceLng: AT_VENUE.lng,
       checkedInAt: new Date().toISOString(),
     });
     repo.users.set("device-1", "user-1");
 
-    const result = await performCheckin({ kind: "venue", id: "venue-1" }, "device-1", AT_VENUE, repo);
+    const result = await performCheckin("venue-1", "device-1", AT_VENUE, repo);
     expect(result.status).toBe("cooldown");
     if (result.status === "cooldown") expect(result.scope).toBe("global");
   });
 
   it("allows a check-in at a different venue once the global cooldown has elapsed", async () => {
-    const repo = new FakeCheckinRepository(VENUE);
+    const repo = new FakeCheckinRepository([VENUE]);
     repo.checkins.push({
       id: "checkin-0",
       userId: "user-1",
       venueId: "venue-other",
-      poiId: null,
       deviceLat: AT_VENUE.lat,
       deviceLng: AT_VENUE.lng,
       checkedInAt: new Date().toISOString(),
@@ -251,7 +224,7 @@ describe("performCheckin", () => {
     repo.users.set("device-1", "user-1");
 
     const result = await performCheckin(
-      { kind: "venue", id: "venue-1" },
+      "venue-1",
       "device-1",
       AT_VENUE,
       repo,
@@ -261,19 +234,18 @@ describe("performCheckin", () => {
   });
 
   it("blocks a check-in outside the geofence", async () => {
-    const repo = new FakeCheckinRepository(VENUE);
-    const result = await performCheckin({ kind: "venue", id: "venue-1" }, "device-1", FAR_AWAY, repo);
+    const repo = new FakeCheckinRepository([VENUE]);
+    const result = await performCheckin("venue-1", "device-1", FAR_AWAY, repo);
     expect(result).toEqual({ status: "too_far", distanceMeters: expect.any(Number) });
   });
 
-  it("checks in against a POI target", async () => {
-    const poi: PoiLocation = { id: "poi-1", lat: 47.6062, lng: -122.3321 };
-    const repo = new FakeCheckinRepository(null, poi);
-    const result = await performCheckin({ kind: "poi", id: "poi-1" }, "device-1", AT_VENUE, repo);
+  it("checks in against a former-POI-kind location the same way as a business (BACKLOG.md 'POIs and venues managed almost the same')", async () => {
+    const poi: LocationCoords = { id: "poi-1", lat: 47.6062, lng: -122.3321 };
+    const repo = new FakeCheckinRepository([poi]);
+    const result = await performCheckin("poi-1", "device-1", AT_VENUE, repo);
     expect(result.status).toBe("created");
     if (result.status === "created") {
-      expect(result.checkin.poi_id).toBe("poi-1");
-      expect(result.checkin.venue_id).toBeNull();
+      expect(result.checkin.venue_id).toBe("poi-1");
     }
   });
 });

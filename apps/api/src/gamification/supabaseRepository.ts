@@ -6,9 +6,8 @@ import type {
   CompleteChallengeInput,
   GamificationRepository,
   LeaderboardRow,
-  PoiContext,
+  LocationContext,
   UserBadgeRecord,
-  VenueContext,
 } from "./repository";
 
 // Without generated Database types passed to createClient, supabase-js can't
@@ -22,7 +21,7 @@ function single<T>(embed: T[] | T | null | undefined): T | null {
 
 const CHALLENGE_COLUMNS =
   "id, neighborhood_id, title, description, category_id, category:category_id(name), " +
-  "poi_id, poi:poi_id(name), target_count, points_reward, " +
+  "venue_id, venue:venue_id(name), target_count, points_reward, " +
   "badge:badge_id(id, code, name, description, icon), starts_at, ends_at";
 
 interface ChallengeRow {
@@ -32,8 +31,8 @@ interface ChallengeRow {
   description: string | null;
   category_id: string | null;
   category: { name: string } | { name: string }[] | null;
-  poi_id: string | null;
-  poi: { name: string } | { name: string }[] | null;
+  venue_id: string | null;
+  venue: { name: string } | { name: string }[] | null;
   target_count: number;
   points_reward: number;
   badge: BadgeRecord | BadgeRecord[] | null;
@@ -49,8 +48,8 @@ function toChallengeRecord(row: ChallengeRow): ChallengeRecord {
     description: row.description,
     categoryId: row.category_id,
     categoryName: single(row.category)?.name ?? null,
-    poiId: row.poi_id,
-    poiName: single(row.poi)?.name ?? null,
+    venueId: row.venue_id,
+    venueName: single(row.venue)?.name ?? null,
     targetCount: row.target_count,
     pointsReward: row.points_reward,
     badge: single(row.badge),
@@ -64,28 +63,16 @@ const UNIQUE_VIOLATION = "23505";
 export class SupabaseGamificationRepository implements GamificationRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
-  async getVenueContext(venueId: string): Promise<VenueContext | null> {
+  async getLocationContext(locationId: string): Promise<LocationContext | null> {
     const { data, error } = await this.supabase
       .from("venue")
       .select("neighborhood_id, category_id")
-      .eq("id", venueId)
+      .eq("id", locationId)
       .maybeSingle();
 
-    if (error) throw new Error(`getVenueContext failed: ${error.message}`);
+    if (error) throw new Error(`getLocationContext failed: ${error.message}`);
     if (!data) return null;
     return { neighborhoodId: data.neighborhood_id, categoryId: data.category_id };
-  }
-
-  async getPoiContext(poiId: string): Promise<PoiContext | null> {
-    const { data, error } = await this.supabase
-      .from("poi")
-      .select("neighborhood_id")
-      .eq("id", poiId)
-      .maybeSingle();
-
-    if (error) throw new Error(`getPoiContext failed: ${error.message}`);
-    if (!data) return null;
-    return { neighborhoodId: data.neighborhood_id };
   }
 
   async getUserIdForDevice(anonymousDeviceId: string): Promise<string | null> {
@@ -106,7 +93,6 @@ export class SupabaseGamificationRepository implements GamificationRepository {
       event_type: input.eventType,
       points: input.points,
       venue_id: input.venueId ?? null,
-      poi_id: input.poiId ?? null,
       checkin_id: input.checkinId ?? null,
       challenge_id: input.challengeId ?? null,
     });
@@ -121,7 +107,7 @@ export class SupabaseGamificationRepository implements GamificationRepository {
   async getActiveChallengesForTarget(input: {
     neighborhoodId: string;
     categoryId?: string;
-    poiId?: string;
+    venueId?: string;
     now: string;
   }): Promise<ChallengeRecord[]> {
     let query = this.supabase
@@ -130,9 +116,17 @@ export class SupabaseGamificationRepository implements GamificationRepository {
       .eq("neighborhood_id", input.neighborhoodId)
       .lte("starts_at", input.now)
       .gte("ends_at", input.now);
-    query = input.categoryId
-      ? query.eq("category_id", input.categoryId)
-      : query.eq("poi_id", input.poiId as string);
+
+    // A check-in can satisfy either a category challenge (business
+    // check-ins with a mapped category) or a location-specific challenge
+    // (any kind) -- match whichever target(s) are provided.
+    if (input.categoryId && input.venueId) {
+      query = query.or(`category_id.eq.${input.categoryId},venue_id.eq.${input.venueId}`);
+    } else if (input.categoryId) {
+      query = query.eq("category_id", input.categoryId);
+    } else if (input.venueId) {
+      query = query.eq("venue_id", input.venueId);
+    }
 
     const { data, error } = await query;
     if (error) throw new Error(`getActiveChallengesForTarget failed: ${error.message}`);
@@ -185,9 +179,9 @@ export class SupabaseGamificationRepository implements GamificationRepository {
     return new Set((data ?? []).map((row) => row.venue_id as string)).size;
   }
 
-  async hasAnyCheckinForPoi(input: {
+  async hasAnyCheckinForLocation(input: {
     userId: string;
-    poiId: string;
+    venueId: string;
     startsAt: string;
     endsAt: string;
   }): Promise<boolean> {
@@ -195,11 +189,11 @@ export class SupabaseGamificationRepository implements GamificationRepository {
       .from("checkin")
       .select("id", { count: "exact", head: true })
       .eq("user_id", input.userId)
-      .eq("poi_id", input.poiId)
+      .eq("venue_id", input.venueId)
       .gte("checked_in_at", input.startsAt)
       .lte("checked_in_at", input.endsAt);
 
-    if (error) throw new Error(`hasAnyCheckinForPoi failed: ${error.message}`);
+    if (error) throw new Error(`hasAnyCheckinForLocation failed: ${error.message}`);
     return (count ?? 0) > 0;
   }
 

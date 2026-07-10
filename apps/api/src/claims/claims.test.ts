@@ -5,6 +5,8 @@ import {
   listClaimsForNeighborhood,
   reviewClaim,
   reviewClaimForNeighborhood,
+  revokeApprovedClaim,
+  revokeApprovedClaimForNeighborhood,
   submitClaim,
   updateVenueSocialLinks,
 } from "./claims";
@@ -114,6 +116,16 @@ class FakeClaimRepository implements ClaimRepository {
     claim.status = "rejected";
     claim.reviewedAt = new Date().toISOString();
     claim.reviewedNote = reviewedNote;
+    return claim;
+  }
+
+  async revokeClaim(claimId: string, reviewedNote: string | null): Promise<ClaimRecord> {
+    const claim = this.claims.find((c) => c.id === claimId)!;
+    claim.status = "rejected";
+    claim.reviewedAt = new Date().toISOString();
+    claim.reviewedNote = reviewedNote;
+    const v = this.venues.get(claim.venueId);
+    if (v) v.claimedByBusiness = false;
     return claim;
   }
 
@@ -264,6 +276,67 @@ describe("reviewClaimForNeighborhood", () => {
 
     const second = await reviewClaimForNeighborhood("neighborhood-1", created.claim.id, "reject", null, repo);
     expect(second).toEqual({ status: "already_reviewed" });
+  });
+});
+
+describe("revokeApprovedClaim", () => {
+  it("returns not_found for an unknown claim", async () => {
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue()]]));
+    const result = await revokeApprovedClaim("missing-claim", null, repo);
+    expect(result).toEqual({ status: "not_found" });
+  });
+
+  it("refuses to revoke a claim that isn't approved yet", async () => {
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue()]]));
+    const created = await submitClaim("venue-1", CONTACT, repo);
+    if (created.status !== "created") throw new Error("expected claim to be created");
+
+    const result = await revokeApprovedClaim(created.claim.id, null, repo);
+    expect(result).toEqual({ status: "not_approved" });
+  });
+
+  // The whole reason this exists (BACKLOG.md "POIs and venues managed
+  // almost the same") -- reviewClaim can never un-approve a claim, so this
+  // is the only path back to claimed_by_business = false, e.g. to unblock
+  // switching that business to POI kind.
+  it("flips claimed_by_business back to false and marks the claim rejected", async () => {
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue()]]));
+    const created = await submitClaim("venue-1", CONTACT, repo);
+    if (created.status !== "created") throw new Error("expected claim to be created");
+    await reviewClaim(created.claim.id, "approve", null, repo);
+    expect((await repo.getVenue("venue-1"))?.claimedByBusiness).toBe(true);
+
+    const result = await revokeApprovedClaim(created.claim.id, "no longer valid", repo);
+    expect(result.status).toBe("revoked");
+    if (result.status === "revoked") {
+      expect(result.claim.status).toBe("rejected");
+      expect(result.claim.reviewed_note).toBe("no longer valid");
+    }
+    expect((await repo.getVenue("venue-1"))?.claimedByBusiness).toBe(false);
+  });
+});
+
+describe("revokeApprovedClaimForNeighborhood", () => {
+  it("returns not_found when the claim's venue belongs to a different neighborhood", async () => {
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue({ neighborhoodId: "neighborhood-1" })]]));
+    const created = await submitClaim("venue-1", CONTACT, repo);
+    if (created.status !== "created") throw new Error("expected claim to be created");
+    await reviewClaim(created.claim.id, "approve", null, repo);
+
+    const result = await revokeApprovedClaimForNeighborhood("neighborhood-2", created.claim.id, null, repo);
+    expect(result).toEqual({ status: "not_found" });
+    expect((await repo.getVenue("venue-1"))?.claimedByBusiness).toBe(true);
+  });
+
+  it("delegates to the normal revoke flow when the neighborhood matches", async () => {
+    const repo = new FakeClaimRepository(new Map([["venue-1", venue({ neighborhoodId: "neighborhood-1" })]]));
+    const created = await submitClaim("venue-1", CONTACT, repo);
+    if (created.status !== "created") throw new Error("expected claim to be created");
+    await reviewClaim(created.claim.id, "approve", null, repo);
+
+    const result = await revokeApprovedClaimForNeighborhood("neighborhood-1", created.claim.id, null, repo);
+    expect(result.status).toBe("revoked");
+    expect((await repo.getVenue("venue-1"))?.claimedByBusiness).toBe(false);
   });
 });
 
