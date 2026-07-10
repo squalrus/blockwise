@@ -99,24 +99,24 @@ export default function NewNeighborhoodPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 font-sans sm:p-16">
-      <a href="/neighborhood-admin" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+      <a href="/neighborhood-admin" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
         ← Neighborhood admin
       </a>
 
-      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">New neighborhood</h1>
+      <h1 className="font-heading text-xl font-extrabold text-foreground">New neighborhood</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-muted">
             Name
             <input
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               required
-              className="rounded-md border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-transparent"
+              className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-muted">
             Slug
             <input
               value={slug}
@@ -126,53 +126,53 @@ export default function NewNeighborhoodPage() {
               }}
               required
               pattern="[a-z0-9-]+"
-              className="rounded-md border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-transparent"
+              className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-muted">
             City
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
               required
-              className="rounded-md border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-transparent"
+              className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-muted">
             State
             <input
               value={state}
               onChange={(e) => setStateField(e.target.value)}
               required
-              className="rounded-md border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-transparent"
+              className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-muted">
             Country
             <input
               value={country}
               onChange={(e) => setCountry(e.target.value)}
               required
-              className="rounded-md border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-transparent"
+              className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-muted">
             Timezone (IANA)
             <input
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               required
               placeholder="America/Los_Angeles"
-              className="rounded-md border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-transparent"
+              className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
             />
           </label>
         </div>
 
         <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-black dark:text-zinc-50">
+          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
             Draw the neighborhood boundary
           </h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-muted">
             Pan/zoom to the area, then click to place vertices around the streets that define the
             neighborhood. Drag any vertex to adjust it afterward.
           </p>
@@ -191,7 +191,7 @@ export default function NewNeighborhoodPage() {
             type="button"
             onClick={handlePreview}
             disabled={!polygon || previewStatus.state === "loading"}
-            className="self-start rounded-md border border-black/[.08] px-4 py-2 text-sm font-medium text-black disabled:opacity-50 dark:border-white/[.145] dark:text-zinc-50"
+            className="self-start rounded-md border border-border px-4 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
           >
             {previewStatus.state === "loading" ? "Previewing…" : "Preview venues in this area"}
           </button>
@@ -199,7 +199,7 @@ export default function NewNeighborhoodPage() {
             <p className="text-sm text-red-600 dark:text-red-400">{previewStatus.message}</p>
           )}
           {preview && (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-muted">
               Found {preview.candidates.length} venue{preview.candidates.length === 1 ? "" : "s"} in this
               boundary ({preview.tiles_queried} tile{preview.tiles_queried === 1 ? "" : "s"} queried,{" "}
               {preview.api_calls_made} Places API call{preview.api_calls_made === 1 ? "" : "s"}).
@@ -210,7 +210,7 @@ export default function NewNeighborhoodPage() {
         <button
           type="submit"
           disabled={!canSubmit || status.state === "submitting"}
-          className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
         >
           {status.state === "submitting" ? "Creating…" : "Create neighborhood"}
         </button>

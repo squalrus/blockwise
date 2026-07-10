@@ -157,12 +157,12 @@ export default function LocationReviewPage() {
     <div className="flex flex-col gap-4">
       <a
         href={`/neighborhood-admin/${slug}/locations`}
-        className="text-sm text-zinc-600 hover:underline dark:text-zinc-400"
+        className="text-sm font-bold text-brand-purple hover:text-brand-orange"
       >
         ← Locations
       </a>
-      <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Review Places</h2>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Review Places</h2>
+      <p className="text-sm text-muted">
         Queries Google Places for the neighborhood's current boundary and lists anything not already a
         business or point of interest. This costs a real API call — run it deliberately, not on every visit.
       </p>
@@ -171,30 +171,28 @@ export default function LocationReviewPage() {
         <button
           type="button"
           onClick={runReview}
-          className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+          className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent"
         >
           Run review
         </button>
       )}
 
-      {state.status === "loading" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Querying Google Places…</p>
-      )}
+      {state.status === "loading" && <p className="text-sm text-muted">Querying Google Places…</p>}
 
       {state.status === "error" && <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>}
 
       {(state.status === "review" || state.status === "committing") && (
         <>
-          <h3 className="text-base font-semibold text-black dark:text-zinc-50">
+          <h3 className="text-xs font-extrabold tracking-wide text-muted uppercase">
             Removals ({state.report.proposed_removals.length})
           </h3>
           {state.report.proposed_removals.length === 0 ? (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-muted">
               Every active business and point of interest is still inside the boundary.
             </p>
           ) : (
             <>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-muted">
                 No longer inside the neighborhood's boundary. Nothing is hidden unless you check it below —
                 hiding preserves check-in/points history, it does not delete the row.
               </p>
@@ -202,7 +200,7 @@ export default function LocationReviewPage() {
                 {state.report.proposed_removals.map((removal) => (
                   <li
                     key={removalKey(removal)}
-                    className="flex items-center gap-3 rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
+                    className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3 text-sm"
                   >
                     <input
                       type="checkbox"
@@ -211,15 +209,13 @@ export default function LocationReviewPage() {
                       onChange={() => toggleRemoval(removal)}
                     />
                     <div>
-                      <p className="font-medium text-black dark:text-zinc-50">
+                      <p className="font-extrabold text-foreground">
                         {removal.name}{" "}
-                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-normal text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                        <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-bold text-muted-strong">
                           {removal.kind === "venue" ? "Business" : "POI"}
                         </span>
                       </p>
-                      {removal.address && (
-                        <p className="text-zinc-600 dark:text-zinc-400">{removal.address}</p>
-                      )}
+                      {removal.address && <p className="text-muted">{removal.address}</p>}
                     </div>
                   </li>
                 ))}
@@ -227,33 +223,28 @@ export default function LocationReviewPage() {
             </>
           )}
 
-          <h3 className="text-base font-semibold text-black dark:text-zinc-50">
+          <h3 className="text-xs font-extrabold tracking-wide text-muted uppercase">
             New entries ({state.report.new_candidates.length})
           </h3>
           {state.report.new_candidates.length === 0 ? (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              No new places found inside the neighborhood's boundary.
-            </p>
+            <p className="text-sm text-muted">No new places found inside the neighborhood's boundary.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {state.report.new_candidates.map((candidate) => {
                 const decision = decisions[decisionKey(candidate)];
                 return (
-                  <li
-                    key={decisionKey(candidate)}
-                    className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-                  >
-                    <p className="font-medium text-black dark:text-zinc-50">{candidate.name}</p>
-                    <p className="text-zinc-600 dark:text-zinc-400">{candidate.address}</p>
+                  <li key={decisionKey(candidate)} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+                    <p className="font-extrabold text-foreground">{candidate.name}</p>
+                    <p className="text-muted">{candidate.address}</p>
                     {candidate.suggested_category_name && (
-                      <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                      <p className="text-xs font-bold text-muted">
                         Suggested category: {candidate.suggested_category_name}
                       </p>
                     )}
 
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       {(["omit", "business", "poi"] as LocationClassification[]).map((option) => (
-                        <label key={option} className="flex items-center gap-1">
+                        <label key={option} className="flex items-center gap-1 text-foreground">
                           <input
                             type="radio"
                             name={`classification-${decisionKey(candidate)}`}
@@ -270,7 +261,7 @@ export default function LocationReviewPage() {
                           value={decision.categoryId}
                           disabled={!categories || state.status === "committing"}
                           onChange={(e) => updateDecision(candidate, { categoryId: e.target.value })}
-                          className="rounded-md border border-black/[.08] px-2 py-1 text-sm dark:border-white/[.145] dark:bg-transparent"
+                          className="rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground"
                         >
                           <option value="" disabled>
                             Choose a category
@@ -289,7 +280,7 @@ export default function LocationReviewPage() {
                           disabled={state.status === "committing"}
                           onChange={(e) => updateDecision(candidate, { type: e.target.value })}
                           placeholder="Type (e.g. park, transit, landmark)"
-                          className="rounded-md border border-black/[.08] px-2 py-1 text-sm dark:border-white/[.145] dark:bg-transparent"
+                          className="rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground"
                         />
                       )}
                     </div>
@@ -300,7 +291,7 @@ export default function LocationReviewPage() {
           )}
 
           {counts && (
-            <div className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
+            <div className="flex items-center gap-4 text-sm font-bold text-muted">
               <span>{counts.business} business</span>
               <span>{counts.poi} POI</span>
               <span>{counts.omit} omitted</span>
@@ -322,7 +313,7 @@ export default function LocationReviewPage() {
                 })
               }
               onClick={() => commit(state.report)}
-              className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+              className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
             >
               {state.status === "committing" ? "Committing…" : "Commit"}
             </button>
@@ -332,7 +323,7 @@ export default function LocationReviewPage() {
 
       {state.status === "done" && (
         <div className="flex flex-col gap-2 text-sm">
-          <p className="text-black dark:text-zinc-50">
+          <p className="text-foreground">
             Created {state.result.created_businesses.length} business
             {state.result.created_businesses.length === 1 ? "" : "es"} and{" "}
             {state.result.created_pois.length} point{state.result.created_pois.length === 1 ? "" : "s"} of
@@ -352,7 +343,7 @@ export default function LocationReviewPage() {
           )}
           <a
             href={`/neighborhood-admin/${slug}/locations`}
-            className="self-start rounded-md border border-black/[.08] px-3 py-1 dark:border-white/[.145]"
+            className="self-start rounded-md border border-border px-3 py-1 text-foreground hover:bg-card-alt"
           >
             Back to Locations
           </a>

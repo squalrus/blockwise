@@ -23,11 +23,11 @@ export default function AuthCallbackPage() {
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
       {status.state === "loading" ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Signing you in…</p>
+        <p className="text-sm text-muted">Signing you in…</p>
       ) : (
         <>
           <p className="text-sm text-red-600 dark:text-red-400">{status.message}</p>
-          <a href="/login" className="text-sm underline">
+          <a href="/login" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
             Back to log in
           </a>
         </>

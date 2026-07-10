@@ -100,7 +100,7 @@ export default function NeighborhoodBoundaryPage() {
   }
 
   if (loadState.status === "loading") {
-    return <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>;
+    return <p className="text-sm text-muted">Loading…</p>;
   }
   if (loadState.status === "error") {
     return <p className="text-sm text-red-600 dark:text-red-400">{loadState.message}</p>;
@@ -108,7 +108,7 @@ export default function NeighborhoodBoundaryPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-muted">
         Drag any vertex to adjust the boundary, or clear it to draw a new one. The Google Places sync
         (BACKLOG.md) uses this shape to decide which venues belong to this neighborhood.
       </p>
@@ -129,7 +129,7 @@ export default function NeighborhoodBoundaryPage() {
           type="button"
           onClick={handlePreview}
           disabled={!polygon || previewStatus.state === "loading"}
-          className="self-start rounded-md border border-black/[.08] px-4 py-2 text-sm font-medium text-black disabled:opacity-50 dark:border-white/[.145] dark:text-zinc-50"
+          className="self-start rounded-md border border-border px-4 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
         >
           {previewStatus.state === "loading" ? "Previewing…" : "Preview venues in this area"}
         </button>
@@ -137,7 +137,7 @@ export default function NeighborhoodBoundaryPage() {
           <p className="text-sm text-red-600 dark:text-red-400">{previewStatus.message}</p>
         )}
         {preview && (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-muted">
             Found {preview.candidates.length} venue{preview.candidates.length === 1 ? "" : "s"} in this
             boundary ({preview.tiles_queried} tile{preview.tiles_queried === 1 ? "" : "s"} queried,{" "}
             {preview.api_calls_made} Places API call{preview.api_calls_made === 1 ? "" : "s"}).
@@ -149,16 +149,16 @@ export default function NeighborhoodBoundaryPage() {
         type="button"
         onClick={handleSave}
         disabled={!polygon || saveStatus.state === "saving"}
-        className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
       >
         {saveStatus.state === "saving" ? "Saving…" : "Save boundary"}
       </button>
       {saveStatus.state === "saved" && (
-        <p className="flex items-center gap-3 text-sm text-green-700 dark:text-green-400">
+        <p className="flex items-center gap-3 text-sm text-brand-green">
           Boundary saved.
           <a
             href={`/neighborhood-admin/${slug}/locations/review`}
-            className="rounded-md border border-black/[.08] px-3 py-1 text-black dark:border-white/[.145] dark:text-zinc-50"
+            className="rounded-md border border-border px-3 py-1 text-foreground hover:bg-card-alt"
           >
             Review changes now →
           </a>

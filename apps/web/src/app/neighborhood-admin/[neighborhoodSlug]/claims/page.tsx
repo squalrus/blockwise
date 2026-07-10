@@ -61,10 +61,8 @@ export default function NeighborhoodAdminClaimsPage() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`rounded-md px-3 py-1 ${
-              status === s
-                ? "bg-black text-white dark:bg-white dark:text-black"
-                : "border border-black/[.08] text-black dark:border-white/[.145] dark:text-zinc-50"
+            className={`rounded-full px-3 py-1 font-bold ${
+              status === s ? "bg-brand-purple text-on-accent" : "border-2 border-foreground text-foreground"
             }`}
           >
             {s}
@@ -74,22 +72,17 @@ export default function NeighborhoodAdminClaimsPage() {
 
       {error === "failed" && <p className="text-sm text-red-600 dark:text-red-400">Something went wrong.</p>}
 
-      {claims?.length === 0 && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">No {status} claims.</p>
-      )}
+      {claims?.length === 0 && <p className="text-sm text-muted">No {status} claims.</p>}
 
       <ul className="flex flex-col gap-2">
         {claims?.map((claim) => (
-          <li
-            key={claim.id}
-            className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-          >
-            <p className="font-medium text-black dark:text-zinc-50">{claim.contact_name}</p>
-            <p className="text-zinc-600 dark:text-zinc-400">
+          <li key={claim.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+            <p className="font-extrabold text-foreground">{claim.contact_name}</p>
+            <p className="text-muted">
               {claim.contact_method}: {claim.contact_value}
             </p>
-            {claim.note && <p className="mt-1 text-zinc-600 dark:text-zinc-400">{claim.note}</p>}
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+            {claim.note && <p className="mt-1 text-muted">{claim.note}</p>}
+            <p className="mt-1 text-xs font-bold text-muted">
               Venue: {claim.venue_name} ({claim.venue_address}) · Submitted{" "}
               {new Date(claim.created_at).toLocaleString()}
             </p>
@@ -97,13 +90,13 @@ export default function NeighborhoodAdminClaimsPage() {
               <div className="mt-2 flex gap-2">
                 <button
                   onClick={() => handleReview(claim.id, "approve")}
-                  className="rounded-md bg-black px-3 py-1 text-white dark:bg-white dark:text-black"
+                  className="rounded-md bg-brand-green px-3 py-1 text-sm font-bold text-on-accent"
                 >
                   Approve
                 </button>
                 <button
                   onClick={() => handleReview(claim.id, "reject")}
-                  className="rounded-md border border-black/[.08] px-3 py-1 text-black dark:border-white/[.145] dark:text-zinc-50"
+                  className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
                 >
                   Reject
                 </button>

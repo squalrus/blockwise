@@ -5,6 +5,7 @@ import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { VenueListItem } from "@blockwise/types";
 import { getCategoryColor, getCategoryLegend, type ColorMode } from "@/lib/categoryColors";
+import { getResolvedTheme, subscribeToThemeChanges } from "@/lib/theme";
 
 const DEFAULT_CENTER = { lat: 47.6869, lng: -122.3554 }; // Phinneywood, Seattle
 
@@ -20,15 +21,9 @@ function ensureMapsOptionsSet(apiKey: string) {
 }
 
 function useColorMode(): ColorMode {
-  const [mode, setMode] = useState<ColorMode>("light");
+  const [mode, setMode] = useState<ColorMode>(() => getResolvedTheme());
 
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-color-scheme: dark)");
-    setMode(query.matches ? "dark" : "light");
-    const onChange = (e: MediaQueryListEvent) => setMode(e.matches ? "dark" : "light");
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
+  useEffect(() => subscribeToThemeChanges(setMode), []);
 
   return mode;
 }
@@ -42,19 +37,19 @@ function buildInfoWindowContent(venue: VenueListItem): HTMLElement {
   container.className = "flex flex-col gap-1 text-sm";
 
   const name = document.createElement("div");
-  name.className = "font-medium text-black";
+  name.className = "font-extrabold text-foreground";
   name.textContent = venue.name;
   container.appendChild(name);
 
   const meta = document.createElement("div");
-  meta.className = "text-zinc-600";
+  meta.className = "text-muted";
   meta.textContent = [venue.category_name, venue.address].filter(Boolean).join(" · ");
   container.appendChild(meta);
 
   const link = document.createElement("a");
   link.href = `/venues/${venue.id}`;
   link.textContent = "View details";
-  link.className = "mt-1 text-blue-700 underline";
+  link.className = "mt-1 font-bold text-brand-purple hover:text-brand-orange";
   container.appendChild(link);
 
   return container;
@@ -137,7 +132,7 @@ export function MapView({ venues }: { venues: VenueListItem[] }) {
 
   if (status === "no-key") {
     return (
-      <p className="rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-600 dark:border-white/[.145] dark:text-zinc-400">
+      <p className="rounded-xl border border-border bg-card-alt px-4 py-3 text-sm text-muted">
         Map view requires <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to be configured (see{" "}
         <code>apps/web/.env.example</code>).
       </p>
@@ -146,7 +141,7 @@ export function MapView({ venues }: { venues: VenueListItem[] }) {
 
   if (status === "error") {
     return (
-      <p className="rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-600 dark:border-white/[.145] dark:text-zinc-400">
+      <p className="rounded-xl border border-border bg-card-alt px-4 py-3 text-sm text-muted">
         Couldn&apos;t load the map. Check your Google Maps API key and try again.
       </p>
     );
@@ -154,15 +149,15 @@ export function MapView({ venues }: { venues: VenueListItem[] }) {
 
   return (
     <div className="relative">
-      <div ref={mapDivRef} className="h-[70vh] w-full rounded-lg border border-black/[.08] dark:border-white/[.145]" />
-      <div className="absolute bottom-4 left-4 flex flex-col gap-1 rounded-lg border border-black/[.08] bg-white/95 px-3 py-2 text-xs shadow-sm dark:border-white/[.145] dark:bg-zinc-900/95">
+      <div ref={mapDivRef} className="h-[70vh] w-full rounded-xl border border-border" />
+      <div className="absolute bottom-4 left-4 flex flex-col gap-1 rounded-xl border border-border bg-card/95 px-3 py-2 text-xs shadow-sm">
         {getCategoryLegend(mode).map((entry) => (
           <div key={entry.name} className="flex items-center gap-2">
             <span
               className="inline-block h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: entry.color }}
             />
-            <span className="text-zinc-700 dark:text-zinc-300">{entry.name}</span>
+            <span className="font-bold text-foreground">{entry.name}</span>
           </div>
         ))}
       </div>

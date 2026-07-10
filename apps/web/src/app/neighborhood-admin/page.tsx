@@ -57,24 +57,22 @@ export default function NeighborhoodAdminPortalPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 font-sans sm:p-16">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Neighborhood admin</h1>
+        <h1 className="font-heading text-xl font-extrabold text-foreground">Neighborhood admin</h1>
         {state.status === "ready" && (
           <a
             href="/neighborhood-admin/new"
-            className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-black"
+            className="rounded-full bg-brand-purple px-3.5 py-1.5 text-sm font-bold text-on-accent"
           >
             New neighborhood
           </a>
         )}
       </div>
 
-      {state.status === "loading" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>
-      )}
+      {state.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
 
       {state.status === "signed_out" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          <a href="/login" className="underline">
+        <p className="text-sm text-muted">
+          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
             Log in
           </a>{" "}
           with a neighborhood admin account to manage a neighborhood's profile.
@@ -82,9 +80,7 @@ export default function NeighborhoodAdminPortalPage() {
       )}
 
       {state.status === "not_admin" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          This account isn&apos;t a neighborhood admin for any neighborhood.
-        </p>
+        <p className="text-sm text-muted">This account isn&apos;t a neighborhood admin for any neighborhood.</p>
       )}
 
       {state.status === "error" && (
@@ -92,27 +88,22 @@ export default function NeighborhoodAdminPortalPage() {
       )}
 
       {state.status === "ready" && state.neighborhoods.length === 0 && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          You aren&apos;t an admin of any neighborhood yet.
-        </p>
+        <p className="text-sm text-muted">You aren&apos;t an admin of any neighborhood yet.</p>
       )}
 
       {state.status === "ready" && state.neighborhoods.length > 0 && (
         <ul className="flex flex-col gap-2">
           {state.neighborhoods.map((neighborhood) => (
-            <li
-              key={neighborhood.neighborhood_id}
-              className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-            >
+            <li key={neighborhood.neighborhood_id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
               <a
                 href={`/neighborhood-admin/${neighborhood.slug}`}
-                className="font-medium text-black hover:underline dark:text-zinc-50"
+                className="font-extrabold text-foreground hover:text-brand-purple"
               >
                 {neighborhood.name}
               </a>
               <a
                 href={`/neighborhoods/${neighborhood.slug}`}
-                className="ml-2 text-xs text-zinc-500 hover:underline dark:text-zinc-500"
+                className="ml-2 text-xs font-bold text-brand-purple hover:text-brand-orange"
               >
                 View public page
               </a>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Announcement, AppUser, Event, SocialLinks, VenueDashboardSummary } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { StatCard } from "../../StatCard";
 import { AnnouncementForm } from "./AnnouncementForm";
 import { EventForm } from "./EventForm";
 import { SocialLinksForm } from "./SocialLinksForm";
@@ -88,17 +89,15 @@ export function BusinessVenueDashboard({ venueId }: { venueId: string }) {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
-      <a href="/business" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+      <a href="/business" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
         ← Business portal
       </a>
 
-      {state.status === "loading" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>
-      )}
+      {state.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
 
       {state.status === "signed_out" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          <a href="/login" className="underline">
+        <p className="text-sm text-muted">
+          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
             Log in
           </a>{" "}
           with a business account to manage this venue.
@@ -106,9 +105,9 @@ export function BusinessVenueDashboard({ venueId }: { venueId: string }) {
       )}
 
       {state.status === "wrong_account_type" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted">
           This account isn&apos;t a business account. Upgrade it from the{" "}
-          <a href="/business" className="underline">
+          <a href="/business" className="font-bold text-brand-purple hover:text-brand-orange">
             business portal
           </a>{" "}
           first.
@@ -128,29 +127,17 @@ export function BusinessVenueDashboard({ venueId }: { venueId: string }) {
       {state.status === "ready" && (
         <>
           <div>
-            <h1 className="text-xl font-semibold text-black dark:text-zinc-50">
-              {state.summary.name}
-            </h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">{state.summary.address}</p>
+            <h1 className="font-heading text-xl font-extrabold text-foreground">{state.summary.name}</h1>
+            <p className="text-sm text-muted">{state.summary.address}</p>
           </div>
 
-          <div className="flex gap-6">
-            <div className="rounded-lg border border-black/[.08] px-4 py-3 dark:border-white/[.145]">
-              <p className="text-2xl font-semibold text-black dark:text-zinc-50">
-                {state.summary.follower_count}
-              </p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">Followers</p>
-            </div>
-            <div className="rounded-lg border border-black/[.08] px-4 py-3 dark:border-white/[.145]">
-              <p className="text-2xl font-semibold text-black dark:text-zinc-50">
-                {state.summary.checkin_count}
-              </p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">Check-ins</p>
-            </div>
+          <div className="flex gap-2.5">
+            <StatCard value={state.summary.follower_count} label="Followers" accent="orange" />
+            <StatCard value={state.summary.checkin_count} label="Check-ins" accent="green" />
           </div>
 
-          <section className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Social links</h2>
+          <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Social links</h2>
             <SocialLinksForm
               venueId={venueId}
               initialSocialLinks={state.summary.social_links}
@@ -158,41 +145,35 @@ export function BusinessVenueDashboard({ venueId }: { venueId: string }) {
             />
           </section>
 
-          <section className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Announcements</h2>
+          <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Announcements</h2>
             <AnnouncementForm venueId={venueId} onCreated={handleAnnouncementCreated} />
             {state.summary.announcements.length === 0 ? (
-              <p className="text-sm text-zinc-500 dark:text-zinc-500">No announcements yet.</p>
+              <p className="text-sm text-muted">No announcements yet.</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {state.summary.announcements.map((a) => (
-                  <li
-                    key={a.id}
-                    className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-                  >
-                    <p className="font-medium text-black dark:text-zinc-50">{a.title}</p>
-                    <p className="text-zinc-600 dark:text-zinc-400">{a.body}</p>
+                  <li key={a.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+                    <p className="font-extrabold text-foreground">{a.title}</p>
+                    <p className="text-muted">{a.body}</p>
                   </li>
                 ))}
               </ul>
             )}
           </section>
 
-          <section className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Events</h2>
+          <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Events</h2>
             <EventForm venueId={venueId} onCreated={handleEventCreated} />
             {state.summary.events.length === 0 ? (
-              <p className="text-sm text-zinc-500 dark:text-zinc-500">No events yet.</p>
+              <p className="text-sm text-muted">No events yet.</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {state.summary.events.map((e) => (
-                  <li
-                    key={e.id}
-                    className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-                  >
-                    <p className="font-medium text-black dark:text-zinc-50">{e.title}</p>
-                    <p className="text-zinc-600 dark:text-zinc-400">{e.description}</p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                  <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+                    <p className="font-extrabold text-foreground">{e.title}</p>
+                    <p className="text-muted">{e.description}</p>
+                    <p className="text-xs font-bold text-muted">
                       {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
                     </p>
                   </li>
