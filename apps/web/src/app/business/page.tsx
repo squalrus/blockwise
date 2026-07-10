@@ -67,15 +67,13 @@ export default function BusinessPortalPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 font-sans sm:p-16">
-      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Business portal</h1>
+      <h1 className="font-heading text-xl font-extrabold text-foreground">Business portal</h1>
 
-      {state.status === "loading" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>
-      )}
+      {state.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
 
       {state.status === "signed_out" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          <a href="/login" className="underline">
+        <p className="text-sm text-muted">
+          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
             Log in
           </a>{" "}
           with a business account to manage your claimed venues.
@@ -84,7 +82,7 @@ export default function BusinessPortalPage() {
 
       {state.status === "wrong_account_type" && (
         <div className="flex flex-col items-start gap-3">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-muted">
             This account isn&apos;t a business account yet. Upgrade it to claim and manage a venue --
             your check-ins and everything else about the account stay the same.
           </p>
@@ -92,7 +90,7 @@ export default function BusinessPortalPage() {
             type="button"
             onClick={handlePromote}
             disabled={promoting}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+            className="rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
           >
             {promoting ? "Upgrading…" : "Become a business owner"}
           </button>
@@ -104,7 +102,7 @@ export default function BusinessPortalPage() {
       )}
 
       {state.status === "ready" && state.venues.length === 0 && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted">
           No approved claims yet. Submit a claim from a venue page, signed in as this business
           account, and it&apos;ll show up here once an admin approves it.
         </p>
@@ -113,18 +111,15 @@ export default function BusinessPortalPage() {
       {state.status === "ready" && state.venues.length > 0 && (
         <ul className="flex flex-col gap-2">
           {state.venues.map((venue) => (
-            <li
-              key={venue.venue_id}
-              className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-            >
-              <a href={`/business/${venue.venue_id}`} className="font-medium text-black hover:underline dark:text-zinc-50">
+            <li key={venue.venue_id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+              <a
+                href={`/business/${venue.venue_id}`}
+                className="font-extrabold text-foreground hover:text-brand-purple"
+              >
                 {venue.name}
               </a>
-              <p className="text-zinc-600 dark:text-zinc-400">{venue.address}</p>
-              <a
-                href={`/venues/${venue.venue_id}`}
-                className="text-xs text-zinc-500 hover:underline dark:text-zinc-500"
-              >
+              <p className="text-muted">{venue.address}</p>
+              <a href={`/venues/${venue.venue_id}`} className="text-xs font-bold text-brand-purple hover:text-brand-orange">
                 View public page
               </a>
             </li>

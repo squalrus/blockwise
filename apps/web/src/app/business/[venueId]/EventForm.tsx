@@ -56,47 +56,44 @@ export function EventForm({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-3 rounded-lg border border-black/[.08] px-6 py-4 dark:border-white/[.145]"
-    >
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl bg-card-alt px-6 py-4">
       <input
         name="title"
         required
         placeholder="Title"
-        className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+        className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <textarea
         name="description"
         required
         placeholder="Describe the event"
         rows={2}
-        className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+        className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <div className="flex gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+        <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
           Starts
           <input
             type="datetime-local"
             name="start_time"
             required
-            className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+            className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+        <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
           Ends
           <input
             type="datetime-local"
             name="end_time"
             required
-            className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+            className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
           />
         </label>
       </div>
       <button
         type="submit"
         disabled={status.state === "submitting"}
-        className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
       >
         {status.state === "submitting" ? "Creating…" : "Create event"}
       </button>

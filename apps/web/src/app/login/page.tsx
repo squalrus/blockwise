@@ -19,8 +19,8 @@ export default function LoginPage() {
     const password = String(form.get("password") ?? "");
 
     try {
-      const user = await logIn(email, password);
-      router.push(user.account_type === "business" ? "/business" : "/");
+      await logIn(email, password);
+      router.push("/account");
     } catch (err) {
       setStatus({ state: "error", message: err instanceof Error ? err.message : "Login failed" });
     }
@@ -37,7 +37,7 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
-      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Log in</h1>
+      <h1 className="font-heading text-xl font-extrabold text-foreground">Log in</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <input
@@ -45,20 +45,20 @@ export default function LoginPage() {
           type="email"
           required
           placeholder="you@example.com"
-          className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+          className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
         <input
           name="password"
           type="password"
           required
           placeholder="Password"
-          className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+          className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
 
         <button
           type="submit"
           disabled={status.state === "submitting"}
-          className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
         >
           {status.state === "submitting" ? "Logging in…" : "Log in"}
         </button>
@@ -68,24 +68,24 @@ export default function LoginPage() {
         )}
       </form>
 
-      <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-        <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+      <div className="flex items-center gap-3 text-xs text-muted">
+        <div className="h-px flex-1 bg-border" />
         or
-        <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <button
         type="button"
         onClick={handleGoogleSignIn}
         disabled={status.state === "submitting"}
-        className="rounded-md border border-black/[.08] px-3 py-2 text-sm font-medium text-black disabled:opacity-50 dark:border-white/[.145] dark:text-zinc-50"
+        className="rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
       >
         Continue with Google
       </button>
 
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-muted">
         No account yet?{" "}
-        <a href="/signup" className="underline">
+        <a href="/signup" className="font-bold text-brand-purple hover:text-brand-orange">
           Sign up
         </a>
       </p>

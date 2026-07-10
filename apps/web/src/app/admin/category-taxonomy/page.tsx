@@ -135,10 +135,10 @@ export default function AdminCategoryTaxonomyPage() {
   if (tokenState.status === "signed_out") {
     return (
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: category taxonomy</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <h1 className="font-heading text-xl font-extrabold text-foreground">Admin: category taxonomy</h1>
+        <p className="text-sm text-muted">
           You need to be signed in to view this page.{" "}
-          <a href="/login" className="underline">
+          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
             Log in
           </a>
         </p>
@@ -149,8 +149,8 @@ export default function AdminCategoryTaxonomyPage() {
   if (error === "forbidden") {
     return (
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: category taxonomy</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <h1 className="font-heading text-xl font-extrabold text-foreground">Admin: category taxonomy</h1>
+        <p className="text-sm text-muted">
           You&apos;re signed in, but your account isn&apos;t a neighborhood admin.
         </p>
       </div>
@@ -160,10 +160,10 @@ export default function AdminCategoryTaxonomyPage() {
   if (error === "unauthorized") {
     return (
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: category taxonomy</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <h1 className="font-heading text-xl font-extrabold text-foreground">Admin: category taxonomy</h1>
+        <p className="text-sm text-muted">
           Your session expired.{" "}
-          <a href="/login" className="underline">
+          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
             Log in
           </a>{" "}
           again.
@@ -188,7 +188,7 @@ export default function AdminCategoryTaxonomyPage() {
     return (
       <li
         key={category.id}
-        className={`flex items-center justify-between gap-2 rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] ${indent ? "ml-6" : ""}`}
+        className={`flex items-center justify-between gap-2 rounded-2xl bg-card-alt px-3 py-2 text-sm ${indent ? "ml-6" : ""}`}
       >
         {isEditing ? (
           <form
@@ -201,31 +201,31 @@ export default function AdminCategoryTaxonomyPage() {
             <input
               value={editingName}
               onChange={(e) => setEditingName(e.target.value)}
-              className="flex-1 rounded-md border border-black/[.08] px-2 py-1 dark:border-white/[.145] dark:bg-transparent"
+              className="flex-1 rounded-md border border-border bg-card px-2 py-1 text-foreground"
               autoFocus
             />
             <button
               type="submit"
               disabled={isBusy}
-              className="rounded-md bg-black px-3 py-1 font-medium text-white dark:bg-white dark:text-black"
+              className="rounded-md bg-brand-purple px-3 py-1 font-bold text-on-accent"
             >
               Save
             </button>
-            <button type="button" onClick={() => setEditingId(null)} className="px-2 py-1 text-zinc-600 dark:text-zinc-400">
+            <button type="button" onClick={() => setEditingId(null)} className="px-2 py-1 font-bold text-muted">
               Cancel
             </button>
           </form>
         ) : (
           <>
             <div className="flex items-center gap-2">
-              <span className="font-medium text-black dark:text-zinc-50">{category.name}</span>
+              <span className="font-extrabold text-foreground">{category.name}</span>
               {category.status === "archived" && (
-                <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-bold text-muted-strong">
                   Archived
                 </span>
               )}
               {category.google_types.length > 0 && (
-                <span className="text-xs text-zinc-500 dark:text-zinc-500">{category.google_types.join(", ")}</span>
+                <span className="text-xs font-bold text-muted">{category.google_types.join(", ")}</span>
               )}
             </div>
             {category.status === "active" && (
@@ -236,14 +236,14 @@ export default function AdminCategoryTaxonomyPage() {
                     setEditingName(category.name);
                   }}
                   disabled={isBusy}
-                  className="text-xs text-zinc-600 underline dark:text-zinc-400"
+                  className="text-xs font-bold text-brand-purple hover:text-brand-orange"
                 >
                   Rename
                 </button>
                 <button
                   onClick={() => handleArchive(category.id)}
                   disabled={isBusy}
-                  className="text-xs text-red-600 underline dark:text-red-400"
+                  className="text-xs font-bold text-red-600 dark:text-red-400"
                 >
                   {isBusy ? "Archiving…" : "Archive"}
                 </button>
@@ -257,24 +257,24 @@ export default function AdminCategoryTaxonomyPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
-      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Admin: category taxonomy</h1>
+      <h1 className="font-heading text-xl font-extrabold text-foreground">Admin: category taxonomy</h1>
 
       {error === "failed" && <p className="text-sm text-red-600 dark:text-red-400">Something went wrong.</p>}
       {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
 
-      <form onSubmit={handleCreateSubmit} className="flex flex-col gap-2 rounded-lg border border-black/[.08] p-4 text-sm dark:border-white/[.145]">
-        <h2 className="font-medium text-black dark:text-zinc-50">Add category</h2>
+      <form onSubmit={handleCreateSubmit} className="flex flex-col gap-2 rounded-xl bg-card-alt p-4 text-sm">
+        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Add category</h2>
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="Name"
           required
-          className="rounded-md border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-transparent"
+          className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
         />
         <select
           value={newParentId}
           onChange={(e) => setNewParentId(e.target.value)}
-          className="rounded-md border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-transparent"
+          className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
         >
           <option value="">— New top-level group —</option>
           {activeGroups.map((g) => (
@@ -288,13 +288,13 @@ export default function AdminCategoryTaxonomyPage() {
             value={newGoogleTypes}
             onChange={(e) => setNewGoogleTypes(e.target.value)}
             placeholder="Google Places types, comma-separated (e.g. cafe, coffee_shop)"
-            className="rounded-md border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-transparent"
+            className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
           />
         )}
         <button
           type="submit"
           disabled={creating}
-          className="self-start rounded-md bg-black px-4 py-2 font-medium text-white dark:bg-white dark:text-black"
+          className="self-start rounded-md bg-brand-purple px-4 py-2 font-bold text-on-accent"
         >
           {creating ? "Adding…" : "Add"}
         </button>

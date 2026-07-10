@@ -11,11 +11,10 @@ import type {
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { BadgeIcon } from "../BadgeIcon";
+import { CheckinTimeline } from "../CheckinTimeline";
 import { PlaceListItem } from "../PlaceListItem";
 import { NearestVenues } from "./NearestVenues";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
-
-const TIMELINE_COLORS = ["#E8542A", "#4C8C4A", "#8B5FBF", "#F2A93B"];
 
 type State =
   | { status: "loading" }
@@ -173,34 +172,10 @@ export default function AccountPage() {
 
           <section id="checkins" className="flex flex-col gap-2.5 scroll-mt-16">
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Recent check-ins</h2>
-            {state.checkins.length === 0 ? (
-              <p className="text-sm text-muted">
-                No check-ins yet -- check in from a venue page when you're there.
-              </p>
-            ) : (
-              <div className="relative pl-4.5">
-                <div className="absolute top-1.5 bottom-1.5 left-1 w-0.5 bg-border" />
-                <ul className="flex flex-col gap-3.5">
-                  {state.checkins.map((checkin, index) => (
-                    <li key={`${checkin.venue_id}-${checkin.checked_in_at}-${index}`} className="relative">
-                      <span
-                        className="absolute top-1 -left-4.5 h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: TIMELINE_COLORS[index % TIMELINE_COLORS.length] }}
-                      />
-                      <a
-                        href={`/venues/${checkin.venue_id}`}
-                        className="text-sm font-extrabold text-foreground hover:text-brand-purple"
-                      >
-                        {checkin.name}
-                      </a>
-                      <p className="text-xs font-bold text-muted">
-                        {new Date(checkin.checked_in_at).toLocaleString()}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <CheckinTimeline
+              checkins={state.checkins}
+              emptyMessage="No check-ins yet -- check in from a venue page when you're there."
+            />
           </section>
 
           <div className="flex gap-2.5">

@@ -73,17 +73,15 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
-      <a href="/neighborhood-admin" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+      <a href="/neighborhood-admin" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
         ← Neighborhood admin
       </a>
 
-      {state.status === "loading" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>
-      )}
+      {state.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
 
       {state.status === "signed_out" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          <a href="/login" className="underline">
+        <p className="text-sm text-muted">
+          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
             Log in
           </a>{" "}
           with a neighborhood admin account to manage this neighborhood.
@@ -103,18 +101,16 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
       {state.status === "ready" && (
         <>
           <div>
-            <h1 className="text-xl font-semibold text-black dark:text-zinc-50">
-              {state.neighborhood.name}
-            </h1>
+            <h1 className="font-heading text-xl font-extrabold text-foreground">{state.neighborhood.name}</h1>
             <a
               href={`/neighborhoods/${state.neighborhood.slug}`}
-              className="text-sm text-zinc-600 hover:underline dark:text-zinc-400"
+              className="text-sm font-bold text-brand-purple hover:text-brand-orange"
             >
               View public page
             </a>
           </div>
 
-          <nav className="flex gap-2 text-sm">
+          <nav className="flex gap-2 overflow-x-auto pb-1 text-sm">
             {TABS.map((tab) => {
               const href = `/neighborhood-admin/${neighborhoodSlug}${tab.href}`;
               const isActive = pathname === href;
@@ -122,10 +118,8 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
                 <a
                   key={tab.href}
                   href={href}
-                  className={`rounded-md px-3 py-1 ${
-                    isActive
-                      ? "bg-black text-white dark:bg-white dark:text-black"
-                      : "border border-black/[.08] text-black dark:border-white/[.145] dark:text-zinc-50"
+                  className={`shrink-0 rounded-full px-4 py-2 font-extrabold whitespace-nowrap ${
+                    isActive ? "bg-foreground text-ink" : "bg-card-alt text-muted"
                   }`}
                 >
                   {tab.label}

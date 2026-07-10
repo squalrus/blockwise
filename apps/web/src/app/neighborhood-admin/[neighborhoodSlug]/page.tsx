@@ -67,7 +67,7 @@ export default function NeighborhoodAdminOverviewPage() {
   }
 
   if (state.status === "loading") {
-    return <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>;
+    return <p className="text-sm text-muted">Loading…</p>;
   }
   if (state.status === "error") {
     return <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>;
@@ -75,8 +75,8 @@ export default function NeighborhoodAdminOverviewPage() {
 
   return (
     <>
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Description</h2>
+      <section className="flex flex-col gap-2.5">
+        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Description</h2>
         <DescriptionForm
           neighborhoodId={neighborhoodId}
           initialDescription={state.summary.description}
@@ -84,8 +84,8 @@ export default function NeighborhoodAdminOverviewPage() {
         />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Social links</h2>
+      <section className="flex flex-col gap-2.5">
+        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Social links</h2>
         <SocialLinksForm
           neighborhoodId={neighborhoodId}
           initialSocialLinks={state.summary.social_links}
@@ -93,21 +93,18 @@ export default function NeighborhoodAdminOverviewPage() {
         />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Events</h2>
+      <section className="flex flex-col gap-2.5">
+        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Events</h2>
         <EventForm neighborhoodId={neighborhoodId} onCreated={handleEventCreated} />
         {state.summary.events.length === 0 ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-500">No events yet.</p>
+          <p className="text-sm text-muted">No events yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {state.summary.events.map((e) => (
-              <li
-                key={e.id}
-                className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-              >
-                <p className="font-medium text-black dark:text-zinc-50">{e.title}</p>
-                <p className="text-zinc-600 dark:text-zinc-400">{e.description}</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-500">
+              <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+                <p className="font-extrabold text-foreground">{e.title}</p>
+                <p className="text-muted">{e.description}</p>
+                <p className="text-xs font-bold text-muted">
                   {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
                 </p>
               </li>
@@ -116,32 +113,27 @@ export default function NeighborhoodAdminOverviewPage() {
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Points of interest</h2>
+      <section className="flex flex-col gap-2.5">
+        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Points of interest</h2>
         <a
           href={`/neighborhood-admin/${slug}/locations`}
-          className="self-start text-sm text-zinc-600 hover:underline dark:text-zinc-400"
+          className="self-start text-sm font-bold text-brand-purple hover:text-brand-orange"
         >
           Manage in Locations tab →
         </a>
         {state.summary.pois.filter((poi) => poi.status === "active").length === 0 ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-500">No points of interest yet.</p>
+          <p className="text-sm text-muted">No points of interest yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {state.summary.pois
               .filter((poi) => poi.status === "active")
               .map((poi) => (
-              <li
-                key={poi.id}
-                className="rounded-lg border border-black/[.08] px-4 py-3 text-sm dark:border-white/[.145]"
-              >
-                <span className="font-medium text-black dark:text-zinc-50">{poi.name}</span>
-                <span className="ml-2 text-zinc-600 dark:text-zinc-400">{poi.type}</span>
-                {poi.description && (
-                  <p className="mt-1 text-zinc-600 dark:text-zinc-400">{poi.description}</p>
-                )}
-              </li>
-            ))}
+                <li key={poi.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+                  <span className="font-extrabold text-foreground">{poi.name}</span>
+                  <span className="ml-2 text-muted">{poi.type}</span>
+                  {poi.description && <p className="mt-1 text-muted">{poi.description}</p>}
+                </li>
+              ))}
           </ul>
         )}
       </section>

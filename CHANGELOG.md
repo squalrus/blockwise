@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.35.1] — 2026-07-09
+
+### Changed
+
+- **Profile page now shows recent check-ins the same way as the account page.** The public profile's activity section was text-only; it now displays recent check-ins as a visual timeline of colored dots, matching the account page's display and making recent activity immediately scannable. The timeline component was extracted into a shared `CheckinTimeline.tsx` so both pages use identical styling and behavior. (`apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/app/CheckinTimeline.tsx`, `apps/web/src/app/account/page.tsx`)
+
+### Fixed
+
+- **Light/dark theme overrides now apply to the neighborhood map.** The map's venue/POI marker colors and legend text are now aware of the forced theme override from the hamburger menu (light/dark/system) — previously they only followed the OS's `prefers-color-scheme`, so manually toggling to dark mode on a device with a light OS preference would leave the map on the wrong color palette. Added `getResolvedTheme()` and `subscribeToThemeChanges()` helpers to `lib/theme.ts` to let non-CSS consumers (Google Maps marker coloring, map legend text) coordinate with the app's theme preference system. (`apps/web/src/app/neighborhoods/[slug]/MapView.tsx`, `apps/web/src/lib/theme.ts`)
+- **Comprehensive theme token migration across 25 admin and business pages.** Every remaining page using hardcoded black/zinc/white color classes is now restyled to use the same Spored design tokens (`text-foreground`, `text-muted`, `bg-card`, `bg-card-alt`, `border-border`, `bg-brand-purple`/`text-on-accent`, etc.) as the core app — this ensures light/dark theming is consistently applied everywhere, not just on the most-frequently-visited surfaces. Affected: login/signup/OAuth callback, business portal and all its forms (announcements/events/social links), neighborhood admin dashboard and every admin surface (overview, boundary drawing, business claims, locations tab, locations review wizard, and all nested forms), the category taxonomy admin page, and the neighborhood map legend. (`apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`, `apps/web/src/app/auth/callback/page.tsx`, `apps/web/src/app/business/page.tsx`, `apps/web/src/app/business/[venueId]/`, `apps/web/src/app/neighborhood-admin/**`, `apps/web/src/app/admin/category-taxonomy/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/MapView.tsx`)
+
 ## [0.35.0] — 2026-07-09
 
 ### Added

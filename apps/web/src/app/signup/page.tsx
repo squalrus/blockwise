@@ -39,7 +39,7 @@ export default function SignupPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
-      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Sign up</h1>
+      <h1 className="font-heading text-xl font-extrabold text-foreground">Sign up</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <div className="flex gap-2 text-sm">
@@ -48,10 +48,10 @@ export default function SignupPage() {
               key={type}
               type="button"
               onClick={() => setAccountType(type)}
-              className={`rounded-md px-3 py-1 ${
+              className={`rounded-full px-3 py-1 font-bold ${
                 accountType === type
-                  ? "bg-black text-white dark:bg-white dark:text-black"
-                  : "border border-black/[.08] text-black dark:border-white/[.145] dark:text-zinc-50"
+                  ? "bg-brand-purple text-on-accent"
+                  : "border-2 border-foreground text-foreground"
               }`}
             >
               {type === "consumer" ? "I'm a customer" : "I own a business"}
@@ -64,7 +64,7 @@ export default function SignupPage() {
           type="email"
           required
           placeholder="you@example.com"
-          className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+          className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
         <input
           name="password"
@@ -72,13 +72,13 @@ export default function SignupPage() {
           required
           minLength={6}
           placeholder="Password"
-          className="rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-transparent"
+          className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
 
         <button
           type="submit"
           disabled={status.state === "submitting"}
-          className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
         >
           {status.state === "submitting" ? "Signing up…" : "Sign up"}
         </button>
@@ -88,24 +88,24 @@ export default function SignupPage() {
         )}
       </form>
 
-      <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-        <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+      <div className="flex items-center gap-3 text-xs text-muted">
+        <div className="h-px flex-1 bg-border" />
         or
-        <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <button
         type="button"
         onClick={handleGoogleSignIn}
         disabled={status.state === "submitting"}
-        className="rounded-md border border-black/[.08] px-3 py-2 text-sm font-medium text-black disabled:opacity-50 dark:border-white/[.145] dark:text-zinc-50"
+        className="rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
       >
         Continue with Google
       </button>
 
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-muted">
         Already have an account?{" "}
-        <a href="/login" className="underline">
+        <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
           Log in
         </a>
       </p>

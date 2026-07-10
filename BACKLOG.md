@@ -39,6 +39,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 27 | [What's happening now](#whats-happening-now) | feature | M | M | 5 |
 | 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
 | 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
+| 62 | ["New" badge for recently-launched neighborhoods](#new-badge-for-recently-launched-neighborhoods) | improvement | S | L | — |
 
 ### Business & Venue
 
@@ -183,6 +184,14 @@ No open limitations.
 **Depends:** —
 **Why** — The neighborhood page's subnav split (shipped v0.24.1) carried the Venues tab's List/Map toggle over as-is, defaulting to List; the original subnav proposal floated Map as a more natural "what's near me" default, but that part didn't ship with the split.
 **Notes:** `VenuesView.tsx` already has the List/Map toggle (shipped v0.7.0/v0.23.0); just flip its initial `useState` to `"map"`. Small, self-contained — no schema or API changes.
+
+#### "New" badge for recently-launched neighborhoods
+
+**Ref:** 62
+**Type:** improvement
+**Depends:** —
+**Why** — The Spored Mockups design (Screen 5: All Neighborhoods) shows a low-traction neighborhood with a muted "🌱 New" pill in place of Join/Joined, and the card at reduced opacity — a visual cue that a neighborhood is newly launched and still building momentum. Skipped when the All Neighborhoods browse list was rebuilt (v0.35.0, search box + business/member counts) because there's no "new" concept in the data model today.
+**Notes:** `neighborhood.created_at` isn't currently exposed via `NeighborhoodRecord`/`NeighborhoodSummary` (`apps/api/src/neighborhoods/repository.ts`, `packages/types/src/index.ts`) — open question: define "new" by age (e.g. created within the last N days) or by low traction (member_count/business_count below some floor, both already returned by `GET /neighborhoods` as of v0.35.0)? Age needs a new exposed field; a traction floor needs none. Once decided, the pill/opacity treatment is a small addition to `NeighborhoodCard` in `apps/web/src/app/neighborhoods/NeighborhoodsSection.tsx`.
 
 ### Business & Venue
 

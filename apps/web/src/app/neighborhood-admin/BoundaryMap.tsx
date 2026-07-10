@@ -195,7 +195,7 @@ export function BoundaryMap({
 
   if (status === "no-key") {
     return (
-      <p className="rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-600 dark:border-white/[.145] dark:text-zinc-400">
+      <p className="rounded-xl border border-border bg-card-alt px-4 py-3 text-sm text-muted">
         Boundary drawing requires <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to be configured (see{" "}
         <code>apps/web/.env.example</code>).
       </p>
@@ -204,7 +204,7 @@ export function BoundaryMap({
 
   if (status === "error") {
     return (
-      <p className="rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-600 dark:border-white/[.145] dark:text-zinc-400">
+      <p className="rounded-xl border border-border bg-card-alt px-4 py-3 text-sm text-muted">
         Couldn&apos;t load the map. Check your Google Maps API key and try again.
       </p>
     );
@@ -212,31 +212,24 @@ export function BoundaryMap({
 
   return (
     <div className="flex flex-col gap-2">
-      <div
-        ref={mapDivRef}
-        className="h-[60vh] w-full rounded-lg border border-black/[.08] dark:border-white/[.145]"
-      />
+      <div ref={mapDivRef} className="h-[60vh] w-full rounded-xl border border-border" />
       <div className="flex items-center gap-3">
         {drawing ? (
           <>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            <p className="text-xs font-bold text-muted">
               Click the map to place vertices ({drawingPointCount} so far, 3+ required).
             </p>
             <button
               type="button"
               onClick={handleFinishDrawing}
               disabled={drawingPointCount < 3}
-              className="rounded-md border border-black/[.08] px-3 py-1 text-xs font-medium text-black disabled:opacity-50 dark:border-white/[.145] dark:text-zinc-50"
+              className="rounded-md border border-border px-3 py-1 text-xs font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
             >
               Finish boundary
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="text-xs text-zinc-600 underline dark:text-zinc-400"
-          >
+          <button type="button" onClick={handleClear} className="text-xs font-bold text-brand-purple hover:text-brand-orange">
             Clear and redraw boundary
           </button>
         )}
