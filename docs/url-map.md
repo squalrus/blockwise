@@ -30,11 +30,11 @@ apps/web/src/app/
 │   ├── page.tsx                                    /neighborhoods — P — browse/join every active neighborhood (NeighborhoodsSection: search box, business/member counts per card)
 │   └── [slug]/
 │       ├── layout.tsx                              — P — shared header (description, social links, join button), subnav tab bar
-│       ├── page.tsx                                /neighborhoods/:slug — Leaderboard tab (default)
-│       ├── challenges/page.tsx                     /neighborhoods/:slug/challenges — Challenges tab
-│       ├── events/page.tsx                         /neighborhoods/:slug/events — Upcoming events tab
-│       ├── pois/page.tsx                           /neighborhoods/:slug/pois — Points of interest tab
-│       └── venues/page.tsx                         /neighborhoods/:slug/venues — Venues tab (list/map toggle)
+│       ├── page.tsx                                /neighborhoods/:slug — Happening now tab (default) — events in progress + businesses/POIs currently open per cached hours
+│       ├── activity/page.tsx                       /neighborhoods/:slug/activity — Recent activity tab — neighborhood-wide feed (check-ins, favorites, badge unlocks, challenge completions); actor names masked to "A user" for private profiles
+│       ├── events/page.tsx                         /neighborhoods/:slug/events — Upcoming events tab — neighborhood-owned events + business events
+│       ├── locations/page.tsx                      /neighborhoods/:slug/locations — Locations tab (list/map toggle) — merges businesses (renamed from Venues) and neighborhood-owned POIs (folded in from the former Points of interest tab)
+│       └── challenges/page.tsx                     /neighborhoods/:slug/challenges — Challenges tab — challenges on top, leaderboard below (merged from two separate tabs)
 ├── location/
 │   └── [id]/page.tsx                              /location/:id — P — merged business/POI detail page (BACKLOG.md "POIs and venues managed almost the same"), branches on `kind`: claim form/favorite/announcements/events for business, type/description/check-in stat for POI
 ├── business/
@@ -98,8 +98,10 @@ Auth gates:
 │   ├── leaderboard                                   GET — public — points leaderboard, public-visibility users only
 │   └── challenges                                    GET — public (optional auth) — challenge templates + this user's progress
 └── :id/
-    ├── events                                        GET — public
+    ├── events                                        GET — public — neighborhood-owned events + business events, merged and sorted by start time (Upcoming events tab)
     ├── venues                                        GET — public
+    ├── activity                                        GET — public — ~50 most recent check-ins/favorites/challenge completions/badge unlocks; actor names masked to "A user" for private profiles
+    ├── happening-now                                    GET — public — events in progress + businesses/POIs currently open per cached hours
     ├── join                                            POST, DELETE — auth
     └── home                                            POST — auth
 
@@ -165,6 +167,7 @@ Identifier note: every neighborhood-identifying path param in the API is the **i
 
 ## History
 
+- **2026-07-10** — Public neighborhood profile tabs reworked (BACKLOG.md Ref 27, "What's happening now"). Tab order/routes: Happening now (default, `/neighborhoods/:slug`) → Recent activity (`/activity`) → Upcoming events (`/events`) → Locations (`/locations`) → Challenges (`/challenges`, merged with Leaderboard). Challenges and Leaderboard merged into one tab (challenges on top, leaderboard below). Venues tab renamed to Locations and merged with the former standalone Points of interest tab (`/neighborhoods/:slug/venues` and `/pois` → `/neighborhoods/:slug/locations`, no redirects; POIs with no cached lat/lng, BACKLOG.md Ref 51, are excluded from the merged list rather than plotted at a bogus position). Upcoming events (`GET /neighborhoods/:id/events`) now merges neighborhood-owned events with events from businesses in the neighborhood (`Event` gained `venue_name`). New Recent activity tab (`GET /neighborhoods/:id/activity`) shows a neighborhood-wide feed of check-ins/favorites/challenge completions/badge unlocks with actor names masked to "A user" for private profiles. New Happening now tab (`GET /neighborhoods/:id/happening-now`) shows events in progress plus businesses/POIs currently open, per a new `isOpenNow` parser over the existing cached `hours` text.
 - **2026-07-10** — `venue` and `poi` merged into one table with a `kind` column (`'business' | 'poi'`), so switching a location between the two is a single in-place update instead of the old hide-then-recreate-as-a-new-row "Convert to POI" flow. `checkin`/`point_event`/`challenge`/`venue_enrichment_cache` all lost their separate `poi_id` column in favor of `venue_id` covering both kinds. Public `/venues/:id` + `/pois/:id` merged into `/location/:id` (web) and `GET/POST /locations/:id` (API); admin venue/POI routes merged into `/neighborhood-admin/neighborhoods/:id/locations*`, gaining a new `PATCH .../locations/:id/kind` switch action (blocked while claimed). Added claim revoke (`POST .../claims/:claimId/revoke`) since approving a claim previously had no way back. No redirects from the old `/venues/:id`/`/pois/:id` URLs (pre-launch). See BACKLOG.md "POIs and venues managed almost the same".
 
 - **2026-07-09** — The marketing homepage moved from `apps/web` into a new `apps/marketing` Next.js app, deployed as its own Netlify site to `tryspored.com` (apps/web becomes `app.tryspored.com`-only). `apps/web`'s `/` is now a client-side redirect to `/account` or `/login` instead of marketing content; `SiteChrome.tsx` (which existed only to hide chrome on that route) was removed and its AccountNav/Footer wiring inlined into `layout.tsx`. `MushroomLogo` and the brand fonts/colors moved into a new shared `packages/ui` package consumed by both apps.

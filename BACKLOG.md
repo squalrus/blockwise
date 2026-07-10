@@ -28,13 +28,12 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | 27 |
+| 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | — |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
 | 56 | [Locations tab: category filter and hide-hidden-by-default](#locations-tab-category-filter-and-hide-hidden-by-default) | improvement | S | M | — |
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
-| 27 | [What's happening now](#whats-happening-now) | feature | M | M | 5 |
 | 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
 | 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
 | 62 | ["New" badge for recently-launched neighborhoods](#new-badge-for-recently-launched-neighborhoods) | improvement | S | L | — |
@@ -108,9 +107,9 @@ No open limitations.
 
 **Ref:** 30
 **Type:** feature
-**Depends:** [27](#whats-happening-now)
+**Depends:** —
 **Why** — Per the "leverage existing content" principle (see below), neighborhoods and businesses already publish events elsewhere (e.g. The Events Calendar plugin's `webcal://.../?post_type=tribe_events&ical=1&eventDisplay=list` feed, as phinneywood.com does) — pulling those in automatically means an admin/owner does zero manual data entry and the neighborhood's event list stays current for free, instead of relying on someone to re-key events into Blockwise.
-**Notes:** Add an optional `ical_feed_url` on `neighborhood` and (separately) on `venue`/business profile. A scheduled sync job fetches and parses each feed (a standard `.ics`/iCalendar format despite the `webcal://` scheme — same as `http(s)://`) and upserts into the existing `event` table (`apps/api/src/events/repository.ts`) as `neighborhoodId`- or `venueId`-scoped rows, keyed by the feed's `UID` so re-syncs update rather than duplicate. Manual event entry (already supported via `createEvent`) remains the fallback for neighborhoods/businesses without an external calendar. Feeds directly into [What's happening now](#whats-happening-now) as the primary source of neighborhood event content.
+**Notes:** Add an optional `ical_feed_url` on `neighborhood` and (separately) on `venue`/business profile. A scheduled sync job fetches and parses each feed (a standard `.ics`/iCalendar format despite the `webcal://` scheme — same as `http(s)://`) and upserts into the existing `event` table (`apps/api/src/events/repository.ts`) as `neighborhoodId`- or `venueId`-scoped rows, keyed by the feed's `UID` so re-syncs update rather than duplicate. Manual event entry (already supported via `createEvent`) remains the fallback for neighborhoods/businesses without an external calendar. Feeds directly into the neighborhood's Upcoming events tab (shipped v0.39.0) as an additional event source alongside neighborhood- and business-authored events.
 
 #### Neighborhood marketplace/licensing model
 
@@ -135,14 +134,6 @@ No open limitations.
 **Depends:** [5](#business-announcements)
 **Why** — Business announcements are per-venue and reach only that business's followers; there's no way for neighborhood-level staff (neighborhood admin roles shipped v0.12.0) to broadcast something to everyone in a neighborhood at once (e.g. an event, a service outage, a safety notice).
 **Notes:** Likely a `NeighborhoodNotification` (or reuse `Announcement` with a nullable `venue_id` for neighborhood-wide scope) authored via an admin tool gated the same way as other admin surfaces (`requireAdmin`, v0.12.0); delivery channel (push vs. in-app feed) probably follows whatever [Business announcements](#business-announcements) settles on.
-
-#### What's happening now
-
-**Ref:** 27
-**Type:** feature
-**Depends:** [5](#business-announcements)
-**Why** — Users need a single place to discover what events and announcements are happening right now in their neighborhood; businesses want to surface their announcements and social media alongside each other in one stream.
-**Notes:** User-facing "what's happening now" feed aggregating in-app announcements and events. Businesses can optionally link Instagram or Twitter accounts to surface social media updates alongside their announcements. Open question: should this pull external events (Facebook Events, Eventbrite, RSS, etc.), or focus on in-app announcements + business social links for initial launch? See [iCal/webcal event feed import](#icalwebcal-event-feed-import) for one concrete answer to that open question.
 
 #### SimCity-style UI redesign for neighborhood management
 

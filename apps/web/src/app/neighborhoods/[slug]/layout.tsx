@@ -4,6 +4,7 @@ import type { NeighborhoodProfile, SocialLinks } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { StatCard } from "../../StatCard";
 import { JoinNeighborhoodButton } from "./JoinNeighborhoodButton";
+import { ManageNeighborhoodButton } from "./ManageNeighborhoodButton";
 import { NeighborhoodMapArt } from "./NeighborhoodMapArt";
 import { NeighborhoodTabs } from "./NeighborhoodTabs";
 
@@ -25,8 +26,8 @@ async function getNeighborhood(slug: string): Promise<NeighborhoodProfile | null
 // BACKLOG.md Ref 44: shared chrome (header, social links, join button) and
 // the subnav tab bar for the neighborhood profile pages, mirroring the
 // /neighborhood-admin/[neighborhoodSlug]/layout.tsx tab pattern. Each tab is
-// its own route (page.tsx = Leaderboard, challenges/, events/, pois/,
-// venues/) so it's directly linkable and only fetches the data it needs.
+// its own route (page.tsx = Happening now, activity/, events/, locations/,
+// challenges/) so it's directly linkable and only fetches the data it needs.
 export default async function NeighborhoodLayout({
   children,
   params,
@@ -56,7 +57,10 @@ export default async function NeighborhoodLayout({
             {neighborhood.city}, {neighborhood.state}
           </p>
         </div>
-        <JoinNeighborhoodButton neighborhoodId={neighborhood.id} />
+        <div className="flex shrink-0 items-center gap-2">
+          <JoinNeighborhoodButton neighborhoodId={neighborhood.id} />
+          <ManageNeighborhoodButton neighborhoodSlug={neighborhood.slug} />
+        </div>
       </div>
 
       {neighborhood.description && (

@@ -360,6 +360,10 @@ export interface Event {
   // Exactly one of venue_id/neighborhood_id is set.
   venue_id: string | null;
   neighborhood_id: string | null;
+  // The hosting business's name, only populated for venue-scoped events
+  // returned by GET /neighborhoods/:id/events (BACKLOG.md Ref 27's merged
+  // neighborhood+business Upcoming events tab) -- null everywhere else.
+  venue_name: string | null;
   title: string;
   description: string;
   start_time: string;
@@ -772,6 +776,39 @@ export interface LeaderboardEntry {
   avatar_url: string | null;
   points: number;
   rank: number;
+}
+
+export type ActivityType = "checkin" | "favorite" | "badge" | "challenge_completion";
+
+// GET /neighborhoods/:id/activity -- the neighborhood-wide Recent activity
+// tab (BACKLOG.md Ref 27's "What's happening now" scope). actor_name is
+// already resolved server-side against the actor's profile visibility --
+// "A user" for a private profile, display_name/username/"A user" for a
+// public one -- so the client never sees which private user did what.
+export interface ActivityItem {
+  id: string;
+  type: ActivityType;
+  actor_name: string;
+  venue_id: string | null;
+  venue_name: string | null;
+  badge_name: string | null;
+  badge_icon: string | null;
+  challenge_title: string | null;
+  occurred_at: string;
+}
+
+// GET /neighborhoods/:id/happening-now -- events in progress right now plus
+// businesses/POIs whose cached hours say they're currently open.
+export interface OpenNowLocation {
+  id: string;
+  name: string;
+  kind: LocationKind;
+  category_name: string | null;
+}
+
+export interface HappeningNow {
+  live_events: Event[];
+  open_now: OpenNowLocation[];
 }
 
 // GET /me/points (BACKLOG.md Ref 47) -- an all-time, all-neighborhood total,

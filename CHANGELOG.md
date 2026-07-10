@@ -2,6 +2,26 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.39.0] — 2026-07-10
+
+### Added
+
+- **Happening now tab.** New default tab on the neighborhood profile page showing events currently in progress plus businesses/POIs that are open right now, per a new `isOpenNow` parser over each location's cached weekday hours text. Completes BACKLOG.md Ref 27 ("What's happening now"). (`apps/api/src/locations/hours.ts`, `apps/api/src/locations/happeningNow.ts`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`)
+- **Recent activity tab.** New tab showing a neighborhood-wide feed of the ~50 most recent check-ins, favorites, challenge completions, and badge unlocks across every user, with actor names shown for public profiles and masked to "A user" for private ones. Uses the same dot-and-line `Timeline` UI as the account/profile pages' "Recent check-ins". (`apps/api/src/activity/`, `apps/web/src/app/neighborhoods/[slug]/activity/`, `apps/web/src/app/Timeline.tsx`)
+- **Manage button for neighborhood admins.** The neighborhood profile page now shows a "Manage" button next to "Joined" for a signed-in user who administers that specific neighborhood, linking straight into its admin dashboard. (`apps/web/src/app/neighborhoods/[slug]/ManageNeighborhoodButton.tsx`)
+
+### Changed
+
+- **Upcoming events tab now includes business events.** `GET /neighborhoods/:id/events` merges neighborhood-owned events with events from businesses in the neighborhood, sorted by start time; `Event` gained a `venue_name` field so the tab can show which business is hosting. (`apps/api/src/events/`, `packages/types/src/index.ts`)
+- **Venues tab renamed to Locations and merged with Points of interest.** `/neighborhoods/:slug/venues` is now `/neighborhoods/:slug/locations` (no redirect) and shows both businesses and neighborhood-owned POIs in one list/map, folding in what was the standalone Points of interest tab. POIs with no cached lat/lng (BACKLOG.md Ref 51) are excluded from the merged list rather than plotted at a bogus position. (`apps/web/src/app/neighborhoods/[slug]/locations/`)
+- **Challenges and Leaderboard merged into one tab.** Challenges are shown on top with the points leaderboard below, replacing what were two separate tabs. (`apps/web/src/app/neighborhoods/[slug]/challenges/page.tsx`)
+- **Neighborhood tab navigation uses client-side routing.** The subnav now uses `next/link` instead of plain anchor tags, so switching tabs no longer triggers a full browser page reload and Next.js can prefetch each tab in the background; navigation also skips the default scroll-to-top so it doesn't read as a full reload. (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`)
+- **`CheckinTimeline` extracted onto a shared `Timeline` component.** No visual change on the account/profile pages — the dot-and-connecting-line layout moved into a reusable component now also used by the Recent activity tab. (`apps/web/src/app/CheckinTimeline.tsx`, `apps/web/src/app/Timeline.tsx`)
+
+### Removed
+
+- **Standalone Points of interest tab.** Folded into the renamed Locations tab above. (`apps/web/src/app/neighborhoods/[slug]/pois/`)
+
 ## [0.38.0] — 2026-07-10
 
 ### Added
