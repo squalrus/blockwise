@@ -4,6 +4,10 @@ export interface EventRecord {
   // profile pages") -- a venue-scoped event, or a neighborhood-wide one.
   venueId: string | null;
   neighborhoodId: string | null;
+  // Set only by listEventsForNeighborhoodAndVenues, which joins in the
+  // hosting business's name for venue-scoped events -- null for
+  // neighborhood-scoped events and every other query method.
+  venueName: string | null;
   title: string;
   description: string;
   startTime: string;
@@ -25,5 +29,13 @@ export interface CreateEventInput {
 export interface EventRepository {
   createEvent(input: CreateEventInput): Promise<EventRecord>;
   listEventsForVenue(venueId: string): Promise<EventRecord[]>;
+  // Neighborhood-owned events only -- backs the neighborhood-admin dashboard,
+  // which only ever edits events the neighborhood itself authored.
   listEventsForNeighborhood(neighborhoodId: string): Promise<EventRecord[]>;
+  // Neighborhood-owned events *and* events from businesses within that
+  // neighborhood, merged and sorted by start_time -- backs the public
+  // Upcoming events tab (BACKLOG.md Ref 27), where a visitor cares about
+  // everything happening nearby, not just what the neighborhood itself
+  // posted.
+  listEventsForNeighborhoodAndVenues(neighborhoodId: string): Promise<EventRecord[]>;
 }

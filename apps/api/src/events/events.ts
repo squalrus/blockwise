@@ -6,6 +6,7 @@ function toEvent(record: EventRecord): Event {
     id: record.id,
     venue_id: record.venueId,
     neighborhood_id: record.neighborhoodId,
+    venue_name: record.venueName,
     title: record.title,
     description: record.description,
     start_time: record.startTime,
@@ -80,5 +81,15 @@ export async function listEventsForNeighborhood(
   repository: EventRepository
 ): Promise<Event[]> {
   const records = await repository.listEventsForNeighborhood(neighborhoodId);
+  return records.map(toEvent);
+}
+
+// Public "Upcoming events" tab (BACKLOG.md Ref 27): neighborhood-authored
+// events plus events from businesses within the neighborhood.
+export async function listUpcomingEventsForNeighborhood(
+  neighborhoodId: string,
+  repository: EventRepository
+): Promise<Event[]> {
+  const records = await repository.listEventsForNeighborhoodAndVenues(neighborhoodId);
   return records.map(toEvent);
 }

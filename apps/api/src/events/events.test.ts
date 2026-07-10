@@ -1,17 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { createEvent, createEventForNeighborhood, listEventsForNeighborhood, listEventsForVenue } from "./events";
+import {
+  createEvent,
+  createEventForNeighborhood,
+  listEventsForNeighborhood,
+  listEventsForVenue,
+  listUpcomingEventsForNeighborhood,
+} from "./events";
 import type { CreateEventInput, EventRecord, EventRepository } from "./repository";
 
 // In-memory fake, mirroring the pattern used for AnnouncementRepository tests.
 class FakeEventRepository implements EventRepository {
   events: EventRecord[] = [];
+  // venueId -> { neighborhoodId, name }, so listEventsForNeighborhoodAndVenues
+  // can resolve which neighborhood a venue-scoped event belongs to, mirroring
+  // the real repository's join against the venue table.
+  venues = new Map<string, { neighborhoodId: string; name: string }>();
   private nextId = 1;
+
+  registerVenue(venueId: string, neighborhoodId: string, name: string) {
+    this.venues.set(venueId, { neighborhoodId, name });
+  }
 
   async createEvent(input: CreateEventInput): Promise<EventRecord> {
     const record: EventRecord = {
       id: `event-${this.nextId++}`,
       venueId: input.venueId ?? null,
       neighborhoodId: input.neighborhoodId ?? null,
+      venueName: input.venueId ? (this.venues.get(input.venueId)?.name ?? null) : null,
       title: input.title,
       description: input.description,
       startTime: input.startTime,
@@ -28,6 +43,16 @@ class FakeEventRepository implements EventRepository {
 
   async listEventsForNeighborhood(neighborhoodId: string): Promise<EventRecord[]> {
     return this.events.filter((e) => e.neighborhoodId === neighborhoodId);
+  }
+
+  async listEventsForNeighborhoodAndVenues(neighborhoodId: string): Promise<EventRecord[]> {
+    return this.events
+      .filter(
+        (e) =>
+          e.neighborhoodId === neighborhoodId ||
+          (e.venueId && this.venues.get(e.venueId)?.neighborhoodId === neighborhoodId)
+      )
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
   }
 }
 
@@ -112,5 +137,26 @@ describe("listEventsForNeighborhood", () => {
     const results = await listEventsForNeighborhood("neighborhood-1", repo);
     expect(results).toHaveLength(1);
     expect(results[0].neighborhood_id).toBe("neighborhood-1");
+  });
+});
+
+describe("listUpcomingEventsForNeighborhood", () => {
+  it("merges neighborhood-owned and business events, sorted by start time", async () => {
+    const repo = new FakeEventRepository();
+    repo.registerVenue("venue-1", "neighborhood-1", "Phinney Farmers Market");
+    repo.registerVenue("venue-2", "neighborhood-2", "Out-of-neighborhood Cafe");
+
+    await createEventForNeighborhood("neighborhood-1", { ...VALID_INPUT, startTime: "2026-08-02T18:00:00.000Z", endTime: "2026-08-02T21:00:00.000Z" }, repo);
+    await createEvent("venue-1", { ...VALID_INPUT, title: "Market day", startTime: "2026-08-01T10:00:00.000Z", endTime: "2026-08-01T14:00:00.000Z" }, repo);
+    await createEvent("venue-2", VALID_INPUT, repo);
+    await createEventForNeighborhood("neighborhood-3", VALID_INPUT, repo);
+
+    const results = await listUpcomingEventsForNeighborhood("neighborhood-1", repo);
+
+    expect(results).toHaveLength(2);
+    expect(results[0].title).toBe("Market day");
+    expect(results[0].venue_name).toBe("Phinney Farmers Market");
+    expect(results[1].neighborhood_id).toBe("neighborhood-1");
+    expect(results[1].venue_name).toBeNull();
   });
 });

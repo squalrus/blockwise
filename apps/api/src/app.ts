@@ -15,6 +15,8 @@ import type {
 import { requireAdmin } from "./admin/requireAdmin";
 import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
 import { SupabaseNeighborhoodAdminRepository } from "./admin/supabaseRepository";
+import { listRecentActivity } from "./activity/activity";
+import { SupabaseActivityRepository } from "./activity/supabaseRepository";
 import { createAnnouncement, listAnnouncementsForVenue } from "./announcements/announcements";
 import { SupabaseAnnouncementRepository } from "./announcements/supabaseRepository";
 import { completeLogin, completeSignup, promoteToBusiness, toAppUser, updateProfile } from "./auth/auth";
@@ -48,6 +50,7 @@ import {
   createEventForNeighborhood,
   listEventsForNeighborhood,
   listEventsForVenue,
+  listUpcomingEventsForNeighborhood,
 } from "./events/events";
 import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
@@ -80,6 +83,7 @@ import { isValidPolygon } from "./places/geo";
 import { MockPlacesClient } from "./places/mockClient";
 import { previewNeighborhoodBoundary } from "./places/preview";
 import { SupabasePlacesRepository } from "./places/supabaseRepository";
+import { getHappeningNow } from "./locations/happeningNow";
 import {
   createLocation,
   deleteLocationForNeighborhood,
@@ -227,6 +231,12 @@ let announcementRepository: SupabaseAnnouncementRepository | undefined;
 function getAnnouncementRepository(): SupabaseAnnouncementRepository {
   announcementRepository ??= new SupabaseAnnouncementRepository(getSupabaseClient());
   return announcementRepository;
+}
+
+let activityRepository: SupabaseActivityRepository | undefined;
+function getActivityRepository(): SupabaseActivityRepository {
+  activityRepository ??= new SupabaseActivityRepository(getSupabaseClient());
+  return activityRepository;
 }
 
 let eventRepository: SupabaseEventRepository | undefined;
@@ -485,13 +495,47 @@ export function createApp() {
     }
   );
 
+  // Public Upcoming events tab (BACKLOG.md Ref 27): neighborhood-owned events
+  // plus events from businesses within the neighborhood, unlike the
+  // neighborhood-admin dashboard's listEventsForNeighborhood below, which is
+  // scoped to just what the neighborhood itself authored.
   app.get("/neighborhoods/:id/events", async (req, res) => {
     try {
-      const events = await listEventsForNeighborhood(req.params.id, getEventRepository());
+      const events = await listUpcomingEventsForNeighborhood(req.params.id, getEventRepository());
       res.json(events);
     } catch (err) {
       console.error(`GET /neighborhoods/${req.params.id}/events failed:`, err);
       res.status(500).json({ error: "Failed to list events" });
+    }
+  });
+
+  // Neighborhood-wide Recent activity tab (BACKLOG.md Ref 27's expanded
+  // scope): the ~50 most recent check-ins, favorites, challenge completions,
+  // and badge unlocks across every user in the neighborhood, with actor
+  // names masked to "A user" for private profiles.
+  app.get("/neighborhoods/:id/activity", async (req, res) => {
+    try {
+      const activity = await listRecentActivity(req.params.id, getActivityRepository());
+      res.json(activity);
+    } catch (err) {
+      console.error(`GET /neighborhoods/${req.params.id}/activity failed:`, err);
+      res.status(500).json({ error: "Failed to load activity" });
+    }
+  });
+
+  // Happening now tab (BACKLOG.md Ref 27): events in progress right now plus
+  // businesses/POIs whose cached hours say they're currently open.
+  app.get("/neighborhoods/:id/happening-now", async (req, res) => {
+    try {
+      const happeningNow = await getHappeningNow(
+        req.params.id,
+        getEventRepository(),
+        getEnrichmentRepository()
+      );
+      res.json(happeningNow);
+    } catch (err) {
+      console.error(`GET /neighborhoods/${req.params.id}/happening-now failed:`, err);
+      res.status(500).json({ error: "Failed to load what's happening now" });
     }
   });
 

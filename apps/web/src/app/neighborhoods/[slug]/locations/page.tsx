@@ -15,8 +15,13 @@ async function getVenues(id: string): Promise<VenueListItem[]> {
   return (await res.json()) as VenueListItem[];
 }
 
-// BACKLOG.md Ref 44: Venues tab.
-export default async function NeighborhoodVenuesPage({
+// BACKLOG.md Ref 44: Locations tab -- merges businesses (renamed from
+// Venues) and neighborhood-owned POIs (folded in from the former Points of
+// interest tab) into one list/map, mirroring the admin Locations tab
+// (BACKLOG.md "POIs and venues managed almost the same"). POIs with no
+// cached lat/lng (BACKLOG.md Ref 51's known issue) are excluded rather than
+// plotted at a bogus position.
+export default async function NeighborhoodLocationsPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -26,6 +31,17 @@ export default async function NeighborhoodVenuesPage({
   if (!neighborhood) return null;
 
   const venues = await getVenues(neighborhood.id);
+  const pois: VenueListItem[] = neighborhood.pois
+    .filter((poi) => poi.lat !== null && poi.lng !== null)
+    .map((poi) => ({
+      id: poi.id,
+      name: poi.name,
+      address: poi.address ?? "",
+      lat: poi.lat as number,
+      lng: poi.lng as number,
+      category_name: poi.type,
+      category_group: null,
+    }));
 
-  return <VenuesView venues={venues} />;
+  return <VenuesView venues={[...venues, ...pois]} />;
 }
