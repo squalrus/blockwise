@@ -2,6 +2,20 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.36.0] — 2026-07-09
+
+### Added
+
+- **Marketing site separated from the app.** The marketing homepage moves out of `apps/web` into a new standalone `apps/marketing` Next.js app, deployed as its own Netlify site to `tryspored.com` — `apps/web` becomes `app.tryspored.com`-only, clearing the way for upcoming terms/privacy/brand/FAQ/changelog pages to live alongside the homepage instead of inside the app. `apps/web`'s `/` now redirects to `/account` (signed in) or `/login` (signed out) instead of showing marketing content, and `SiteChrome.tsx` (which existed only to hide app chrome on that route) was removed. `MushroomLogo` and the brand fonts/colors moved into a new shared `packages/ui` package consumed by both apps. (`apps/marketing/`, `packages/ui/`, `apps/web/src/app/page.tsx`, `apps/web/src/app/layout.tsx`)
+- **Dedicated `/checkin` page for quick access.** The account page's "Check in nearby" section (nearest-venue list + slide-to-check-in) moved to its own `/checkin` route, and the nav gained a check-in icon button (signed in only) next to the hamburger menu — checking in no longer requires loading the rest of the account page first. (`apps/web/src/app/checkin/page.tsx`, `apps/web/src/app/checkin/NearestVenues.tsx`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/account/page.tsx`)
+
+### Changed
+
+- **Nav logo links to your home neighborhood when signed in.** Previously always linked to `/`; now takes you straight to your neighborhood if you have one set. (`apps/web/src/app/AccountNav.tsx`)
+- **Google sign-in now lands on My account, matching email/password login.** Previously redirected to the homepage. (`apps/web/src/app/auth/callback/page.tsx`)
+- **"Continue with Google" moved above the email/password form on login and signup.** Social sign-in is now the first option on both pages instead of a secondary link below the form. (`apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`)
+- **Check-in slider is now fully rounded to stand out as an interactive control.** Previously shared the same corner radius as static cards; now pill-shaped like the track/thumb inside it. (`apps/web/src/app/venues/[id]/SlideToCheckIn.tsx`)
+
 ## [0.35.1] — 2026-07-09
 
 ### Changed

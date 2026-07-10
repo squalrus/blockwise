@@ -1,6 +1,8 @@
-# Single Netlify site serving both the Next.js frontend and the apps/api
+# The app (app.tryspored.com) -- serves the Next.js frontend and the apps/api
 # Express app (wrapped with serverless-http as a co-located Netlify Function
 # — see apps/api/netlify/functions/api.ts), so /api/* calls stay same-origin.
+# The marketing site (tryspored.com) is a separate Netlify site; see
+# apps/marketing/netlify.toml.
 #
 # Dashboard: Package directory = apps/web, Functions directory =
 # apps/api/netlify/functions (must match the `functions` path below).

@@ -1,19 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type {
-  AppUser,
-  CheckinHistoryItem,
-  FavoriteVenueSummary,
-  NeighborhoodMembership,
-  UserBadge,
-} from "@blockwise/types";
+import type { AppUser, CheckinHistoryItem, FavoriteVenueSummary, UserBadge } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { BadgeIcon } from "../BadgeIcon";
 import { CheckinTimeline } from "../CheckinTimeline";
 import { PlaceListItem } from "../PlaceListItem";
-import { NearestVenues } from "./NearestVenues";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
 
 type State =
@@ -25,7 +18,6 @@ type State =
       user: AppUser;
       favorites: FavoriteVenueSummary[];
       checkins: CheckinHistoryItem[];
-      neighborhoods: NeighborhoodMembership[];
       points: number;
       badges: UserBadge[];
     };
@@ -52,15 +44,14 @@ export default function AccountPage() {
 
       const token = await getAccessToken();
       const headers = { Authorization: `Bearer ${token}` };
-      const [favoritesRes, checkinsRes, neighborhoodsRes, pointsRes, badgesRes] = await Promise.all([
+      const [favoritesRes, checkinsRes, pointsRes, badgesRes] = await Promise.all([
         fetch(clientApiUrl("/me/favorites"), { headers }),
         fetch(clientApiUrl("/me/checkins"), { headers }),
-        fetch(clientApiUrl("/me/neighborhoods"), { headers }),
         fetch(clientApiUrl("/me/points"), { headers }),
         fetch(clientApiUrl("/me/badges"), { headers }),
       ]);
       if (cancelled) return;
-      if (!favoritesRes.ok || !checkinsRes.ok || !neighborhoodsRes.ok || !pointsRes.ok || !badgesRes.ok) {
+      if (!favoritesRes.ok || !checkinsRes.ok || !pointsRes.ok || !badgesRes.ok) {
         setState({ status: "error", message: "Failed to load your account" });
         return;
       }
@@ -71,7 +62,6 @@ export default function AccountPage() {
         user,
         favorites: await favoritesRes.json(),
         checkins: await checkinsRes.json(),
-        neighborhoods: await neighborhoodsRes.json(),
         points: pointsBody.points,
         badges: await badgesRes.json(),
       });
@@ -118,13 +108,6 @@ export default function AccountPage() {
             checkinCount={state.checkins.length}
             points={state.points}
           />
-
-          <section className="flex flex-col gap-2.5">
-            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Check in nearby</h2>
-            <NearestVenues
-              homeNeighborhoodId={state.neighborhoods.find((n) => n.is_primary)?.neighborhood_id ?? null}
-            />
-          </section>
 
           <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Badges</h2>

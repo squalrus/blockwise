@@ -41,24 +41,39 @@ export default function SignupPage() {
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
       <h1 className="font-heading text-xl font-extrabold text-foreground">Sign up</h1>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <div className="flex gap-2 text-sm">
-          {(["consumer", "business"] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setAccountType(type)}
-              className={`rounded-full px-3 py-1 font-bold ${
-                accountType === type
-                  ? "bg-brand-purple text-on-accent"
-                  : "border-2 border-foreground text-foreground"
-              }`}
-            >
-              {type === "consumer" ? "I'm a customer" : "I own a business"}
-            </button>
-          ))}
-        </div>
+      <div className="flex gap-2 text-sm">
+        {(["consumer", "business"] as const).map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => setAccountType(type)}
+            className={`rounded-full px-3 py-1 font-bold ${
+              accountType === type
+                ? "bg-brand-purple text-on-accent"
+                : "border-2 border-foreground text-foreground"
+            }`}
+          >
+            {type === "consumer" ? "I'm a customer" : "I own a business"}
+          </button>
+        ))}
+      </div>
 
+      <button
+        type="button"
+        onClick={handleGoogleSignIn}
+        disabled={status.state === "submitting"}
+        className="rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
+      >
+        Continue with Google
+      </button>
+
+      <div className="flex items-center gap-3 text-xs text-muted">
+        <div className="h-px flex-1 bg-border" />
+        or
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <input
           name="email"
           type="email"
@@ -87,21 +102,6 @@ export default function SignupPage() {
           <p className="text-sm text-red-600 dark:text-red-400">{status.message}</p>
         )}
       </form>
-
-      <div className="flex items-center gap-3 text-xs text-muted">
-        <div className="h-px flex-1 bg-border" />
-        or
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <button
-        type="button"
-        onClick={handleGoogleSignIn}
-        disabled={status.state === "submitting"}
-        className="rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
-      >
-        Continue with Google
-      </button>
 
       <p className="text-sm text-muted">
         Already have an account?{" "}

@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-07-09 (Landing page stub replaced with a full marketing homepage; /neighborhoods gained search + business/member counts).
+Last reviewed: 2026-07-09 (Marketing homepage split out of apps/web into a new apps/marketing app, deployed separately at tryspored.com; apps/web is now app.tryspored.com only).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -14,13 +14,16 @@ Legend: **P** = public, no auth · **C** = client-side auth check only (soft) ·
 apps/web/src/app/
 ├── layout.tsx                                    (root layout — SiteChrome swaps in the marketing nav/footer on "/", AccountNav/Footer elsewhere)
 ├── SiteChrome.tsx                                 (client component, no route — hides AccountNav/Footer on "/" in favor of the homepage's own nav/footer)
-├── page.tsx                                       / — P — marketing homepage (hero, how-it-works, leaderboard teaser, neighborhood map, business pitch, final CTA)
+├── page.tsx                                       / — C — redirects to /account (signed in) or /login (signed out); marketing homepage now lives at tryspored.com (apps/marketing)
 ├── login/page.tsx                                 /login — P
 ├── signup/page.tsx                                /signup — P
 ├── auth/callback/page.tsx                         /auth/callback — P (OAuth redirect target, sets session)
 ├── account/
-│   ├── page.tsx                                    /account — C — profile summary (points/favorite/check-in counts), nearest-venue check-in, favorites, check-ins
+│   ├── page.tsx                                    /account — C — profile summary (points/favorite/check-in counts), favorites, check-ins
 │   └── settings/page.tsx                           /account/settings — C — profile editing, account details, joined neighborhoods (home-neighborhood picker)
+├── checkin/
+│   ├── page.tsx                                    /checkin — C — quick-access nearest-venue check-in, linked from the nav next to the hamburger menu
+│   └── NearestVenues.tsx                           (shared component, no route)
 ├── profile/
 │   └── [username]/page.tsx                        /profile/:username — P — public user profile, neighborhoods, recent check-ins
 ├── neighborhoods/
@@ -55,6 +58,17 @@ apps/web/src/app/
 ```
 
 Identifier note: neighborhoods are addressed by **slug** everywhere in the web app now (`/neighborhoods/:slug`, `/neighborhood-admin/:slug`); venues are addressed by **id** (UUID) everywhere (`/venues/:id`, `/business/:venueId`).
+
+## Marketing site (`apps/marketing/src/app`, Next.js App Router)
+
+Deployed separately at `tryspored.com` (apps/web is `app.tryspored.com`). Fully static — no API calls, no auth. Login/signup/neighborhoods/business links point at `apps/web` via an absolute URL (`NEXT_PUBLIC_APP_URL`, see `src/lib/appUrl.ts`).
+
+```text
+apps/marketing/src/app/
+└── page.tsx                                       / — P — marketing homepage (hero, how-it-works, leaderboard teaser, neighborhood map, business pitch, final CTA)
+```
+
+Terms, privacy, brand, FAQ, and changelog pages are planned but not built yet.
 
 ## API (`apps/api/src/app.ts`)
 
@@ -152,6 +166,8 @@ Identifier note: every neighborhood-identifying path param in the API is the **i
 
 ## History
 
+- **2026-07-09** — The marketing homepage moved from `apps/web` into a new `apps/marketing` Next.js app, deployed as its own Netlify site to `tryspored.com` (apps/web becomes `app.tryspored.com`-only). `apps/web`'s `/` is now a client-side redirect to `/account` or `/login` instead of marketing content; `SiteChrome.tsx` (which existed only to hide chrome on that route) was removed and its AccountNav/Footer wiring inlined into `layout.tsx`. `MushroomLogo` and the brand fonts/colors moved into a new shared `packages/ui` package consumed by both apps.
+- **2026-07-09** — The "Check in nearby" section (nearest-venue list + `SlideToCheckIn`) moved off `/account` onto a new dedicated `/checkin` page, so checking in doesn't require loading the rest of the account page first. `AccountNav` gained a check-in icon button (signed-in only) to the left of the hamburger menu for quick access; `NearestVenues.tsx` moved from `account/` to `checkin/` alongside it.
 - **2026-07-09** — The landing page stub was replaced with a full marketing homepage (hero, how-it-works, leaderboard teaser, neighborhood map, business pitch, final CTA), with its own nav/footer instead of the shared `AccountNav`/`Footer` (`SiteChrome.tsx` swaps chrome based on route). `/neighborhoods` gained a client-side search box and per-card business/member counts, backed by a new `GET /neighborhoods` field (`business_count`, `member_count`) sourced from a new `get_neighborhood_list_counts` Postgres RPC (one grouped query for all neighborhoods, avoiding an N+1 count-per-neighborhood). See `CHANGELOG.md`.
 - **2026-07-09** — The landing page (`/`) no longer bundles the full neighborhoods browse/join list and the API health-check widget -- it's now a minimal stub (hero + a link to /neighborhoods), pending a future homepage redesign. `NeighborhoodsSection.tsx` (browse every active neighborhood, join/leave in place) moved as-is to a new `/neighborhoods` index page. See `CHANGELOG.md`.
 - **2026-07-09** — The Locations review wizard also reconciles a redrawn neighborhood boundary: every *active* venue/POI whose location no longer falls inside the neighborhood's saved boundary is listed as a "proposed removal," which the admin must explicitly check before it's hidden (never auto-hidden, never deleted — the same `venue.status`/`poi.status = 'hidden'` mechanism as Ref 11/29, so checkin/favorite/point_event history survives). The boundary editor (`boundary/page.tsx`) links into this wizard after a successful save via a "Review changes now" CTA, rather than the `PATCH .../boundary` endpoint itself triggering anything — so a boundary edit never silently changes what's attached to the neighborhood. Completes BACKLOG.md Ref 54 and the last open piece of Ref 29. See `CHANGELOG.md`.

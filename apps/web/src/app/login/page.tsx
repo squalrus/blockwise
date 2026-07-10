@@ -39,6 +39,21 @@ export default function LoginPage() {
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
       <h1 className="font-heading text-xl font-extrabold text-foreground">Log in</h1>
 
+      <button
+        type="button"
+        onClick={handleGoogleSignIn}
+        disabled={status.state === "submitting"}
+        className="rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
+      >
+        Continue with Google
+      </button>
+
+      <div className="flex items-center gap-3 text-xs text-muted">
+        <div className="h-px flex-1 bg-border" />
+        or
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <input
           name="email"
@@ -67,21 +82,6 @@ export default function LoginPage() {
           <p className="text-sm text-red-600 dark:text-red-400">{status.message}</p>
         )}
       </form>
-
-      <div className="flex items-center gap-3 text-xs text-muted">
-        <div className="h-px flex-1 bg-border" />
-        or
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <button
-        type="button"
-        onClick={handleGoogleSignIn}
-        disabled={status.state === "submitting"}
-        className="rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
-      >
-        Continue with Google
-      </button>
 
       <p className="text-sm text-muted">
         No account yet?{" "}

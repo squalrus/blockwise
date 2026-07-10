@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* Marketing is a fixed light palette by design (see page.tsx) -- no
+   light/dark theme variables here, unlike apps/web's globals.css. */
+body {
+  font-family: var(--font-nunito), sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-baloo), sans-serif;
+}
+
+a {
+  color: #8b5fbf; /* BRAND_PURPLE from @blockwise/ui -- CSS can't import JS constants */
+}
+
+/* Hero/CTA decorative spore icons drift gently in place. */
+@keyframes float-spore {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}

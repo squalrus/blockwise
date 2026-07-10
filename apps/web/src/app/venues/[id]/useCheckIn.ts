@@ -16,7 +16,7 @@ export type CheckinStatus =
   | { state: "error"; message: string };
 
 // GPS geofence/cooldown network logic shared by every slide-to-check-in
-// control (venue detail page, POI detail page, and the account page's
+// control (venue detail page, POI detail page, and the /checkin page's
 // nearest-venue row).
 export function useCheckIn(target: CheckinTarget) {
   const [status, setStatus] = useState<CheckinStatus>({ state: "idle" });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MushroomLogo } from "../../MushroomLogo";
+import { MushroomLogo } from "@blockwise/ui";
 import { type CheckinTarget, useCheckIn } from "./useCheckIn";
 
 const THUMB_SIZE = 40;
@@ -68,7 +68,7 @@ export function SlideToCheckIn({ target }: { target: CheckinTarget }) {
         : "Slide to check in →";
 
   return (
-    <div className="rounded-2xl bg-nav p-4">
+    <div className="rounded-full bg-nav p-4">
       <div
         ref={trackRef}
         className="relative flex h-[52px] items-center rounded-full bg-nav p-1.5"

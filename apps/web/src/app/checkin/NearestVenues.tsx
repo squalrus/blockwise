@@ -16,7 +16,7 @@ type State =
   | { status: "ready"; venues: VenueListItem[] }
   | { status: "error" };
 
-// BACKLOG.md Ref 47: the account page's primary "next action" -- check in --
+// BACKLOG.md Ref 47: the /checkin page's primary action -- check in --
 // backed by the nearest venues in the user's home neighborhood (Ref 23's
 // proximity sort, scoped to one neighborhood rather than the cross-
 // neighborhood venue list). Falls back to alphabetical (the API's default
