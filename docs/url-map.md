@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-07-09 (Marketing homepage split out of apps/web into a new apps/marketing app, deployed separately at tryspored.com; apps/web is now app.tryspored.com only).
+Last reviewed: 2026-07-10 (Added apps/marketing's /brand guidelines page; apps/marketing/src/app/MarketingNav.tsx and MarketingFooter.tsx extracted as shared chrome, no route of their own).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -65,10 +65,14 @@ Deployed separately at `tryspored.com` (apps/web is `app.tryspored.com`). Fully 
 
 ```text
 apps/marketing/src/app/
-└── page.tsx                                       / — P — marketing homepage (hero, how-it-works, leaderboard teaser, neighborhood map, business pitch, final CTA)
+├── page.tsx                                       / — P — marketing homepage (hero, how-it-works, leaderboard teaser, neighborhood map, business pitch, final CTA)
+├── MarketingNav.tsx                                (shared component, no route — sticky nav used by every marketing page)
+├── MarketingFooter.tsx                              (shared component, no route — footer used by every marketing page)
+└── brand/
+    └── page.tsx                                    /brand — P — brand guidelines: logo lockups, four-part mark anatomy, spot pattern library, color palette, favicon/app icon, generated-identity concept, usage do/don't
 ```
 
-Terms, privacy, brand, FAQ, and changelog pages are planned but not built yet.
+Terms, privacy, FAQ, and changelog pages are planned but not built yet.
 
 ## API (`apps/api/src/app.ts`)
 
