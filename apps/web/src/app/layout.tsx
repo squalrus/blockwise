@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { baloo2, nunito } from "@blockwise/ui";
 import { AccountNav } from "./AccountNav";
@@ -21,6 +21,12 @@ try {
 export const metadata: Metadata = {
   title: "Spored",
   description: "Hyperlocal neighborhood discovery app",
+};
+
+// Matches --nav's cocoa in both themes, so the browser/OS chrome (mobile
+// status bar, PWA splash) stays on-brand instead of defaulting to white.
+export const viewport: Viewport = {
+  themeColor: "#2B1B12",
 };
 
 export default function RootLayout({

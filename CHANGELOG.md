@@ -2,6 +2,19 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.37.0] — 2026-07-10
+
+### Added
+
+- **Brand guidelines page.** A new `/brand` page on the marketing site documents the Spored mark's four-part anatomy (cap, spot pattern, stalk, background), logo lockups (horizontal/reversed/stacked/mark-only), the six spot patterns (none/solo/classic/rings/sparks/halftone), the full color palette, favicon/app-icon usage, a generated-identity concept preview (per-user/neighborhood mushrooms, community mosaics), and do/don't usage rules. Imported from the "Spored: Mycelial Network Design" Claude Design project. (`apps/marketing/src/app/brand/`)
+
+### Changed
+
+- **Mushroom logo now shows its spot pattern.** `MushroomLogo` (used for the nav logo, map/list pins, and the slide-to-check-in thumb across both apps) previously rendered as a plain cap and stem; it now includes the brand system's "classic" three-spot pattern on the cap, colored to match the stem, bringing every existing usage in line with the documented mark anatomy without any call-site changes. (`packages/ui/src/MushroomLogo.tsx`)
+- **New favicon and app icon everywhere.** Replaced the default Next.js favicon in both `apps/web` and `apps/marketing` with the brand's golden-cap-on-cocoa-squircle mark (`icon.svg`, regenerated `favicon.ico`, and a new `apple-icon.png` for iOS home-screen/bookmark icons). Both apps' mobile browser chrome (`theme-color`) now matches the brand's cocoa nav color instead of defaulting to white. (`apps/web/src/app/`, `apps/marketing/src/app/`)
+- **Marketing nav/footer extracted into shared components.** With a second real page (`/brand`) now sharing the homepage's chrome, the sticky nav and footer moved out of `page.tsx` into `MarketingNav.tsx`/`MarketingFooter.tsx`; the nav gained a "Brand" link. (`apps/marketing/src/app/MarketingNav.tsx`, `apps/marketing/src/app/MarketingFooter.tsx`, `apps/marketing/src/app/page.tsx`)
+- **JetBrains Mono added as a brand typeface.** Used for the small mono-styled labels (spec numbers, hex codes, captions) on the new brand guidelines page. (`packages/ui/src/fonts.ts`)
+
 ## [0.36.0] — 2026-07-09
 
 ### Added
