@@ -58,50 +58,35 @@ export interface Category {
   status: CategoryStatus;
 }
 
+// A location's kind (BACKLOG.md "POIs and venues managed almost the same")
+// -- "business" is the default for anything sync-created from Google Places
+// and can be claimed by its owner; "poi" is neighborhood-owned and can never
+// be claimed. Designed to admit a third kind later (none planned today)
+// without another schema split -- switching kind is a single field update,
+// not a move between tables.
+export type LocationKind = "business" | "poi";
+
 export interface Venue {
   id: string;
   google_place_id: string | null;
   name: string;
+  kind: LocationKind;
   category_id: string | null;
-  lat: number;
-  lng: number;
-  address: string;
-  neighborhood_id: string;
-  claimed_by_business: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Poi {
-  id: string;
-  neighborhood_id: string;
-  name: string;
+  // POI-only free-text fields (BACKLOG.md Ref 6/29) -- null for kind
+  // "business", where category_id carries the equivalent classification.
+  type: string | null;
   description: string | null;
-  type: string;
-  // Nullable only for rows that predate this column (BACKLOG.md Ref 6) --
-  // required at the API layer for newly created POIs so a POI can be a
-  // GPS-verified check-in target.
+  // Nullable only for legacy rows that predate lat/lng (BACKLOG.md Ref 51);
+  // address is nullable for the same reason POIs have always allowed it.
   lat: number | null;
   lng: number | null;
-  // Both nullable -- every POI today is created manually with neither.
-  // Populated when a POI traces back to a Google Places entity (BACKLOG.md
-  // Ref 29/46), e.g. via "convert venue to POI" (Ref 11).
-  google_place_id: string | null;
   address: string | null;
-  // Hide/restore parity with venue.status (BACKLOG.md Ref 29/11).
+  neighborhood_id: string;
+  // Always false for kind "poi" -- a POI can never be claimed.
+  claimed_by_business: boolean;
   status: VenueStatus;
   created_at: string;
-}
-
-// POI landing page (BACKLOG.md Ref 46).
-export interface PoiDetail extends Poi {
-  // The neighborhood this POI belongs to, for the POI detail page's "back to
-  // neighborhood" link -- mirrors VenueDetail's neighborhood_slug/name.
-  neighborhood_slug: string;
-  neighborhood_name: string;
-  // Profile stats (BACKLOG.md Ref 58), mirroring the neighborhood/venue/user
-  // stat-card convention.
-  checkin_count: number;
+  updated_at: string;
 }
 
 export type EnrichmentSource = "google";
@@ -162,19 +147,31 @@ export interface VenueListItem {
 export interface VenueDetail {
   id: string;
   name: string;
-  address: string;
-  lat: number;
-  lng: number;
+  kind: LocationKind;
+  // Gates whether a POI-kind location's photo strip renders at all (most
+  // POIs are manually created with no Google Place behind them) -- always
+  // populated for kind "business".
+  google_place_id: string | null;
+  // POI-only fields, null for kind "business".
+  type: string | null;
+  description: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
   category_name: string | null;
   claimed_by_business: boolean;
   enrichment: VenueEnrichmentCache | null;
-  // The neighborhood this venue belongs to (venues now browse from the
-  // neighborhood page, not a standalone /venues page), for the venue detail
-  // page's "back to neighborhood" link.
+  // Profile stat (BACKLOG.md Ref 58) -- meaningful for both kinds now that
+  // they share one detail page (BACKLOG.md "POIs and venues managed almost
+  // the same"), previously POI-only via PoiDetail.
+  checkin_count: number;
+  // The neighborhood this location belongs to (venues/POIs both browse from
+  // the neighborhood page), for the detail page's "back to neighborhood" link.
   neighborhood_slug: string;
   neighborhood_name: string;
   // From the venue's approved business_claim, if any (BACKLOG.md Ref 30) --
-  // empty for venues with no approved claim.
+  // empty for venues with no approved claim, and always empty for kind "poi"
+  // since a POI can never be claimed.
   social_links: SocialLinks;
 }
 
@@ -183,10 +180,10 @@ export interface VenueDetail {
 export interface Checkin {
   id: string;
   user_id: string;
-  // Exactly one of venue_id/poi_id is set (BACKLOG.md Ref 6 -- check-ins can
-  // target a neighborhood POI as well as a venue).
-  venue_id: string | null;
-  poi_id: string | null;
+  // Targets either a business or a POI (BACKLOG.md Ref 6) -- both are rows
+  // in the same table since the venue/poi merge, so one id column covers
+  // both kinds.
+  venue_id: string;
   device_lat: number;
   device_lng: number;
   checked_in_at: string;
@@ -269,6 +266,15 @@ export interface CreateBusinessClaimRequest {
   contact_method: BusinessClaimContactMethod;
   contact_value: string;
   note?: string;
+}
+
+// Revoke an already-approved claim (BACKLOG.md "POIs and venues managed
+// almost the same") -- reviewClaim only handles pending claims, so this is
+// the only way to flip claimed_by_business back to false, e.g. to unblock
+// switching a claimed business to POI kind (which is never allowed while
+// claimed).
+export interface RevokeClaimRequest {
+  reason?: string;
 }
 
 export interface UpdateSocialLinksRequest {
@@ -381,7 +387,7 @@ export interface NeighborhoodProfile {
   description: string | null;
   city: string;
   state: string;
-  pois: Poi[];
+  pois: Venue[];
   social_links: SocialLinks;
   // Profile stats (BACKLOG.md Ref 58) -- venue_count/poi_count are
   // active-only, mirroring the public venue/POI list filters; checkin_count
@@ -443,7 +449,7 @@ export interface NeighborhoodDashboardSummary {
   name: string;
   slug: string;
   description: string | null;
-  pois: Poi[];
+  pois: Venue[];
   events: Event[];
   social_links: SocialLinks;
 }
@@ -505,19 +511,30 @@ export interface UpdateNeighborhoodDescriptionRequest {
   description: string;
 }
 
-export interface CreateNeighborhoodPoiRequest {
+// Manual location creation (BACKLOG.md "POIs and venues managed almost the
+// same") -- today only wired up for kind "poi" (the "+ Add point of
+// interest" admin flow); kind "business" is accepted for forward
+// compatibility but has no manual-create UI yet, since businesses are
+// otherwise always sync-created from Google Places.
+export interface CreateLocationRequest {
+  kind: LocationKind;
   name: string;
   description?: string;
-  type: string;
-  // Required so the POI can be a GPS-verified check-in target (BACKLOG.md
-  // Ref 6), matching the venue check-in geofence approach.
+  // Required when kind is "poi"; unused for "business" (classified via
+  // category_id instead).
+  type?: string;
+  category_id?: string;
+  // Required so the location can be a GPS-verified check-in target
+  // (BACKLOG.md Ref 6), matching the venue check-in geofence approach.
   lat: number;
   lng: number;
+  address?: string;
+  google_place_id?: string;
 }
 
-// POI edit (BACKLOG.md Ref 29) -- same fields as CreateNeighborhoodPoiRequest,
-// all optional since an edit may only touch one field at a time.
-export interface UpdatePoiRequest {
+// Location edit (BACKLOG.md Ref 29, generalized from POI-only), all optional
+// since an edit may only touch one field at a time.
+export interface UpdateLocationRequest {
   name?: string;
   description?: string;
   type?: string;
@@ -526,9 +543,23 @@ export interface UpdatePoiRequest {
   address?: string;
 }
 
-// POI hide/restore (BACKLOG.md Ref 29), mirroring SetVenueStatusRequest.
-export interface SetPoiStatusRequest {
+// Location hide/restore (BACKLOG.md Ref 29), applies uniformly to either kind.
+export interface SetLocationStatusRequest {
   status: VenueStatus;
+}
+
+// Switch an existing location between business and poi kind in place
+// (BACKLOG.md "POIs and venues managed almost the same") -- replaces the old
+// hide-then-recreate-as-a-new-row "Convert to POI" flow.
+export interface SetLocationKindRequest {
+  kind: LocationKind;
+  // Optional even when switching to "business" -- matches today's nullable
+  // venue.category_id ("Unmapped" is a valid state, reassignable later via
+  // the existing category dropdown).
+  category_id?: string;
+  // Required when switching to "poi", unless the row already has a type
+  // from a previous stint as a POI.
+  type?: string;
 }
 
 // GET /business/venues/:id/dashboard -- follower count is a count of
@@ -551,36 +582,15 @@ export interface VenueDashboardSummary {
 
 export type VenueStatus = "active" | "hidden";
 
-export interface VenueCategoryMapping {
-  id: string;
-  name: string;
-  address: string;
-  category_id: string | null;
-  category_name: string | null;
-  category_group: string | null;
-  status: VenueStatus;
-  lat: number;
-  lng: number;
-  google_place_id: string | null;
-  // Surfaced as a "Claimed" pill in the Locations admin tab (BACKLOG.md
-  // Ref 29) -- the underlying venue.claimed_by_business column already
-  // existed for the business-claim flow, just wasn't selected here before.
-  claimed_by_business: boolean;
-}
-
-export interface SetVenueStatusRequest {
-  status: VenueStatus;
-}
-
-// Locations admin tab (BACKLOG.md Ref 29) -- a single merged view over
-// venue (business) and poi rows for one neighborhood, so an admin doesn't
-// have to cross-reference two separate lists to see everything geographically
-// in the neighborhood. Read-only composition: each row's own kind-specific
-// fields (category reassignment, POI type/description) are still edited
-// through the existing venue/POI endpoints, not through this shape.
+// Locations admin tab (BACKLOG.md Ref 29) -- a single merged view over every
+// location in a neighborhood regardless of kind, so an admin doesn't have to
+// cross-reference two separate lists to see everything geographically in the
+// neighborhood. Read-only composition: each row's own kind-specific fields
+// (category reassignment, POI type/description) are still edited through the
+// existing location endpoints, not through this shape.
 export interface LocationListItem {
   id: string;
-  kind: "venue" | "poi";
+  kind: LocationKind;
   name: string;
   address: string | null;
   // Business: the assigned category name. POI: the free-text type. Never
@@ -592,7 +602,7 @@ export interface LocationListItem {
   status: VenueStatus;
   claimed_by_business: boolean;
   // Null only for legacy POI rows that predate lat/lng (BACKLOG.md Ref 51) --
-  // always populated for venues.
+  // always populated for businesses.
   lat: number | null;
   lng: number | null;
   google_place_id: string | null;
@@ -618,7 +628,6 @@ export interface LocationReviewCandidate {
 // current (saved) boundary -- e.g. after a redraw. Surfaced for explicit
 // admin approval rather than silently staying attached or silently hidden.
 export interface LocationRemovalCandidate {
-  kind: "venue" | "poi";
   id: string;
   name: string;
   address: string | null;
@@ -648,7 +657,6 @@ export interface LocationReviewClassificationInput {
 }
 
 export interface LocationRemovalApproval {
-  kind: "venue" | "poi";
   id: string;
 }
 
@@ -736,7 +744,10 @@ export interface Challenge {
   target_type: ChallengeTargetType;
   // Populated for target_type "category" -- e.g. "Coffee Shop".
   category_name: string | null;
-  // Populated for target_type "poi".
+  // Populated for target_type "poi" -- named poi_id/poi_name for API
+  // stability (a challenge still conceptually "targets a specific place"),
+  // even though the backing challenge.venue_id column now points at a row
+  // that could technically be either kind.
   poi_id: string | null;
   poi_name: string | null;
   target_count: number;

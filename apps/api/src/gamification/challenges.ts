@@ -13,8 +13,10 @@ function toChallengeProgress(
     description: challenge.description,
     target_type: challenge.categoryId ? "category" : "poi",
     category_name: challenge.categoryName,
-    poi_id: challenge.poiId,
-    poi_name: challenge.poiName,
+    // The public DTO keeps poi_id/poi_name for API stability -- sourced from
+    // ChallengeRecord.venueId/venueName (challenge.venue_id post-merge).
+    poi_id: challenge.venueId,
+    poi_name: challenge.venueName,
     target_count: challenge.targetCount,
     points_reward: challenge.pointsReward,
     badge: challenge.badge,
@@ -39,9 +41,9 @@ async function progressFor(
       endsAt: challenge.endsAt,
     });
   }
-  const checkedIn = await repository.hasAnyCheckinForPoi({
+  const checkedIn = await repository.hasAnyCheckinForLocation({
     userId,
-    poiId: challenge.poiId!,
+    venueId: challenge.venueId!,
     startsAt: challenge.startsAt,
     endsAt: challenge.endsAt,
   });
@@ -72,18 +74,19 @@ export async function listChallengesWithProgress(
 }
 
 // Called after a successful check-in: finds every active challenge this
-// check-in could contribute to (by category, for venue check-ins, or by
-// POI), and completes any the user has now hit the target on -- awarding
-// the bonus points and badge (BACKLOG.md Ref 6) exactly once per challenge.
+// check-in could contribute to (by category, or by the specific location
+// checked into), and completes any the user has now hit the target on --
+// awarding the bonus points and badge (BACKLOG.md Ref 6) exactly once per
+// challenge.
 export async function evaluateChallengesAfterCheckin(
-  input: { userId: string; neighborhoodId: string; categoryId?: string; poiId?: string },
+  input: { userId: string; neighborhoodId: string; categoryId?: string; venueId?: string },
   repository: GamificationRepository
 ): Promise<void> {
   const now = new Date().toISOString();
   const challenges = await repository.getActiveChallengesForTarget({
     neighborhoodId: input.neighborhoodId,
     categoryId: input.categoryId,
-    poiId: input.poiId,
+    venueId: input.venueId,
     now,
   });
 

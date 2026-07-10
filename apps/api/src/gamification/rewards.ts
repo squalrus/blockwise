@@ -1,4 +1,3 @@
-import type { VenueContext } from "./repository";
 import type { GamificationRepository } from "./repository";
 import { evaluateChallengesAfterCheckin } from "./challenges";
 import { CHECKIN_POINTS } from "./points";
@@ -9,12 +8,10 @@ import { CHECKIN_POINTS } from "./points";
 // this rather than failing the check-in response itself, since the check-in
 // already succeeded by the time this runs.
 export async function awardCheckinRewards(
-  checkin: { userId: string; checkinId: string; venueId?: string; poiId?: string },
+  checkin: { userId: string; checkinId: string; venueId: string },
   repository: GamificationRepository
 ): Promise<void> {
-  const context = checkin.venueId
-    ? await repository.getVenueContext(checkin.venueId)
-    : await repository.getPoiContext(checkin.poiId!);
+  const context = await repository.getLocationContext(checkin.venueId);
   if (!context) return;
 
   await repository.awardPoints({
@@ -23,17 +20,15 @@ export async function awardCheckinRewards(
     eventType: "checkin",
     points: CHECKIN_POINTS,
     venueId: checkin.venueId,
-    poiId: checkin.poiId,
     checkinId: checkin.checkinId,
   });
 
-  const categoryId = checkin.venueId ? (context as VenueContext).categoryId ?? undefined : undefined;
   await evaluateChallengesAfterCheckin(
     {
       userId: checkin.userId,
       neighborhoodId: context.neighborhoodId,
-      categoryId,
-      poiId: checkin.poiId,
+      categoryId: context.categoryId ?? undefined,
+      venueId: checkin.venueId,
     },
     repository
   );

@@ -28,13 +28,11 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 59 | [POI enrichment parity with venues](#poi-enrichment-parity-with-venues) | feature | M | H | — |
 | 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | 27 |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
 | 56 | [Locations tab: category filter and hide-hidden-by-default](#locations-tab-category-filter-and-hide-hidden-by-default) | improvement | S | M | — |
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
-| 45 | [POIs merged into the venue list/map](#pois-merged-into-the-venue-listmap) | improvement | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 27 | [What's happening now](#whats-happening-now) | feature | M | M | 5 |
 | 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
@@ -80,6 +78,15 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
 | 26 | [Attribution & compliance checklist](#attribution--compliance-checklist) | improvement | S | L | — |
 
+### Marketing
+
+| Ref | Item | Type | Effort | Value | Depends |
+|---|---|---|---|---|---|
+| 63 | [Terms of service page](#terms-of-service-page) | feature | S | M | — |
+| 64 | [Privacy policy page](#privacy-policy-page) | feature | S | M | — |
+| 65 | [FAQ page](#faq-page) | feature | S | L | — |
+| 66 | [Changelog page](#changelog-page) | feature | S | L | — |
+
 ### Known issues
 
 | Ref | Item | Type | Effort | Value | Depends |
@@ -113,29 +120,13 @@ No open limitations.
 **Why** — Today Blockwise is free to set up a neighborhood. Supporting an upfront licensing fee (or tiered options for larger neighborhoods, more venues, higher API quotas per project plan §1.5) makes it viable to cover infrastructure/support costs as the platform scales. Limiting boundary syncs to every 24 hours is the primary cost control.
 **Notes:** Add a `neighborhood.tier` column (free|starter|pro, or similar) and corresponding quota limits (e.g., free = 100 venues, starter = 1000, pro = 10k). Rate-limit boundary re-syncs and Google Places queries per tier. Integrate Stripe for tier upgrades. Open question: launch with free-only, or start with tiers from day one?
 
-#### POIs merged into the venue list/map
-
-**Ref:** 45
-**Type:** improvement
-**Depends:** —
-**Why** — Neighborhood-owned POIs (parks, transit, landmarks) currently live in a separate "Points of interest" section, disconnected from the venues map/list where users actually browse and check in — folding them into the same browsable surface (with a distinct marker/card style so a park doesn't read as a business) makes POIs discoverable the same way venues are, and surfaces the POI check-in challenge (BACKLOG.md, shipped v0.22.0) naturally instead of requiring a user to scroll past everything else to find it.
-**Notes:** `GET /neighborhoods/:id/venues` and the map/list components (`VenuesView.tsx`) would need to accept a combined venue+POI list, tagged with a discriminator (`kind: "venue" | "poi"`) the UI uses for distinct styling (icon/color/badge). The neighborhood page's Venues tab (shipped v0.24.1) is the landing spot for this once it exists.
-
-#### POI enrichment parity with venues
-
-**Ref:** 59
-**Type:** feature
-**Depends:** —
-**Why** — POIs and businesses are often the same underlying Google Place — `Poi.google_place_id` (`packages/types/src/index.ts`) already exists for exactly this (e.g. via "convert venue to POI", Ref 11) — but only venues get rating/hours/photos/reviews via `venue_enrichment_cache` + `enrichment.ts`; a POI with a `google_place_id` shows none of it today. A neighborhood park's or landmark's POI page should have at least the same enrichment a business page gets, since it comes from the identical Google Places source.
-**Notes:** Generalize `venue_enrichment_cache` (and `enrichment.ts`'s `getVenueDetailWithFreshEnrichment`) to key on either `venue_id` or `poi_id`, mirroring the nullable `checkin.venue_id`/`checkin.poi_id` pattern already in use. `PoiDetail` (`packages/types`) would gain an `enrichment` field alongside `VenueDetail`'s. The expanded Google Places field mask (hours, contact, multi-photo/review) shipped in v0.32.1, so this now picks up the full field set from day one.
-
 #### Neighborhood photo strip from venues/POIs
 
 **Ref:** 60
 **Type:** feature
 **Depends:** —
 **Why** — Neighborhood pages are otherwise all text/map, no imagery — a photo strip or mosaic pulled from the neighborhood's own venues/POIs would give it visual life for free, since it's sourced from data already fetched and cached rather than a new content type someone has to author.
-**Notes:** Query a handful of venues (and, once [POI enrichment parity](#poi-enrichment-parity-with-venues) (Ref 59) ships, POIs too) in the neighborhood with a non-empty cached photo list, and render them via the existing `GET /venues/:id/photo?index=` proxy pattern (no new Places API calls — reuses `venue_enrichment_cache` rows already populated by detail-page views). The expanded field mask (multi-photo mapping) shipped in v0.32.1, so more venues now have a cached photo, and more photos per venue, than before. Open question: curation order (top-rated vs. most recent vs. simple "first N active with a cached photo") — start with the simplest option and revisit if it looks thin.
+**Notes:** Query a handful of venues (and POIs — both now get enrichment as of v0.38.0) in the neighborhood with a non-empty cached photo list, and render them via the existing `GET /locations/:id/photo?index=` proxy pattern (no new Places API calls — reuses `venue_enrichment_cache` rows already populated by detail-page views). The expanded field mask (multi-photo mapping) shipped in v0.32.1, so more venues now have a cached photo, and more photos per venue, than before. Open question: curation order (top-rated vs. most recent vs. simple "first N active with a cached photo") — start with the simplest option and revisit if it looks thin.
 
 #### Neighborhood notifications
 
@@ -390,6 +381,40 @@ No open limitations.
 **Depends:** —
 **Why** — project plan §1.6 lists two required attribution items ("Powered by Google" per Maps Platform terms, ODbL attribution if OpenStreetMap is used) as unchecked checkboxes — neither has shipped, and it's a licensing-compliance requirement rather than optional polish.
 **Notes:** Google attribution needed wherever Places-sourced data or a Google map renders (map view, venue detail pages). OSM attribution only applies once/if the optional OSM backup source (project plan §1.2) is actually used — otherwise that half can be skipped.
+
+### Marketing
+
+#### Terms of service page
+
+**Ref:** 63
+**Type:** feature
+**Depends:** —
+**Why** — The marketing site (`apps/marketing`) currently only has a homepage and `/brand` (shipped v0.36.0/v0.37.0) — there's no terms-of-service page, which is a standard baseline requirement before onboarding real (non-pilot) users and businesses.
+**Notes:** New `apps/marketing/src/app/terms/page.tsx`, linked from `MarketingFooter.tsx` alongside the existing "Brand" link. Static content page — no schema/API changes. Update [docs/url-map.md](./docs/url-map.md) with the new route per CLAUDE.md.
+
+#### Privacy policy page
+
+**Ref:** 64
+**Type:** feature
+**Depends:** —
+**Why** — Same rationale as [Terms of service page](#terms-of-service-page) (Ref 63) — a privacy policy is a standard compliance baseline, and Blockwise already collects location/check-in data that a policy should disclose.
+**Notes:** New `apps/marketing/src/app/privacy/page.tsx`, linked from `MarketingFooter.tsx`. Static content page — no schema/API changes. Update [docs/url-map.md](./docs/url-map.md) with the new route per CLAUDE.md.
+
+#### FAQ page
+
+**Ref:** 65
+**Type:** feature
+**Depends:** —
+**Why** — Prospective users/neighborhoods/businesses landing on the marketing site have no self-serve answers today (what is Blockwise, how do neighborhoods sign up, is it free, etc.) — an FAQ reduces support burden as the pilot expands beyond word-of-mouth.
+**Notes:** New `apps/marketing/src/app/faq/page.tsx`, linked from `MarketingFooter.tsx` or main nav (`MarketingNav.tsx`). Static content page to start; could later pull from a CMS if the question list grows large. Update [docs/url-map.md](./docs/url-map.md) with the new route per CLAUDE.md.
+
+#### Changelog page
+
+**Ref:** 66
+**Type:** feature
+**Depends:** —
+**Why** — `CHANGELOG.md` already tracks every shipped version in detail (per the backlog shipping process) but only lives in the repo — a public-facing changelog page would let interested users/neighborhoods see what's new without reading raw markdown in GitHub.
+**Notes:** New `apps/marketing/src/app/changelog/page.tsx`, linked from `MarketingFooter.tsx`. Could render `CHANGELOG.md` directly (parsed at build time) to avoid duplicating content, or hand-curate a user-facing subset/rewrite if the raw changelog is too dev-oriented. Update [docs/url-map.md](./docs/url-map.md) with the new route per CLAUDE.md.
 
 ### Known issues
 

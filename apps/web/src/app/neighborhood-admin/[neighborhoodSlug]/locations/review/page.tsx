@@ -32,7 +32,7 @@ function decisionKey(candidate: LocationReviewCandidate): string {
 }
 
 function removalKey(removal: LocationRemovalCandidate): string {
-  return `${removal.kind}:${removal.id}`;
+  return removal.id;
 }
 
 // Bulk Places review + boundary reconciliation wizard (BACKLOG.md Ref 29 +
@@ -124,7 +124,7 @@ export default function LocationReviewPage() {
 
     const removals = report.proposed_removals
       .filter((removal) => approvedRemovals.has(removalKey(removal)))
-      .map((removal) => ({ kind: removal.kind, id: removal.id }));
+      .map((removal) => ({ id: removal.id }));
 
     const res = await fetch(
       clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/locations/review/commit`),
@@ -209,12 +209,7 @@ export default function LocationReviewPage() {
                       onChange={() => toggleRemoval(removal)}
                     />
                     <div>
-                      <p className="font-extrabold text-foreground">
-                        {removal.name}{" "}
-                        <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-bold text-muted-strong">
-                          {removal.kind === "venue" ? "Business" : "POI"}
-                        </span>
-                      </p>
+                      <p className="font-extrabold text-foreground">{removal.name}</p>
                       {removal.address && <p className="text-muted">{removal.address}</p>}
                     </div>
                   </li>

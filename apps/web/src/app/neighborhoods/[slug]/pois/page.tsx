@@ -27,7 +27,7 @@ export default async function NeighborhoodPoisPage({
     <ul className="flex flex-col gap-2">
       {neighborhood.pois.map((poi) => (
         <li key={poi.id}>
-          <PlaceListItem href={`/pois/${poi.id}`} id={poi.id} name={poi.name} subtitle={poi.type} />
+          <PlaceListItem href={`/location/${poi.id}`} id={poi.id} name={poi.name} subtitle={poi.type ?? ""} />
         </li>
       ))}
     </ul>

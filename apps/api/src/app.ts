@@ -4,7 +4,6 @@ import type {
   BusinessClaimContactMethod,
   BusinessClaimStatus,
   HealthCheckResponse,
-  LocationListItem,
   NeighborhoodDashboardSummary,
   NeighborhoodProfile,
   NeighborhoodSummary,
@@ -30,6 +29,7 @@ import {
   listClaimsForNeighborhood,
   reviewClaim,
   reviewClaimForNeighborhood,
+  revokeApprovedClaimForNeighborhood,
   submitClaim,
   updateVenueSocialLinks,
 } from "./claims/claims";
@@ -42,13 +42,7 @@ import {
   renameCategory,
 } from "./categoryAdmin/categoryAdmin";
 import { SupabaseCategoryAdminRepository } from "./categoryAdmin/supabaseRepository";
-import {
-  listAssignableCategories,
-  listVenueCategoryMappingsForNeighborhood,
-  reassignVenueCategoryForNeighborhood,
-  updateVenueStatusForNeighborhood,
-} from "./categoryMapping/categoryMapping";
-import { SupabaseCategoryMappingRepository } from "./categoryMapping/supabaseRepository";
+import { SupabaseEnrichmentRepository } from "./enrichment/supabaseRepository";
 import {
   createEvent,
   createEventForNeighborhood,
@@ -87,23 +81,25 @@ import { MockPlacesClient } from "./places/mockClient";
 import { previewNeighborhoodBoundary } from "./places/preview";
 import { SupabasePlacesRepository } from "./places/supabaseRepository";
 import {
+  createLocation,
+  deleteLocationForNeighborhood,
+  getLocationDetailWithFreshEnrichment,
+  getLocationForNeighborhood,
+  listAssignableCategories,
+  listLocationListItemsForNeighborhood,
+  listLocationsForNeighborhood,
+  reassignLocationCategoryForNeighborhood,
+  switchLocationKindForNeighborhood,
+  updateLocationForNeighborhood,
+  updateLocationStatusForNeighborhood,
+} from "./locations/locations";
+import {
   commitLocationReview,
   reviewNeighborhoodLocations,
   type LocationClassification,
 } from "./locations/review";
-import {
-  createNeighborhoodPoi,
-  deletePoiForNeighborhood,
-  getPoiDetail,
-  getPoiForNeighborhood,
-  listPoisForNeighborhood,
-  updatePoiForNeighborhood,
-  updatePoiStatusForNeighborhood,
-} from "./pois/pois";
-import { SupabasePoiRepository } from "./pois/supabaseRepository";
+import { SupabaseLocationRepository } from "./locations/supabaseRepository";
 import { getSupabaseClient } from "./supabase";
-import { getVenueDetailWithFreshEnrichment } from "./venues/enrichment";
-import { SupabaseVenueDetailRepository } from "./venues/supabaseDetailRepository";
 
 const CONTACT_METHODS: BusinessClaimContactMethod[] = ["phone", "email", "domain"];
 const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"];
@@ -161,16 +157,22 @@ function getPlacesClient(): GooglePlacesClient & PlaceDetailsClient {
 // getSupabaseClient() throws if SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY aren't
 // set, and building it eagerly would crash every route including /health
 // the moment the function cold-starts with a misconfigured environment.
-let venueRepository: SupabaseVenueDetailRepository | undefined;
-function getVenueRepository(): SupabaseVenueDetailRepository {
-  venueRepository ??= new SupabaseVenueDetailRepository(getSupabaseClient());
-  return venueRepository;
+let locationRepository: SupabaseLocationRepository | undefined;
+function getLocationRepository(): SupabaseLocationRepository {
+  locationRepository ??= new SupabaseLocationRepository(getSupabaseClient());
+  return locationRepository;
 }
 
 let placesClient: (GooglePlacesClient & PlaceDetailsClient) | undefined;
 function getCachedPlacesClient(): GooglePlacesClient & PlaceDetailsClient {
   placesClient ??= getPlacesClient();
   return placesClient;
+}
+
+let enrichmentRepository: SupabaseEnrichmentRepository | undefined;
+function getEnrichmentRepository(): SupabaseEnrichmentRepository {
+  enrichmentRepository ??= new SupabaseEnrichmentRepository(getSupabaseClient());
+  return enrichmentRepository;
 }
 
 let placesRepository: SupabasePlacesRepository | undefined;
@@ -209,12 +211,6 @@ function getAuthRepository(): SupabaseAuthRepository {
   return authRepository;
 }
 
-let categoryMappingRepository: SupabaseCategoryMappingRepository | undefined;
-function getCategoryMappingRepository(): SupabaseCategoryMappingRepository {
-  categoryMappingRepository ??= new SupabaseCategoryMappingRepository(getSupabaseClient());
-  return categoryMappingRepository;
-}
-
 let categoryAdminRepository: SupabaseCategoryAdminRepository | undefined;
 function getCategoryAdminRepository(): SupabaseCategoryAdminRepository {
   categoryAdminRepository ??= new SupabaseCategoryAdminRepository(getSupabaseClient());
@@ -243,12 +239,6 @@ let neighborhoodRepository: SupabaseNeighborhoodRepository | undefined;
 function getNeighborhoodRepository(): SupabaseNeighborhoodRepository {
   neighborhoodRepository ??= new SupabaseNeighborhoodRepository(getSupabaseClient());
   return neighborhoodRepository;
-}
-
-let poiRepository: SupabasePoiRepository | undefined;
-function getPoiRepository(): SupabasePoiRepository {
-  poiRepository ??= new SupabasePoiRepository(getSupabaseClient());
-  return poiRepository;
 }
 
 let neighborhoodMemberRepository: SupabaseNeighborhoodMemberRepository | undefined;
@@ -285,40 +275,41 @@ export function createApp() {
     res.json(body);
   });
 
-  app.get("/venues/:id", async (req, res) => {
+  // Public location detail page (BACKLOG.md Ref 46/59) -- serves both
+  // business and POI kinds, merged from the old GET /venues/:id + GET
+  // /pois/:id (BACKLOG.md "POIs and venues managed almost the same").
+  app.get("/locations/:id", async (req, res) => {
     try {
-      const venue = await getVenueDetailWithFreshEnrichment(
+      const location = await getLocationDetailWithFreshEnrichment(
         req.params.id,
-        getVenueRepository(),
+        getLocationRepository(),
+        getEnrichmentRepository(),
         getCachedPlacesClient()
       );
-      if (!venue) {
-        res.status(404).json({ error: "Venue not found" });
+      if (!location) {
+        res.status(404).json({ error: "Location not found" });
         return;
       }
-      res.json(venue);
+      res.json(location);
     } catch (err) {
-      console.error(`GET /venues/${req.params.id} failed:`, err);
-      res.status(500).json({ error: "Failed to load venue" });
+      console.error(`GET /locations/${req.params.id} failed:`, err);
+      res.status(500).json({ error: "Failed to load location" });
     }
   });
 
   // Proxies a cached Google photo reference through the server so the
   // Places API key (needed to build the actual media URL) never reaches
   // the browser -- see PlaceDetailsClient.fetchPhotoMedia. `?index=` selects
-  // which of the cached photos to serve (Google returns up to 10 per venue,
-  // BACKLOG.md Ref 41); defaults to the first.
-  app.get("/venues/:id/photo", async (req, res) => {
+  // which of the cached photos to serve (Google returns up to 10 per
+  // location, BACKLOG.md Ref 41); defaults to the first.
+  app.get("/locations/:id/photo", async (req, res) => {
     try {
       const index = Number(req.query.index ?? 0);
       if (!Number.isInteger(index) || index < 0) {
         res.status(400).json({ error: "index must be a non-negative integer" });
         return;
       }
-      const photoReference = await getVenueRepository().getEnrichmentPhotoReference(
-        req.params.id,
-        index
-      );
+      const photoReference = await getEnrichmentRepository().getPhotoReference(req.params.id, index);
       if (!photoReference) {
         res.status(404).end();
         return;
@@ -328,7 +319,7 @@ export function createApp() {
       res.setHeader("Cache-Control", "public, max-age=86400");
       res.send(Buffer.from(media.data));
     } catch (err) {
-      console.error(`GET /venues/${req.params.id}/photo failed:`, err);
+      console.error(`GET /locations/${req.params.id}/photo failed:`, err);
       res.status(502).json({ error: "Failed to load photo" });
     }
   });
@@ -412,9 +403,9 @@ export function createApp() {
       }
 
       const [pois, venueCount, poiCount, memberCount, checkinCount] = await Promise.all([
-        listPoisForNeighborhood(neighborhood.id, getPoiRepository()),
-        getVenueRepository().countActiveVenuesForNeighborhood(neighborhood.id),
-        getPoiRepository().countActivePoisForNeighborhood(neighborhood.id),
+        listLocationsForNeighborhood(neighborhood.id, getLocationRepository(), "poi"),
+        getLocationRepository().countActiveLocationsForNeighborhood(neighborhood.id, "business"),
+        getLocationRepository().countActiveLocationsForNeighborhood(neighborhood.id, "poi"),
         getNeighborhoodMemberRepository().countMembersForNeighborhood(neighborhood.id),
         getCheckinRepository().countCheckinsForNeighborhood(neighborhood.id),
       ]);
@@ -508,7 +499,7 @@ export function createApp() {
   // standalone /venues page -- scoped by the venue table's neighborhood_id.
   app.get("/neighborhoods/:id/venues", async (req, res) => {
     try {
-      const venues = await getVenueRepository().listVenues(req.params.id);
+      const venues = await getLocationRepository().listVenues(req.params.id);
       res.json(venues);
     } catch (err) {
       console.error(`GET /neighborhoods/${req.params.id}/venues failed:`, err);
@@ -592,7 +583,11 @@ export function createApp() {
   // README §4 Phase 1: GPS geofence check-in, with a cooldown to prevent
   // gaming streaks/badges (see checkins/checkin.ts for the actual radius and
   // cooldown values).
-  app.post("/venues/:id/checkins", async (req, res) => {
+  // Check-in against either a business or a POI (BACKLOG.md Ref 6/"POIs and
+  // venues managed almost the same") -- merged from the old
+  // POST /venues/:id/checkins + POST /pois/:id/checkins, same GPS
+  // geofence/cooldown rules for both.
+  app.post("/locations/:id/checkins", async (req, res) => {
     const { anonymous_device_id, lat, lng } = req.body ?? {};
     if (
       typeof anonymous_device_id !== "string" ||
@@ -606,7 +601,7 @@ export function createApp() {
 
     try {
       const result = await performCheckin(
-        { kind: "venue", id: req.params.id },
+        req.params.id,
         anonymous_device_id,
         { lat, lng },
         getCheckinRepository()
@@ -614,12 +609,12 @@ export function createApp() {
 
       switch (result.status) {
         case "not_found":
-          res.status(404).json({ error: "Venue not found" });
+          res.status(404).json({ error: "Location not found" });
           return;
         case "too_far":
           res
             .status(400)
-            .json({ error: "Too far from venue to check in", distance_meters: result.distanceMeters });
+            .json({ error: "Too far from location to check in", distance_meters: result.distanceMeters });
           return;
         case "cooldown":
           res
@@ -645,104 +640,14 @@ export function createApp() {
               getGamificationRepository()
             );
           } catch (err) {
-            console.error(`awardCheckinRewards (venue ${req.params.id}) failed:`, err);
+            console.error(`awardCheckinRewards (location ${req.params.id}) failed:`, err);
           }
           res.status(201).json(result.checkin);
           return;
         }
       }
     } catch (err) {
-      console.error(`POST /venues/${req.params.id}/checkins failed:`, err);
-      res.status(500).json({ error: "Failed to check in" });
-    }
-  });
-
-  // POI landing page (BACKLOG.md Ref 46) -- public single-POI fetch,
-  // mirroring GET /venues/:id. Distinct from the neighborhood-admin
-  // GET /neighborhood-admin/neighborhoods/:id/pois/:poiId route, which is
-  // scoped to a caller-supplied neighborhoodId and gated by admin auth.
-  app.get("/pois/:id", async (req, res) => {
-    try {
-      const result = await getPoiDetail(
-        req.params.id,
-        getPoiRepository(),
-        getNeighborhoodRepository(),
-        getCheckinRepository()
-      );
-      switch (result.status) {
-        case "not_found":
-          res.status(404).json({ error: "Point of interest not found" });
-          return;
-        case "found":
-          res.json(result.poi);
-          return;
-      }
-    } catch (err) {
-      console.error(`GET /pois/${req.params.id} failed:`, err);
-      res.status(500).json({ error: "Failed to load point of interest" });
-    }
-  });
-
-  // Check-in against a neighborhood POI rather than a venue (BACKLOG.md
-  // Ref 6) -- same GPS geofence/cooldown rules, mirroring the venue route
-  // above.
-  app.post("/pois/:id/checkins", async (req, res) => {
-    const { anonymous_device_id, lat, lng } = req.body ?? {};
-    if (
-      typeof anonymous_device_id !== "string" ||
-      !anonymous_device_id ||
-      typeof lat !== "number" ||
-      typeof lng !== "number"
-    ) {
-      res.status(400).json({ error: "anonymous_device_id, lat, and lng are required" });
-      return;
-    }
-
-    try {
-      const result = await performCheckin(
-        { kind: "poi", id: req.params.id },
-        anonymous_device_id,
-        { lat, lng },
-        getCheckinRepository()
-      );
-
-      switch (result.status) {
-        case "not_found":
-          res.status(404).json({ error: "Point of interest not found" });
-          return;
-        case "too_far":
-          res
-            .status(400)
-            .json({ error: "Too far from point of interest to check in", distance_meters: result.distanceMeters });
-          return;
-        case "cooldown":
-          res
-            .status(429)
-            .json({ error: "Check-in cooldown still active", retry_at: result.retryAt, scope: result.scope });
-          return;
-        case "created": {
-          // See the /venues/:id/checkins handler above for why this is
-          // awaited before the response is sent rather than fired-and-forgotten
-          // after it (Netlify/Lambda can freeze the container once the
-          // response completes).
-          try {
-            await awardCheckinRewards(
-              {
-                userId: result.checkin.user_id,
-                checkinId: result.checkin.id,
-                poiId: req.params.id,
-              },
-              getGamificationRepository()
-            );
-          } catch (err) {
-            console.error(`awardCheckinRewards (poi ${req.params.id}) failed:`, err);
-          }
-          res.status(201).json(result.checkin);
-          return;
-        }
-      }
-    } catch (err) {
-      console.error(`POST /pois/${req.params.id}/checkins failed:`, err);
+      console.error(`POST /locations/${req.params.id}/checkins failed:`, err);
       res.status(500).json({ error: "Failed to check in" });
     }
   });
@@ -1167,7 +1072,7 @@ export function createApp() {
 
   app.get("/admin/categories", adminGate, async (_req, res) => {
     try {
-      const categories = await listAssignableCategories(getCategoryMappingRepository());
+      const categories = await listAssignableCategories(getLocationRepository());
       res.json(categories);
     } catch (err) {
       console.error("GET /admin/categories failed:", err);
@@ -1409,7 +1314,7 @@ export function createApp() {
   // not just "is a business account" like GET /business/venues above).
   app.get("/business/venues/:id/dashboard", venueOwnerGate, async (req, res) => {
     try {
-      const venue = await getVenueRepository().getVenueDetail(req.params.id);
+      const venue = await getLocationRepository().getLocationById(req.params.id);
       if (!venue) {
         res.status(404).json({ error: "Venue not found" });
         return;
@@ -1417,7 +1322,7 @@ export function createApp() {
 
       const [followerCount, checkinCount, announcements, events, socialLinks] = await Promise.all([
         getFavoriteRepository().countFavoritesForVenue(req.params.id),
-        getCheckinRepository().countCheckinsForVenue(req.params.id),
+        getCheckinRepository().countCheckinsForLocation(req.params.id),
         listAnnouncementsForVenue(req.params.id, getAnnouncementRepository()),
         listEventsForVenue(req.params.id, getEventRepository()),
         getVenueSocialLinks(req.params.id, getClaimRepository()),
@@ -1426,7 +1331,7 @@ export function createApp() {
       const summary: VenueDashboardSummary = {
         venue_id: venue.id,
         name: venue.name,
-        address: venue.address,
+        address: venue.address ?? "",
         follower_count: followerCount,
         checkin_count: checkinCount,
         announcements,
@@ -1550,7 +1455,7 @@ export function createApp() {
         }
 
         const [pois, events] = await Promise.all([
-          listPoisForNeighborhood(req.params.id, getPoiRepository()),
+          listLocationsForNeighborhood(req.params.id, getLocationRepository(), "poi"),
           listEventsForNeighborhood(req.params.id, getEventRepository()),
         ]);
 
@@ -1725,10 +1630,22 @@ export function createApp() {
     }
   );
 
-  app.post("/neighborhood-admin/neighborhoods/:id/pois", neighborhoodAdminGate, async (req, res) => {
-    const { name, description, type, lat, lng, google_place_id, address } = req.body ?? {};
-    if (typeof name !== "string" || !name || typeof type !== "string" || !type) {
-      res.status(400).json({ error: "name and type are required" });
+  // Manual location creation (BACKLOG.md "POIs and venues managed almost
+  // the same") -- only the "+ Add point of interest" admin flow posts here
+  // today (kind hardcoded to "poi" client-side); kind "business" is accepted
+  // for forward compatibility but has no manual-create UI yet.
+  app.post("/neighborhood-admin/neighborhoods/:id/locations", neighborhoodAdminGate, async (req, res) => {
+    const { kind, name, description, type, category_id, lat, lng, google_place_id, address } = req.body ?? {};
+    if (kind !== "business" && kind !== "poi") {
+      res.status(400).json({ error: "kind must be 'business' or 'poi'" });
+      return;
+    }
+    if (typeof name !== "string" || !name) {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    if (kind === "poi" && (typeof type !== "string" || !type)) {
+      res.status(400).json({ error: "type is required for kind 'poi'" });
       return;
     }
     if (description !== undefined && typeof description !== "string") {
@@ -1749,19 +1666,19 @@ export function createApp() {
     }
 
     try {
-      const poi = await createNeighborhoodPoi(
+      const location = await createLocation(
         req.params.id,
-        { name, description, type, lat, lng, googlePlaceId: google_place_id, address },
-        getPoiRepository()
+        { kind, name, description, type, categoryId: category_id, lat, lng, googlePlaceId: google_place_id, address },
+        getLocationRepository()
       );
-      res.status(201).json(poi);
+      res.status(201).json(location);
     } catch (err) {
-      console.error(`POST /neighborhood-admin/neighborhoods/${req.params.id}/pois failed:`, err);
-      res.status(500).json({ error: "Failed to create point of interest" });
+      console.error(`POST /neighborhood-admin/neighborhoods/${req.params.id}/locations failed:`, err);
+      res.status(500).json({ error: "Failed to create location" });
     }
   });
 
-  app.get("/neighborhood-admin/neighborhoods/:id/pois", neighborhoodAdminGate, async (req, res) => {
+  app.get("/neighborhood-admin/neighborhoods/:id/locations", neighborhoodAdminGate, async (req, res) => {
     const search = req.query.search;
     if (search !== undefined && typeof search !== "string") {
       res.status(400).json({ error: "search must be a string" });
@@ -1769,42 +1686,43 @@ export function createApp() {
     }
 
     try {
-      const pois = await listPoisForNeighborhood(req.params.id, getPoiRepository(), search);
-      res.json(pois);
+      const items = await listLocationListItemsForNeighborhood(req.params.id, getLocationRepository(), search);
+      res.json(items);
     } catch (err) {
-      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/pois failed:`, err);
-      res.status(500).json({ error: "Failed to list points of interest" });
+      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/locations failed:`, err);
+      res.status(500).json({ error: "Failed to list locations" });
     }
   });
 
   app.get(
-    "/neighborhood-admin/neighborhoods/:id/pois/:poiId",
+    "/neighborhood-admin/neighborhoods/:id/locations/:locationId",
     neighborhoodAdminGate,
     async (req, res) => {
       try {
-        const result = await getPoiForNeighborhood(req.params.id, req.params.poiId, getPoiRepository());
+        const result = await getLocationForNeighborhood(req.params.id, req.params.locationId, getLocationRepository());
         switch (result.status) {
           case "not_found":
-            res.status(404).json({ error: "Point of interest not found" });
+            res.status(404).json({ error: "Location not found" });
             return;
           case "found":
-            res.json(result.poi);
+            res.json(result.location);
             return;
         }
       } catch (err) {
         console.error(
-          `GET /neighborhood-admin/neighborhoods/${req.params.id}/pois/${req.params.poiId} failed:`,
+          `GET /neighborhood-admin/neighborhoods/${req.params.id}/locations/${req.params.locationId} failed:`,
           err
         );
-        res.status(500).json({ error: "Failed to fetch point of interest" });
+        res.status(500).json({ error: "Failed to fetch location" });
       }
     }
   );
 
-  // POI edit (BACKLOG.md Ref 29) -- all fields optional, mirroring
-  // UpdatePoiRequest; only the provided fields are patched.
+  // Location edit (BACKLOG.md Ref 29, generalized) -- all fields optional,
+  // only the provided fields are patched. Used by the manual POI edit form;
+  // businesses don't have a manual edit UI today.
   app.patch(
-    "/neighborhood-admin/neighborhoods/:id/pois/:poiId",
+    "/neighborhood-admin/neighborhoods/:id/locations/:locationId",
     neighborhoodAdminGate,
     async (req, res) => {
       const { name, description, type, lat, lng, address } = req.body ?? {};
@@ -1834,33 +1752,34 @@ export function createApp() {
       }
 
       try {
-        const result = await updatePoiForNeighborhood(
+        const result = await updateLocationForNeighborhood(
           req.params.id,
-          req.params.poiId,
+          req.params.locationId,
           { name, description, type, lat, lng, address },
-          getPoiRepository()
+          getLocationRepository()
         );
         switch (result.status) {
           case "not_found":
-            res.status(404).json({ error: "Point of interest not found" });
+            res.status(404).json({ error: "Location not found" });
             return;
           case "updated":
-            res.json(result.poi);
+            res.json(result.location);
             return;
         }
       } catch (err) {
         console.error(
-          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/pois/${req.params.poiId} failed:`,
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/locations/${req.params.locationId} failed:`,
           err
         );
-        res.status(500).json({ error: "Failed to update point of interest" });
+        res.status(500).json({ error: "Failed to update location" });
       }
     }
   );
 
-  // POI hide/restore (BACKLOG.md Ref 29), mirroring venue omission (Ref 11).
+  // Location hide/restore (BACKLOG.md Ref 11/29), applying uniformly to
+  // either kind -- merged from the old venue status + POI status routes.
   app.patch(
-    "/neighborhood-admin/neighborhoods/:id/pois/:poiId/status",
+    "/neighborhood-admin/neighborhoods/:id/locations/:locationId/status",
     neighborhoodAdminGate,
     async (req, res) => {
       const { status } = req.body ?? {};
@@ -1870,43 +1789,100 @@ export function createApp() {
       }
 
       try {
-        const result = await updatePoiStatusForNeighborhood(
+        const result = await updateLocationStatusForNeighborhood(
           req.params.id,
-          req.params.poiId,
+          req.params.locationId,
           status,
-          getPoiRepository()
+          getLocationRepository()
         );
         switch (result.status) {
           case "not_found":
-            res.status(404).json({ error: "Point of interest not found" });
+            res.status(404).json({ error: "Location not found" });
             return;
           case "updated":
-            res.json(result.poi);
+            res.json(result.location);
             return;
         }
       } catch (err) {
         console.error(
-          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/pois/${req.params.poiId}/status failed:`,
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/locations/${req.params.locationId}/status failed:`,
           err
         );
-        res.status(500).json({ error: "Failed to update point of interest status" });
+        res.status(500).json({ error: "Failed to update location status" });
       }
     }
   );
 
-  // POI delete (BACKLOG.md Ref 29) -- hard delete, blocked (409) whenever the
-  // POI has any checkin/point_event/challenge history, since those rows
-  // cascade-delete rather than block the delete at the DB level; hide
-  // instead (status endpoint above) when that's the case.
+  // Switch an existing location between business and poi kind in place
+  // (BACKLOG.md "POIs and venues managed almost the same") -- replaces the
+  // old hide-then-recreate-as-a-new-row "Convert to POI" flow. Blocked while
+  // the location is claimed; the admin must reject/revoke the claim first
+  // (POST .../claims/:claimId/revoke below).
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/locations/:locationId/kind",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { kind, category_id, type } = req.body ?? {};
+      if (kind !== "business" && kind !== "poi") {
+        res.status(400).json({ error: "kind must be 'business' or 'poi'" });
+        return;
+      }
+
+      try {
+        const result = await switchLocationKindForNeighborhood(
+          req.params.id,
+          req.params.locationId,
+          kind,
+          { categoryId: category_id, type },
+          getLocationRepository()
+        );
+        switch (result.status) {
+          case "not_found":
+            res.status(404).json({ error: "Location not found" });
+            return;
+          case "already_this_kind":
+          case "updated":
+            res.json(result.location);
+            return;
+          case "claimed":
+            res.status(409).json({
+              error: "Reject or revoke this business's claim before switching it to a point of interest",
+            });
+            return;
+          case "missing_type":
+            res.status(400).json({ error: "type is required to switch to a point of interest" });
+            return;
+          case "invalid_category":
+            res.status(400).json({ error: "category_id must reference a valid leaf category" });
+            return;
+        }
+      } catch (err) {
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/locations/${req.params.locationId}/kind failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to switch location kind" });
+      }
+    }
+  );
+
+  // Location delete, POI-kind only (BACKLOG.md Ref 29) -- hard delete,
+  // blocked (409) whenever the location has any dependent history, since
+  // those rows cascade-delete rather than block the delete at the DB level;
+  // hide instead (status endpoint above) when that's the case. A
+  // business-kind location can never be deleted here, only hidden.
   app.delete(
-    "/neighborhood-admin/neighborhoods/:id/pois/:poiId",
+    "/neighborhood-admin/neighborhoods/:id/locations/:locationId",
     neighborhoodAdminGate,
     async (req, res) => {
       try {
-        const result = await deletePoiForNeighborhood(req.params.id, req.params.poiId, getPoiRepository());
+        const result = await deleteLocationForNeighborhood(req.params.id, req.params.locationId, getLocationRepository());
         switch (result.status) {
           case "not_found":
-            res.status(404).json({ error: "Point of interest not found" });
+            res.status(404).json({ error: "Location not found" });
+            return;
+          case "business_kind":
+            res.status(409).json({ error: "A business can't be deleted — hide it instead" });
             return;
           case "has_dependent_activity":
             res.status(409).json({
@@ -1919,10 +1895,10 @@ export function createApp() {
         }
       } catch (err) {
         console.error(
-          `DELETE /neighborhood-admin/neighborhoods/${req.params.id}/pois/${req.params.poiId} failed:`,
+          `DELETE /neighborhood-admin/neighborhoods/${req.params.id}/locations/${req.params.locationId} failed:`,
           err
         );
-        res.status(500).json({ error: "Failed to delete point of interest" });
+        res.status(500).json({ error: "Failed to delete location" });
       }
     }
   );
@@ -1998,31 +1974,55 @@ export function createApp() {
     neighborhoodClaimReviewHandler("reject")
   );
 
-  // Venue category reassignment, neighborhood-scoped (docs/url-map.md
+  // Revoke an already-approved claim (BACKLOG.md "POIs and venues managed
+  // almost the same") -- reviewClaim only handles pending claims, so this is
+  // the admin's only path to clear an approved claim, e.g. before switching
+  // that business to POI kind (blocked while claimed).
+  app.post(
+    "/neighborhood-admin/neighborhoods/:id/claims/:claimId/revoke",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { reason } = req.body ?? {};
+      if (reason !== undefined && typeof reason !== "string") {
+        res.status(400).json({ error: "reason must be a string" });
+        return;
+      }
+
+      try {
+        const result = await revokeApprovedClaimForNeighborhood(
+          req.params.id,
+          req.params.claimId,
+          reason ?? null,
+          getClaimRepository()
+        );
+
+        switch (result.status) {
+          case "not_found":
+            res.status(404).json({ error: "Claim not found" });
+            return;
+          case "not_approved":
+            res.status(409).json({ error: "Only an approved claim can be revoked" });
+            return;
+          case "revoked":
+            res.json(result.claim);
+            return;
+        }
+      } catch (err) {
+        console.error(
+          `POST /neighborhood-admin/neighborhoods/${req.params.id}/claims/${req.params.claimId}/revoke failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to revoke claim" });
+      }
+    }
+  );
+
+  // Location category reassignment, neighborhood-scoped (docs/url-map.md
   // refactor -- was the global GET /admin/venues + PATCH
-  // /admin/venues/:id/category family).
-  app.get("/neighborhood-admin/neighborhoods/:id/venues", neighborhoodAdminGate, async (req, res) => {
-    const search = req.query.search;
-    if (search !== undefined && typeof search !== "string") {
-      res.status(400).json({ error: "search must be a string" });
-      return;
-    }
-
-    try {
-      const venues = await listVenueCategoryMappingsForNeighborhood(
-        req.params.id,
-        getCategoryMappingRepository(),
-        search
-      );
-      res.json(venues);
-    } catch (err) {
-      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/venues failed:`, err);
-      res.status(500).json({ error: "Failed to list venues" });
-    }
-  });
-
+  // /admin/venues/:id/category family). Business-kind only in practice (the
+  // admin UI never shows this dropdown for a POI row).
   app.patch(
-    "/neighborhood-admin/neighborhoods/:id/venues/:venueId/category",
+    "/neighborhood-admin/neighborhoods/:id/locations/:locationId/category",
     neighborhoodAdminGate,
     async (req, res) => {
       const { category_id } = req.body ?? {};
@@ -2032,128 +2032,33 @@ export function createApp() {
       }
 
       try {
-        const result = await reassignVenueCategoryForNeighborhood(
+        const result = await reassignLocationCategoryForNeighborhood(
           req.params.id,
-          req.params.venueId,
+          req.params.locationId,
           category_id,
-          getCategoryMappingRepository()
+          getLocationRepository()
         );
 
         switch (result.status) {
-          case "venue_not_found":
-            res.status(404).json({ error: "Venue not found" });
+          case "not_found":
+            res.status(404).json({ error: "Location not found" });
             return;
           case "invalid_category":
             res.status(400).json({ error: "category_id must reference an existing leaf category" });
             return;
           case "updated":
-            res.json(result.venue);
+            res.json(result.location);
             return;
         }
       } catch (err) {
         console.error(
-          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/venues/${req.params.venueId}/category failed:`,
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/locations/${req.params.locationId}/category failed:`,
           err
         );
         res.status(500).json({ error: "Failed to reassign category" });
       }
     }
   );
-
-  // Venue omission (BACKLOG.md Ref 11): hide/restore, not delete, so any
-  // existing checkin/favorite/claim rows keep pointing at a valid venue.
-  app.patch(
-    "/neighborhood-admin/neighborhoods/:id/venues/:venueId/status",
-    neighborhoodAdminGate,
-    async (req, res) => {
-      const { status } = req.body ?? {};
-      if (status !== "active" && status !== "hidden") {
-        res.status(400).json({ error: "status must be 'active' or 'hidden'" });
-        return;
-      }
-
-      try {
-        const result = await updateVenueStatusForNeighborhood(
-          req.params.id,
-          req.params.venueId,
-          status,
-          getCategoryMappingRepository()
-        );
-
-        switch (result.status) {
-          case "venue_not_found":
-            res.status(404).json({ error: "Venue not found" });
-            return;
-          case "updated":
-            res.json(result.venue);
-            return;
-        }
-      } catch (err) {
-        console.error(
-          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/venues/${req.params.venueId}/status failed:`,
-          err
-        );
-        res.status(500).json({ error: "Failed to update venue status" });
-      }
-    }
-  );
-
-  // Locations tab (BACKLOG.md Ref 29) -- read-only composition of the venue
-  // (business) and POI lists for one neighborhood into a single merged view,
-  // so an admin doesn't have to cross-reference two separate tabs. Editing
-  // still goes through the kind-specific venue/POI endpoints above.
-  app.get("/neighborhood-admin/neighborhoods/:id/locations", neighborhoodAdminGate, async (req, res) => {
-    const search = req.query.search;
-    if (search !== undefined && typeof search !== "string") {
-      res.status(400).json({ error: "search must be a string" });
-      return;
-    }
-
-    try {
-      const [venues, pois] = await Promise.all([
-        listVenueCategoryMappingsForNeighborhood(req.params.id, getCategoryMappingRepository(), search),
-        listPoisForNeighborhood(req.params.id, getPoiRepository(), search),
-      ]);
-
-      const items: LocationListItem[] = [
-        ...venues.map(
-          (v): LocationListItem => ({
-            id: v.id,
-            kind: "venue",
-            name: v.name,
-            address: v.address,
-            category_or_type: v.category_name ?? "Unmapped",
-            category_id: v.category_id,
-            status: v.status,
-            claimed_by_business: v.claimed_by_business,
-            lat: v.lat,
-            lng: v.lng,
-            google_place_id: v.google_place_id,
-          })
-        ),
-        ...pois.map(
-          (p): LocationListItem => ({
-            id: p.id,
-            kind: "poi",
-            name: p.name,
-            address: p.address,
-            category_or_type: p.type,
-            category_id: null,
-            status: p.status,
-            claimed_by_business: false,
-            lat: p.lat,
-            lng: p.lng,
-            google_place_id: p.google_place_id,
-          })
-        ),
-      ].sort((a, b) => a.name.localeCompare(b.name));
-
-      res.json(items);
-    } catch (err) {
-      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/locations failed:`, err);
-      res.status(500).json({ error: "Failed to list locations" });
-    }
-  });
 
   // Bulk Places review (BACKLOG.md Ref 29) -- an admin-triggered dry-run
   // Google Places query against the neighborhood's *saved* boundary (never
@@ -2176,8 +2081,7 @@ export function createApp() {
           boundaryResult.boundary.boundaryGeojson,
           getCachedPlacesClient(),
           getPlacesRepository(),
-          getPoiRepository(),
-          getCategoryMappingRepository()
+          getLocationRepository()
         );
 
         res.json({
@@ -2194,7 +2098,6 @@ export function createApp() {
             suggested_category_name: c.suggestedCategoryName,
           })),
           proposed_removals: report.proposedRemovals.map((r) => ({
-            kind: r.kind,
             id: r.id,
             name: r.name,
             address: r.address,
@@ -2226,14 +2129,8 @@ export function createApp() {
         return;
       }
       for (const item of removals) {
-        if (
-          typeof item !== "object" ||
-          item === null ||
-          (item.kind !== "venue" && item.kind !== "poi") ||
-          typeof item.id !== "string" ||
-          !item.id
-        ) {
-          res.status(400).json({ error: "each removal requires a kind ('venue' or 'poi') and an id" });
+        if (typeof item !== "object" || item === null || typeof item.id !== "string" || !item.id) {
+          res.status(400).json({ error: "each removal requires an id" });
           return;
         }
       }
@@ -2279,10 +2176,9 @@ export function createApp() {
             categoryId: item.category_id,
             type: item.type,
           })),
-          removals.map((item) => ({ kind: item.kind, id: item.id })),
+          removals.map((item) => ({ id: item.id })),
           getPlacesRepository(),
-          getPoiRepository(),
-          getCategoryMappingRepository()
+          getLocationRepository()
         );
 
         res.json({

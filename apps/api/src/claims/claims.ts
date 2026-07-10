@@ -118,6 +118,41 @@ export async function reviewClaimForNeighborhood(
   return reviewClaim(claimId, decision, reviewedNote, repository);
 }
 
+export type RevokeClaimResult =
+  | { status: "revoked"; claim: BusinessClaim }
+  | { status: "not_found" }
+  | { status: "not_approved" };
+
+// Un-approves an already-approved claim (BACKLOG.md "POIs and venues managed
+// almost the same") -- reviewClaim only handles pending claims, so this is
+// the only way to flip claimed_by_business back to false, e.g. to unblock
+// switching a claimed business to POI kind (never allowed while claimed).
+export async function revokeApprovedClaim(
+  claimId: string,
+  reviewedNote: string | null,
+  repository: ClaimRepository
+): Promise<RevokeClaimResult> {
+  const claim = await repository.getClaim(claimId);
+  if (!claim) return { status: "not_found" };
+  if (claim.status !== "approved") return { status: "not_approved" };
+
+  const updated = await repository.revokeClaim(claimId, reviewedNote);
+  return { status: "revoked", claim: toBusinessClaim(updated) };
+}
+
+// Neighborhood-scoped counterpart of revokeApprovedClaim, mirroring
+// reviewClaimForNeighborhood's ownership check.
+export async function revokeApprovedClaimForNeighborhood(
+  neighborhoodId: string,
+  claimId: string,
+  reviewedNote: string | null,
+  repository: ClaimRepository
+): Promise<RevokeClaimResult> {
+  const ownerNeighborhoodId = await repository.getClaimVenueNeighborhoodId(claimId);
+  if (ownerNeighborhoodId !== neighborhoodId) return { status: "not_found" };
+  return revokeApprovedClaim(claimId, reviewedNote, repository);
+}
+
 // venueOwnerGate already proves the caller holds an approved claim on this
 // venue before either of these run, so no not_found/ownership branching is
 // needed here the way updateNeighborhoodSocialLinks needs it.

@@ -27,7 +27,7 @@ export function CheckinTimeline({
               style={{ backgroundColor: TIMELINE_COLORS[index % TIMELINE_COLORS.length] }}
             />
             <a
-              href={`/venues/${checkin.venue_id}`}
+              href={`/location/${checkin.venue_id}`}
               className="text-sm font-extrabold text-foreground hover:text-brand-purple"
             >
               {checkin.name}

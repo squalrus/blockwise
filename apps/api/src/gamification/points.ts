@@ -9,7 +9,7 @@ export async function awardFavoritePoints(
   input: { userId: string; venueId: string },
   repository: GamificationRepository
 ): Promise<void> {
-  const context = await repository.getVenueContext(input.venueId);
+  const context = await repository.getLocationContext(input.venueId);
   if (!context) return;
 
   await repository.awardPoints({

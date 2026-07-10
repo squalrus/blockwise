@@ -5,8 +5,6 @@ import { clientApiUrl } from "@/lib/clientApi";
 import { getOrCreateDeviceId } from "@/lib/deviceId";
 import { getCurrentPosition } from "@/lib/geolocation";
 
-export type CheckinTarget = { type: "venue"; id: string } | { type: "poi"; id: string };
-
 export type CheckinStatus =
   | { state: "idle" }
   | { state: "checking" }
@@ -16,18 +14,17 @@ export type CheckinStatus =
   | { state: "error"; message: string };
 
 // GPS geofence/cooldown network logic shared by every slide-to-check-in
-// control (venue detail page, POI detail page, and the /checkin page's
-// nearest-venue row).
-export function useCheckIn(target: CheckinTarget) {
+// control (location detail page, and the /checkin page's nearest-venue
+// row). One location id space (business or POI) since the venue/poi merge
+// (BACKLOG.md "POIs and venues managed almost the same").
+export function useCheckIn(locationId: string) {
   const [status, setStatus] = useState<CheckinStatus>({ state: "idle" });
 
   async function checkIn() {
     setStatus({ state: "checking" });
     try {
       const position = await getCurrentPosition();
-      const path =
-        target.type === "venue" ? `/venues/${target.id}/checkins` : `/pois/${target.id}/checkins`;
-      const res = await fetch(clientApiUrl(path), {
+      const res = await fetch(clientApiUrl(`/locations/${locationId}/checkins`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

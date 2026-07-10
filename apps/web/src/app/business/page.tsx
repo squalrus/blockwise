@@ -119,7 +119,7 @@ export default function BusinessPortalPage() {
                 {venue.name}
               </a>
               <p className="text-muted">{venue.address}</p>
-              <a href={`/venues/${venue.venue_id}`} className="text-xs font-bold text-brand-purple hover:text-brand-orange">
+              <a href={`/location/${venue.venue_id}`} className="text-xs font-bold text-brand-purple hover:text-brand-orange">
                 View public page
               </a>
             </li>

@@ -47,7 +47,7 @@ function buildInfoWindowContent(venue: VenueListItem): HTMLElement {
   container.appendChild(meta);
 
   const link = document.createElement("a");
-  link.href = `/venues/${venue.id}`;
+  link.href = `/location/${venue.id}`;
   link.textContent = "View details";
   link.className = "mt-1 font-bold text-brand-purple hover:text-brand-orange";
   container.appendChild(link);

@@ -6,7 +6,7 @@ import { clientApiUrl } from "@/lib/clientApi";
 import { sortByDistance, type LatLng } from "@/lib/geo";
 import { getCurrentPosition } from "@/lib/geolocation";
 import { PlaceListItem } from "../PlaceListItem";
-import { SlideToCheckIn } from "../venues/[id]/SlideToCheckIn";
+import { SlideToCheckIn } from "../SlideToCheckIn";
 
 const NEAREST_LIMIT = 5;
 
@@ -83,11 +83,11 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
       {state.venues.map((venue, index) => (
         <li key={venue.id}>
           <PlaceListItem
-            href={`/venues/${venue.id}`}
+            href={`/location/${venue.id}`}
             id={venue.id}
             name={venue.name}
             subtitle={`${venue.category_name ?? "Uncategorized"} · ${venue.address}`}
-            action={index === 0 ? <SlideToCheckIn target={{ type: "venue", id: venue.id }} /> : undefined}
+            action={index === 0 ? <SlideToCheckIn locationId={venue.id} /> : undefined}
           />
         </li>
       ))}

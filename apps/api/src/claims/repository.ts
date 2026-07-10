@@ -65,6 +65,12 @@ export interface ClaimRepository {
   // isn't wrapped in a single DB transaction at this project's scale.
   approveClaim(claimId: string, reviewedNote: string | null): Promise<ClaimRecord>;
   rejectClaim(claimId: string, reviewedNote: string | null): Promise<ClaimRecord>;
+  // Un-approves an already-approved claim (BACKLOG.md "POIs and venues
+  // managed almost the same") -- the only way to flip claimed_by_business
+  // back to false, e.g. to unblock switching a claimed business to POI kind.
+  // Marks the claim rejected (mirrors rejectClaim's own status transition)
+  // rather than introducing a fourth BusinessClaimStatus value.
+  revokeClaim(claimId: string, reviewedNote: string | null): Promise<ClaimRecord>;
   // Backs the business portal's "your claimed venues" view (BACKLOG "Real
   // user authentication" notes) -- approved claims a business account
   // submitted itself.

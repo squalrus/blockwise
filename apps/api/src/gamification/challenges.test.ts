@@ -6,7 +6,7 @@ const NOW = "2026-07-15T12:00:00.000Z";
 
 function seedCoffeeVenues(repo: FakeGamificationRepository, count: number) {
   for (let i = 1; i <= count; i++) {
-    repo.venues.set(`venue-${i}`, { neighborhoodId: "neighborhood-1", categoryId: "category-coffee" });
+    repo.locations.set(`venue-${i}`, { neighborhoodId: "neighborhood-1", categoryId: "category-coffee" });
   }
 }
 
@@ -50,21 +50,21 @@ describe("evaluateChallengesAfterCheckin", () => {
 
   it("does not award completion twice for the same user", async () => {
     const repo = new FakeGamificationRepository();
-    repo.pois.set("poi-1", { neighborhoodId: "neighborhood-1" });
+    repo.locations.set("poi-1", { neighborhoodId: "neighborhood-1", categoryId: null });
     repo.challenges.push(
-      makeChallenge({ id: "challenge-poi", poiId: "poi-1", targetCount: 1, pointsReward: 20 })
+      makeChallenge({ id: "challenge-poi", venueId: "poi-1", targetCount: 1, pointsReward: 20 })
     );
 
-    repo.checkins.push({ userId: "user-1", poiId: "poi-1", checkedInAt: NOW });
+    repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOW });
     await evaluateChallengesAfterCheckin(
-      { userId: "user-1", neighborhoodId: "neighborhood-1", poiId: "poi-1" },
+      { userId: "user-1", neighborhoodId: "neighborhood-1", venueId: "poi-1" },
       repo
     );
     // A second check-in to the same POI (e.g. after the per-target cooldown
     // elapses) shouldn't re-award the challenge's bonus points.
-    repo.checkins.push({ userId: "user-1", poiId: "poi-1", checkedInAt: NOW });
+    repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOW });
     await evaluateChallengesAfterCheckin(
-      { userId: "user-1", neighborhoodId: "neighborhood-1", poiId: "poi-1" },
+      { userId: "user-1", neighborhoodId: "neighborhood-1", venueId: "poi-1" },
       repo
     );
 
@@ -74,11 +74,11 @@ describe("evaluateChallengesAfterCheckin", () => {
 
   it("ignores challenges outside their active window", async () => {
     const repo = new FakeGamificationRepository();
-    repo.pois.set("poi-1", { neighborhoodId: "neighborhood-1" });
+    repo.locations.set("poi-1", { neighborhoodId: "neighborhood-1", categoryId: null });
     repo.challenges.push(
       makeChallenge({
         id: "challenge-past",
-        poiId: "poi-1",
+        venueId: "poi-1",
         targetCount: 1,
         pointsReward: 20,
         startsAt: "2026-01-01T00:00:00.000Z",
@@ -86,9 +86,9 @@ describe("evaluateChallengesAfterCheckin", () => {
       })
     );
 
-    repo.checkins.push({ userId: "user-1", poiId: "poi-1", checkedInAt: NOW });
+    repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOW });
     await evaluateChallengesAfterCheckin(
-      { userId: "user-1", neighborhoodId: "neighborhood-1", poiId: "poi-1" },
+      { userId: "user-1", neighborhoodId: "neighborhood-1", venueId: "poi-1" },
       repo
     );
 

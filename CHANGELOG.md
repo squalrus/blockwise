@@ -2,6 +2,29 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.38.0] — 2026-07-10
+
+### Added
+
+- **POI enrichment parity with venues.** Businesses and points of interest are now served by the same enrichment system, so a POI's detail page shows the same ratings/hours/photos/reviews a venue gets — previously only venues received enrichment from Google Places even though both can link to the same Place ID. Backed by a generalized `venue_enrichment_cache` supporting either kind and new `GET /locations/:id` endpoints replacing the separate `GET /venues/:id` + `GET /pois/:id`. Completes BACKLOG.md Ref 59. (`apps/api/src/enrichment/`, `supabase/migrations/20260710010000_poi_enrichment_parity.sql`)
+- **Claim revoke action for neighborhood admins.** An already-approved business claim can now be un-approved via a new `POST /neighborhood-admin/neighborhoods/:id/claims/:claimId/revoke` endpoint, needed to unblock switching a claimed business to POI kind (which is never allowed while claimed). The admin interface shows a "Revoke" button on approved claims. Completes BACKLOG.md "POIs and venues managed almost the same". (`apps/api/src/claims/claims.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/claims/page.tsx`)
+- **In-place location kind switching.** Admins can now switch an existing location between business and POI kind in a single action via `PATCH /neighborhood-admin/neighborhoods/:id/locations/:locationId/kind`, replacing the old workflow of hiding a venue and recreating it as a POI. Blocked (409) if the location is currently claimed. (`apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`)
+
+### Changed
+
+- **Venue and POI merged into a single location entity.** The separate `poi` table is gone; both businesses and neighborhood-owned points of interest now live in the `venue` table with a `kind` column (`'business' | 'poi'`), so switching kinds is a single in-place `UPDATE` instead of a hide-then-recreate workflow. All dependent tables (`checkin`, `point_event`, `challenge`, `venue_enrichment_cache`) now use a single `venue_id` column instead of nullable `venue_id`/`poi_id` pairs. Type system updated: `Venue` now includes `kind`, `type`, and `description` fields (previously POI-only), and separate `Poi` / `PoiDetail` types were removed. Completes BACKLOG.md Ref 45 ("POIs and venues managed almost the same"). (`supabase/migrations/20260710010000_poi_enrichment_parity.sql`, `supabase/migrations/20260710020000_merge_venue_poi.sql`, `packages/types/src/index.ts`, `apps/api/src/locations/`, `apps/web/src/app/location/`)
+- **Public routes consolidated from two detail pages to one.** `/venues/:id` and `/pois/:id` merged into a single `/location/:id` route that branches on `kind` to show the appropriate UI — claim form/social links/announcements/events for businesses, type/description for POIs. (`apps/web/src/app/location/`)
+- **API detail endpoint merged.** `GET /venues/:id` and `GET /pois/:id` merged into `GET /locations/:id`, returning the merged `VenueDetail` type (no separate `PoiDetail`). `GET /locations/:id/photo` replaces both `/venues/:id/photo` and `/pois/:id/photo`. (`apps/api/src/app.ts`)
+- **Admin location routes consolidated.** Separate `/neighborhood-admin/neighborhoods/:id/venues*` and `/neighborhood-admin/neighborhoods/:id/pois*` routes merged into unified `/neighborhood-admin/neighborhoods/:id/locations*`, with all actions (create, read, update, delete, status change, category reassign) on both kinds in one place and with consistent naming. New `PATCH .../locations/:locationId/kind` action replaces the old "Convert to POI" hide-and-recreate workflow. (`apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/`)
+- **Generalized enrichment module.** The separate `apps/api/src/venues/enrichment.ts` and `apps/api/src/venues/supabaseDetailRepository.ts` modules are replaced by a unified `apps/api/src/enrichment/` module serving both location kinds. (`apps/api/src/enrichment/`)
+- **URL map updated.** Every route change reflected in `docs/url-map.md`, including the new History section documenting the full scope of the venue/POI merge. (`docs/url-map.md`)
+
+### Removed
+
+- **Separate `/venues/:id` and `/pois/:id` detail pages.** Both merged into `/location/:id`; no redirects (pre-launch). (`apps/web/src/app/pois/[id]/`, `apps/web/src/app/venues/[id]/`)
+- **Category mapping module.** Responsibility folded into the generalized `locations/` domain. (`apps/api/src/categoryMapping/`)
+- **POI-specific repository files.** `apps/api/src/pois/`, `apps/api/src/venues/detailRepository.ts`, and enrichment-specific files merged into `apps/api/src/locations/` and `apps/api/src/enrichment/`. (`apps/api/src/pois/`, `apps/api/src/venues/enrichment.ts`, `apps/api/src/venues/supabaseDetailRepository.ts`)
+
 ## [0.37.0] — 2026-07-10
 
 ### Added

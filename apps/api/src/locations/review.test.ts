@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { CategoryMappingRepository, CategoryRecord as CategoryMappingCategoryRecord, VenueCategoryRecord } from "../categoryMapping/repository";
 import type { CategoryRecord } from "../places/categorize";
 import { MockPlacesClient } from "../places/mockClient";
 import type { ExistingVenue, NeighborhoodRecord, PlacesRepository, UpsertVenueInput } from "../places/repository";
 import type {
-  CreateNeighborhoodPoiInput,
-  PoiRecord,
-  PoiRepository,
-  UpdatePoiInput,
-} from "../pois/repository";
+  CategoryRecord as LocationCategoryRecord,
+  CreateLocationInput,
+  LocationRecord,
+  LocationRepository,
+  SetLocationKindInput,
+  UpdateLocationInput,
+} from "./repository";
 import { commitLocationReview, reviewNeighborhoodLocations } from "./review";
 
 // Mirrors places/sync.test.ts's boundary fixture -- includes every
@@ -60,116 +61,150 @@ class FakePlacesRepository implements PlacesRepository {
   }
 }
 
-class FakePoiRepository implements PoiRepository {
-  pois: PoiRecord[] = [];
+// In-memory fake, mirroring the pattern used for CheckinRepository tests.
+// One table for both kinds since the venue/poi merge (BACKLOG.md "POIs and
+// venues managed almost the same") -- review.ts now sources its existing-
+// location list (for dedup and boundary-removal checks) from here instead
+// of the old split venue/POI repositories.
+class FakeLocationRepository implements LocationRepository {
+  locations: LocationRecord[];
   private nextId = 1;
 
-  async createPoiForNeighborhood(input: CreateNeighborhoodPoiInput): Promise<PoiRecord> {
-    const record: PoiRecord = {
-      id: `poi-${this.nextId++}`,
-      neighborhoodId: input.neighborhoodId,
-      name: input.name,
-      description: input.description,
-      type: input.type,
-      lat: input.lat,
-      lng: input.lng,
-      googlePlaceId: input.googlePlaceId,
-      address: input.address,
-      status: "active",
-      createdAt: new Date().toISOString(),
-    };
-    this.pois.push(record);
-    return record;
+  constructor(initial: LocationRecord[] = []) {
+    this.locations = initial;
   }
 
-  async listPoisForNeighborhood(): Promise<PoiRecord[]> {
-    return this.pois;
-  }
-
-  async countActivePoisForNeighborhood(neighborhoodId: string): Promise<number> {
-    return this.pois.filter((p) => p.neighborhoodId === neighborhoodId && p.status === "active")
-      .length;
-  }
-
-  async getPoiById(poiId: string): Promise<PoiRecord | null> {
-    return this.pois.find((p) => p.id === poiId) ?? null;
-  }
-
-  async getPoiNeighborhoodId(poiId: string): Promise<string | null> {
-    return this.pois.find((p) => p.id === poiId)?.neighborhoodId ?? null;
-  }
-
-  async updatePoi(poiId: string, input: UpdatePoiInput): Promise<PoiRecord> {
-    const poi = this.pois.find((p) => p.id === poiId)!;
-    Object.assign(poi, input);
-    return poi;
-  }
-
-  async setPoiStatus(poiId: string, status: PoiRecord["status"]): Promise<PoiRecord> {
-    const poi = this.pois.find((p) => p.id === poiId)!;
-    poi.status = status;
-    return poi;
-  }
-
-  async hasDependentActivity(): Promise<boolean> {
-    return false;
-  }
-
-  async deletePoi(poiId: string): Promise<void> {
-    this.pois = this.pois.filter((p) => p.id !== poiId);
-  }
-}
-
-// Minimal fake -- reviewNeighborhoodLocations/commitLocationReview only use
-// listVenuesForNeighborhood, getVenueNeighborhoodId (via
-// updateVenueStatusForNeighborhood), and setVenueStatus; the
-// category-reassignment methods aren't exercised by anything in this file.
-class FakeCategoryMappingRepository implements CategoryMappingRepository {
-  venues: VenueCategoryRecord[] = [];
-
-  async listVenuesForNeighborhood(): Promise<VenueCategoryRecord[]> {
-    return this.venues;
-  }
-
-  async getVenueNeighborhoodId(venueId: string): Promise<string | null> {
-    return this.venues.some((v) => v.id === venueId) ? "phinneywood-id" : null;
-  }
-
-  async listCategories(): Promise<CategoryMappingCategoryRecord[]> {
+  async listVenues() {
     return [];
   }
 
-  async getVenue(venueId: string): Promise<{ id: string } | null> {
-    const venue = this.venues.find((v) => v.id === venueId);
-    return venue ? { id: venue.id } : null;
+  async listLocationsForNeighborhood(neighborhoodId: string, search?: string): Promise<LocationRecord[]> {
+    let results = this.locations.filter((l) => l.neighborhoodId === neighborhoodId);
+    if (search) {
+      const needle = search.toLowerCase();
+      results = results.filter(
+        (l) => l.name.toLowerCase().includes(needle) || (l.address ?? "").toLowerCase().includes(needle)
+      );
+    }
+    return results;
+  }
+
+  async countActiveLocationsForNeighborhood(neighborhoodId: string, kind: LocationRecord["kind"]): Promise<number> {
+    return this.locations.filter((l) => l.neighborhoodId === neighborhoodId && l.kind === kind && l.status === "active")
+      .length;
+  }
+
+  async getLocationById(locationId: string): Promise<LocationRecord | null> {
+    return this.locations.find((l) => l.id === locationId) ?? null;
+  }
+
+  async getLocationDetail(): Promise<null> {
+    return null;
+  }
+
+  async getLocationNeighborhoodId(locationId: string): Promise<string | null> {
+    return this.locations.find((l) => l.id === locationId)?.neighborhoodId ?? null;
+  }
+
+  async createLocation(input: CreateLocationInput): Promise<LocationRecord> {
+    const record: LocationRecord = {
+      id: `location-${this.nextId++}`,
+      neighborhoodId: input.neighborhoodId,
+      googlePlaceId: input.googlePlaceId,
+      name: input.name,
+      kind: input.kind,
+      categoryId: input.categoryId,
+      categoryName: null,
+      categoryGroup: null,
+      type: input.type,
+      description: input.description,
+      lat: input.lat,
+      lng: input.lng,
+      address: input.address,
+      claimedByBusiness: false,
+      status: "active",
+      createdAt: new Date().toISOString(),
+    };
+    this.locations.push(record);
+    return record;
+  }
+
+  async updateLocation(locationId: string, input: UpdateLocationInput): Promise<LocationRecord> {
+    const location = this.locations.find((l) => l.id === locationId)!;
+    Object.assign(location, input);
+    return location;
+  }
+
+  async setLocationStatus(locationId: string, status: LocationRecord["status"]): Promise<LocationRecord> {
+    const location = this.locations.find((l) => l.id === locationId)!;
+    location.status = status;
+    return location;
+  }
+
+  async setLocationKind(locationId: string, input: SetLocationKindInput): Promise<LocationRecord> {
+    const location = this.locations.find((l) => l.id === locationId)!;
+    location.kind = input.kind;
+    if (input.categoryId !== undefined) location.categoryId = input.categoryId;
+    if (input.type !== undefined) location.type = input.type;
+    return location;
+  }
+
+  async updateLocationCategory(locationId: string, categoryId: string): Promise<LocationRecord> {
+    const location = this.locations.find((l) => l.id === locationId)!;
+    location.categoryId = categoryId;
+    return location;
+  }
+
+  async listCategories(): Promise<LocationCategoryRecord[]> {
+    return [];
   }
 
   async getLeafCategory(categoryId: string): Promise<{ id: string } | null> {
     return { id: categoryId };
   }
 
-  async updateVenueCategory(venueId: string, categoryId: string): Promise<VenueCategoryRecord> {
-    const venue = this.venues.find((v) => v.id === venueId)!;
-    venue.categoryId = categoryId;
-    return venue;
+  async hasDependentActivity(): Promise<boolean> {
+    return false;
   }
 
-  async setVenueStatus(venueId: string, status: VenueCategoryRecord["status"]): Promise<VenueCategoryRecord> {
-    const venue = this.venues.find((v) => v.id === venueId)!;
-    venue.status = status;
-    return venue;
+  async deleteLocation(locationId: string): Promise<void> {
+    this.locations = this.locations.filter((l) => l.id !== locationId);
   }
+}
+
+function makeBusinessLocation(overrides: Partial<LocationRecord> = {}): LocationRecord {
+  return {
+    id: "location-1",
+    neighborhoodId: "phinneywood-id",
+    googlePlaceId: null,
+    name: "Business",
+    kind: "business",
+    categoryId: null,
+    categoryName: null,
+    categoryGroup: null,
+    type: null,
+    description: null,
+    lat: 0,
+    lng: 0,
+    address: null,
+    claimedByBusiness: false,
+    status: "active",
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function makePoiLocation(overrides: Partial<LocationRecord> = {}): LocationRecord {
+  return makeBusinessLocation({ kind: "poi", type: "park", ...overrides });
 }
 
 describe("reviewNeighborhoodLocations", () => {
   let placesRepository: FakePlacesRepository;
-  let poiRepository: FakePoiRepository;
-  let categoryMappingRepository: FakeCategoryMappingRepository;
+  let locationRepository: FakeLocationRepository;
 
   beforeEach(() => {
     placesRepository = new FakePlacesRepository();
-    poiRepository = new FakePoiRepository();
-    categoryMappingRepository = new FakeCategoryMappingRepository();
+    locationRepository = new FakeLocationRepository();
   });
 
   it("surfaces every in-boundary place as a new candidate when nothing exists yet", async () => {
@@ -178,8 +213,7 @@ describe("reviewNeighborhoodLocations", () => {
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     // 7 fixtures, one out-of-boundary, one near-duplicate pair collapsed to one.
@@ -196,8 +230,7 @@ describe("reviewNeighborhoodLocations", () => {
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     const bakery = report.newCandidates.find((c) => c.name === "Original Bakery");
@@ -207,16 +240,15 @@ describe("reviewNeighborhoodLocations", () => {
     expect(widget?.suggestedCategoryId).toBeNull();
   });
 
-  it("excludes a place already synced as a venue, matched by google_place_id", async () => {
-    placesRepository.venues = [
-      {
+  it("excludes a place already synced as a business, matched by google_place_id", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
         id: "existing-1",
         googlePlaceId: "mock-herkimer-coffee",
         name: "Herkimer Coffee",
         lat: 47.6816,
         lng: -122.3552,
-        claimedByBusiness: false,
-      },
+      }),
     ];
 
     const report = await reviewNeighborhoodLocations(
@@ -224,47 +256,22 @@ describe("reviewNeighborhoodLocations", () => {
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(report.newCandidates.some((c) => c.name === "Herkimer Coffee")).toBe(false);
   });
 
   it("excludes a place already converted to a POI, matched by google_place_id", async () => {
-    await poiRepository.createPoiForNeighborhood({
-      neighborhoodId: "phinneywood-id",
-      name: "Mustard Seed Park",
-      description: null,
-      type: "park",
-      lat: 47.685,
-      lng: -122.3495,
-      googlePlaceId: "mock-mustard-seed-park",
-      address: "N 80th St & Fremont Ave N, Seattle, WA",
-    });
-
-    const report = await reviewNeighborhoodLocations(
-      "phinneywood-id",
-      PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
-      placesRepository,
-      poiRepository,
-      categoryMappingRepository
-    );
-
-    expect(report.newCandidates.some((c) => c.name === "Mustard Seed Park")).toBe(false);
-  });
-
-  it("excludes a near-duplicate match against an existing venue with no matching place id", async () => {
-    placesRepository.venues = [
-      {
-        id: "existing-2",
-        googlePlaceId: null,
-        name: "Herkimer Coffee Shop",
-        lat: 47.6816,
-        lng: -122.3552,
-        claimedByBusiness: false,
-      },
+    locationRepository.locations = [
+      makePoiLocation({
+        id: "existing-poi-1",
+        googlePlaceId: "mock-mustard-seed-park",
+        name: "Mustard Seed Park",
+        lat: 47.685,
+        lng: -122.3495,
+        address: "N 80th St & Fremont Ave N, Seattle, WA",
+      }),
     ];
 
     const report = await reviewNeighborhoodLocations(
@@ -272,26 +279,38 @@ describe("reviewNeighborhoodLocations", () => {
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
+    );
+
+    expect(report.newCandidates.some((c) => c.name === "Mustard Seed Park")).toBe(false);
+  });
+
+  it("excludes a near-duplicate match against an existing business with no matching place id", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
+        id: "existing-2",
+        googlePlaceId: null,
+        name: "Herkimer Coffee Shop",
+        lat: 47.6816,
+        lng: -122.3552,
+      }),
+    ];
+
+    const report = await reviewNeighborhoodLocations(
+      "phinneywood-id",
+      PHINNEYWOOD_BOUNDARY!,
+      new MockPlacesClient(),
+      placesRepository,
+      locationRepository
     );
 
     expect(report.newCandidates.some((c) => c.name === "Herkimer Coffee")).toBe(false);
   });
 
   it("skips POIs with null lat/lng when deduping (BACKLOG.md Ref 51)", async () => {
-    await poiRepository.createPoiForNeighborhood({
-      neighborhoodId: "phinneywood-id",
-      name: "Woodland Park",
-      description: null,
-      type: "park",
-      // @ts-expect-error -- exercising the legacy null-coordinate row.
-      lat: null,
-      // @ts-expect-error -- exercising the legacy null-coordinate row.
-      lng: null,
-      googlePlaceId: null,
-      address: null,
-    });
+    locationRepository.locations = [
+      makePoiLocation({ id: "woodland-park", name: "Woodland Park", lat: null, lng: null }),
+    ];
 
     // Should not throw despite the null-coordinate POI in the dedup list.
     const report = await reviewNeighborhoodLocations(
@@ -299,27 +318,21 @@ describe("reviewNeighborhoodLocations", () => {
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
     expect(report.newCandidates.length).toBeGreaterThan(0);
   });
 
-  it("flags an active venue outside the current boundary as a proposed removal", async () => {
-    categoryMappingRepository.venues = [
-      {
+  it("flags an active business outside the current boundary as a proposed removal", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
         id: "venue-outside",
         name: "Outside The Boundary Cafe",
         address: "Capitol Hill, Seattle, WA",
-        categoryId: null,
-        categoryName: null,
-        categoryGroup: null,
         status: "active",
         lat: 47.6,
         lng: -122.3,
-        googlePlaceId: null,
-        claimedByBusiness: false,
-      },
+      }),
     ];
 
     const report = await reviewNeighborhoodLocations(
@@ -327,33 +340,26 @@ describe("reviewNeighborhoodLocations", () => {
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(report.proposedRemovals).toContainEqual({
-      kind: "venue",
       id: "venue-outside",
       name: "Outside The Boundary Cafe",
       address: "Capitol Hill, Seattle, WA",
     });
   });
 
-  it("does not flag an already-hidden venue outside the boundary", async () => {
-    categoryMappingRepository.venues = [
-      {
+  it("does not flag an already-hidden business outside the boundary", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
         id: "venue-outside-hidden",
         name: "Already Hidden Cafe",
         address: "Capitol Hill, Seattle, WA",
-        categoryId: null,
-        categoryName: null,
-        categoryGroup: null,
         status: "hidden",
         lat: 47.6,
         lng: -122.3,
-        googlePlaceId: null,
-        claimedByBusiness: false,
-      },
+      }),
     ];
 
     const report = await reviewNeighborhoodLocations(
@@ -361,28 +367,23 @@ describe("reviewNeighborhoodLocations", () => {
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(report.proposedRemovals.some((r) => r.id === "venue-outside-hidden")).toBe(false);
   });
 
-  it("does not flag an active venue still inside the boundary", async () => {
-    categoryMappingRepository.venues = [
-      {
+  it("does not flag an active business still inside the boundary", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
         id: "venue-inside",
         name: "Herkimer Coffee",
         address: "7320 Greenwood Ave N, Seattle, WA",
-        categoryId: null,
-        categoryName: null,
-        categoryGroup: null,
         status: "active",
         lat: 47.6816,
         lng: -122.3552,
         googlePlaceId: "mock-herkimer-coffee",
-        claimedByBusiness: false,
-      },
+      }),
     ];
 
     const report = await reviewNeighborhoodLocations(
@@ -390,63 +391,43 @@ describe("reviewNeighborhoodLocations", () => {
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(report.proposedRemovals).toHaveLength(0);
   });
 
   it("flags an active POI outside the current boundary as a proposed removal", async () => {
-    const poi = await poiRepository.createPoiForNeighborhood({
-      neighborhoodId: "phinneywood-id",
-      name: "Faraway Park",
-      description: null,
-      type: "park",
-      lat: 47.6,
-      lng: -122.3,
-      googlePlaceId: null,
-      address: null,
-    });
+    locationRepository.locations = [
+      makePoiLocation({ id: "poi-faraway", name: "Faraway Park", lat: 47.6, lng: -122.3, address: null }),
+    ];
 
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(report.proposedRemovals).toContainEqual({
-      kind: "poi",
-      id: poi.id,
+      id: "poi-faraway",
       name: "Faraway Park",
       address: null,
     });
   });
 
   it("skips a null-coordinate POI from the removal check (BACKLOG.md Ref 51)", async () => {
-    await poiRepository.createPoiForNeighborhood({
-      neighborhoodId: "phinneywood-id",
-      name: "Woodland Park",
-      description: null,
-      type: "park",
-      // @ts-expect-error -- exercising the legacy null-coordinate row.
-      lat: null,
-      // @ts-expect-error -- exercising the legacy null-coordinate row.
-      lng: null,
-      googlePlaceId: null,
-      address: null,
-    });
+    locationRepository.locations = [
+      makePoiLocation({ id: "woodland-park", name: "Woodland Park", lat: null, lng: null }),
+    ];
 
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
       new MockPlacesClient(),
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(report.proposedRemovals.some((r) => r.name === "Woodland Park")).toBe(false);
@@ -455,13 +436,11 @@ describe("reviewNeighborhoodLocations", () => {
 
 describe("commitLocationReview", () => {
   let placesRepository: FakePlacesRepository;
-  let poiRepository: FakePoiRepository;
-  let categoryMappingRepository: FakeCategoryMappingRepository;
+  let locationRepository: FakeLocationRepository;
 
   beforeEach(() => {
     placesRepository = new FakePlacesRepository();
-    poiRepository = new FakePoiRepository();
-    categoryMappingRepository = new FakeCategoryMappingRepository();
+    locationRepository = new FakeLocationRepository();
   });
 
   const candidate = {
@@ -478,8 +457,7 @@ describe("commitLocationReview", () => {
       [{ ...candidate, classification: "business", categoryId: "coffee-shop" }],
       [],
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(result.createdBusinesses).toEqual(["Herkimer Coffee"]);
@@ -502,13 +480,16 @@ describe("commitLocationReview", () => {
       [{ ...candidate, classification: "poi", type: "cafe" }],
       [],
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(result.createdPois).toEqual(["Herkimer Coffee"]);
-    expect(poiRepository.pois).toHaveLength(1);
-    expect(poiRepository.pois[0]).toMatchObject({ name: "Herkimer Coffee", googlePlaceId: "mock-herkimer-coffee" });
+    expect(locationRepository.locations).toHaveLength(1);
+    expect(locationRepository.locations[0]).toMatchObject({
+      name: "Herkimer Coffee",
+      googlePlaceId: "mock-herkimer-coffee",
+      kind: "poi",
+    });
   });
 
   it("does not persist an omit classification", async () => {
@@ -517,13 +498,12 @@ describe("commitLocationReview", () => {
       [{ ...candidate, classification: "omit" }],
       [],
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(result.omitted).toEqual(["Herkimer Coffee"]);
     expect(placesRepository.upsertCalls).toHaveLength(0);
-    expect(poiRepository.pois).toHaveLength(0);
+    expect(locationRepository.locations).toHaveLength(0);
   });
 
   it("reports a failure without aborting the rest of the batch", async () => {
@@ -535,8 +515,7 @@ describe("commitLocationReview", () => {
       ],
       [],
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(result.failed).toEqual([
@@ -545,79 +524,61 @@ describe("commitLocationReview", () => {
     expect(result.createdPois).toEqual(["Original Bakery"]);
   });
 
-  it("hides an approved venue removal without deleting it", async () => {
-    categoryMappingRepository.venues = [
-      {
+  it("hides an approved business removal without deleting it", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
         id: "venue-outside",
         name: "Outside The Boundary Cafe",
         address: "Capitol Hill, Seattle, WA",
-        categoryId: null,
-        categoryName: null,
-        categoryGroup: null,
         status: "active",
         lat: 47.6,
         lng: -122.3,
-        googlePlaceId: null,
-        claimedByBusiness: false,
-      },
+      }),
     ];
 
     const result = await commitLocationReview(
       "phinneywood-id",
       [],
-      [{ kind: "venue", id: "venue-outside" }],
+      [{ id: "venue-outside" }],
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(result.hidden).toEqual(["Outside The Boundary Cafe"]);
-    expect(categoryMappingRepository.venues[0].status).toBe("hidden");
+    expect(locationRepository.locations[0].status).toBe("hidden");
   });
 
   it("hides an approved POI removal without deleting it", async () => {
-    const poi = await poiRepository.createPoiForNeighborhood({
-      neighborhoodId: "phinneywood-id",
-      name: "Faraway Park",
-      description: null,
-      type: "park",
-      lat: 47.6,
-      lng: -122.3,
-      googlePlaceId: null,
-      address: null,
-    });
+    locationRepository.locations = [
+      makePoiLocation({ id: "poi-faraway", name: "Faraway Park", lat: 47.6, lng: -122.3, address: null }),
+    ];
 
     const result = await commitLocationReview(
       "phinneywood-id",
       [],
-      [{ kind: "poi", id: poi.id }],
+      [{ id: "poi-faraway" }],
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(result.hidden).toEqual(["Faraway Park"]);
-    expect(poiRepository.pois[0].status).toBe("hidden");
-    expect(poiRepository.pois).toHaveLength(1);
+    expect(locationRepository.locations[0].status).toBe("hidden");
+    expect(locationRepository.locations).toHaveLength(1);
   });
 
   it("reports a failure for a removal referencing an unknown id, without aborting the batch", async () => {
     const result = await commitLocationReview(
       "phinneywood-id",
       [],
-      [
-        { kind: "venue", id: "missing-venue" },
-        { kind: "poi", id: "missing-poi" },
-      ],
+      [{ id: "missing-venue" }, { id: "missing-poi" }],
       placesRepository,
-      poiRepository,
-      categoryMappingRepository
+      locationRepository
     );
 
     expect(result.hidden).toHaveLength(0);
     expect(result.failed).toEqual([
-      { name: "missing-venue", error: "Venue not found" },
-      { name: "missing-poi", error: "Point of interest not found" },
+      { name: "missing-venue", error: "Location not found" },
+      { name: "missing-poi", error: "Location not found" },
     ]);
   });
 });

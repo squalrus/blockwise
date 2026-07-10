@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Poi } from "@blockwise/types";
+import type { Venue } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
@@ -12,20 +12,15 @@ export function PoiForm({
   onCreated,
   onUpdated,
   onCancel,
-  initial,
   existing,
 }: {
   neighborhoodId: string;
-  onCreated?: (poi: Poi) => void;
+  onCreated?: (poi: Venue) => void;
   // Edit mode (BACKLOG.md Ref 29): when `existing` is set, submitting PATCHes
   // that POI instead of POSTing a new one, reusing the same fields/layout.
-  onUpdated?: (poi: Poi) => void;
+  onUpdated?: (poi: Venue) => void;
   onCancel?: () => void;
-  // Prefills the form from an existing venue, e.g. "Convert to POI"
-  // (BACKLOG.md Ref 11) -- googlePlaceId isn't user-editable, so it's
-  // attached directly to the submitted body rather than read from a field.
-  initial?: { name: string; lat: number; lng: number; address?: string; googlePlaceId?: string | null };
-  existing?: Poi;
+  existing?: Venue;
 }) {
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const isEdit = existing !== undefined;
@@ -37,20 +32,20 @@ export function PoiForm({
     const form = e.currentTarget;
     const data = new FormData(form);
     const body = {
+      ...(isEdit ? {} : { kind: "poi" as const }),
       name: String(data.get("name") ?? ""),
       type: String(data.get("type") ?? ""),
       description: String(data.get("description") ?? "") || undefined,
       address: String(data.get("address") ?? "") || undefined,
       lat: Number(data.get("lat")),
       lng: Number(data.get("lng")),
-      ...(initial?.googlePlaceId ? { google_place_id: initial.googlePlaceId } : {}),
     };
 
     try {
       const token = await getAccessToken();
       const url = isEdit
-        ? clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/pois/${existing.id}`)
-        : clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/pois`);
+        ? clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/locations/${existing.id}`)
+        : clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/locations`);
       const res = await fetch(url, {
         method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -60,9 +55,9 @@ export function PoiForm({
 
       if (res.ok) {
         if (isEdit) {
-          onUpdated?.(responseBody as Poi);
+          onUpdated?.(responseBody as Venue);
         } else {
-          onCreated?.(responseBody as Poi);
+          onCreated?.(responseBody as Venue);
           form.reset();
         }
         setStatus({ state: "idle" });
@@ -82,14 +77,14 @@ export function PoiForm({
       <input
         name="name"
         required
-        defaultValue={existing?.name ?? initial?.name}
+        defaultValue={existing?.name}
         placeholder="Name (e.g. Woodland Park)"
         className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <input
         name="type"
         required
-        defaultValue={existing?.type}
+        defaultValue={existing?.type ?? undefined}
         placeholder="Type (e.g. park, transit, landmark)"
         className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
@@ -102,7 +97,7 @@ export function PoiForm({
       />
       <input
         name="address"
-        defaultValue={existing?.address ?? initial?.address ?? ""}
+        defaultValue={existing?.address ?? ""}
         placeholder="Optional address"
         className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
@@ -112,7 +107,7 @@ export function PoiForm({
           type="number"
           step="any"
           required
-          defaultValue={existing?.lat ?? initial?.lat ?? undefined}
+          defaultValue={existing?.lat ?? undefined}
           placeholder="Latitude"
           className="w-1/2 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
@@ -121,7 +116,7 @@ export function PoiForm({
           type="number"
           step="any"
           required
-          defaultValue={existing?.lng ?? initial?.lng ?? undefined}
+          defaultValue={existing?.lng ?? undefined}
           placeholder="Longitude"
           className="w-1/2 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />

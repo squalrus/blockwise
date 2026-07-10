@@ -1,6 +1,6 @@
 import type { Checkin } from "@blockwise/types";
 import { haversineMeters } from "../places/geo";
-import type { CheckinRecord, CheckinRepository, CheckinTarget } from "./repository";
+import type { CheckinRecord, CheckinRepository } from "./repository";
 
 // README §4 Phase 1: "GPS geofence check-in (radius check against
 // Venue.lat/lng)". 100m comfortably covers GPS drift for a single-building
@@ -9,11 +9,11 @@ import type { CheckinRecord, CheckinRepository, CheckinTarget } from "./reposito
 export const CHECKIN_RADIUS_METERS = 100;
 
 // README §4: "one check-in per venue per 4–6 hours" to prevent gaming
-// streaks/badges -- 4 hours is the floor of that range. Applies per venue/POI.
+// streaks/badges -- 4 hours is the floor of that range. Applies per location.
 export const CHECKIN_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
 // A separate, shorter cooldown against the user's *most recent check-in
-// anywhere* (not just this venue/POI) -- without this, a user could satisfy
+// anywhere* (not just this location) -- without this, a user could satisfy
 // a multi-venue challenge like "check in to 5 coffee shops" in seconds by
 // rapid-tapping through nearby venues. 2 minutes rules out scripted/instant
 // abuse without blocking a real multi-stop visit.
@@ -30,8 +30,8 @@ export interface EvaluateCheckinInput {
   globalCooldownMs?: number;
 }
 
-// Which cooldown produced the retryAt -- "target" means this same venue/POI
-// was checked into recently, "global" means a *different* venue/POI was
+// Which cooldown produced the retryAt -- "target" means this same location
+// was checked into recently, "global" means a *different* location was
 // checked into recently (the cross-venue anti-gaming cooldown). The two need
 // distinct copy since "you checked in here recently" is false when the
 // global cooldown is what's actually blocking the request.
@@ -87,7 +87,6 @@ function toCheckin(record: CheckinRecord): Checkin {
     id: record.id,
     user_id: record.userId,
     venue_id: record.venueId,
-    poi_id: record.poiId,
     device_lat: record.deviceLat,
     device_lng: record.deviceLng,
     checked_in_at: record.checkedInAt,
@@ -95,21 +94,18 @@ function toCheckin(record: CheckinRecord): Checkin {
 }
 
 export async function performCheckin(
-  target: CheckinTarget,
+  locationId: string,
   anonymousDeviceId: string,
   device: { lat: number; lng: number },
   repository: CheckinRepository,
   now: number = Date.now()
 ): Promise<CheckinResult> {
-  const location =
-    target.kind === "venue"
-      ? await repository.getVenueLocation(target.id)
-      : await repository.getPoiLocation(target.id);
+  const location = await repository.getLocation(locationId);
   if (!location) return { status: "not_found" };
 
   const userId = await repository.getOrCreateAnonymousUser(anonymousDeviceId);
   const [lastCheckinForTarget, lastCheckinAnywhere] = await Promise.all([
-    repository.getLastCheckinForTarget(userId, target),
+    repository.getLastCheckinForLocation(userId, locationId),
     repository.getLastCheckinAnywhere(userId),
   ]);
 
@@ -129,8 +125,7 @@ export async function performCheckin(
 
   const created = await repository.createCheckin({
     userId,
-    venueId: target.kind === "venue" ? target.id : undefined,
-    poiId: target.kind === "poi" ? target.id : undefined,
+    venueId: locationId,
     deviceLat: device.lat,
     deviceLng: device.lng,
   });
