@@ -5,7 +5,7 @@ import { FakeGamificationRepository, makeBadge } from "./testSupport";
 describe("awardFavoritePoints", () => {
   it("awards points the first time a venue is favorited", async () => {
     const repo = new FakeGamificationRepository();
-    repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: null });
+    repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: null, kind: "business" });
 
     await awardFavoritePoints({ userId: "user-1", venueId: "venue-1" }, repo);
 
@@ -19,7 +19,7 @@ describe("awardFavoritePoints", () => {
 
   it("does not award points again on a second favorite of the same venue", async () => {
     const repo = new FakeGamificationRepository();
-    repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: null });
+    repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: null, kind: "business" });
 
     await awardFavoritePoints({ userId: "user-1", venueId: "venue-1" }, repo);
     await awardFavoritePoints({ userId: "user-1", venueId: "venue-1" }, repo);
@@ -81,12 +81,22 @@ describe("getUserPoints", () => {
       { id: "e3", userId: "user-2", neighborhoodId: "neighborhood-1", eventType: "checkin", points: 100 }
     );
 
-    expect(await getUserPoints("user-1", repo)).toEqual({ points: 15 });
+    expect(await getUserPoints("user-1", repo)).toEqual({
+      points: 15,
+      level: 1,
+      points_into_level: 15,
+      points_to_next_level: 35,
+    });
   });
 
   it("returns zero for a user with no point events", async () => {
     const repo = new FakeGamificationRepository();
-    expect(await getUserPoints("user-1", repo)).toEqual({ points: 0 });
+    expect(await getUserPoints("user-1", repo)).toEqual({
+      points: 0,
+      level: 1,
+      points_into_level: 0,
+      points_to_next_level: 50,
+    });
   });
 });
 

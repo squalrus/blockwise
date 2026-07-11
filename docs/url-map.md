@@ -51,8 +51,10 @@ apps/web/src/app/
 │       ├── claims/page.tsx                         /neighborhood-admin/:slug/claims — Business claims tab (approve/reject/revoke)
 │       ├── locations/page.tsx                      /neighborhood-admin/:slug/locations — Locations tab (merged business+POI list; reassign category, hide/restore, switch kind in place for either kind (BACKLOG.md "POIs and venues managed almost the same"); create/edit/hide/restore/delete for POIs (Ref 29))
 │       └── locations/review/page.tsx                /neighborhood-admin/:slug/locations/review — bulk Google Places review + boundary reconciliation wizard: admin-triggered query against the saved boundary, classify each new candidate as business/POI/omit (Ref 29), approve hiding active locations no longer inside the boundary (Ref 54)
-└── admin/
-    └── category-taxonomy/page.tsx                  /admin/category-taxonomy — S (requireAdmin) — global category CRUD
+├── admin/
+│   └── category-taxonomy/page.tsx                  /admin/category-taxonomy — S (requireAdmin) — global category CRUD
+└── dev/
+    └── components/page.tsx                          /dev/components — P (not linked from any nav) — internal component library, pins components (e.g. SlideToCheckIn via previewStatus) to specific states for review without a live backend
 ```
 
 Identifier note: neighborhoods are addressed by **slug** everywhere in the web app now (`/neighborhoods/:slug`, `/neighborhood-admin/:slug`); locations (business or POI) are addressed by **id** (UUID) everywhere (`/location/:id`, `/business/:venueId`).
@@ -120,8 +122,11 @@ Auth gates:
 ├── checkins                                          GET — auth
 ├── favorites                                          GET — auth
 ├── neighborhoods                                      GET — auth
-├── points                                              GET — auth — all-time, all-neighborhood points total
+├── points                                              GET — auth — all-time, all-neighborhood points total + level/points_into_level/points_to_next_level
+├── badges                                              GET — auth — every badge this user has earned, across every neighborhood
 └── profile                                            PATCH — auth — display_name/avatar_url/username/visibility
+
+/badges                                              GET — public — every badge that exists (earned or not), for locked-badge display (BACKLOG.md Ref 61)
 
 /users/:username                                     GET — public — profile (only reachable if visibility = public)
 

@@ -5,6 +5,25 @@ import type { GamificationRepository } from "./repository";
 export const CHECKIN_POINTS = 10;
 export const FAVORITE_POINTS = 5;
 
+// Levelling was originally client-only (apps/web's ProfileSummaryCard) --
+// moved here so the badge rule engine's "level_reached" rule (badges.ts) and
+// the account page compute the same level from the same total, rather than
+// duplicating the formula on both sides of the API boundary.
+export const POINTS_PER_LEVEL = 50;
+
+export function computeLevel(points: number): {
+  level: number;
+  pointsIntoLevel: number;
+  pointsToNextLevel: number;
+} {
+  const pointsIntoLevel = points % POINTS_PER_LEVEL;
+  return {
+    level: Math.floor(points / POINTS_PER_LEVEL) + 1,
+    pointsIntoLevel,
+    pointsToNextLevel: POINTS_PER_LEVEL - pointsIntoLevel,
+  };
+}
+
 export async function awardFavoritePoints(
   input: { userId: string; venueId: string },
   repository: GamificationRepository
@@ -42,7 +61,13 @@ export async function getUserPoints(
   repository: GamificationRepository
 ): Promise<UserPointsSummary> {
   const points = await repository.getUserPointsTotal(userId);
-  return { points };
+  const { level, pointsIntoLevel, pointsToNextLevel } = computeLevel(points);
+  return {
+    points,
+    level,
+    points_into_level: pointsIntoLevel,
+    points_to_next_level: pointsToNextLevel,
+  };
 }
 
 // BACKLOG.md Ref 55: every badge a user has earned, across every

@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AppUser, CheckinHistoryItem, FavoriteVenueSummary, UserBadge } from "@blockwise/types";
+import type {
+  AppUser,
+  Badge,
+  CheckinHistoryItem,
+  FavoriteVenueSummary,
+  UserBadge,
+  UserPointsSummary,
+} from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { BadgeIcon } from "../BadgeIcon";
@@ -18,8 +25,11 @@ type State =
       user: AppUser;
       favorites: FavoriteVenueSummary[];
       checkins: CheckinHistoryItem[];
-      points: number;
+      pointsSummary: UserPointsSummary;
       badges: UserBadge[];
+      // BACKLOG.md Ref 61: every badge that exists, cross-referenced against
+      // `badges` (earned) to render locked placeholders too.
+      badgeCatalog: Badge[];
     };
 
 // Activity/action hub (BACKLOG.md "My account page"): identity from GET
@@ -44,26 +54,27 @@ export default function AccountPage() {
 
       const token = await getAccessToken();
       const headers = { Authorization: `Bearer ${token}` };
-      const [favoritesRes, checkinsRes, pointsRes, badgesRes] = await Promise.all([
+      const [favoritesRes, checkinsRes, pointsRes, badgesRes, catalogRes] = await Promise.all([
         fetch(clientApiUrl("/me/favorites"), { headers }),
         fetch(clientApiUrl("/me/checkins"), { headers }),
         fetch(clientApiUrl("/me/points"), { headers }),
         fetch(clientApiUrl("/me/badges"), { headers }),
+        fetch(clientApiUrl("/badges")),
       ]);
       if (cancelled) return;
-      if (!favoritesRes.ok || !checkinsRes.ok || !pointsRes.ok || !badgesRes.ok) {
+      if (!favoritesRes.ok || !checkinsRes.ok || !pointsRes.ok || !badgesRes.ok || !catalogRes.ok) {
         setState({ status: "error", message: "Failed to load your account" });
         return;
       }
 
-      const pointsBody = await pointsRes.json();
       setState({
         status: "ready",
         user,
         favorites: await favoritesRes.json(),
         checkins: await checkinsRes.json(),
-        points: pointsBody.points,
+        pointsSummary: await pointsRes.json(),
         badges: await badgesRes.json(),
+        badgeCatalog: await catalogRes.json(),
       });
     }
 
@@ -106,29 +117,48 @@ export default function AccountPage() {
             user={state.user}
             favoriteCount={state.favorites.length}
             checkinCount={state.checkins.length}
-            points={state.points}
+            pointsSummary={state.pointsSummary}
           />
 
           <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Badges</h2>
-            {state.badges.length === 0 ? (
-              <p className="text-sm text-muted">
-                No badges yet -- complete a neighborhood challenge to earn one.
-              </p>
-            ) : (
-              <ul className="flex flex-wrap gap-4">
-                {state.badges.map((userBadge) => (
-                  <li key={userBadge.badge.id} className="flex flex-col items-center gap-1.5 text-center">
-                    <span className="flex h-13 w-13 items-center justify-center rounded-full border-[3px] border-nav bg-brand-amber text-2xl">
-                      <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
-                    </span>
-                    <span className="max-w-16 text-[10.5px] font-extrabold text-foreground">
-                      {userBadge.badge.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {(() => {
+              const earnedIds = new Set(state.badges.map((b) => b.badge.id));
+              const locked = state.badgeCatalog.filter((b) => !earnedIds.has(b.id));
+              if (state.badges.length === 0 && locked.length === 0) {
+                return (
+                  <p className="text-sm text-muted">
+                    No badges yet -- complete a neighborhood challenge to earn one.
+                  </p>
+                );
+              }
+              return (
+                <ul className="flex flex-wrap gap-4">
+                  {state.badges.map((userBadge) => (
+                    <li key={userBadge.badge.id} className="flex flex-col items-center gap-1.5 text-center">
+                      <span className="flex h-13 w-13 items-center justify-center rounded-full border-[3px] border-nav bg-brand-amber text-2xl">
+                        <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
+                      </span>
+                      <span className="max-w-16 text-[10.5px] font-extrabold text-foreground">
+                        {userBadge.badge.name}
+                      </span>
+                    </li>
+                  ))}
+                  {locked.map((badge) => (
+                    <li
+                      key={badge.id}
+                      className="flex flex-col items-center gap-1.5 text-center opacity-40"
+                      title={badge.description ?? badge.name}
+                    >
+                      <span className="flex h-13 w-13 items-center justify-center rounded-full border-[3px] border-dashed border-nav bg-card-alt text-2xl grayscale">
+                        <BadgeIcon icon={badge.icon} name={badge.name} />
+                      </span>
+                      <span className="max-w-16 text-[10.5px] font-extrabold text-muted">{badge.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
           </section>
 
           <section id="favorites" className="flex flex-col gap-2.5 scroll-mt-16">

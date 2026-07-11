@@ -3,6 +3,7 @@ import type {
   AccountType,
   BusinessClaimContactMethod,
   BusinessClaimStatus,
+  CheckinRewardsSummary,
   HealthCheckResponse,
   NeighborhoodDashboardSummary,
   NeighborhoodProfile,
@@ -666,27 +667,40 @@ export function createApp() {
             .json({ error: "Check-in cooldown still active", retry_at: result.retryAt, scope: result.scope });
           return;
         case "created": {
-          // Points/challenges (BACKLOG.md Ref 6) -- awaited before the
+          // Points/challenges/badges (BACKLOG.md Ref 6) -- awaited before the
           // response is sent (rather than fired-and-forgotten after it) since
           // this API runs as a Netlify/Lambda function: the runtime can
           // freeze the container as soon as the HTTP response completes, so
           // work still pending in the event loop after res.json() isn't
           // guaranteed to run. A failure here is still swallowed -- the
           // check-in itself already succeeded and shouldn't be undone by a
-          // points/challenge error.
+          // rewards-evaluation error -- but the response's rewards then just
+          // report nothing earned, rather than failing the check-in.
+          let rewards: CheckinRewardsSummary = { points_earned: 0, challenges_completed: [], badges_earned: [] };
           try {
-            await awardCheckinRewards(
+            const summary = await awardCheckinRewards(
               {
                 userId: result.checkin.user_id,
                 checkinId: result.checkin.id,
                 venueId: req.params.id,
+                checkedInAt: result.checkin.checked_in_at,
               },
               getGamificationRepository()
             );
+            rewards = {
+              points_earned: summary.pointsEarned,
+              challenges_completed: summary.challengesCompleted.map((c) => ({
+                id: c.id,
+                title: c.title,
+                points_reward: c.pointsReward,
+                badge: c.badge,
+              })),
+              badges_earned: summary.badgesEarned,
+            };
           } catch (err) {
             console.error(`awardCheckinRewards (location ${req.params.id}) failed:`, err);
           }
-          res.status(201).json(result.checkin);
+          res.status(201).json({ ...result.checkin, rewards });
           return;
         }
       }
@@ -834,6 +848,19 @@ export function createApp() {
     } catch (err) {
       console.error("GET /me/badges failed:", err);
       res.status(500).json({ error: "Failed to load badges" });
+    }
+  });
+
+  // BACKLOG.md Ref 61: every badge that exists (earned or not), so the
+  // account page can render "locked" badges alongside GET /me/badges'
+  // earned ones. Public/no auth -- the badge catalog isn't per-user data.
+  app.get("/badges", async (_req, res) => {
+    try {
+      const badges = await getGamificationRepository().getAllBadges();
+      res.json(badges);
+    } catch (err) {
+      console.error("GET /badges failed:", err);
+      res.status(500).json({ error: "Failed to load badge catalog" });
     }
   });
 

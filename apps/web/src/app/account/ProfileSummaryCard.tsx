@@ -1,35 +1,27 @@
-import type { AppUser } from "@blockwise/types";
+import type { AppUser, UserPointsSummary } from "@blockwise/types";
 import { Avatar } from "../Avatar";
 import { ProgressBar } from "../ProgressBar";
 
-const POINTS_PER_LEVEL = 50;
-
-function levelFor(points: number) {
-  const level = Math.floor(points / POINTS_PER_LEVEL) + 1;
-  const pointsIntoLevel = points % POINTS_PER_LEVEL;
-  return {
-    level,
-    percent: (pointsIntoLevel / POINTS_PER_LEVEL) * 100,
-    pointsToNext: POINTS_PER_LEVEL - pointsIntoLevel,
-  };
-}
-
 // BACKLOG.md Ref 47: profile summary card at the top of the account page --
 // avatar, level/points progress, and activity counts, each count linking
-// down to its full list section further down this same page.
+// down to its full list section further down this same page. Level is
+// computed server-side (GET /me/points, apps/api's gamification/points.ts
+// computeLevel) rather than here, so it agrees with the badge rule engine's
+// "level_reached" badges, which need the same number.
 export function ProfileSummaryCard({
   user,
   favoriteCount,
   checkinCount,
-  points,
+  pointsSummary,
 }: {
   user: AppUser;
   favoriteCount: number;
   checkinCount: number;
-  points: number;
+  pointsSummary: UserPointsSummary;
 }) {
   const label = user.display_name ?? user.username ?? user.email ?? "You";
-  const { level, percent, pointsToNext } = levelFor(points);
+  const { points, level, points_into_level: pointsIntoLevel, points_to_next_level: pointsToNext } = pointsSummary;
+  const percent = (pointsIntoLevel / (pointsIntoLevel + pointsToNext)) * 100;
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl bg-card-alt px-5 py-4">

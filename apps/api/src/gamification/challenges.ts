@@ -1,5 +1,14 @@
-import type { ChallengeProgress } from "@blockwise/types";
+import type { Badge, ChallengeProgress, LocationKind } from "@blockwise/types";
 import type { ChallengeRecord, GamificationRepository } from "./repository";
+
+// Returned by evaluateChallengesAfterCheckin so the check-in response
+// (rewards.ts, app.ts) can surface "challenges completed" alongside badges.
+export interface CompletedChallengeSummary {
+  id: string;
+  title: string;
+  pointsReward: number;
+  badge: Badge | null;
+}
 
 function toChallengeProgress(
   challenge: ChallengeRecord,
@@ -11,7 +20,13 @@ function toChallengeProgress(
     neighborhood_id: challenge.neighborhoodId,
     title: challenge.title,
     description: challenge.description,
-    target_type: challenge.categoryId ? "category" : "poi",
+    target_type: challenge.categoryId
+      ? "category"
+      : challenge.targetKind === "poi"
+        ? "any_poi"
+        : challenge.targetKind === "any"
+          ? "any_activity"
+          : "poi",
     category_name: challenge.categoryName,
     // The public DTO keeps poi_id/poi_name for API stability -- sourced from
     // ChallengeRecord.venueId/venueName (challenge.venue_id post-merge).
@@ -36,6 +51,16 @@ async function progressFor(
     return repository.countDistinctVenuesCheckedInForCategory({
       userId,
       categoryId: challenge.categoryId,
+      neighborhoodId: challenge.neighborhoodId,
+      startsAt: challenge.startsAt,
+      endsAt: challenge.endsAt,
+    });
+  }
+  if (challenge.targetKind) {
+    return repository.countDistinctVenuesCheckedInForKind({
+      userId,
+      // "any" omits the kind filter entirely -- any location kind counts.
+      kind: challenge.targetKind === "poi" ? "poi" : undefined,
       neighborhoodId: challenge.neighborhoodId,
       startsAt: challenge.startsAt,
       endsAt: challenge.endsAt,
@@ -74,34 +99,51 @@ export async function listChallengesWithProgress(
 }
 
 // Called after a successful check-in: finds every active challenge this
-// check-in could contribute to (by category, or by the specific location
-// checked into), and completes any the user has now hit the target on --
-// awarding the bonus points and badge (BACKLOG.md Ref 6) exactly once per
-// challenge.
+// check-in could contribute to (by category, by the specific location
+// checked into, or by that location's kind), and completes any the user has
+// now hit the target on -- awarding the bonus points and badge (BACKLOG.md
+// Ref 6) exactly once per challenge.
 export async function evaluateChallengesAfterCheckin(
-  input: { userId: string; neighborhoodId: string; categoryId?: string; venueId?: string },
+  input: {
+    userId: string;
+    neighborhoodId: string;
+    categoryId?: string;
+    venueId?: string;
+    locationKind?: LocationKind;
+  },
   repository: GamificationRepository
-): Promise<void> {
+): Promise<CompletedChallengeSummary[]> {
   const now = new Date().toISOString();
   const challenges = await repository.getActiveChallengesForTarget({
     neighborhoodId: input.neighborhoodId,
     categoryId: input.categoryId,
     venueId: input.venueId,
+    locationKind: input.locationKind,
     now,
   });
 
+  const completed: CompletedChallengeSummary[] = [];
   for (const challenge of challenges) {
     if (await repository.hasCompletedChallenge(input.userId, challenge.id)) continue;
 
     const progressCount = await progressFor(challenge, input.userId, repository);
     if (progressCount < challenge.targetCount) continue;
 
-    await repository.completeChallenge({
+    const wasCompleted = await repository.completeChallenge({
       userId: input.userId,
       challengeId: challenge.id,
       neighborhoodId: challenge.neighborhoodId,
       pointsReward: challenge.pointsReward,
       badgeId: challenge.badge?.id ?? null,
     });
+    if (wasCompleted) {
+      completed.push({
+        id: challenge.id,
+        title: challenge.title,
+        pointsReward: challenge.pointsReward,
+        badge: challenge.badge,
+      });
+    }
   }
+  return completed;
 }

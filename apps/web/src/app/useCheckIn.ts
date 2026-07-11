@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { CheckinRewardsSummary } from "@blockwise/types";
 import { clientApiUrl } from "@/lib/clientApi";
 import { getOrCreateDeviceId } from "@/lib/deviceId";
 import { getCurrentPosition } from "@/lib/geolocation";
@@ -8,7 +9,7 @@ import { getCurrentPosition } from "@/lib/geolocation";
 export type CheckinStatus =
   | { state: "idle" }
   | { state: "checking" }
-  | { state: "success"; checkedInAt: string }
+  | { state: "success"; checkedInAt: string; rewards: CheckinRewardsSummary }
   | { state: "too_far"; distanceMeters: number }
   | { state: "cooldown"; retryAt: string; scope: "target" | "global" }
   | { state: "error"; message: string };
@@ -36,7 +37,7 @@ export function useCheckIn(locationId: string) {
       const body = await res.json();
 
       if (res.status === 201) {
-        setStatus({ state: "success", checkedInAt: body.checked_in_at });
+        setStatus({ state: "success", checkedInAt: body.checked_in_at, rewards: body.rewards });
       } else if (res.status === 400 && typeof body.distance_meters === "number") {
         setStatus({ state: "too_far", distanceMeters: body.distance_meters });
       } else if (res.status === 429) {
@@ -56,5 +57,12 @@ export function useCheckIn(locationId: string) {
     }
   }
 
-  return { status, checkIn };
+  // Flips the result card back to the slider face -- for a recoverable
+  // outcome (too_far/cooldown/error) so the user can drag again, without
+  // needing a page reload.
+  function reset() {
+    setStatus({ state: "idle" });
+  }
+
+  return { status, checkIn, reset };
 }
