@@ -6,6 +6,16 @@ const ICONS: Record<string, string> = {
   coffee: "☕",
   compass: "🧭",
   star: "⭐",
+  beer: "🍺",
+  bread: "🥖",
+  "shopping-bag": "🛍️",
+  utensils: "🍽️",
+  heart: "❤️",
+  map: "🗺️",
+  wine: "🍷",
+  "ice-cream": "🍦",
+  zap: "⚡",
+  repeat: "🔁",
 };
 
 const FALLBACK_ICON = "🏅";

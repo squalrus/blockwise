@@ -197,6 +197,27 @@ export interface CreateCheckinRequest {
   lng: number;
 }
 
+// POST /locations/:id/checkins response addition -- badges/challenges this
+// specific check-in newly unlocked, for the check-in UI's result card.
+// Distinct from Badge/Challenge's own catalog shapes since this is scoped to
+// "what happened just now" rather than "what exists."
+export interface CompletedChallengeSummary {
+  id: string;
+  title: string;
+  points_reward: number;
+  badge: Badge | null;
+}
+
+export interface CheckinRewardsSummary {
+  points_earned: number;
+  challenges_completed: CompletedChallengeSummary[];
+  badges_earned: Badge[];
+}
+
+export interface CheckinResult extends Checkin {
+  rewards: CheckinRewardsSummary;
+}
+
 export interface Favorite {
   id: string;
   user_id: string;
@@ -738,7 +759,13 @@ export interface UserBadge {
   awarded_at: string;
 }
 
-export type ChallengeTargetType = "category" | "poi";
+// "poi" targets one specific venue_id (still named poi_id/poi_name below for
+// API stability); "any_poi" targets any POI-kind location in the
+// neighborhood; "any_activity" targets a check-in anywhere in the
+// neighborhood regardless of category or kind (e.g. a standing "thanks for
+// visiting"). Neither "any_poi" nor "any_activity" have a category_id or
+// venue_id, so category_name/poi_id/poi_name all stay null for them.
+export type ChallengeTargetType = "category" | "poi" | "any_poi" | "any_activity";
 
 export interface Challenge {
   id: string;
@@ -751,19 +778,20 @@ export interface Challenge {
   // Populated for target_type "poi" -- named poi_id/poi_name for API
   // stability (a challenge still conceptually "targets a specific place"),
   // even though the backing challenge.venue_id column now points at a row
-  // that could technically be either kind.
+  // that could technically be either kind. Null for "any_poi".
   poi_id: string | null;
   poi_name: string | null;
   target_count: number;
   points_reward: number;
   badge: Badge | null;
   starts_at: string;
-  ends_at: string;
+  // Null means the challenge runs indefinitely (no scheduled end).
+  ends_at: string | null;
 }
 
 // GET /neighborhoods/:id/challenges -- adds the requesting user's progress
 // on top of the Challenge template. progress_count is a distinct-venue count
-// for category challenges, or 0/1 for POI challenges.
+// for category and any_poi challenges, or 0/1 for a specific-poi challenge.
 export interface ChallengeProgress extends Challenge {
   progress_count: number;
   completed: boolean;
@@ -812,7 +840,14 @@ export interface HappeningNow {
 }
 
 // GET /me/points (BACKLOG.md Ref 47) -- an all-time, all-neighborhood total,
-// for the account page's profile summary card.
+// for the account page's profile summary card. level/points_into_level/
+// points_to_next_level are computed server-side (apps/api's
+// gamification/points.ts computeLevel) rather than client-side, so the
+// badge rule engine's "level_reached" badges (gamification/badges.ts) and
+// this response always agree on the same user's level.
 export interface UserPointsSummary {
   points: number;
+  level: number;
+  points_into_level: number;
+  points_to_next_level: number;
 }

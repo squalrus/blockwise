@@ -2,6 +2,23 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.40.0] — 2026-07-11
+
+### Added
+
+- **Badge rule engine.** ~45 new badges are now earned automatically from standalone rules evaluated on every check-in, fully independent of challenges (no shared code or foreign key — a badge can be challenge-only, rule-driven, or manually awarded, and never more than one at a time). Five rule types: category milestones (1/5/10 distinct check-ins for coffee shops, restaurants, bars, bakeries, dessert spots, breweries, wineries), POI milestones (1/5/10 distinct points of interest), daily distinct venues (5 through 50 in steps of 5), same-venue-repeat-in-a-day, and one badge per level (1 through 10). Badge rules are global (not neighborhood-scoped) and never expire, matching how the account page already aggregates badges across every neighborhood. Completes BACKLOG.md Ref 61 ("Badge catalog endpoint"). (`supabase/migrations/20260710050000_badge_rule_engine.sql`, `apps/api/src/gamification/badges.ts`, `apps/api/src/gamification/repository.ts`)
+- **`GET /badges` catalog endpoint.** Returns every badge that exists, not just ones a user has earned, so the account page can show locked badges (dimmed, dashed outline) as a preview of what's achievable alongside earned ones. (`apps/api/src/app.ts`, `apps/web/src/app/account/page.tsx`)
+- **Check-in result card.** Sliding to check in now flips the control over (a real CSS 3D transform, not a redirect) to reveal what happened — success plus any points/badges/challenges just unlocked, or a too-far/cooldown/error message with a tap-to-retry affordance. The control's height now auto-fits whichever face (slider or result) is taller, so a result with several badge chips doesn't overflow. (`apps/web/src/app/SlideToCheckIn.tsx`, `apps/web/src/app/CheckinResultCard.tsx`, `apps/web/src/app/useCheckIn.ts`)
+- **"Visit any POI" and "Visit every POI" challenges.** A new challenge target (`target_kind`) lets a challenge be satisfied by checking into *any* point of interest in the neighborhood rather than one specific venue — used to convert the old single-venue "Explore Woodland Park" into "Visit any POI" and to add a new "Visit every POI" challenge (target count computed from the neighborhood's current active POI count). (`supabase/migrations/20260710030000_challenge_any_poi_target.sql`, `apps/api/src/gamification/challenges.ts`, `packages/types/src/index.ts`)
+- **Indefinite challenges.** `Challenge.ends_at` can now be null for a challenge with no scheduled end — used for the new evergreen "Thanks for Visiting Phinneywood" challenge (completed by a single check-in anywhere in the neighborhood) instead of a far-future placeholder date. (`supabase/migrations/20260710040000_summer_series_and_indefinite_challenges.sql`)
+- **Summer Series challenges.** Coffee Crawl, Visit any POI, and Visit every POI now share a summer-long window (July 1 – Sept 22), joined by four new category challenges (Bar Hop, Bakery Tour, Taste of Phinneywood, Retail Therapy) with matching badges. (`supabase/migrations/20260710040000_summer_series_and_indefinite_challenges.sql`)
+- **Internal component library page.** `/dev/components` (not linked from any nav) renders real production components — e.g. `PlaceListItem` + `SlideToCheckIn` — pinned to specific states (too far, API failed, success with 0/1/4 badges, challenge complete, challenge complete + badges) via a dev-only `mockResolution` prop, so every check-in outcome can be reviewed side by side and by actually sliding, without a live backend. (`apps/web/src/app/dev/components/page.tsx`)
+
+### Changed
+
+- **Check-in points/challenges/badges response.** `POST /locations/:id/checkins` now returns a `rewards` object (points earned, challenges completed, badges earned) alongside the check-in itself, replacing a bare check-in response that gave the client no way to show what a check-in unlocked. (`apps/api/src/gamification/rewards.ts`, `packages/types/src/index.ts`)
+- **User level moved server-side.** `GET /me/points` now returns `level`/`points_into_level`/`points_to_next_level` computed by the API, so the account page and the new level-reached badges always agree on the same number instead of each computing it independently client- and server-side. (`apps/api/src/gamification/points.ts`, `apps/web/src/app/account/ProfileSummaryCard.tsx`)
+
 ## [0.39.0] — 2026-07-10
 
 ### Added
