@@ -282,6 +282,7 @@ const BASE_DETAIL: LocationDetailRecord = {
   neighborhoodName: "Phinneywood",
   socialLinks: {},
   checkinCount: 3,
+  favoriteCount: 2,
 };
 
 describe("getLocationDetailWithFreshEnrichment", () => {
@@ -307,6 +308,7 @@ describe("getLocationDetailWithFreshEnrichment", () => {
     expect(placesClient.calls).toEqual(["google-place-1"]);
     expect(result?.enrichment).toMatchObject({ rating: 4.7 });
     expect(result?.checkin_count).toBe(3);
+    expect(result?.favorite_count).toBe(2);
     expect(result?.kind).toBe("business");
   });
 

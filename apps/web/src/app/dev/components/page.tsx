@@ -1,4 +1,14 @@
-import type { AppUser, Badge, CheckinRewardsSummary, CompletedChallengeSummary, UserPointsSummary } from "@blockwise/types";
+import type {
+  AppUser,
+  Badge,
+  CheckinRewardsSummary,
+  CompletedChallengeSummary,
+  NeighborhoodProfile,
+  UserPointsSummary,
+  VenueDetail,
+} from "@blockwise/types";
+import { LocationSummaryCard } from "../../location/[id]/LocationSummaryCard";
+import { NeighborhoodSummaryCard } from "../../neighborhoods/[slug]/NeighborhoodSummaryCard";
 import { PlaceListItem } from "../../PlaceListItem";
 import type { CheckinStatus } from "../../useCheckIn";
 import { SlideToCheckIn } from "../../SlideToCheckIn";
@@ -148,6 +158,121 @@ const PROFILE_CARDS: {
   },
 ];
 
+function neighborhood(overrides: Partial<NeighborhoodProfile> & Pick<NeighborhoodProfile, "id" | "name" | "slug">): NeighborhoodProfile {
+  return {
+    description: null,
+    city: "Seattle",
+    state: "WA",
+    pois: [],
+    social_links: {},
+    venue_count: 0,
+    poi_count: 0,
+    member_count: 0,
+    checkin_count: 0,
+    ...overrides,
+  };
+}
+
+const NEIGHBORHOOD_CARDS: { label: string; neighborhood: NeighborhoodProfile }[] = [
+  {
+    label: "Full stats, description, and social links",
+    neighborhood: neighborhood({
+      id: "demo-neighborhood-1",
+      name: "Greenwood",
+      slug: "greenwood",
+      description: "A walkable pocket of North Seattle known for antique shops, brewpubs, and a lively weekend market.",
+      venue_count: 42,
+      poi_count: 11,
+      member_count: 318,
+      checkin_count: 1204,
+      social_links: { instagram: "https://instagram.com/greenwoodseattle", website: "https://greenwoodseattle.com" },
+    }),
+  },
+  {
+    label: "No description, no social links -- new/sparse neighborhood",
+    neighborhood: neighborhood({
+      id: "demo-neighborhood-2",
+      name: "Ballard",
+      slug: "ballard",
+      venue_count: 3,
+      poi_count: 1,
+      member_count: 5,
+      checkin_count: 2,
+    }),
+  },
+];
+
+function venueDetail(overrides: Partial<VenueDetail> & Pick<VenueDetail, "id" | "name" | "kind">): VenueDetail {
+  return {
+    google_place_id: null,
+    type: null,
+    description: null,
+    address: "9057 Greenwood Ave N, Seattle, WA 98103, USA",
+    lat: 47.6896,
+    lng: -122.3553,
+    category_name: null,
+    claimed_by_business: false,
+    enrichment: null,
+    checkin_count: 0,
+    favorite_count: 0,
+    neighborhood_slug: "greenwood",
+    neighborhood_name: "Greenwood",
+    social_links: {},
+    ...overrides,
+  };
+}
+
+const LOCATION_CARDS: { label: string; location: VenueDetail }[] = [
+  {
+    label: "Business -- claimed, rated, with social links, heavy check-in history",
+    location: venueDetail({
+      id: "demo-location-1",
+      name: "Wilson Tax And Accounting",
+      kind: "business",
+      category_name: "Accounting & Tax",
+      claimed_by_business: true,
+      checkin_count: 512,
+      favorite_count: 89,
+      enrichment: {
+        venue_id: "demo-location-1",
+        source: "google",
+        rating: 4.7,
+        reviews: [],
+        price_tier: null,
+        photo_refs: [],
+        phone: null,
+        website: null,
+        hours: null,
+        editorial_summary: null,
+        atmosphere: null,
+        fetched_at: NOW,
+      },
+      social_links: { instagram: "https://instagram.com/wilsontax", website: "https://wilsontax.example.com" },
+    }),
+  },
+  {
+    label: "Business -- unclaimed, no rating, no check-ins yet",
+    location: venueDetail({
+      id: "demo-location-2",
+      name: "Corner Cafe",
+      kind: "business",
+      category_name: "Coffee & Tea",
+    }),
+  },
+  {
+    label: "POI -- with description and check-in count",
+    location: venueDetail({
+      id: "demo-location-3",
+      name: "Greenwood Water Tower",
+      kind: "poi",
+      type: "Landmark",
+      description: "A century-old water tower turned neighborhood landmark, visible from most of Greenwood.",
+      checkin_count: 86,
+      favorite_count: 14,
+    }),
+  },
+];
+
 export default function ComponentLibraryPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4 font-sans sm:p-16">
@@ -175,6 +300,36 @@ export default function ComponentLibraryPage() {
                 badgeCount={badgeCount}
                 challengeCount={challengeCount}
               />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
+          Neighborhood summary card (NeighborhoodSummaryCard, as rendered on /neighborhoods/[slug])
+        </h2>
+
+        <div className="flex flex-col gap-6">
+          {NEIGHBORHOOD_CARDS.map(({ label, neighborhood: n }) => (
+            <div key={n.id} className="flex flex-col gap-2">
+              <p className="text-[11px] font-extrabold tracking-wide text-muted uppercase">{label}</p>
+              <NeighborhoodSummaryCard neighborhood={n} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
+          Location summary card (LocationSummaryCard, as rendered on /location/[id])
+        </h2>
+
+        <div className="flex flex-col gap-6">
+          {LOCATION_CARDS.map(({ label, location }) => (
+            <div key={location.id} className="flex flex-col gap-2">
+              <p className="text-[11px] font-extrabold tracking-wide text-muted uppercase">{label}</p>
+              <LocationSummaryCard location={location} />
             </div>
           ))}
         </div>
