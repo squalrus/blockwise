@@ -42,6 +42,7 @@ export interface LocationDetailRecord {
   // with no approved claim, and always empty for kind "poi".
   socialLinks: SocialLinks;
   checkinCount: number;
+  favoriteCount: number;
 }
 
 export interface CreateLocationInput {

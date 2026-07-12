@@ -158,6 +158,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       { data: enrichment, error: enrichmentError },
       { data: claim, error: claimError },
       { count: checkinCount, error: checkinError },
+      { count: favoriteCount, error: favoriteError },
     ] = await Promise.all([
       this.supabase
         .from("venue_enrichment_cache")
@@ -177,12 +178,17 @@ export class SupabaseLocationRepository implements LocationRepository {
         .from("checkin")
         .select("id", { count: "exact", head: true })
         .eq("venue_id", locationId),
+      this.supabase
+        .from("favorite")
+        .select("id", { count: "exact", head: true })
+        .eq("venue_id", locationId),
     ]);
 
     if (enrichmentError)
       throw new Error(`getLocationDetail (enrichment) failed: ${enrichmentError.message}`);
     if (claimError) throw new Error(`getLocationDetail (claim) failed: ${claimError.message}`);
     if (checkinError) throw new Error(`getLocationDetail (checkin count) failed: ${checkinError.message}`);
+    if (favoriteError) throw new Error(`getLocationDetail (favorite count) failed: ${favoriteError.message}`);
 
     return {
       id: location.id,
@@ -201,6 +207,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       neighborhoodName: neighborhoodEmbed.name,
       socialLinks: (claim?.social_links as SocialLinks | null) ?? {},
       checkinCount: checkinCount ?? 0,
+      favoriteCount: favoriteCount ?? 0,
     };
   }
 

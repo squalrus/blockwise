@@ -138,6 +138,7 @@ export async function getLocationDetailWithFreshEnrichment(
     claimed_by_business: record.claimedByBusiness,
     enrichment,
     checkin_count: record.checkinCount,
+    favorite_count: record.favoriteCount,
     neighborhood_slug: record.neighborhoodSlug,
     neighborhood_name: record.neighborhoodName,
     social_links: record.socialLinks,

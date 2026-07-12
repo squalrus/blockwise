@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.41.1] — 2026-07-12
+
+### Added
+
+- **Neighborhood and location summary cards.** `NeighborhoodSummaryCard` and `LocationSummaryCard` extract the neighborhood and business/POI detail pages' header blocks into standalone, self-contained components (own `rounded-2xl bg-card-alt` card background, matching `ProfileSummaryCard`), so all three profile summary cards can be reviewed side by side on `/dev/components`. (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/dev/components/page.tsx`)
+- **Growing-mushroom fields on neighborhood and location cards.** Both new cards grow a mushroom field like the account card, scaled from `sqrt(checkin_count)` instead of level. Unlike the account card's single repeated skin, each mushroom in a neighborhood/location field gets its own distinct skin — reading as a mosaic of the different people who checked in there, via a new `distinctMushrooms` option on the shared field renderer. (`apps/web/src/app/MushroomField.tsx`)
+- **Check-in and favorite counts on the location card.** Both business and POI cards now show Check-ins and Favorites stat tiles side by side (previously only POIs showed a check-in count, and businesses showed neither). Backed by a new `favorite_count` field on `GET /locations/:id`, computed the same way `checkin_count` already was. (`apps/api/src/locations/supabaseRepository.ts`, `apps/api/src/locations/locations.ts`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **`MushroomField` extracted as a shared component.** The scatter/cap/render logic previously inlined in `ProfileSummaryCard` now lives in its own component so the neighborhood, location, and account cards all grow their fields the same way instead of three copies of the same code. (`apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`)
+
 ## [0.41.0] — 2026-07-12
 
 ### Added

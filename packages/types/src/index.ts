@@ -165,6 +165,9 @@ export interface VenueDetail {
   // they share one detail page (BACKLOG.md "POIs and venues managed almost
   // the same"), previously POI-only via PoiDetail.
   checkin_count: number;
+  // All-time favorite/follow count (BACKLOG.md Ref 30's `favorite` table),
+  // shown alongside checkin_count on the summary card for both kinds.
+  favorite_count: number;
   // The neighborhood this location belongs to (venues/POIs both browse from
   // the neighborhood page), for the detail page's "back to neighborhood" link.
   neighborhood_slug: string;
