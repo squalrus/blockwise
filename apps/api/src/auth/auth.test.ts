@@ -23,6 +23,7 @@ class FakeAuthRepository implements AuthRepository {
       anonymousDeviceId: deviceId,
       displayName: null,
       avatarUrl: null,
+      avatarStyle: "social",
       username: null,
       visibility: "private",
       createdAt: new Date().toISOString(),
@@ -71,6 +72,7 @@ class FakeAuthRepository implements AuthRepository {
       anonymousDeviceId: deviceUser ? null : input.anonymousDeviceId,
       displayName: null,
       avatarUrl: input.avatarUrl,
+      avatarStyle: "social",
       username: null,
       visibility: "private",
       createdAt: new Date().toISOString(),
@@ -110,7 +112,7 @@ class FakeAuthRepository implements AuthRepository {
       throw new UsernameTakenError(input.username);
     }
     if ("displayName" in input) user.displayName = input.displayName ?? null;
-    if ("avatarUrl" in input) user.avatarUrl = input.avatarUrl ?? null;
+    if ("avatarStyle" in input) user.avatarStyle = input.avatarStyle!;
     if ("username" in input) user.username = input.username ?? null;
     if ("visibility" in input) user.visibility = input.visibility!;
     return user;
@@ -182,18 +184,18 @@ describe("completeSignup", () => {
 });
 
 describe("updateProfile", () => {
-  it("sets display name, avatar, and visibility", async () => {
+  it("sets display name, avatar style, and visibility", async () => {
     const repo = new FakeAuthRepository();
     const user = await completeSignup(VERIFIED, "consumer", null, repo);
 
     const updated = await updateProfile(
       user,
-      { displayName: "Jane", avatarUrl: "https://example.com/avatar.png", visibility: "public" },
+      { displayName: "Jane", avatarStyle: "mushroom", visibility: "public" },
       repo
     );
 
     expect(updated.displayName).toBe("Jane");
-    expect(updated.avatarUrl).toBe("https://example.com/avatar.png");
+    expect(updated.avatarStyle).toBe("mushroom");
     expect(updated.visibility).toBe("public");
   });
 
@@ -208,11 +210,11 @@ describe("updateProfile", () => {
     const user = await completeSignup(VERIFIED, "consumer", null, repo);
     await updateProfile(user, { displayName: "Jane", visibility: "public" }, repo);
 
-    const updated = await updateProfile(user, { avatarUrl: "https://example.com/avatar.png" }, repo);
+    const updated = await updateProfile(user, { avatarStyle: "mushroom" }, repo);
 
     expect(updated.displayName).toBe("Jane");
     expect(updated.visibility).toBe("public");
-    expect(updated.avatarUrl).toBe("https://example.com/avatar.png");
+    expect(updated.avatarStyle).toBe("mushroom");
   });
 
   it("treats a blank display name as clearing it rather than storing an empty string", async () => {
@@ -225,14 +227,16 @@ describe("updateProfile", () => {
     expect(updated.displayName).toBeNull();
   });
 
-  it("clears a field when explicitly set to null", async () => {
+  it("switches avatar style back and forth (mushroom <-> social)", async () => {
     const repo = new FakeAuthRepository();
     const user = await completeSignup(VERIFIED, "consumer", null, repo);
-    await updateProfile(user, { avatarUrl: "https://example.com/avatar.png" }, repo);
+    expect(user.avatarStyle).toBe("social");
 
-    const updated = await updateProfile(user, { avatarUrl: null }, repo);
+    const toMushroom = await updateProfile(user, { avatarStyle: "mushroom" }, repo);
+    expect(toMushroom.avatarStyle).toBe("mushroom");
 
-    expect(updated.avatarUrl).toBeNull();
+    const backToSocial = await updateProfile(user, { avatarStyle: "social" }, repo);
+    expect(backToSocial.avatarStyle).toBe("social");
   });
 
   it("lowercases and trims a username (BACKLOG.md 'Public user profiles')", async () => {

@@ -7,6 +7,7 @@ import type {
   CheckinHistoryItem,
   FavoriteVenueSummary,
   UserBadge,
+  UserChallengesSummary,
   UserPointsSummary,
 } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
@@ -30,6 +31,7 @@ type State =
       // BACKLOG.md Ref 61: every badge that exists, cross-referenced against
       // `badges` (earned) to render locked placeholders too.
       badgeCatalog: Badge[];
+      challengesSummary: UserChallengesSummary;
     };
 
 // Activity/action hub (BACKLOG.md "My account page"): identity from GET
@@ -54,15 +56,23 @@ export default function AccountPage() {
 
       const token = await getAccessToken();
       const headers = { Authorization: `Bearer ${token}` };
-      const [favoritesRes, checkinsRes, pointsRes, badgesRes, catalogRes] = await Promise.all([
+      const [favoritesRes, checkinsRes, pointsRes, badgesRes, catalogRes, challengesRes] = await Promise.all([
         fetch(clientApiUrl("/me/favorites"), { headers }),
         fetch(clientApiUrl("/me/checkins"), { headers }),
         fetch(clientApiUrl("/me/points"), { headers }),
         fetch(clientApiUrl("/me/badges"), { headers }),
         fetch(clientApiUrl("/badges")),
+        fetch(clientApiUrl("/me/challenges/completed-count"), { headers }),
       ]);
       if (cancelled) return;
-      if (!favoritesRes.ok || !checkinsRes.ok || !pointsRes.ok || !badgesRes.ok || !catalogRes.ok) {
+      if (
+        !favoritesRes.ok ||
+        !checkinsRes.ok ||
+        !pointsRes.ok ||
+        !badgesRes.ok ||
+        !catalogRes.ok ||
+        !challengesRes.ok
+      ) {
         setState({ status: "error", message: "Failed to load your account" });
         return;
       }
@@ -75,6 +85,7 @@ export default function AccountPage() {
         pointsSummary: await pointsRes.json(),
         badges: await badgesRes.json(),
         badgeCatalog: await catalogRes.json(),
+        challengesSummary: await challengesRes.json(),
       });
     }
 
@@ -118,6 +129,8 @@ export default function AccountPage() {
             favoriteCount={state.favorites.length}
             checkinCount={state.checkins.length}
             pointsSummary={state.pointsSummary}
+            badgeCount={state.badges.length}
+            challengeCount={state.challengesSummary.completed_count}
           />
 
           <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">

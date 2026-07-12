@@ -311,6 +311,15 @@ export type AccountType = "consumer" | "business";
 // their presence (activity, connections) visible to anyone else.
 export type ProfileVisibility = "public" | "private";
 
+// BACKLOG.md "Mushroom avatars" -- avatar_url is seeded once from the OAuth
+// provider's photo at signup and is otherwise read-only (never client-
+// settable via PATCH /me/profile, to close off arbitrary/explicit-content
+// URLs); avatar_style is the only user-editable choice, picking between that
+// social photo and the account's randomly-assigned mushroom (packages/ui's
+// mushroomConfigForUser, deterministic from `id` -- no image upload/URL
+// involved either way).
+export type AvatarStyle = "social" | "mushroom";
+
 export interface AppUser {
   id: string;
   is_anonymous: boolean;
@@ -319,6 +328,7 @@ export interface AppUser {
   phone: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  avatar_style: AvatarStyle;
   // BACKLOG.md "Public user profiles" -- the handle a public profile is
   // addressed by (/profile/:username), distinct from the internal id.
   // Unset (null) until the user chooses one; unique when set.
@@ -333,7 +343,7 @@ export interface AppUser {
 
 export interface UpdateProfileRequest {
   display_name?: string | null;
-  avatar_url?: string | null;
+  avatar_style?: AvatarStyle;
   username?: string | null;
   visibility?: ProfileVisibility;
 }
@@ -444,10 +454,19 @@ export interface PublicUserProfile {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  avatar_style: AvatarStyle;
   joined_at: string;
   neighborhoods: NeighborhoodMembership[];
   recent_checkins: CheckinHistoryItem[];
   badges: UserBadge[];
+  // Added alongside ProfileSummaryCard reuse on the public profile page --
+  // checkin_count/favorite_count are all-time totals (unlike recent_checkins,
+  // capped to PUBLIC_PROFILE_CHECKIN_LIMIT), mirroring /me/points and
+  // /me/challenges/completed-count's account-page equivalents.
+  checkin_count: number;
+  favorite_count: number;
+  points_summary: UserPointsSummary;
+  challenges_summary: UserChallengesSummary;
 }
 
 export interface NeighborhoodSummary {
@@ -850,4 +869,11 @@ export interface UserPointsSummary {
   level: number;
   points_into_level: number;
   points_to_next_level: number;
+}
+
+// GET /me/challenges/completed-count -- an all-time, all-neighborhood total
+// of challenges this user has completed, for the account page's profile
+// summary card, mirroring UserPointsSummary above.
+export interface UserChallengesSummary {
+  completed_count: number;
 }

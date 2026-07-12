@@ -189,6 +189,16 @@ export class SupabaseGamificationRepository implements GamificationRepository {
     return data !== null;
   }
 
+  async countCompletedChallengesForUser(userId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("user_challenge_completion")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (error) throw new Error(`countCompletedChallengesForUser failed: ${error.message}`);
+    return count ?? 0;
+  }
+
   async countDistinctVenuesCheckedInForCategory(input: {
     userId: string;
     categoryId: string;

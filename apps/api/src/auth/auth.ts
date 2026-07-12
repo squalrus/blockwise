@@ -11,6 +11,7 @@ export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean): 
     phone: record.phone,
     display_name: record.displayName,
     avatar_url: record.avatarUrl,
+    avatar_style: record.avatarStyle,
     username: record.username,
     visibility: record.visibility,
     created_at: record.createdAt,
@@ -68,7 +69,7 @@ export async function updateProfile(
     const trimmed = input.displayName?.trim();
     patch.displayName = trimmed ? trimmed : null;
   }
-  if ("avatarUrl" in input) patch.avatarUrl = input.avatarUrl;
+  if ("avatarStyle" in input) patch.avatarStyle = input.avatarStyle;
   if ("username" in input) {
     const trimmed = input.username?.trim().toLowerCase();
     patch.username = trimmed ? trimmed : null;

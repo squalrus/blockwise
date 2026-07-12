@@ -124,11 +124,12 @@ Auth gates:
 ├── neighborhoods                                      GET — auth
 ├── points                                              GET — auth — all-time, all-neighborhood points total + level/points_into_level/points_to_next_level
 ├── badges                                              GET — auth — every badge this user has earned, across every neighborhood
-└── profile                                            PATCH — auth — display_name/avatar_url/username/visibility
+├── challenges/completed-count                          GET — auth — all-time, all-neighborhood completed-challenge count
+└── profile                                            PATCH — auth — display_name/avatar_style/username/visibility (avatar_url is read-only, seeded from OAuth at signup)
 
 /badges                                              GET — public — every badge that exists (earned or not), for locked-badge display (BACKLOG.md Ref 61)
 
-/users/:username                                     GET — public — profile (only reachable if visibility = public)
+/users/:username                                     GET — public — profile (only reachable if visibility = public); checkin_count/favorite_count/points_summary/challenges_summary/avatar_style alongside badges/recent_checkins/neighborhoods
 
 /business/
 ├── venues                                            GET — business — venues this account has claimed

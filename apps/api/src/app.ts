@@ -1,6 +1,7 @@
 import express from "express";
 import type {
   AccountType,
+  AvatarStyle,
   BusinessClaimContactMethod,
   BusinessClaimStatus,
   CheckinRewardsSummary,
@@ -56,7 +57,7 @@ import {
 import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
-import { listChallengesWithProgress } from "./gamification/challenges";
+import { getUserChallengesSummary, listChallengesWithProgress } from "./gamification/challenges";
 import { awardFounderBadge } from "./gamification/founderBadge";
 import { awardFavoritePoints, getLeaderboard, getUserBadges, getUserPoints } from "./gamification/points";
 import { awardCheckinRewards } from "./gamification/rewards";
@@ -111,6 +112,7 @@ const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
 const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "private"];
+const AVATAR_STYLES: AvatarStyle[] = ["social", "mushroom"];
 // BACKLOG.md "Public user profiles": matches the app_user.username check
 // constraint (migration 20260707010000) -- kept in sync with it.
 const USERNAME_PATTERN = /^[a-z0-9_-]{3,30}$/;
@@ -851,6 +853,23 @@ export function createApp() {
     }
   });
 
+  // Account page profile summary card (BACKLOG.md Ref 47) -- an all-time,
+  // all-neighborhood completed-challenge count, mirroring GET /me/points
+  // above.
+  app.get(
+    "/me/challenges/completed-count",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const summary = await getUserChallengesSummary(req.appUser!.id, getGamificationRepository());
+        res.json(summary);
+      } catch (err) {
+        console.error("GET /me/challenges/completed-count failed:", err);
+        res.status(500).json({ error: "Failed to load completed challenge count" });
+      }
+    }
+  );
+
   // BACKLOG.md Ref 61: every badge that exists (earned or not), so the
   // account page can render "locked" badges alongside GET /me/badges'
   // earned ones. Public/no auth -- the badge catalog isn't per-user data.
@@ -885,20 +904,25 @@ export function createApp() {
   );
 
   // BACKLOG.md "User profiles with public or private visibility": display
-  // name / avatar / public-private toggle, self-service only -- req.appUser
-  // is always the caller's own row (resolved from their own token), never
-  // another user's, so there's no id param to authorize against.
+  // name / avatar style / public-private toggle, self-service only --
+  // req.appUser is always the caller's own row (resolved from their own
+  // token), never another user's, so there's no id param to authorize
+  // against. avatar_url itself isn't accepted here (BACKLOG.md "Mushroom
+  // avatars") -- it's seeded once from the OAuth provider at signup and
+  // otherwise read-only, so a client can never point it at an arbitrary
+  // (and potentially explicit-content) URL. avatar_style only toggles
+  // between that social photo and the account's mushroom.
   app.patch(
     "/me/profile",
     requireAuthUser(getSupabaseClient, getAuthRepository),
     async (req, res) => {
-      const { display_name, avatar_url, username, visibility } = req.body ?? {};
+      const { display_name, avatar_style, username, visibility } = req.body ?? {};
       if (display_name !== undefined && display_name !== null && typeof display_name !== "string") {
         res.status(400).json({ error: "display_name must be a string or null" });
         return;
       }
-      if (avatar_url !== undefined && avatar_url !== null && typeof avatar_url !== "string") {
-        res.status(400).json({ error: "avatar_url must be a string or null" });
+      if (avatar_style !== undefined && !AVATAR_STYLES.includes(avatar_style)) {
+        res.status(400).json({ error: `avatar_style must be one of ${AVATAR_STYLES.join(", ")}` });
         return;
       }
       if (username !== undefined && username !== null && typeof username !== "string") {
@@ -925,7 +949,7 @@ export function createApp() {
           req.appUser!,
           {
             ...(display_name !== undefined && { displayName: display_name }),
-            ...(avatar_url !== undefined && { avatarUrl: avatar_url }),
+            ...(avatar_style !== undefined && { avatarStyle: avatar_style }),
             ...(username !== undefined && { username }),
             ...(visibility !== undefined && { visibility }),
           },
@@ -950,7 +974,10 @@ export function createApp() {
   // both "no such username" and "profile is private" -- a private profile
   // isn't distinguishable from a nonexistent one to an outside caller.
   // Recent check-ins are gated by the same profile-level visibility, since
-  // checkin has no per-row privacy field of its own.
+  // checkin has no per-row privacy field of its own. checkin_count/
+  // favorite_count/points_summary/challenges_summary let the web app render
+  // ProfileSummaryCard here too -- favorite_count is a plain count (the
+  // favorited venues themselves stay private; only /me/favorites lists them).
   app.get("/users/:username", async (req, res) => {
     try {
       const user = await getAuthRepository().getByUsername(req.params.username.toLowerCase());
@@ -959,16 +986,20 @@ export function createApp() {
         return;
       }
 
-      const [checkins, neighborhoods, badges] = await Promise.all([
+      const [checkins, neighborhoods, badges, favorites, pointsSummary, challengesSummary] = await Promise.all([
         getCheckinRepository().listCheckinsForUser(user.id),
         listMembershipsForUser(user.id, getNeighborhoodMemberRepository()),
         getUserBadges(user.id, getGamificationRepository()),
+        getFavoriteRepository().listFavoriteVenuesForUser(user.id),
+        getUserPoints(user.id, getGamificationRepository()),
+        getUserChallengesSummary(user.id, getGamificationRepository()),
       ]);
 
       res.json({
         username: user.username,
         display_name: user.displayName,
         avatar_url: user.avatarUrl,
+        avatar_style: user.avatarStyle,
         joined_at: user.createdAt,
         neighborhoods,
         recent_checkins: checkins.slice(0, PUBLIC_PROFILE_CHECKIN_LIMIT).map((c) => ({
@@ -978,6 +1009,10 @@ export function createApp() {
           checked_in_at: c.checkedInAt,
         })),
         badges,
+        checkin_count: checkins.length,
+        favorite_count: favorites.length,
+        points_summary: pointsSummary,
+        challenges_summary: challengesSummary,
       });
     } catch (err) {
       console.error(`GET /users/${req.params.username} failed:`, err);

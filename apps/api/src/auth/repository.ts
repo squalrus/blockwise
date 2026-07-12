@@ -1,4 +1,4 @@
-import type { AccountType, ProfileVisibility } from "@blockwise/types";
+import type { AccountType, AvatarStyle, ProfileVisibility } from "@blockwise/types";
 
 export interface AppUserRecord {
   id: string;
@@ -11,6 +11,7 @@ export interface AppUserRecord {
   anonymousDeviceId: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  avatarStyle: AvatarStyle;
   username: string | null;
   visibility: ProfileVisibility;
   createdAt: string;
@@ -18,7 +19,12 @@ export interface AppUserRecord {
 
 export interface UpdateProfileInput {
   displayName?: string | null;
-  avatarUrl?: string | null;
+  // avatarUrl is intentionally absent -- it's seeded once from the OAuth
+  // provider at signup (CompleteSignupInput.avatarUrl below) and is never
+  // client-settable afterward, closing off arbitrary/explicit-content image
+  // URLs. avatarStyle (social vs. mushroom) is the only avatar choice a user
+  // can make via PATCH /me/profile.
+  avatarStyle?: AvatarStyle;
   username?: string | null;
   visibility?: ProfileVisibility;
 }
