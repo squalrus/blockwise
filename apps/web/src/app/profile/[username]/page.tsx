@@ -1,10 +1,36 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { PublicUserProfile } from "@blockwise/types";
+import type { AppUser, PublicUserProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
-import { Avatar } from "../../Avatar";
+import { ProfileSummaryCard } from "../../account/ProfileSummaryCard";
 import { BadgeIcon } from "../../BadgeIcon";
 import { CheckinTimeline } from "../../CheckinTimeline";
+
+// ProfileSummaryCard takes a full AppUser, but a public profile only ever
+// exposes username/display_name/avatar_url/avatar_style -- the rest are
+// placeholders the card never reads (it only touches those plus the
+// display_name/username/email fallback chain for its label, and this
+// profile always has a username since GET /users/:username 404s
+// otherwise). id doubles as the mushroom seed here, so it's set to the
+// public username rather than the real internal id (not exposed publicly)
+// -- still stable and unique, just not the same value account/dev-page
+// mushrooms for this user are seeded from.
+function toCardUser(profile: PublicUserProfile): AppUser {
+  return {
+    id: profile.username,
+    is_anonymous: false,
+    account_type: "consumer",
+    email: null,
+    phone: null,
+    display_name: profile.display_name,
+    avatar_url: profile.avatar_url,
+    avatar_style: profile.avatar_style,
+    username: profile.username,
+    visibility: "public",
+    created_at: profile.joined_at,
+    is_neighborhood_admin: false,
+  };
+}
 
 async function getProfile(username: string): Promise<PublicUserProfile | null> {
   const res = await fetch(apiUrl(`/users/${username}`), { cache: "no-store" });
@@ -33,19 +59,21 @@ export default async function PublicProfilePage({
         ← Home
       </Link>
 
-      <div className="flex items-center gap-4">
-        <Avatar avatarUrl={profile.avatar_url} label={profile.display_name ?? profile.username} size={64} />
-        <div>
-          <h1 className="font-heading text-xl font-extrabold text-foreground">
-            {profile.display_name ?? profile.username}
-          </h1>
-          <p className="text-sm text-muted">
-            @{profile.username} · Joined {new Date(profile.joined_at).toLocaleDateString()}
-          </p>
-        </div>
+      <div className="flex flex-col gap-1.5">
+        <ProfileSummaryCard
+          user={toCardUser(profile)}
+          favoriteCount={profile.favorite_count}
+          checkinCount={profile.checkin_count}
+          pointsSummary={profile.points_summary}
+          badgeCount={profile.badges.length}
+          challengeCount={profile.challenges_summary.completed_count}
+        />
+        <p className="px-1 text-sm text-muted">
+          @{profile.username} · Joined {new Date(profile.joined_at).toLocaleDateString()}
+        </p>
       </div>
 
-      <section className="flex flex-col gap-2.5">
+      <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">
         <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Badges</h2>
         {profile.badges.length === 0 ? (
           <p className="text-sm text-muted">No badges earned yet.</p>
@@ -88,7 +116,7 @@ export default async function PublicProfilePage({
         )}
       </section>
 
-      <section className="flex flex-col gap-2.5">
+      <section id="checkins" className="flex flex-col gap-2.5 scroll-mt-16">
         <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Recent check-ins</h2>
         <CheckinTimeline checkins={profile.recent_checkins} emptyMessage="No check-ins yet." />
       </section>

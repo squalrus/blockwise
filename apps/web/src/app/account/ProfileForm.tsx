@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { AppUser, ProfileVisibility } from "@blockwise/types";
+import type { AppUser, AvatarStyle, ProfileVisibility } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { Avatar } from "../Avatar";
@@ -12,6 +12,12 @@ type Status = { state: "idle" | "submitting" | "error"; message?: string };
 // display name / avatar / visibility edit, private by default -- other users
 // only ever see this once the separate "Public user profiles" item builds a
 // page that reads it.
+//
+// Avatar is a choice, not a free-text URL (BACKLOG.md "Mushroom avatars") --
+// letting a user paste any image URL was an explicit-content risk, so the
+// only two options are the social photo already on file (from OAuth signup)
+// and the account's randomly-assigned mushroom. avatar_url itself is never
+// submitted from here; PATCH /me/profile no longer accepts it at all.
 export function ProfileForm({
   user,
   onSaved,
@@ -20,6 +26,8 @@ export function ProfileForm({
   onSaved: (user: AppUser) => void;
 }) {
   const [status, setStatus] = useState<Status>({ state: "idle" });
+  const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>(user.avatar_style);
+  const label = user.display_name ?? user.username ?? "?";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -27,7 +35,6 @@ export function ProfileForm({
 
     const data = new FormData(e.currentTarget);
     const displayName = String(data.get("display_name") ?? "").trim();
-    const avatarUrl = String(data.get("avatar_url") ?? "").trim();
     const username = String(data.get("username") ?? "").trim();
     const visibility = data.get("visibility") as ProfileVisibility;
 
@@ -38,7 +45,7 @@ export function ProfileForm({
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           display_name: displayName || null,
-          avatar_url: avatarUrl || null,
+          avatar_style: avatarStyle,
           username: username || null,
           visibility,
         }),
@@ -58,14 +65,50 @@ export function ProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl bg-card-alt px-6 py-4">
-      <div className="flex items-center gap-3">
-        <Avatar avatarUrl={user.avatar_url} label={user.display_name ?? user.username ?? "?"} size={48} />
-        {user.visibility === "public" && user.username && (
-          <a href={`/profile/${user.username}`} className="text-sm font-bold text-brand-purple hover:text-brand-orange">
-            View public profile
-          </a>
-        )}
-      </div>
+      {user.visibility === "public" && user.username && (
+        <a href={`/profile/${user.username}`} className="self-start text-sm font-bold text-brand-purple hover:text-brand-orange">
+          View public profile
+        </a>
+      )}
+      <fieldset className="flex flex-col gap-1.5 text-sm text-muted">
+        Avatar
+        <div className="flex gap-3">
+          <label
+            className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-3 py-2.5 ${
+              avatarStyle === "social" ? "border-brand-purple bg-card" : "border-border"
+            } ${user.avatar_url ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+          >
+            <input
+              type="radio"
+              name="avatar_style_choice"
+              value="social"
+              checked={avatarStyle === "social"}
+              disabled={!user.avatar_url}
+              onChange={() => setAvatarStyle("social")}
+              className="sr-only"
+            />
+            <Avatar avatarUrl={user.avatar_url} avatarStyle="social" seed={user.id} label={label} size={48} />
+            <span className="text-xs font-bold text-foreground">Social photo</span>
+            {!user.avatar_url && <span className="text-[11px] text-muted">None on file</span>}
+          </label>
+          <label
+            className={`flex flex-1 cursor-pointer flex-col items-center gap-1.5 rounded-lg border px-3 py-2.5 ${
+              avatarStyle === "mushroom" ? "border-brand-purple bg-card" : "border-border"
+            }`}
+          >
+            <input
+              type="radio"
+              name="avatar_style_choice"
+              value="mushroom"
+              checked={avatarStyle === "mushroom"}
+              onChange={() => setAvatarStyle("mushroom")}
+              className="sr-only"
+            />
+            <Avatar avatarUrl={null} avatarStyle="mushroom" seed={user.id} label={label} size={48} />
+            <span className="text-xs font-bold text-foreground">Mushroom avatar</span>
+          </label>
+        </div>
+      </fieldset>
       <label className="flex flex-col gap-1 text-sm text-muted">
         Display name
         <input
@@ -73,16 +116,6 @@ export function ProfileForm({
           type="text"
           defaultValue={user.display_name ?? ""}
           placeholder="How other users will see you"
-          className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm text-muted">
-        Avatar URL
-        <input
-          name="avatar_url"
-          type="url"
-          defaultValue={user.avatar_url ?? ""}
-          placeholder="https://..."
           className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
       </label>

@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AccountType, ProfileVisibility } from "@blockwise/types";
+import type { AccountType, AvatarStyle, ProfileVisibility } from "@blockwise/types";
 import type { AppUserRecord, AuthRepository, CompleteSignupInput, UpdateProfileInput } from "./repository";
 import { UsernameTakenError } from "./repository";
 
 const USER_COLUMNS =
-  "id, is_anonymous, account_type, auth_user_id, auth_provider, email, phone, anonymous_device_id, display_name, avatar_url, username, visibility, created_at";
+  "id, is_anonymous, account_type, auth_user_id, auth_provider, email, phone, anonymous_device_id, display_name, avatar_url, avatar_style, username, visibility, created_at";
 
 // Postgres unique_violation.
 const UNIQUE_VIOLATION = "23505";
@@ -20,6 +20,7 @@ function toRecord(row: {
   anonymous_device_id: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  avatar_style: AvatarStyle;
   username: string | null;
   visibility: ProfileVisibility;
   created_at: string;
@@ -35,6 +36,7 @@ function toRecord(row: {
     anonymousDeviceId: row.anonymous_device_id,
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
+    avatarStyle: row.avatar_style,
     username: row.username,
     visibility: row.visibility,
     createdAt: row.created_at,
@@ -189,7 +191,7 @@ export class SupabaseAuthRepository implements AuthRepository {
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<AppUserRecord> {
     const patch: Record<string, unknown> = {};
     if ("displayName" in input) patch.display_name = input.displayName;
-    if ("avatarUrl" in input) patch.avatar_url = input.avatarUrl;
+    if ("avatarStyle" in input) patch.avatar_style = input.avatarStyle;
     if ("username" in input) patch.username = input.username;
     if ("visibility" in input) patch.visibility = input.visibility;
 

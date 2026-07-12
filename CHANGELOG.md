@@ -2,6 +2,19 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.41.0] — 2026-07-12
+
+### Added
+
+- **Mushroom avatars.** Every account now has a randomly-assigned mushroom "skin" (cap color, stalk color, spot pattern), deterministic from the account id so it's stable across sessions without any new data to store. On `/account/settings`, avatar choice is now a picker between that mushroom and the account's social sign-in photo, rather than a free-text URL field — closing off an explicit-content risk where a user could point their avatar at any arbitrary image on the web. `PATCH /me/profile` no longer accepts `avatar_url` at all; it's now read-only, seeded once from the OAuth provider at signup. (`packages/ui/src/MushroomMark.tsx`, `packages/ui/src/mushroomConfig.ts`, `apps/web/src/app/Avatar.tsx`, `apps/web/src/app/account/ProfileForm.tsx`, `supabase/migrations/20260711010000_avatar_style.sql`, `packages/types/src/index.ts`, `apps/api/src/auth/`)
+- **Growing-mushroom level field on the profile summary card.** A muted green field now grows along the bottom of `ProfileSummaryCard`, with one little mushroom (in the account's own mushroom skin, scattered at random-but-stable positions) for every level reached. (`apps/web/src/app/account/ProfileSummaryCard.tsx`)
+- **Badges and Challenges stats on the profile summary card.** The card's stat row grew from 3 tiles (Favorites, Check-ins, Points) to 5, adding a Badges count and an all-time Challenges-completed count. Backed by a new `GET /me/challenges/completed-count` endpoint and repository method, since no existing query returned a user's lifetime completed-challenge count. (`apps/api/src/app.ts`, `apps/api/src/gamification/challenges.ts`, `apps/api/src/gamification/repository.ts`, `apps/web/src/app/account/ProfileSummaryCard.tsx`)
+- **Profile summary card on public profiles.** `/profile/:username` now renders the same `ProfileSummaryCard` used on the account page, rather than a bespoke header. `GET /users/:username` was extended with `checkin_count`, `favorite_count` (a count only — favorited venues themselves stay private), `points_summary`, `challenges_summary`, and `avatar_style` to support it. (`apps/web/src/app/profile/[username]/page.tsx`, `apps/api/src/app.ts`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **`MushroomMark` shared between the brand guidelines page and per-user avatars.** The full four-part mushroom renderer (previously a marketing-only `BrandMushroom` component) moved to `packages/ui` so both the `/brand` anatomy illustration and mushroom avatars render from one source of truth. (`packages/ui/src/MushroomMark.tsx`, `apps/marketing/src/app/brand/BrandMushroom.tsx`)
+
 ## [0.40.0] — 2026-07-11
 
 ### Added

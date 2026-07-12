@@ -91,6 +91,10 @@ export class FakeGamificationRepository implements GamificationRepository {
     return this.completions.has(`${userId}:${challengeId}`);
   }
 
+  async countCompletedChallengesForUser(userId: string): Promise<number> {
+    return Array.from(this.completions).filter((key) => key.startsWith(`${userId}:`)).length;
+  }
+
   async countDistinctVenuesCheckedInForCategory(input: {
     userId: string;
     categoryId: string;

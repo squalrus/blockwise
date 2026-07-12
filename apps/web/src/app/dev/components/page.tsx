@@ -1,7 +1,8 @@
-import type { Badge, CheckinRewardsSummary, CompletedChallengeSummary } from "@blockwise/types";
+import type { AppUser, Badge, CheckinRewardsSummary, CompletedChallengeSummary, UserPointsSummary } from "@blockwise/types";
 import { PlaceListItem } from "../../PlaceListItem";
 import type { CheckinStatus } from "../../useCheckIn";
 import { SlideToCheckIn } from "../../SlideToCheckIn";
+import { ProfileSummaryCard } from "../../account/ProfileSummaryCard";
 
 // Internal component library -- not linked from any nav, reachable only by
 // knowing the URL. Renders the *exact* components/rows real pages use (e.g.
@@ -84,6 +85,69 @@ const STATES: { label: string; status: CheckinStatus }[] = [
   },
 ];
 
+function profileUser(overrides: Partial<AppUser> & Pick<AppUser, "id" | "display_name">): AppUser {
+  return {
+    is_anonymous: false,
+    account_type: "consumer",
+    email: null,
+    phone: null,
+    avatar_url: null,
+    avatar_style: "mushroom",
+    username: null,
+    visibility: "public",
+    created_at: NOW,
+    is_neighborhood_admin: false,
+    ...overrides,
+  };
+}
+
+const PROFILE_CARDS: {
+  label: string;
+  user: AppUser;
+  favoriteCount: number;
+  checkinCount: number;
+  pointsSummary: UserPointsSummary;
+  badgeCount: number;
+  challengeCount: number;
+}[] = [
+  {
+    label: "New forager -- Level 1, just getting started",
+    user: profileUser({ id: "demo-profile-1", display_name: "Jamie R" }),
+    favoriteCount: 1,
+    checkinCount: 0,
+    pointsSummary: { points: 5, level: 1, points_into_level: 5, points_to_next_level: 45 },
+    badgeCount: 0,
+    challengeCount: 0,
+  },
+  {
+    label: "Level 4 -- matches screenshot",
+    user: profileUser({ id: "demo-profile-2", display_name: "Chad S" }),
+    favoriteCount: 6,
+    checkinCount: 13,
+    pointsSummary: { points: 160, level: 4, points_into_level: 60, points_to_next_level: 40 },
+    badgeCount: 3,
+    challengeCount: 1,
+  },
+  {
+    label: "Level 9 -- heavy activity, near level-up",
+    user: profileUser({ id: "demo-profile-3", display_name: "Morgan Lee" }),
+    favoriteCount: 22,
+    checkinCount: 87,
+    pointsSummary: { points: 940, level: 9, points_into_level: 90, points_to_next_level: 10 },
+    badgeCount: 11,
+    challengeCount: 6,
+  },
+  {
+    label: "Long display name -- wrapping/truncation check",
+    user: profileUser({ id: "demo-profile-4", display_name: "Alexandria Montgomery-Whitfield" }),
+    favoriteCount: 3,
+    checkinCount: 2,
+    pointsSummary: { points: 25, level: 2, points_into_level: 5, points_to_next_level: 45 },
+    badgeCount: 1,
+    challengeCount: 0,
+  },
+];
+
 export default function ComponentLibraryPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4 font-sans sm:p-16">
@@ -93,6 +157,28 @@ export default function ComponentLibraryPage() {
           Internal reference only -- not linked from any nav. Pins components to specific states for review.
         </p>
       </div>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
+          Profile summary card (ProfileSummaryCard, as rendered on /account)
+        </h2>
+
+        <div className="flex flex-col gap-6">
+          {PROFILE_CARDS.map(({ label, user, favoriteCount, checkinCount, pointsSummary, badgeCount, challengeCount }) => (
+            <div key={user.id} className="flex flex-col gap-2">
+              <p className="text-[11px] font-extrabold tracking-wide text-muted uppercase">{label}</p>
+              <ProfileSummaryCard
+                user={user}
+                favoriteCount={favoriteCount}
+                checkinCount={checkinCount}
+                pointsSummary={pointsSummary}
+                badgeCount={badgeCount}
+                challengeCount={challengeCount}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">

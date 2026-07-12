@@ -5,3 +5,4 @@ export const BRAND_ORANGE = "#e8542a";
 export const BRAND_AMBER = "#f2a93b";
 export const BRAND_GREEN = "#4c8c4a";
 export const BRAND_PURPLE = "#8b5fbf";
+export const BRAND_INK = "#2b1b12";

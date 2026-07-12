@@ -1,16 +1,25 @@
-// Shared avatar rendering (BACKLOG.md "Show profile picture from Google"):
-// shows avatar_url when set, otherwise a monogram of the display name/
-// username so a profile never renders as a bare empty circle.
+import type { AvatarStyle } from "@blockwise/types";
+import { MushroomMark, mushroomConfigForUser } from "@blockwise/ui";
+
+// Shared avatar rendering (BACKLOG.md "Show profile picture from Google" /
+// "Mushroom avatars"): shows the social photo when avatarStyle is "social"
+// and one is on file, otherwise the account's randomly-assigned mushroom
+// (deterministic from `seed`, normally the user's id) -- never a bare
+// monogram, since every user always has a seed to render a mushroom from.
 export function Avatar({
   avatarUrl,
+  avatarStyle,
+  seed,
   label,
   size = 40,
 }: {
   avatarUrl: string | null;
+  avatarStyle: AvatarStyle;
+  seed: string;
   label: string;
   size?: number;
 }) {
-  if (avatarUrl) {
+  if (avatarStyle === "social" && avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -24,14 +33,16 @@ export function Avatar({
     );
   }
 
-  const initial = label.trim().charAt(0).toUpperCase() || "?";
+  const mushroom = mushroomConfigForUser(seed);
   return (
-    <div
-      className="flex shrink-0 items-center justify-center rounded-full border-[3px] border-nav bg-brand-amber font-heading font-extrabold text-ink"
-      style={{ width: size, height: size, fontSize: size * 0.4 }}
-      aria-label={label}
-    >
-      {initial}
-    </div>
+    <MushroomMark
+      size={size}
+      cap={mushroom.cap}
+      stalk={mushroom.stalk}
+      spots={mushroom.stalk}
+      pattern={mushroom.pattern}
+      bg="var(--card)"
+      bgShape="circle"
+    />
   );
 }

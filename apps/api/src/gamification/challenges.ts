@@ -1,4 +1,4 @@
-import type { Badge, ChallengeProgress, LocationKind } from "@blockwise/types";
+import type { Badge, ChallengeProgress, LocationKind, UserChallengesSummary } from "@blockwise/types";
 import type { ChallengeRecord, GamificationRepository } from "./repository";
 
 // Returned by evaluateChallengesAfterCheckin so the check-in response
@@ -96,6 +96,17 @@ export async function listChallengesWithProgress(
       return toChallengeProgress(challenge, progressCount, completed);
     })
   );
+}
+
+// BACKLOG.md Ref 47: an all-time, all-neighborhood completed-challenge
+// count for the account page's profile summary card, mirroring
+// points.ts's getUserPoints.
+export async function getUserChallengesSummary(
+  userId: string,
+  repository: GamificationRepository
+): Promise<UserChallengesSummary> {
+  const completedCount = await repository.countCompletedChallengesForUser(userId);
+  return { completed_count: completedCount };
 }
 
 // Called after a successful check-in: finds every active challenge this

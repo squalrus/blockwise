@@ -139,6 +139,10 @@ export interface GamificationRepository {
 
   hasCompletedChallenge(userId: string, challengeId: string): Promise<boolean>;
 
+  // All-time count across every neighborhood (BACKLOG.md Ref 47's account
+  // page profile summary), mirroring getUserPointsTotal above.
+  countCompletedChallengesForUser(userId: string): Promise<number>;
+
   // Distinct venues (matching categoryId, within the neighborhood) this user
   // has checked into within [startsAt, endsAt] -- the progress metric for a
   // category challenge like "5 different coffee shops". A null endsAt (an
