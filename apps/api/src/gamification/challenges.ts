@@ -1,4 +1,4 @@
-import type { Badge, ChallengeProgress, LocationKind, UserChallengesSummary } from "@blockwise/types";
+import type { Badge, ChallengeProgress, LocationKind, UserChallenge, UserChallengesSummary } from "@blockwise/types";
 import type { ChallengeRecord, GamificationRepository } from "./repository";
 
 // Returned by evaluateChallengesAfterCheckin so the check-in response
@@ -107,6 +107,26 @@ export async function getUserChallengesSummary(
 ): Promise<UserChallengesSummary> {
   const completedCount = await repository.countCompletedChallengesForUser(userId);
   return { completed_count: completedCount };
+}
+
+// GET /me/challenges (BACKLOG.md Ref 47's account page Challenges tab):
+// every challenge this user has completed, across every neighborhood,
+// mirroring points.ts's getUserBadges.
+export async function getUserCompletedChallenges(
+  userId: string,
+  repository: GamificationRepository
+): Promise<UserChallenge[]> {
+  const records = await repository.getUserCompletedChallenges(userId);
+  return records.map((record) => ({
+    id: record.id,
+    title: record.title,
+    description: record.description,
+    neighborhood_id: record.neighborhoodId,
+    neighborhood_name: record.neighborhoodName,
+    points_reward: record.pointsReward,
+    badge: record.badge,
+    completed_at: record.completedAt,
+  }));
 }
 
 // Called after a successful check-in: finds every active challenge this

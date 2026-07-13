@@ -4,6 +4,7 @@ import type {
   BadgeRecord,
   BadgeRuleRecord,
   ChallengeRecord,
+  CompletedChallengeRecord,
   CompleteChallengeInput,
   GamificationRepository,
   LeaderboardRow,
@@ -31,6 +32,11 @@ export class FakeGamificationRepository implements GamificationRepository {
   badgeCatalog = new Map<string, BadgeRecord>();
   private badgeAwardedAt = new Map<string, string>();
   private nextBadgeAwardMs = 1;
+  private completionCompletedAt = new Map<string, string>(); // `${userId}:${challengeId}`
+  private nextCompletionMs = 1;
+  // Neighborhood names keyed by id, for tests that need
+  // getUserCompletedChallenges to return a real name rather than the id.
+  neighborhoodNames = new Map<string, string>();
   checkins: { userId: string; venueId: string; checkedInAt: string }[] = [];
   users = new Map<string, { displayName: string | null; username: string | null; avatarUrl: string | null; visibility: "public" | "private" }>();
   badgeRules: BadgeRuleRecord[] = [];
@@ -171,6 +177,7 @@ export class FakeGamificationRepository implements GamificationRepository {
     const key = `${input.userId}:${input.challengeId}`;
     if (this.completions.has(key)) return false;
     this.completions.add(key);
+    this.completionCompletedAt.set(key, new Date(this.nextCompletionMs++).toISOString());
 
     if (input.pointsReward > 0) {
       this.pointEvents.push({
@@ -240,6 +247,29 @@ export class FakeGamificationRepository implements GamificationRepository {
         awardedAt: this.badgeAwardedAt.get(`${userId}:${b.badgeId}`) ?? new Date(0).toISOString(),
       }))
       .sort((a, b) => (a.awardedAt < b.awardedAt ? 1 : -1));
+  }
+
+  async getUserCompletedChallenges(userId: string): Promise<CompletedChallengeRecord[]> {
+    return Array.from(this.completions)
+      .filter((key) => key.startsWith(`${userId}:`))
+      .flatMap((key) => {
+        const challengeId = key.slice(`${userId}:`.length);
+        const challenge = this.challenges.find((c) => c.id === challengeId);
+        if (!challenge) return [];
+        return [
+          {
+            id: challenge.id,
+            title: challenge.title,
+            description: challenge.description,
+            neighborhoodId: challenge.neighborhoodId,
+            neighborhoodName: this.neighborhoodNames.get(challenge.neighborhoodId) ?? challenge.neighborhoodId,
+            pointsReward: challenge.pointsReward,
+            badge: challenge.badge,
+            completedAt: this.completionCompletedAt.get(key) ?? new Date(0).toISOString(),
+          },
+        ];
+      })
+      .sort((a, b) => (a.completedAt < b.completedAt ? 1 : -1));
   }
 
   async getAllBadges(): Promise<BadgeRecord[]> {

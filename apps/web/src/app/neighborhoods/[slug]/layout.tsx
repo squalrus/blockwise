@@ -4,7 +4,6 @@ import type { NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { JoinNeighborhoodButton } from "./JoinNeighborhoodButton";
 import { ManageNeighborhoodButton } from "./ManageNeighborhoodButton";
-import { NeighborhoodMapArt } from "./NeighborhoodMapArt";
 import { NeighborhoodSummaryCard } from "./NeighborhoodSummaryCard";
 import { NeighborhoodTabs } from "./NeighborhoodTabs";
 
@@ -37,8 +36,6 @@ export default async function NeighborhoodLayout({
       <Link href="/" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
         ← All neighborhoods
       </Link>
-
-      <NeighborhoodMapArt />
 
       <NeighborhoodSummaryCard
         neighborhood={neighborhood}

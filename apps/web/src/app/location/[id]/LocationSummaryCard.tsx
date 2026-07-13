@@ -1,5 +1,6 @@
 import type { SocialLinks, VenueDetail } from "@blockwise/types";
 import { MushroomField } from "../../MushroomField";
+import { SlideToCheckIn } from "../../SlideToCheckIn";
 import { StatCard } from "../../StatCard";
 
 const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
@@ -83,6 +84,8 @@ export function LocationSummaryCard({
       </div>
 
       {isBusiness && favoriteAction && <div className="flex gap-2.5">{favoriteAction}</div>}
+
+      <SlideToCheckIn locationId={location.id} />
 
       {/* Grows with check-ins like the neighborhood card -- sqrt keeps a
           long-running popular spot's field differentiated from a brand-new

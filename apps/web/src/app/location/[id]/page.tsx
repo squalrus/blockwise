@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import type { Announcement, Event, VenueDetail } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { EnrichmentAbout, EnrichmentPhotos, EnrichmentReviews } from "../../EnrichmentSection";
-import { SlideToCheckIn } from "../../SlideToCheckIn";
 import { ClaimBusinessForm } from "./ClaimBusinessForm";
 import { FavoriteButton } from "./FavoriteButton";
 import { LocationSummaryCard } from "./LocationSummaryCard";
@@ -73,10 +72,6 @@ export default async function LocationDetailPage({
         favoriteAction={isBusiness ? <FavoriteButton venueId={location.id} /> : undefined}
       />
 
-      <SlideToCheckIn locationId={location.id} />
-
-      {isBusiness && !location.claimed_by_business && <ClaimBusinessForm venueId={location.id} />}
-
       {(isBusiness || location.enrichment) && (
         <EnrichmentAbout
           enrichment={location.enrichment}
@@ -120,6 +115,8 @@ export default async function LocationDetailPage({
           </ul>
         </div>
       )}
+
+      {isBusiness && !location.claimed_by_business && <ClaimBusinessForm venueId={location.id} />}
     </div>
   );
 }

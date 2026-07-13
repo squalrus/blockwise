@@ -136,3 +136,24 @@ a {
 :root[data-theme="dark"] .icon-glow {
   filter: drop-shadow(0 0 6px currentColor);
 }
+
+/* CheckinResultCard's success state: each unlocked badge/challenge row
+   slides down as though it were tucked behind the row above it (the
+   "Checked in" line, or the previous unlock row) rather than fading in in
+   place. Paired with each row's own z-index (set inline, earlier rows
+   stacked above later ones) so the reveal reads as sliding out from
+   underneath, not over top. */
+@keyframes unlock-card-reveal {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.unlock-card {
+  animation: unlock-card-reveal 350ms ease-out both;
+}

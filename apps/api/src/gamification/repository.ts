@@ -79,6 +79,20 @@ export interface UserBadgeRecord {
   awardedAt: string;
 }
 
+// A challenge this user has completed, joined with the neighborhood it
+// belongs to (BACKLOG.md Ref 47's account page Challenges tab), mirroring
+// UserBadgeRecord above.
+export interface CompletedChallengeRecord {
+  id: string;
+  title: string;
+  description: string | null;
+  neighborhoodId: string;
+  neighborhoodName: string;
+  pointsReward: number;
+  badge: BadgeRecord | null;
+  completedAt: string;
+}
+
 // Badge rule engine: badges earned by their own standalone rules, fully
 // decoupled from challenges (no FK either direction, no shared evaluation
 // code -- see badges.ts vs challenges.ts). Unlike challenges, rules are
@@ -206,6 +220,11 @@ export interface GamificationRepository {
   // listChallengesForNeighborhood, this isn't scoped to one neighborhood's
   // challenge templates, and includes non-challenge awards (e.g. founder).
   getUserBadges(userId: string): Promise<UserBadgeRecord[]>;
+
+  // Every challenge this user has completed, across every neighborhood
+  // (BACKLOG.md Ref 47's account page Challenges tab), mirroring
+  // getUserBadges above.
+  getUserCompletedChallenges(userId: string): Promise<CompletedChallengeRecord[]>;
 
   // BACKLOG.md Ref 61: every badge that exists, so the account page can show
   // "locked" badges the user hasn't earned yet alongside earned ones.

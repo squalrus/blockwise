@@ -11,31 +11,53 @@ type ResultStatus = Exclude<CheckinStatus, { state: "idle" } | { state: "checkin
 export function CheckinResultCard({ status, onDismiss }: { status: ResultStatus; onDismiss: () => void }) {
   if (status.state === "success") {
     const { rewards } = status;
+    const unlockCount = rewards.badges_earned.length + rewards.challenges_completed.length;
     return (
-      <div className="flex w-full flex-col items-center gap-2 rounded-3xl bg-nav px-5 py-4 text-center">
-        <p className="text-sm font-extrabold text-nav-muted">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-3xl bg-nav px-5 py-4 text-center">
+        {/* Sits above the unlock rows below (relative + z-index) so the
+            first row visibly slides out from behind it rather than over
+            top of it. */}
+        <p className="relative z-[100] text-sm font-extrabold text-nav-muted">
           Checked in ✓ <span className="text-brand-orange">+{rewards.points_earned} pts</span>
         </p>
-        {(rewards.badges_earned.length > 0 || rewards.challenges_completed.length > 0) && (
-          <ul className="flex flex-wrap items-center justify-center gap-1.5">
-            {rewards.badges_earned.map((badge) => (
-              <li
+        {unlockCount > 0 && (
+          <div className="flex w-full flex-col gap-2">
+            {rewards.badges_earned.map((badge, i) => (
+              <div
                 key={badge.id}
-                className="flex items-center gap-1 rounded-full bg-brand-amber px-2.5 py-1 text-[11px] font-extrabold text-ink"
+                className="unlock-card relative flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 text-left"
+                style={{ animationDelay: `${i * 140}ms`, zIndex: unlockCount - i }}
               >
-                <BadgeIcon icon={badge.icon} name={badge.name} />
-                {badge.name}
-              </li>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-nav-foreground bg-brand-amber text-xl">
+                  <BadgeIcon icon={badge.icon} name={badge.name} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-nav-foreground">{badge.name}</p>
+                  {badge.description && <p className="mt-0.5 text-xs text-nav-muted">{badge.description}</p>}
+                </div>
+              </div>
             ))}
-            {rewards.challenges_completed.map((challenge) => (
-              <li
-                key={challenge.id}
-                className="flex items-center gap-1 rounded-full bg-brand-green px-2.5 py-1 text-[11px] font-extrabold text-white"
-              >
-                🎉 {challenge.title}
-              </li>
-            ))}
-          </ul>
+            {rewards.challenges_completed.map((challenge, j) => {
+              const i = rewards.badges_earned.length + j;
+              return (
+                <div
+                  key={challenge.id}
+                  className="unlock-card relative flex items-center justify-between gap-3 rounded-2xl bg-white/10 px-4 py-3 text-left"
+                  style={{ animationDelay: `${i * 140}ms`, zIndex: unlockCount - i }}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-extrabold text-nav-foreground">{challenge.title}</p>
+                    <p className="mt-0.5 text-xs font-bold text-brand-green">+{challenge.points_reward} pts</p>
+                  </div>
+                  {challenge.badge && (
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-nav-foreground bg-brand-amber text-lg">
+                      <BadgeIcon icon={challenge.badge.icon} name={challenge.badge.name} />
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     );
@@ -56,7 +78,7 @@ export function CheckinResultCard({ status, onDismiss }: { status: ResultStatus;
     <button
       type="button"
       onClick={onDismiss}
-      className="flex w-full flex-col items-center gap-1 rounded-3xl bg-nav px-5 py-4 text-center"
+      className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-3xl bg-nav px-5 py-4 text-center"
     >
       <span className="text-sm font-extrabold text-nav-muted">Check-in didn&apos;t go through</span>
       <span className="text-xs text-nav-muted">{message}</span>

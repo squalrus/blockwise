@@ -5,6 +5,7 @@ import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomLogo } from "@blockwise/ui";
+import { Avatar } from "./Avatar";
 import { ThemeToggle } from "./ThemeToggle";
 
 type State =
@@ -118,6 +119,21 @@ export function AccountNav() {
             className="flex items-center justify-center rounded-md p-1 text-nav-foreground hover:text-nav-muted"
           >
             <CheckinIcon />
+          </a>
+        )}
+        {state.status === "signed_in" && (
+          <a
+            href="/account"
+            aria-label="My account"
+            className="flex items-center justify-center rounded-md p-1 text-nav-foreground hover:text-nav-muted"
+          >
+            <Avatar
+              avatarUrl={state.user.avatar_url}
+              avatarStyle={state.user.avatar_style}
+              seed={state.user.id}
+              label="My account"
+              size={22}
+            />
           </a>
         )}
         <button

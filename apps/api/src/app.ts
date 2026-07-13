@@ -60,7 +60,11 @@ import {
 import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
-import { getUserChallengesSummary, listChallengesWithProgress } from "./gamification/challenges";
+import {
+  getUserChallengesSummary,
+  getUserCompletedChallenges,
+  listChallengesWithProgress,
+} from "./gamification/challenges";
 import { awardFounderBadge } from "./gamification/founderBadge";
 import { awardFavoritePoints, getLeaderboard, getUserBadges, getUserPoints } from "./gamification/points";
 import { awardCheckinRewards, awardNeighborConnectionRewards } from "./gamification/rewards";
@@ -907,6 +911,19 @@ export function createApp() {
     }
   );
 
+  // Account page Challenges tab (BACKLOG.md Ref 47) -- every challenge the
+  // signed-in user has completed, across every neighborhood, mirroring
+  // GET /me/badges above.
+  app.get("/me/challenges", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const challenges = await getUserCompletedChallenges(req.appUser!.id, getGamificationRepository());
+      res.json(challenges);
+    } catch (err) {
+      console.error("GET /me/challenges failed:", err);
+      res.status(500).json({ error: "Failed to load completed challenges" });
+    }
+  });
+
   // BACKLOG.md Ref 61: every badge that exists (earned or not), so the
   // account page can render "locked" badges alongside GET /me/badges'
   // earned ones. Public/no auth -- the badge catalog isn't per-user data.
@@ -1164,12 +1181,13 @@ export function createApp() {
   // isn't distinguishable from a nonexistent one to an outside caller.
   // Recent check-ins are gated by the same profile-level visibility, since
   // checkin has no per-row privacy field of its own. checkin_count/
-  // favorite_count/points_summary/challenges_summary let the web app render
-  // ProfileSummaryCard here too -- favorite_count is a plain count (the
-  // favorited venues themselves stay private; only /me/favorites lists them).
-  // neighbor_count is likewise a plain count (BACKLOG.md Ref 14/33) -- the
-  // connections themselves stay private to the two parties, only /me/connections
-  // lists them.
+  // favorite_count/points_summary let the web app render ProfileSummaryCard
+  // here too -- favorite_count is a plain count (the favorited venues
+  // themselves stay private; only /me/favorites lists them). neighbor_count
+  // is likewise a plain count (BACKLOG.md Ref 14/33) -- the connections
+  // themselves stay private to the two parties, only /me/connections lists
+  // them. `badges`/`challenges` are full lists like their /me/ equivalents
+  // (the profile page itself only surfaces the latest of each).
   app.get("/users/:username", async (req, res) => {
     try {
       const user = await getAuthRepository().getByUsername(req.params.username.toLowerCase());
@@ -1178,14 +1196,14 @@ export function createApp() {
         return;
       }
 
-      const [checkins, neighborhoods, badges, favorites, pointsSummary, challengesSummary, neighborCount] =
+      const [checkins, neighborhoods, badges, challenges, favorites, pointsSummary, neighborCount] =
         await Promise.all([
           getCheckinRepository().listCheckinsForUser(user.id),
           listMembershipsForUser(user.id, getNeighborhoodMemberRepository()),
           getUserBadges(user.id, getGamificationRepository()),
+          getUserCompletedChallenges(user.id, getGamificationRepository()),
           getFavoriteRepository().listFavoriteVenuesForUser(user.id),
           getUserPoints(user.id, getGamificationRepository()),
-          getUserChallengesSummary(user.id, getGamificationRepository()),
           getConnectionRepository().countAcceptedConnectionsForUser(user.id),
         ]);
 
@@ -1203,10 +1221,10 @@ export function createApp() {
           checked_in_at: c.checkedInAt,
         })),
         badges,
+        challenges,
         checkin_count: checkins.length,
         favorite_count: favorites.length,
         points_summary: pointsSummary,
-        challenges_summary: challengesSummary,
         neighbor_count: neighborCount,
       });
     } catch (err) {
