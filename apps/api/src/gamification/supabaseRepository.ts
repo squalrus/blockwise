@@ -7,6 +7,7 @@ import type {
   BadgeRuleType,
   ChallengeRecord,
   ChallengeTargetKind,
+  CompletedChallengeRecord,
   CompleteChallengeInput,
   GamificationRepository,
   LeaderboardRow,
@@ -85,6 +86,26 @@ function toBadgeRuleRecord(row: BadgeRuleRow): BadgeRuleRecord {
     categoryId: row.category_id,
     threshold: row.threshold,
   };
+}
+
+const USER_CHALLENGE_COMPLETION_COLUMNS =
+  "completed_at, challenge:challenge_id(id, title, description, points_reward, " +
+  "neighborhood_id, neighborhood:neighborhood_id(name), " +
+  "badge:badge_id(id, code, name, description, icon))";
+
+interface CompletedChallengeRow {
+  id: string;
+  title: string;
+  description: string | null;
+  points_reward: number;
+  neighborhood_id: string;
+  neighborhood: { name: string } | { name: string }[] | null;
+  badge: BadgeRecord | BadgeRecord[] | null;
+}
+
+interface UserChallengeCompletionRow {
+  completed_at: string;
+  challenge: CompletedChallengeRow | CompletedChallengeRow[] | null;
 }
 
 const UNIQUE_VIOLATION = "23505";
@@ -371,6 +392,33 @@ export class SupabaseGamificationRepository implements GamificationRepository {
       challengeId: row.challenge_id as string | null,
       awardedAt: row.awarded_at as string,
     }));
+  }
+
+  async getUserCompletedChallenges(userId: string): Promise<CompletedChallengeRecord[]> {
+    const { data, error } = await this.supabase
+      .from("user_challenge_completion")
+      .select(USER_CHALLENGE_COMPLETION_COLUMNS)
+      .eq("user_id", userId)
+      .order("completed_at", { ascending: false });
+
+    if (error) throw new Error(`getUserCompletedChallenges failed: ${error.message}`);
+
+    return ((data ?? []) as unknown as UserChallengeCompletionRow[]).flatMap((row) => {
+      const challenge = single(row.challenge);
+      if (!challenge) return [];
+      return [
+        {
+          id: challenge.id,
+          title: challenge.title,
+          description: challenge.description,
+          neighborhoodId: challenge.neighborhood_id,
+          neighborhoodName: single(challenge.neighborhood)?.name ?? "",
+          pointsReward: challenge.points_reward,
+          badge: single(challenge.badge),
+          completedAt: row.completed_at,
+        },
+      ];
+    });
   }
 
   async getAllBadges(): Promise<BadgeRecord[]> {

@@ -33,6 +33,10 @@ export function NeighborsSection({
     if (!username) return;
 
     setAddStatus({ state: "saving" });
+    // The request itself succeeding and the subsequent reload succeeding are
+    // two separate things -- if onChange() throws (a transient blip across
+    // AccountPage's own parallel fetches), that must not be reported as "the
+    // request didn't go through" when it actually did.
     try {
       const token = await getAccessToken();
       const res = await fetch(clientApiUrl("/me/connections"), {
@@ -44,16 +48,26 @@ export function NeighborsSection({
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? "Couldn't send request");
       }
-      setUsernameInput("");
-      setAddStatus({ state: "idle" });
-      await onChange();
     } catch (err) {
       setAddStatus({ state: "error", message: err instanceof Error ? err.message : "Couldn't send request" });
+      return;
+    }
+
+    setUsernameInput("");
+    setAddStatus({ state: "idle" });
+    try {
+      await onChange();
+    } catch {
+      // Request already succeeded -- a reload hiccup here isn't a failure to
+      // report, the list will catch up on the next successful reload.
     }
   }
 
   async function respond(id: string, action: "accept" | "remove") {
     setActionError(null);
+    // Same split as addNeighbor above -- don't let a reload failure after a
+    // successful accept/decline/cancel/remove read as the action itself
+    // having failed.
     try {
       const token = await getAccessToken();
       const res = await fetch(
@@ -61,9 +75,15 @@ export function NeighborsSection({
         { method: action === "accept" ? "POST" : "DELETE", headers: { Authorization: `Bearer ${token}` } }
       );
       if (!res.ok) throw new Error();
-      await onChange();
     } catch {
       setActionError("That didn't go through -- try again.");
+      return;
+    }
+
+    try {
+      await onChange();
+    } catch {
+      // Request already succeeded -- see addNeighbor's comment above.
     }
   }
 
@@ -72,9 +92,7 @@ export function NeighborsSection({
   const outgoing = connections.filter((c) => c.status === "pending" && c.direction === "outgoing");
 
   return (
-    <section id="neighbors" className="flex flex-col gap-2.5 scroll-mt-16">
-      <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Neighbors</h2>
-
+    <section className="flex flex-col gap-2.5">
       <form onSubmit={addNeighbor} className="flex gap-2">
         <input
           type="text"

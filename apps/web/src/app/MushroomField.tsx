@@ -8,12 +8,17 @@ const FIELD_HEIGHT_PX = 40;
 // Scattered (not gridded) placement, stable per seed -- each mushroom gets a
 // random spot within its own slice of the width so they land unevenly like
 // they actually grew there, without ever overlapping their neighbors.
+// liftPx ranges across the full field height so a mushroom can grow
+// anywhere on the green, from the bottom edge up to the very top -- only
+// the bottom of its stalk (where it's anchored via bottom-0 below) needs to
+// stay on the green; the rest of it is free to rise above the field into
+// the hill silhouette, same as it would growing on a real slope.
 function fieldLayout(seed: string, count: number): { leftPct: number; liftPx: number }[] {
   const rnd = mulberry32(hashSeed(`${seed}-field`));
   const slice = 100 / count;
   return Array.from({ length: count }, (_, i) => ({
     leftPct: slice * i + slice * 0.2 + rnd() * slice * 0.6,
-    liftPx: rnd() * (FIELD_HEIGHT_PX * 0.35),
+    liftPx: rnd() * FIELD_HEIGHT_PX,
   }));
 }
 

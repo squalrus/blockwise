@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type {
   AppUser,
   Badge,
@@ -10,6 +13,7 @@ import type {
 import { LocationSummaryCard } from "../../location/[id]/LocationSummaryCard";
 import { NeighborhoodSummaryCard } from "../../neighborhoods/[slug]/NeighborhoodSummaryCard";
 import { PlaceListItem } from "../../PlaceListItem";
+import { TabNav } from "../../TabNav";
 import type { CheckinStatus } from "../../useCheckIn";
 import { SlideToCheckIn } from "../../SlideToCheckIn";
 import { ProfileSummaryCard } from "../../account/ProfileSummaryCard";
@@ -278,7 +282,21 @@ const LOCATION_CARDS: { label: string; location: VenueDetail }[] = [
   },
 ];
 
+// One tab per component section below, via the shared TabNav (in-page
+// state, like /account) -- only the selected component's demo states
+// render at a time instead of one long scroll of every section.
+type ComponentTab = "profile-card" | "neighborhood-card" | "location-card" | "place-list-item";
+
+const NAV_ITEMS: { key: ComponentTab; label: string }[] = [
+  { key: "profile-card", label: "Profile card" },
+  { key: "neighborhood-card", label: "Neighborhood card" },
+  { key: "location-card", label: "Location card" },
+  { key: "place-list-item", label: "Venue row" },
+];
+
 export default function ComponentLibraryPage() {
+  const [activeTab, setActiveTab] = useState<ComponentTab>("profile-card");
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4 font-sans sm:p-16">
       <div>
@@ -288,6 +306,9 @@ export default function ComponentLibraryPage() {
         </p>
       </div>
 
+      <TabNav items={NAV_ITEMS} activeKey={activeTab} onSelect={(key) => setActiveTab(key as ComponentTab)} />
+
+      {activeTab === "profile-card" && (
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
           Profile summary card (ProfileSummaryCard, as rendered on /account)
@@ -312,7 +333,9 @@ export default function ComponentLibraryPage() {
           )}
         </div>
       </section>
+      )}
 
+      {activeTab === "neighborhood-card" && (
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
           Neighborhood summary card (NeighborhoodSummaryCard, as rendered on /neighborhoods/[slug])
@@ -327,7 +350,9 @@ export default function ComponentLibraryPage() {
           ))}
         </div>
       </section>
+      )}
 
+      {activeTab === "location-card" && (
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
           Location summary card (LocationSummaryCard, as rendered on /location/[id])
@@ -342,7 +367,9 @@ export default function ComponentLibraryPage() {
           ))}
         </div>
       </section>
+      )}
 
+      {activeTab === "place-list-item" && (
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
           Venue row + check-in slider (PlaceListItem, as rendered on /checkin)
@@ -366,6 +393,7 @@ export default function ComponentLibraryPage() {
           ))}
         </div>
       </section>
+      )}
     </div>
   );
 }

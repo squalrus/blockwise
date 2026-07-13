@@ -8,6 +8,11 @@ import { useCheckIn, type CheckinStatus } from "./useCheckIn";
 const THUMB_SIZE = 40;
 const TRACK_INSET = 6;
 const COMPLETE_THRESHOLD = 0.7;
+// The slider face's total height (p-4's 16px top+bottom plus the 52px
+// track) -- applied as the flip card's min-height below so a short result
+// (e.g. "Check-in didn't go through" with no badges) never renders shorter
+// than the control it replaced, only ever the same height or taller.
+const CONTROL_HEIGHT_PX = 84;
 
 // Full-interaction-fidelity take on the mockup's drag-to-check-in gesture:
 // drag the thumb across the track and release past 70% to trigger the GPS
@@ -19,9 +24,12 @@ const COMPLETE_THRESHOLD = 0.7;
 // check-in status plus any badges/challenges just unlocked on success. Both
 // faces sit in the same CSS grid cell (backface-visibility hidden on both,
 // so only one is ever visible) rather than being absolutely positioned --
-// grid auto-sizes the shared cell to the taller of the two, so a result card
-// with several badge/challenge chips grows the control instead of
-// overflowing past a fixed height.
+// grid auto-sizes the shared cell to the taller of the two (so a result
+// card with several badge/challenge chips grows the control instead of
+// overflowing past a fixed height) and stretches both faces to fill that
+// height (default align-items, not items-start), so a *shorter* result (no
+// badges, a one-line error) doesn't visually shrink the card either -- the
+// explicit min-height below is the floor for that same reason.
 export function SlideToCheckIn({
   locationId,
   // Component-library preview only (apps/web/src/app/dev/components) -- the
@@ -119,9 +127,10 @@ export function SlideToCheckIn({
   return (
     <div className="[perspective:1200px]">
       <div
-        className={`grid items-start [transform-style:preserve-3d] transition-transform duration-500 ${
+        className={`grid [transform-style:preserve-3d] transition-transform duration-500 ${
           flipped ? "[transform:rotateY(180deg)]" : ""
         }`}
+        style={{ minHeight: CONTROL_HEIGHT_PX }}
       >
         <div className="col-start-1 row-start-1 rounded-3xl bg-nav p-4 [backface-visibility:hidden]">
           <div

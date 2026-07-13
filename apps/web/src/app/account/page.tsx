@@ -8,7 +8,7 @@ import type {
   ConnectionSummary,
   FavoriteVenueSummary,
   UserBadge,
-  UserChallengesSummary,
+  UserChallenge,
   UserPointsSummary,
 } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
@@ -18,6 +18,19 @@ import { CheckinTimeline } from "../CheckinTimeline";
 import { NeighborsSection } from "./NeighborsSection";
 import { PlaceListItem } from "../PlaceListItem";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
+import { ProgressBar } from "../ProgressBar";
+import { TabNav } from "../TabNav";
+
+type AccountTab = "spores" | "favorites" | "checkins" | "badges" | "challenges" | "neighbors";
+
+const ACCOUNT_TABS: { key: AccountTab; label: string }[] = [
+  { key: "spores", label: "Spore Feed" },
+  { key: "favorites", label: "Favorites" },
+  { key: "checkins", label: "Check-ins" },
+  { key: "badges", label: "Badges" },
+  { key: "challenges", label: "Challenges" },
+  { key: "neighbors", label: "Neighbors" },
+];
 
 type State =
   | { status: "loading" }
@@ -33,7 +46,7 @@ type State =
       // BACKLOG.md Ref 61: every badge that exists, cross-referenced against
       // `badges` (earned) to render locked placeholders too.
       badgeCatalog: Badge[];
-      challengesSummary: UserChallengesSummary;
+      challenges: UserChallenge[];
       // BACKLOG.md Ref 14/33 "Connect with other users": every connection
       // involving this account, pending or accepted, in either direction.
       connections: ConnectionSummary[];
@@ -61,7 +74,7 @@ async function loadAccount(setState: (state: State) => void) {
       fetch(clientApiUrl("/me/points"), { headers }),
       fetch(clientApiUrl("/me/badges"), { headers }),
       fetch(clientApiUrl("/badges")),
-      fetch(clientApiUrl("/me/challenges/completed-count"), { headers }),
+      fetch(clientApiUrl("/me/challenges"), { headers }),
       fetch(clientApiUrl("/me/connections"), { headers }),
     ]);
   if (
@@ -85,13 +98,14 @@ async function loadAccount(setState: (state: State) => void) {
     pointsSummary: await pointsRes.json(),
     badges: await badgesRes.json(),
     badgeCatalog: await catalogRes.json(),
-    challengesSummary: await challengesRes.json(),
+    challenges: await challengesRes.json(),
     connections: await connectionsRes.json(),
   });
 }
 
 export default function AccountPage() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [activeTab, setActiveTab] = useState<AccountTab>("spores");
 
   useEffect(() => {
     loadAccount(setState);
@@ -131,85 +145,153 @@ export default function AccountPage() {
             checkinCount={state.checkins.length}
             pointsSummary={state.pointsSummary}
             badgeCount={state.badges.length}
-            challengeCount={state.challengesSummary.completed_count}
+            challengeCount={state.challenges.length}
             neighborCount={state.connections.filter((c) => c.status === "accepted").length}
           />
 
-          <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">
-            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Badges</h2>
-            {(() => {
-              const earnedIds = new Set(state.badges.map((b) => b.badge.id));
-              const locked = state.badgeCatalog.filter((b) => !earnedIds.has(b.id));
-              if (state.badges.length === 0 && locked.length === 0) {
+          <TabNav
+            items={ACCOUNT_TABS}
+            activeKey={activeTab}
+            onSelect={(key) => setActiveTab(key as AccountTab)}
+          />
+
+          {activeTab === "spores" && (
+            // Stub (BACKLOG.md): a future feed of neighbor/neighborhood
+            // activity -- check-ins, favorites, badge unlocks -- once the
+            // underlying data's shaped. Default tab since it's meant to be
+            // the first thing you see landing on your account.
+            <section className="flex flex-col gap-2.5">
+              <p className="text-sm text-muted">Coming soon -- a feed of what your neighbors are up to.</p>
+            </section>
+          )}
+
+          {activeTab === "badges" && (
+            <section className="flex flex-col gap-2.5">
+              {(() => {
+                const earnedIds = new Set(state.badges.map((b) => b.badge.id));
+                const locked = state.badgeCatalog.filter((b) => !earnedIds.has(b.id));
+                if (state.badges.length === 0 && locked.length === 0) {
+                  return (
+                    <p className="text-sm text-muted">
+                      No badges yet -- complete a neighborhood challenge to earn one.
+                    </p>
+                  );
+                }
                 return (
-                  <p className="text-sm text-muted">
-                    No badges yet -- complete a neighborhood challenge to earn one.
-                  </p>
+                  <ul className="flex flex-col gap-2">
+                    {state.badges.map((userBadge) => (
+                      <li
+                        key={userBadge.badge.id}
+                        className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3.5"
+                      >
+                        <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border-[3px] border-foreground bg-brand-amber text-2xl">
+                          <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-extrabold text-foreground">{userBadge.badge.name}</p>
+                          {userBadge.badge.description && (
+                            <p className="mt-0.5 text-xs text-body-text">{userBadge.badge.description}</p>
+                          )}
+                          <p className="mt-1 text-[11px] font-bold text-muted">
+                            Unlocked {new Date(userBadge.awarded_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                    {locked.map((badge) => (
+                      <li
+                        key={badge.id}
+                        className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3.5 opacity-40"
+                      >
+                        <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border-[3px] border-dashed border-foreground bg-card text-2xl grayscale">
+                          <BadgeIcon icon={badge.icon} name={badge.name} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-extrabold text-foreground">{badge.name}</p>
+                          {badge.description && (
+                            <p className="mt-0.5 text-xs text-body-text">{badge.description}</p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 );
-              }
-              return (
-                <ul className="flex flex-wrap gap-4">
-                  {state.badges.map((userBadge) => (
-                    <li key={userBadge.badge.id} className="flex flex-col items-center gap-1.5 text-center">
-                      <span className="flex h-13 w-13 items-center justify-center rounded-full border-[3px] border-nav bg-brand-amber text-2xl">
-                        <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
-                      </span>
-                      <span className="max-w-16 text-[10.5px] font-extrabold text-foreground">
-                        {userBadge.badge.name}
-                      </span>
-                    </li>
-                  ))}
-                  {locked.map((badge) => (
-                    <li
-                      key={badge.id}
-                      className="flex flex-col items-center gap-1.5 text-center opacity-40"
-                      title={badge.description ?? badge.name}
-                    >
-                      <span className="flex h-13 w-13 items-center justify-center rounded-full border-[3px] border-dashed border-nav bg-card-alt text-2xl grayscale">
-                        <BadgeIcon icon={badge.icon} name={badge.name} />
-                      </span>
-                      <span className="max-w-16 text-[10.5px] font-extrabold text-muted">{badge.name}</span>
+              })()}
+            </section>
+          )}
+
+          {activeTab === "challenges" && (
+            <section className="flex flex-col gap-2.5">
+              {state.challenges.length === 0 ? (
+                <p className="text-sm text-muted">
+                  No challenges completed yet -- check a neighborhood&apos;s Challenges tab to see what&apos;s active.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {state.challenges.map((challenge) => (
+                    <li key={challenge.id} className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="font-extrabold text-foreground">{challenge.title}</span>
+                          {challenge.description && (
+                            <p className="mt-1 text-body-text">{challenge.description}</p>
+                          )}
+                        </div>
+                        {challenge.badge && (
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-brand-amber text-lg">
+                            <BadgeIcon icon={challenge.badge.icon} name={challenge.badge.name} />
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2.5">
+                        <ProgressBar percent={100} />
+                      </div>
+                      <p className="mt-1.5 text-xs font-bold text-muted">
+                        {challenge.neighborhood_name} · +{challenge.points_reward} pts · Completed{" "}
+                        {new Date(challenge.completed_at).toLocaleString()}
+                      </p>
                     </li>
                   ))}
                 </ul>
-              );
-            })()}
-          </section>
+              )}
+            </section>
+          )}
 
-          <NeighborsSection
-            connections={state.connections}
-            onChange={() => loadAccount(setState)}
-          />
+          {activeTab === "neighbors" && (
+            <NeighborsSection connections={state.connections} onChange={() => loadAccount(setState)} />
+          )}
 
-          <section id="favorites" className="flex flex-col gap-2.5 scroll-mt-16">
-            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Favorite venues</h2>
-            {state.favorites.length === 0 ? (
-              <p className="text-sm text-muted">
-                No favorites yet -- tap the favorite button on a venue page to save it here.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {state.favorites.map((venue) => (
-                  <li key={venue.venue_id}>
-                    <PlaceListItem
-                      href={`/location/${venue.venue_id}`}
-                      id={venue.venue_id}
-                      name={venue.name}
-                      subtitle={venue.address}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          {activeTab === "favorites" && (
+            <section className="flex flex-col gap-2.5">
+              {state.favorites.length === 0 ? (
+                <p className="text-sm text-muted">
+                  No favorites yet -- tap the favorite button on a venue page to save it here.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {state.favorites.map((venue) => (
+                    <li key={venue.venue_id}>
+                      <PlaceListItem
+                        href={`/location/${venue.venue_id}`}
+                        id={venue.venue_id}
+                        name={venue.name}
+                        subtitle={venue.address}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
-          <section id="checkins" className="flex flex-col gap-2.5 scroll-mt-16">
-            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Recent check-ins</h2>
-            <CheckinTimeline
-              checkins={state.checkins}
-              emptyMessage="No check-ins yet -- check in from a venue page when you're there."
-            />
-          </section>
+          {activeTab === "checkins" && (
+            <section className="flex flex-col gap-2.5">
+              <CheckinTimeline
+                checkins={state.checkins}
+                emptyMessage="No check-ins yet -- check in from a venue page when you're there."
+              />
+            </section>
+          )}
 
           <div className="flex gap-2.5">
             <section className="flex-1 rounded-2xl bg-card-alt px-3.5 py-3.5 text-center">

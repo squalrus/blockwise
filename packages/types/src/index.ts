@@ -462,14 +462,17 @@ export interface PublicUserProfile {
   neighborhoods: NeighborhoodMembership[];
   recent_checkins: CheckinHistoryItem[];
   badges: UserBadge[];
+  // Every challenge this user has completed, across every neighborhood --
+  // mirrors `badges` above (the profile page shows only the latest of each,
+  // client-side, same as /account's tabs).
+  challenges: UserChallenge[];
   // Added alongside ProfileSummaryCard reuse on the public profile page --
   // checkin_count/favorite_count are all-time totals (unlike recent_checkins,
-  // capped to PUBLIC_PROFILE_CHECKIN_LIMIT), mirroring /me/points and
-  // /me/challenges/completed-count's account-page equivalents.
+  // capped to PUBLIC_PROFILE_CHECKIN_LIMIT), mirroring /me/points'
+  // account-page equivalent.
   checkin_count: number;
   favorite_count: number;
   points_summary: UserPointsSummary;
-  challenges_summary: UserChallengesSummary;
   // BACKLOG.md Ref 14/33 "Connect with other users" -- accepted-connection
   // count only; the neighbors themselves are a separate, request-gated
   // listing (GET /me/connections), not exposed on someone else's profile.
@@ -925,4 +928,18 @@ export interface UserPointsSummary {
 // summary card, mirroring UserPointsSummary above.
 export interface UserChallengesSummary {
   completed_count: number;
+}
+
+// GET /me/challenges -- every challenge this user has completed, across
+// every neighborhood, for the account page's Challenges tab, mirroring
+// UserBadge's shape (a fixed template plus the award/completion timestamp).
+export interface UserChallenge {
+  id: string;
+  title: string;
+  description: string | null;
+  neighborhood_id: string;
+  neighborhood_name: string;
+  points_reward: number;
+  badge: Badge | null;
+  completed_at: string;
 }

@@ -5,10 +5,10 @@ import { MushroomField } from "../MushroomField";
 import { ProgressBar } from "../ProgressBar";
 
 // BACKLOG.md Ref 47: profile summary card at the top of the account page --
-// avatar, level/points progress, and activity counts. Favorites/Check-ins/
-// Badges each link down to their full list section further down this same
-// page; Points and Challenges have no section of their own to jump to, so
-// those two stay plain (non-link) tiles. Level is computed server-side
+// avatar, level/points progress, and activity counts. Every stat is a
+// plain, non-interactive tile -- the account page's Favorites/Check-ins/
+// Badges/Challenges/Neighbors sections are switched by the separate TabNav
+// below this card, not by these tiles. Level is computed server-side
 // (GET /me/points, apps/api's gamification/points.ts computeLevel) rather
 // than here, so it agrees with the badge rule engine's "level_reached"
 // badges, which need the same number. `action` is an optional upper-right
@@ -64,23 +64,23 @@ export function ProfileSummaryCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-6 gap-2 text-center">
-        <a href="#favorites" className="rounded-xl bg-card px-1.5 py-2.5">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-xl bg-card px-1.5 py-2.5">
           <p className="font-heading text-lg font-extrabold text-brand-orange">{favoriteCount}</p>
           <p className="text-[10.5px] font-bold text-muted">Favorites</p>
-        </a>
-        <a href="#checkins" className="rounded-xl bg-card px-1.5 py-2.5">
+        </div>
+        <div className="rounded-xl bg-card px-1.5 py-2.5">
           <p className="font-heading text-lg font-extrabold text-brand-green">{checkinCount}</p>
           <p className="text-[10.5px] font-bold text-muted">Check-ins</p>
-        </a>
+        </div>
         <div className="rounded-xl bg-card px-1.5 py-2.5">
           <p className="font-heading text-lg font-extrabold text-brand-purple">{points}</p>
           <p className="text-[10.5px] font-bold text-muted">Points</p>
         </div>
-        <a href="#badges" className="rounded-xl bg-card px-1.5 py-2.5">
+        <div className="rounded-xl bg-card px-1.5 py-2.5">
           <p className="font-heading text-lg font-extrabold text-brand-amber">{badgeCount}</p>
           <p className="text-[10.5px] font-bold text-muted">Badges</p>
-        </a>
+        </div>
         <div className="rounded-xl bg-card px-1.5 py-2.5">
           <p className="font-heading text-lg font-extrabold text-brand-orange">{challengeCount}</p>
           <p className="text-[10.5px] font-bold text-muted">Challenges</p>

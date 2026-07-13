@@ -2,6 +2,26 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.43.0] — 2026-07-13
+
+### Added
+
+- **Spore Feed stub tab on /account.** The account page's first tab, defaulting on page load, with a placeholder hint for a future activity feed. Opens the door for downstream work aggregating neighbor/neighborhood activity (check-ins, favorites, badge unlocks). (`apps/web/src/app/account/page.tsx`)
+- **Progress bars on completed challenges.** The /account Challenges tab now shows a full-width progress bar for each completed challenge (always filled to 100% for visual consistency with the neighborhood challenges view). (`apps/web/src/app/account/page.tsx`, `apps/web/src/app/CheckinResultCard.tsx`)
+- **Latest badge and challenge on public profiles.** A public profile (`/profile/:username`) now displays the person's single most-recent badge and most-recent completed challenge, each in a full-width row matching the `/account` page's treatment (icon + name + description, neighborhood/points/timestamp for challenges). Backed by extending `GET /users/:username` to return a full `challenges: UserChallenge[]` list (replacing the old count-only `challenges_summary`). (`apps/web/src/app/profile/[username]/page.tsx`, `apps/api/src/app.ts`, `packages/types/src/index.ts`)
+- **Join/leave neighborhoods from profile pages.** Each neighborhood listed on a public profile now includes a quick-action button (reusing the existing `JoinNeighborhoodButton` component) showing "✓ Joined", "Join neighborhood", or "Log in to join" depending on the viewer's auth state and membership. (`apps/web/src/app/profile/[username]/page.tsx`)
+- **Unlock card animations in check-in results.** When a check-in unlocks badges or completes challenges, each full-width unlock card now slides down from behind the "Checked in ✓ +N pts" line with a staggered 140ms delay, reading as though emerging from underneath rather than fading in place. Controlled by a new `.unlock-card` CSS animation. (`apps/web/src/app/CheckinResultCard.tsx`, `apps/web/src/app/globals.css`)
+
+### Changed
+
+- **Profile details gating on public profiles.** A public profile's Badges, Neighborhoods, and Recent check-ins sections are now visible only to accepted neighbors (or the profile owner themselves viewing their own profile) — unsigned-in visitors and non-neighbors see a short "Add this person as a neighbor to see their badges, neighborhoods, and check-ins" hint instead. Implemented via a new `ProfileDetails` client component that checks the viewer's neighbor status server-side. (`apps/web/src/app/profile/[username]/ProfileDetails.tsx`, `apps/web/src/app/profile/[username]/page.tsx`)
+- **Check-in result card height enforcement.** The flip-card container now explicitly enforces a minimum height (84px, matching the original slider's height) so a short success message (no badges) or error message never renders shorter than the control it replaced — the card is guaranteed to stay the same size or grow, never shrink. Both the outer grid and inner result cards now use `h-full` and `justify-center` to stretch and center content. (`apps/web/src/app/SlideToCheckIn.tsx`, `apps/web/src/app/CheckinResultCard.tsx`)
+- **Full-width badge and challenge cards in check-in results.** The "Checked in" notification now shows any unlocked badges and challenges as full-width rows (icon + name + description, or title + points + badge) instead of small pill-shaped chips, surfacing more context and matching the same row treatment across `/account` and public profiles. (`apps/web/src/app/CheckinResultCard.tsx`)
+
+### Fixed
+
+- **`GET /users/:username` response shape.** Replaced the count-only `challenges_summary` field with a full `challenges: UserChallenge[]` list (every challenge the user completed, across all neighborhoods), mirroring the shape of the already-present `badges: UserBadge[]` field. This change enables public profiles to surface the user's latest challenge in full-width row format. (`apps/api/src/app.ts`, `packages/types/src/index.ts`)
+
 ## [0.42.0] — 2026-07-12
 
 ### Added

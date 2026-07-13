@@ -5,7 +5,9 @@ import { apiUrl } from "@/lib/api";
 import { ProfileSummaryCard } from "../../account/ProfileSummaryCard";
 import { BadgeIcon } from "../../BadgeIcon";
 import { CheckinTimeline } from "../../CheckinTimeline";
+import { JoinNeighborhoodButton } from "../../neighborhoods/[slug]/JoinNeighborhoodButton";
 import { NeighborRequestButton } from "./NeighborRequestButton";
+import { ProfileDetails } from "./ProfileDetails";
 
 // ProfileSummaryCard takes a full AppUser, but a public profile only ever
 // exposes username/display_name/avatar_url/avatar_style -- the rest are
@@ -67,7 +69,7 @@ export default async function PublicProfilePage({
           checkinCount={profile.checkin_count}
           pointsSummary={profile.points_summary}
           badgeCount={profile.badges.length}
-          challengeCount={profile.challenges_summary.completed_count}
+          challengeCount={profile.challenges.length}
           neighborCount={profile.neighbor_count}
           action={<NeighborRequestButton username={profile.username} />}
         />
@@ -76,53 +78,98 @@ export default async function PublicProfilePage({
         </p>
       </div>
 
-      <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">
-        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Badges</h2>
-        {profile.badges.length === 0 ? (
-          <p className="text-sm text-muted">No badges earned yet.</p>
-        ) : (
-          <ul className="flex flex-wrap gap-4">
-            {profile.badges.map((userBadge) => (
-              <li key={userBadge.badge.id} className="flex flex-col items-center gap-1.5 text-center">
-                <span className="flex h-13 w-13 items-center justify-center rounded-full border-[3px] border-nav bg-brand-amber text-2xl">
-                  <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
-                </span>
-                <span className="max-w-16 text-[10.5px] font-extrabold text-foreground">
-                  {userBadge.badge.name}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <ProfileDetails username={profile.username}>
+        <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">
+          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Latest badge</h2>
+          {profile.badges.length === 0 ? (
+            <p className="text-sm text-muted">No badges earned yet.</p>
+          ) : (
+            (() => {
+              const latest = profile.badges[0];
+              return (
+                <div className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3.5">
+                  <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border-[3px] border-foreground bg-brand-amber text-2xl">
+                    <BadgeIcon icon={latest.badge.icon} name={latest.badge.name} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-extrabold text-foreground">{latest.badge.name}</p>
+                    {latest.badge.description && (
+                      <p className="mt-0.5 text-xs text-body-text">{latest.badge.description}</p>
+                    )}
+                    <p className="mt-1 text-[11px] font-bold text-muted">
+                      Unlocked {new Date(latest.awarded_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()
+          )}
+        </section>
 
-      <section className="flex flex-col gap-2.5">
-        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Neighborhoods</h2>
-        {profile.neighborhoods.length === 0 ? (
-          <p className="text-sm text-muted">No neighborhoods joined yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {profile.neighborhoods.map((n) => (
-              <li key={n.neighborhood_id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
-                <Link
-                  href={`/neighborhoods/${n.slug}`}
-                  className="font-extrabold text-foreground hover:text-brand-purple"
+        <section className="flex flex-col gap-2.5">
+          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Latest challenge</h2>
+          {profile.challenges.length === 0 ? (
+            <p className="text-sm text-muted">No challenges completed yet.</p>
+          ) : (
+            (() => {
+              const latest = profile.challenges[0];
+              return (
+                <div className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="font-extrabold text-foreground">{latest.title}</span>
+                      {latest.description && <p className="mt-1 text-body-text">{latest.description}</p>}
+                    </div>
+                    {latest.badge && (
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-brand-amber text-lg">
+                        <BadgeIcon icon={latest.badge.icon} name={latest.badge.name} />
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1.5 text-xs font-bold text-muted">
+                    {latest.neighborhood_name} · +{latest.points_reward} pts · Completed{" "}
+                    {new Date(latest.completed_at).toLocaleString()}
+                  </p>
+                </div>
+              );
+            })()
+          )}
+        </section>
+
+        <section className="flex flex-col gap-2.5">
+          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Neighborhoods</h2>
+          {profile.neighborhoods.length === 0 ? (
+            <p className="text-sm text-muted">No neighborhoods joined yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {profile.neighborhoods.map((n) => (
+                <li
+                  key={n.neighborhood_id}
+                  className="flex items-center justify-between gap-2 rounded-2xl bg-card-alt px-4 py-3 text-sm"
                 >
-                  {n.name}
-                </Link>
-                <p className="text-muted">
-                  {n.city}, {n.state}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  <div className="min-w-0">
+                    <Link
+                      href={`/neighborhoods/${n.slug}`}
+                      className="font-extrabold text-foreground hover:text-brand-purple"
+                    >
+                      {n.name}
+                    </Link>
+                    <p className="text-muted">
+                      {n.city}, {n.state}
+                    </p>
+                  </div>
+                  <JoinNeighborhoodButton neighborhoodId={n.neighborhood_id} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-      <section id="checkins" className="flex flex-col gap-2.5 scroll-mt-16">
-        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Recent check-ins</h2>
-        <CheckinTimeline checkins={profile.recent_checkins} emptyMessage="No check-ins yet." />
-      </section>
+        <section id="checkins" className="flex flex-col gap-2.5 scroll-mt-16">
+          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Recent check-ins</h2>
+          <CheckinTimeline checkins={profile.recent_checkins} emptyMessage="No check-ins yet." />
+        </section>
+      </ProfileDetails>
     </div>
   );
 }
