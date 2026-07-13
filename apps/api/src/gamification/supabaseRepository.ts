@@ -118,12 +118,13 @@ export class SupabaseGamificationRepository implements GamificationRepository {
   async awardPoints(input: AwardPointsInput): Promise<boolean> {
     const { error } = await this.supabase.from("point_event").insert({
       user_id: input.userId,
-      neighborhood_id: input.neighborhoodId,
+      neighborhood_id: input.neighborhoodId ?? null,
       event_type: input.eventType,
       points: input.points,
       venue_id: input.venueId ?? null,
       checkin_id: input.checkinId ?? null,
       challenge_id: input.challengeId ?? null,
+      neighbor_user_id: input.neighborUserId ?? null,
     });
 
     if (error) {

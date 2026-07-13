@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { awardCheckinRewards } from "./rewards";
-import { CHECKIN_POINTS } from "./points";
+import { awardCheckinRewards, awardNeighborConnectionRewards } from "./rewards";
+import { CHECKIN_POINTS, NEIGHBOR_CONNECTION_POINTS } from "./points";
 import { FakeGamificationRepository, makeBadge, makeBadgeRule, makeChallenge } from "./testSupport";
 
 const NOW = "2026-07-15T12:00:00.000Z";
@@ -53,5 +53,61 @@ describe("awardCheckinRewards", () => {
       { id: "challenge-1", title: "Test Challenge", pointsReward: 50, badge: challengeBadge },
     ]);
     expect(summary.badgesEarned).toEqual([]);
+  });
+});
+
+describe("awardNeighborConnectionRewards", () => {
+  it("awards NEIGHBOR_CONNECTION_POINTS once per (user, other user) pair", async () => {
+    const repo = new FakeGamificationRepository();
+
+    const first = await awardNeighborConnectionRewards(
+      { userId: "user-1", otherUserId: "user-2", neighborCount: 1 },
+      repo
+    );
+    expect(first.pointsEarned).toBe(NEIGHBOR_CONNECTION_POINTS);
+
+    // Same pair again (e.g. remove-then-re-add the same neighbor) shouldn't
+    // re-earn the points.
+    const second = await awardNeighborConnectionRewards(
+      { userId: "user-1", otherUserId: "user-2", neighborCount: 1 },
+      repo
+    );
+    expect(second.pointsEarned).toBe(0);
+
+    // A different pair for the same user earns again -- the uniqueness
+    // guard is keyed on the pair, not just the user.
+    const third = await awardNeighborConnectionRewards(
+      { userId: "user-1", otherUserId: "user-3", neighborCount: 2 },
+      repo
+    );
+    expect(third.pointsEarned).toBe(NEIGHBOR_CONNECTION_POINTS);
+  });
+
+  it("awards a neighbor_count_reached badge once the threshold is met, and only once", async () => {
+    const repo = new FakeGamificationRepository();
+    const badge = makeBadge({ id: "badge-good-neighbor-1", code: "good_neighbor_1" });
+    repo.badgeRules.push(
+      makeBadgeRule({
+        id: "rule-neighbor-1",
+        badgeId: badge.id,
+        badge,
+        ruleType: "neighbor_count_reached",
+        threshold: 1,
+      })
+    );
+
+    const summary = await awardNeighborConnectionRewards(
+      { userId: "user-1", otherUserId: "user-2", neighborCount: 1 },
+      repo
+    );
+    expect(summary.badgesEarned).toEqual([badge]);
+
+    // A second connection (higher count, same threshold already earned)
+    // doesn't re-award the same badge.
+    const again = await awardNeighborConnectionRewards(
+      { userId: "user-1", otherUserId: "user-3", neighborCount: 2 },
+      repo
+    );
+    expect(again.badgesEarned).toEqual([]);
   });
 });

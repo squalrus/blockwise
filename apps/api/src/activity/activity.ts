@@ -13,6 +13,7 @@ function toActivityItem(record: ActivityRecord): ActivityItem {
     id: record.id,
     type: record.type,
     actor_name: actorName(record),
+    actor_username: record.actorVisibility === "public" ? record.actorUsername : null,
     venue_id: record.venueId,
     venue_name: record.venueName,
     badge_name: record.badgeName,

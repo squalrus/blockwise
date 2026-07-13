@@ -470,6 +470,48 @@ export interface PublicUserProfile {
   favorite_count: number;
   points_summary: UserPointsSummary;
   challenges_summary: UserChallengesSummary;
+  // BACKLOG.md Ref 14/33 "Connect with other users" -- accepted-connection
+  // count only; the neighbors themselves are a separate, request-gated
+  // listing (GET /me/connections), not exposed on someone else's profile.
+  neighbor_count: number;
+}
+
+// BACKLOG.md Ref 14/33 "Connect with other users" / "Friends/neighbors on
+// profile": a mutual, request-based relationship between two accounts,
+// called a "neighbor" in UI copy rather than "friend". Declining a pending
+// request, cancelling one, or removing an accepted connection are all a
+// hard delete server-side -- there's no "declined" status to represent.
+export type ConnectionStatus = "pending" | "accepted";
+
+export interface UserConnection {
+  id: string;
+  requester_id: string;
+  recipient_id: string;
+  status: ConnectionStatus;
+  created_at: string;
+  responded_at: string | null;
+}
+
+// GET /me/connections -- user-joined listing for the "My account" page's
+// Neighbors section, mirroring FavoriteVenueSummary's venue-joined shape.
+// direction tells the UI whether a pending row is incoming (show
+// accept/decline) or outgoing (show cancel).
+export interface ConnectionSummary {
+  id: string;
+  status: ConnectionStatus;
+  direction: "incoming" | "outgoing";
+  created_at: string;
+  user: {
+    id: string;
+    username: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+    avatar_style: AvatarStyle;
+  };
+}
+
+export interface CreateConnectionRequest {
+  username: string;
 }
 
 export interface NeighborhoodSummary {
@@ -835,10 +877,14 @@ export type ActivityType = "checkin" | "favorite" | "badge" | "challenge_complet
 // already resolved server-side against the actor's profile visibility --
 // "A user" for a private profile, display_name/username/"A user" for a
 // public one -- so the client never sees which private user did what.
+// actor_username is likewise only ever set for a public profile (null for
+// "A user" rows), letting the web app link the actor's name to their public
+// profile without exposing a private user's handle.
 export interface ActivityItem {
   id: string;
   type: ActivityType;
   actor_name: string;
+  actor_username: string | null;
   venue_id: string | null;
   venue_name: string | null;
   badge_name: string | null;

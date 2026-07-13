@@ -5,6 +5,7 @@ import type {
   AppUser,
   Badge,
   CheckinHistoryItem,
+  ConnectionSummary,
   FavoriteVenueSummary,
   UserBadge,
   UserChallengesSummary,
@@ -14,6 +15,7 @@ import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { BadgeIcon } from "../BadgeIcon";
 import { CheckinTimeline } from "../CheckinTimeline";
+import { NeighborsSection } from "./NeighborsSection";
 import { PlaceListItem } from "../PlaceListItem";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
 
@@ -32,6 +34,9 @@ type State =
       // `badges` (earned) to render locked placeholders too.
       badgeCatalog: Badge[];
       challengesSummary: UserChallengesSummary;
+      // BACKLOG.md Ref 14/33 "Connect with other users": every connection
+      // involving this account, pending or accepted, in either direction.
+      connections: ConnectionSummary[];
     };
 
 // Activity/action hub (BACKLOG.md "My account page"): identity from GET
@@ -40,60 +45,56 @@ type State =
 // yet (separate backlog items), so those sections show a "coming soon" note
 // instead of real data. Profile editing and neighborhood-membership
 // management live at /account/settings (BACKLOG.md Ref 48).
+async function loadAccount(setState: (state: State) => void) {
+  const user: AppUser | null = await getCurrentUser();
+  if (!user) {
+    setState({ status: "signed_out" });
+    return;
+  }
+
+  const token = await getAccessToken();
+  const headers = { Authorization: `Bearer ${token}` };
+  const [favoritesRes, checkinsRes, pointsRes, badgesRes, catalogRes, challengesRes, connectionsRes] =
+    await Promise.all([
+      fetch(clientApiUrl("/me/favorites"), { headers }),
+      fetch(clientApiUrl("/me/checkins"), { headers }),
+      fetch(clientApiUrl("/me/points"), { headers }),
+      fetch(clientApiUrl("/me/badges"), { headers }),
+      fetch(clientApiUrl("/badges")),
+      fetch(clientApiUrl("/me/challenges/completed-count"), { headers }),
+      fetch(clientApiUrl("/me/connections"), { headers }),
+    ]);
+  if (
+    !favoritesRes.ok ||
+    !checkinsRes.ok ||
+    !pointsRes.ok ||
+    !badgesRes.ok ||
+    !catalogRes.ok ||
+    !challengesRes.ok ||
+    !connectionsRes.ok
+  ) {
+    setState({ status: "error", message: "Failed to load your account" });
+    return;
+  }
+
+  setState({
+    status: "ready",
+    user,
+    favorites: await favoritesRes.json(),
+    checkins: await checkinsRes.json(),
+    pointsSummary: await pointsRes.json(),
+    badges: await badgesRes.json(),
+    badgeCatalog: await catalogRes.json(),
+    challengesSummary: await challengesRes.json(),
+    connections: await connectionsRes.json(),
+  });
+}
+
 export default function AccountPage() {
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      const user: AppUser | null = await getCurrentUser();
-      if (cancelled) return;
-      if (!user) {
-        setState({ status: "signed_out" });
-        return;
-      }
-
-      const token = await getAccessToken();
-      const headers = { Authorization: `Bearer ${token}` };
-      const [favoritesRes, checkinsRes, pointsRes, badgesRes, catalogRes, challengesRes] = await Promise.all([
-        fetch(clientApiUrl("/me/favorites"), { headers }),
-        fetch(clientApiUrl("/me/checkins"), { headers }),
-        fetch(clientApiUrl("/me/points"), { headers }),
-        fetch(clientApiUrl("/me/badges"), { headers }),
-        fetch(clientApiUrl("/badges")),
-        fetch(clientApiUrl("/me/challenges/completed-count"), { headers }),
-      ]);
-      if (cancelled) return;
-      if (
-        !favoritesRes.ok ||
-        !checkinsRes.ok ||
-        !pointsRes.ok ||
-        !badgesRes.ok ||
-        !catalogRes.ok ||
-        !challengesRes.ok
-      ) {
-        setState({ status: "error", message: "Failed to load your account" });
-        return;
-      }
-
-      setState({
-        status: "ready",
-        user,
-        favorites: await favoritesRes.json(),
-        checkins: await checkinsRes.json(),
-        pointsSummary: await pointsRes.json(),
-        badges: await badgesRes.json(),
-        badgeCatalog: await catalogRes.json(),
-        challengesSummary: await challengesRes.json(),
-      });
-    }
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-    return () => {
-      cancelled = true;
-    };
+    loadAccount(setState);
   }, []);
 
   return (
@@ -131,6 +132,7 @@ export default function AccountPage() {
             pointsSummary={state.pointsSummary}
             badgeCount={state.badges.length}
             challengeCount={state.challengesSummary.completed_count}
+            neighborCount={state.connections.filter((c) => c.status === "accepted").length}
           />
 
           <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">
@@ -173,6 +175,11 @@ export default function AccountPage() {
               );
             })()}
           </section>
+
+          <NeighborsSection
+            connections={state.connections}
+            onChange={() => loadAccount(setState)}
+          />
 
           <section id="favorites" className="flex flex-col gap-2.5 scroll-mt-16">
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Favorite venues</h2>

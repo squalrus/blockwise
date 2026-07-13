@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-07-10 (Merged venue+POI into one `kind`-discriminated entity — see History).
+Last reviewed: 2026-07-12 (Added user-to-user "neighbor" connections — see History).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -19,7 +19,7 @@ apps/web/src/app/
 ├── signup/page.tsx                                /signup — P
 ├── auth/callback/page.tsx                         /auth/callback — P (OAuth redirect target, sets session)
 ├── account/
-│   ├── page.tsx                                    /account — C — profile summary (points/favorite/check-in counts), favorites, check-ins
+│   ├── page.tsx                                    /account — C — profile summary (points/favorite/check-in/neighbor counts), favorites, check-ins, neighbors (add/accept/decline/remove)
 │   └── settings/page.tsx                           /account/settings — C — profile editing, account details, joined neighborhoods (home-neighborhood picker)
 ├── checkin/
 │   ├── page.tsx                                    /checkin — C — quick-access nearest-venue check-in, linked from the nav next to the hamburger menu
@@ -125,11 +125,15 @@ Auth gates:
 ├── points                                              GET — auth — all-time, all-neighborhood points total + level/points_into_level/points_to_next_level
 ├── badges                                              GET — auth — every badge this user has earned, across every neighborhood
 ├── challenges/completed-count                          GET — auth — all-time, all-neighborhood completed-challenge count
-└── profile                                            PATCH — auth — display_name/avatar_style/username/visibility (avatar_url is read-only, seeded from OAuth at signup)
+├── profile                                            PATCH — auth — display_name/avatar_style/username/visibility (avatar_url is read-only, seeded from OAuth at signup)
+└── connections/
+    ├── (root)                                          GET, POST — auth — GET takes ?status= (pending|accepted); POST body is {username}, sends a request (BACKLOG.md Ref 14/33 "Connect with other users" -- a mutual, request-based "neighbor" relationship)
+    ├── :id/accept                                      POST — auth — accepts a pending incoming request
+    └── :id                                              DELETE — auth — declines a pending incoming request, cancels a pending outgoing one, or removes an accepted connection (always a hard delete)
 
 /badges                                              GET — public — every badge that exists (earned or not), for locked-badge display (BACKLOG.md Ref 61)
 
-/users/:username                                     GET — public — profile (only reachable if visibility = public); checkin_count/favorite_count/points_summary/challenges_summary/avatar_style alongside badges/recent_checkins/neighborhoods
+/users/:username                                     GET — public — profile (only reachable if visibility = public); checkin_count/favorite_count/neighbor_count/points_summary/challenges_summary/avatar_style alongside badges/recent_checkins/neighborhoods
 
 /business/
 ├── venues                                            GET — business — venues this account has claimed
@@ -173,6 +177,7 @@ Identifier note: every neighborhood-identifying path param in the API is the **i
 
 ## History
 
+- **2026-07-12** — Added a mutual, request-based "neighbor" connection between two accounts (BACKLOG.md Ref 14/33 "Connect with other users" / "Friends/neighbors on profile"; "neighbor" is deliberate neighborhood-flavored language in place of "friend"). New `user_connection` table (`requester_id`/`recipient_id`/`status: pending|accepted`) and `POST/GET /me/connections`, `POST /me/connections/:id/accept`, `DELETE /me/connections/:id` (the last handles decline/cancel/remove uniformly as a hard delete). If two users each already have a pending request out to the other, the second request auto-accepts instead of leaving two pending rows. `GET /users/:username` gained `neighbor_count` (a plain count, like `favorite_count` -- the connections themselves stay private to the two parties). `/account` gained a Neighbors section (add by username, accept/decline/cancel/remove) and `ProfileSummaryCard` gained a 6th stat tile.
 - **2026-07-10** — Public neighborhood profile tabs reworked (BACKLOG.md Ref 27, "What's happening now"). Tab order/routes: Happening now (default, `/neighborhoods/:slug`) → Recent activity (`/activity`) → Upcoming events (`/events`) → Locations (`/locations`) → Challenges (`/challenges`, merged with Leaderboard). Challenges and Leaderboard merged into one tab (challenges on top, leaderboard below). Venues tab renamed to Locations and merged with the former standalone Points of interest tab (`/neighborhoods/:slug/venues` and `/pois` → `/neighborhoods/:slug/locations`, no redirects; POIs with no cached lat/lng, BACKLOG.md Ref 51, are excluded from the merged list rather than plotted at a bogus position). Upcoming events (`GET /neighborhoods/:id/events`) now merges neighborhood-owned events with events from businesses in the neighborhood (`Event` gained `venue_name`). New Recent activity tab (`GET /neighborhoods/:id/activity`) shows a neighborhood-wide feed of check-ins/favorites/challenge completions/badge unlocks with actor names masked to "A user" for private profiles. New Happening now tab (`GET /neighborhoods/:id/happening-now`) shows events in progress plus businesses/POIs currently open, per a new `isOpenNow` parser over the existing cached `hours` text.
 - **2026-07-10** — `venue` and `poi` merged into one table with a `kind` column (`'business' | 'poi'`), so switching a location between the two is a single in-place update instead of the old hide-then-recreate-as-a-new-row "Convert to POI" flow. `checkin`/`point_event`/`challenge`/`venue_enrichment_cache` all lost their separate `poi_id` column in favor of `venue_id` covering both kinds. Public `/venues/:id` + `/pois/:id` merged into `/location/:id` (web) and `GET/POST /locations/:id` (API); admin venue/POI routes merged into `/neighborhood-admin/neighborhoods/:id/locations*`, gaining a new `PATCH .../locations/:id/kind` switch action (blocked while claimed). Added claim revoke (`POST .../claims/:claimId/revoke`) since approving a claim previously had no way back. No redirects from the old `/venues/:id`/`/pois/:id` URLs (pre-launch). See BACKLOG.md "POIs and venues managed almost the same".
 

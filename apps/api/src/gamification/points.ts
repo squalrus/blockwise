@@ -4,6 +4,10 @@ import type { GamificationRepository } from "./repository";
 // BACKLOG.md Ref 6: check-in = 10pts, first-time favorite/follow = 5pts.
 export const CHECKIN_POINTS = 10;
 export const FAVORITE_POINTS = 5;
+// BACKLOG.md Ref 14/33: 5pts to each side of a newly-accepted neighbor
+// connection, first-time-only per (user, other user) pair -- mirrors
+// FAVORITE_POINTS.
+export const NEIGHBOR_CONNECTION_POINTS = 5;
 
 // Levelling was originally client-only (apps/web's ProfileSummaryCard) --
 // moved here so the badge rule engine's "level_reached" rule (badges.ts) and

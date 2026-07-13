@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { AppUser, UserPointsSummary } from "@blockwise/types";
 import { Avatar } from "../Avatar";
 import { MushroomField } from "../MushroomField";
@@ -10,7 +11,11 @@ import { ProgressBar } from "../ProgressBar";
 // those two stay plain (non-link) tiles. Level is computed server-side
 // (GET /me/points, apps/api's gamification/points.ts computeLevel) rather
 // than here, so it agrees with the badge rule engine's "level_reached"
-// badges, which need the same number.
+// badges, which need the same number. `action` is an optional upper-right
+// slot (BACKLOG.md Ref 14/33) -- the public profile page uses it for a
+// NeighborRequestButton, mirroring JoinNeighborhoodButton's placement on a
+// neighborhood profile; the account page (viewing your own card) leaves it
+// unset.
 export function ProfileSummaryCard({
   user,
   favoriteCount,
@@ -18,6 +23,8 @@ export function ProfileSummaryCard({
   pointsSummary,
   badgeCount,
   challengeCount,
+  neighborCount,
+  action,
 }: {
   user: AppUser;
   favoriteCount: number;
@@ -25,6 +32,8 @@ export function ProfileSummaryCard({
   pointsSummary: UserPointsSummary;
   badgeCount: number;
   challengeCount: number;
+  neighborCount: number;
+  action?: ReactNode;
 }) {
   const label = user.display_name ?? user.username ?? user.email ?? "You";
   const { points, level, points_into_level: pointsIntoLevel, points_to_next_level: pointsToNext } = pointsSummary;
@@ -32,14 +41,17 @@ export function ProfileSummaryCard({
 
   return (
     <div className="flex flex-col gap-4 overflow-hidden rounded-2xl bg-card-alt px-5 pt-4 pb-6">
-      <div className="flex items-center gap-3.5">
-        <Avatar avatarUrl={user.avatar_url} avatarStyle={user.avatar_style} seed={user.id} label={label} size={56} />
-        <div>
-          <span className="font-heading text-xl font-extrabold text-foreground">{label}</span>
-          <p className="mt-0.5 text-xs font-bold text-muted">
-            Level {level} forager · {points} pts
-          </p>
+      <div className="flex items-start justify-between gap-3.5">
+        <div className="flex items-center gap-3.5">
+          <Avatar avatarUrl={user.avatar_url} avatarStyle={user.avatar_style} seed={user.id} label={label} size={56} />
+          <div>
+            <span className="font-heading text-xl font-extrabold text-foreground">{label}</span>
+            <p className="mt-0.5 text-xs font-bold text-muted">
+              Level {level} forager · {points} pts
+            </p>
+          </div>
         </div>
+        {action}
       </div>
 
       <div>
@@ -52,7 +64,7 @@ export function ProfileSummaryCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-2 text-center">
+      <div className="grid grid-cols-6 gap-2 text-center">
         <a href="#favorites" className="rounded-xl bg-card px-1.5 py-2.5">
           <p className="font-heading text-lg font-extrabold text-brand-orange">{favoriteCount}</p>
           <p className="text-[10.5px] font-bold text-muted">Favorites</p>
@@ -72,6 +84,10 @@ export function ProfileSummaryCard({
         <div className="rounded-xl bg-card px-1.5 py-2.5">
           <p className="font-heading text-lg font-extrabold text-brand-orange">{challengeCount}</p>
           <p className="text-[10.5px] font-bold text-muted">Challenges</p>
+        </div>
+        <div className="rounded-xl bg-card px-1.5 py-2.5">
+          <p className="font-heading text-lg font-extrabold text-brand-purple">{neighborCount}</p>
+          <p className="text-[10.5px] font-bold text-muted">Neighbors</p>
         </div>
       </div>
 

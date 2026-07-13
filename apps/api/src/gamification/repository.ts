@@ -15,16 +15,23 @@ export interface LocationContext {
   kind: LocationKind;
 }
 
-export type PointEventType = "checkin" | "favorite" | "challenge_completion";
+export type PointEventType = "checkin" | "favorite" | "challenge_completion" | "neighbor_connection";
 
 export interface AwardPointsInput {
   userId: string;
-  neighborhoodId: string;
+  // Absent for "neighbor_connection" -- a neighbor connection isn't scoped
+  // to any neighborhood, unlike the other three event types (all derived
+  // from a venue's neighborhood_id).
+  neighborhoodId?: string;
   eventType: PointEventType;
   points: number;
   venueId?: string;
   checkinId?: string;
   challengeId?: string;
+  // Set only for "neighbor_connection" -- the other party in the
+  // connection, so the uniqueness guard (point_event_neighbor_connection_idx)
+  // can key on (user, other user) rather than a specific user_connection row.
+  neighborUserId?: string;
 }
 
 export interface BadgeRecord {
@@ -83,7 +90,11 @@ export type BadgeRuleType =
   | "poi_milestone"
   | "daily_distinct_venues"
   | "same_venue_repeat_in_day"
-  | "level_reached";
+  | "level_reached"
+  // N accepted neighbor connections (BACKLOG.md Ref 14/33) -- unlike the
+  // other rule types, evaluated after a connection is accepted, not after a
+  // check-in (see evaluateBadgesForNeighborCount in badges.ts).
+  | "neighbor_count_reached";
 
 export interface BadgeRuleRecord {
   id: string;
