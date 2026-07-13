@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.42.0] — 2026-07-12
+
+### Added
+
+- **Connect with other users ("neighbors").** A mutual, request-based relationship between two accounts — deliberately called a "neighbor" rather than a "friend" throughout the UI. Send a request by username from a public profile page's new upper-right button (mirrors the neighborhood profile's Join button: "+ Add neighbor" → "Requested" → "✓ Neighbors", or "Accept request" when the other side already asked first); if both sides already have a pending request out to each other, the second one auto-accepts instead of leaving two rows pointed at each other. The account page gained a Neighbors section (add by username, accept/decline incoming requests, cancel outgoing ones, remove existing connections), and `ProfileSummaryCard` gained a 6th stat tile showing the neighbor count on both the account page and public profiles (a plain count only — like `favorite_count`, the connection list itself stays private to the two parties). New `user_connection` table; new `POST/GET /me/connections`, `POST /me/connections/:id/accept`, `DELETE /me/connections/:id` endpoints. Completes BACKLOG.md Ref 14 ("Connect with other users") and Ref 33 ("Friends/neighbors on profile"). (`supabase/migrations/20260712010000_user_connections.sql`, `apps/api/src/connections/`, `apps/api/src/app.ts`, `apps/web/src/app/account/NeighborsSection.tsx`, `apps/web/src/app/profile/[username]/NeighborRequestButton.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `packages/types/src/index.ts`)
+- **Points and badges for connecting with a neighbor.** Accepting a neighbor connection now awards 5pts to each side (first-time-only per pair, so removing and re-adding the same neighbor doesn't re-earn it), plus a new tier of "Good Neighbor" badges at 1, 5, 10, 15, … 50 accepted connections, evaluated independently of the check-in-triggered badge rule engine. `point_event.neighborhood_id` is now nullable, since a neighbor connection isn't scoped to any neighborhood. (`supabase/migrations/20260712020000_neighbor_connection_rewards.sql`, `apps/api/src/gamification/points.ts`, `apps/api/src/gamification/badges.ts`, `apps/api/src/gamification/rewards.ts`, `apps/api/src/gamification/repository.ts`)
+
+### Changed
+
+- **Neighborhood activity feed links actor and venue separately.** A row like "Chad S checked in at Uma Clinic" now renders as two independent links — the actor's name to their public profile (only when their profile is public; a masked "A user" row stays plain text), and the venue/POI name to its location page — instead of the whole sentence linking to just the venue. Backed by a new `actor_username` field on `GET /neighborhoods/:id/activity`, set only for a public-visibility actor. (`apps/web/src/app/neighborhoods/[slug]/activity/page.tsx`, `apps/api/src/activity/activity.ts`, `packages/types/src/index.ts`)
+
 ## [0.41.1] — 2026-07-12
 
 ### Added

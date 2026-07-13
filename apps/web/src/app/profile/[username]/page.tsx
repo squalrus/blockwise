@@ -5,6 +5,7 @@ import { apiUrl } from "@/lib/api";
 import { ProfileSummaryCard } from "../../account/ProfileSummaryCard";
 import { BadgeIcon } from "../../BadgeIcon";
 import { CheckinTimeline } from "../../CheckinTimeline";
+import { NeighborRequestButton } from "./NeighborRequestButton";
 
 // ProfileSummaryCard takes a full AppUser, but a public profile only ever
 // exposes username/display_name/avatar_url/avatar_style -- the rest are
@@ -67,6 +68,8 @@ export default async function PublicProfilePage({
           pointsSummary={profile.points_summary}
           badgeCount={profile.badges.length}
           challengeCount={profile.challenges_summary.completed_count}
+          neighborCount={profile.neighbor_count}
+          action={<NeighborRequestButton username={profile.username} />}
         />
         <p className="px-1 text-sm text-muted">
           @{profile.username} · Joined {new Date(profile.joined_at).toLocaleDateString()}

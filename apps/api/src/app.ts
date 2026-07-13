@@ -46,6 +46,9 @@ import {
   renameCategory,
 } from "./categoryAdmin/categoryAdmin";
 import { SupabaseCategoryAdminRepository } from "./categoryAdmin/supabaseRepository";
+import { acceptConnectionRequest, removeConnection, sendConnectionRequest } from "./connections/connections";
+import type { ConnectionStatus } from "./connections/repository";
+import { SupabaseConnectionRepository } from "./connections/supabaseRepository";
 import { SupabaseEnrichmentRepository } from "./enrichment/supabaseRepository";
 import {
   createEvent,
@@ -60,7 +63,7 @@ import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import { getUserChallengesSummary, listChallengesWithProgress } from "./gamification/challenges";
 import { awardFounderBadge } from "./gamification/founderBadge";
 import { awardFavoritePoints, getLeaderboard, getUserBadges, getUserPoints } from "./gamification/points";
-import { awardCheckinRewards } from "./gamification/rewards";
+import { awardCheckinRewards, awardNeighborConnectionRewards } from "./gamification/rewards";
 import { SupabaseGamificationRepository } from "./gamification/supabaseRepository";
 import {
   createNeighborhood,
@@ -113,6 +116,7 @@ const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
 const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "private"];
 const AVATAR_STYLES: AvatarStyle[] = ["social", "mushroom"];
+const CONNECTION_STATUSES: ConnectionStatus[] = ["pending", "accepted"];
 // BACKLOG.md "Public user profiles": matches the app_user.username check
 // constraint (migration 20260707010000) -- kept in sync with it.
 const USERNAME_PATTERN = /^[a-z0-9_-]{3,30}$/;
@@ -200,10 +204,43 @@ function getFavoriteRepository(): SupabaseFavoriteRepository {
   return favoriteRepository;
 }
 
+let connectionRepository: SupabaseConnectionRepository | undefined;
+function getConnectionRepository(): SupabaseConnectionRepository {
+  connectionRepository ??= new SupabaseConnectionRepository(getSupabaseClient());
+  return connectionRepository;
+}
+
 let gamificationRepository: SupabaseGamificationRepository | undefined;
 function getGamificationRepository(): SupabaseGamificationRepository {
   gamificationRepository ??= new SupabaseGamificationRepository(getSupabaseClient());
   return gamificationRepository;
+}
+
+// BACKLOG.md Ref 14/33: rewards both sides of a newly-accepted neighbor
+// connection -- called from both /me/connections routes below (the
+// mutual-interest auto-accept branch of POST /me/connections, and POST
+// /me/connections/:id/accept), since either can be the moment a connection
+// actually becomes accepted. Best-effort per side, mirroring
+// awardFavoritePoints/awardCheckinRewards's log-and-swallow error handling.
+async function awardNeighborConnectionRewardsForBothSides(connection: {
+  requesterId: string;
+  recipientId: string;
+}): Promise<void> {
+  const pairs: [string, string][] = [
+    [connection.requesterId, connection.recipientId],
+    [connection.recipientId, connection.requesterId],
+  ];
+  for (const [userId, otherUserId] of pairs) {
+    try {
+      const neighborCount = await getConnectionRepository().countAcceptedConnectionsForUser(userId);
+      await awardNeighborConnectionRewards(
+        { userId, otherUserId, neighborCount },
+        getGamificationRepository()
+      );
+    } catch (err) {
+      console.error(`awardNeighborConnectionRewards (user ${userId}) failed:`, err);
+    }
+  }
 }
 
 let claimRepository: SupabaseClaimRepository | undefined;
@@ -968,6 +1005,158 @@ export function createApp() {
     }
   );
 
+  // BACKLOG.md Ref 14/33 "Connect with other users" / "Friends/neighbors on
+  // profile": sends a request to the given username, called a "neighbor" in
+  // UI copy rather than "friend". If that user already has a pending
+  // request out to the caller, the two are connected immediately instead of
+  // leaving two pending rows pointed at each other (see connections.ts).
+  app.post(
+    "/me/connections",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      const { username } = req.body ?? {};
+      if (typeof username !== "string" || !username.trim()) {
+        res.status(400).json({ error: "username is required" });
+        return;
+      }
+
+      try {
+        const result = await sendConnectionRequest(
+          req.appUser!.id,
+          username.trim().toLowerCase(),
+          getConnectionRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "User not found" });
+          return;
+        }
+        if (result.status === "self") {
+          res.status(400).json({ error: "Cannot connect with yourself" });
+          return;
+        }
+        // BACKLOG.md Ref 14/33: only the mutual-interest auto-accept branch
+        // (the other user already had a pending request out to us) reaches
+        // "accepted" here -- "created"/"already_requested" are still
+        // pending, and "already_connected" was already rewarded when it
+        // first became accepted. Awaited before responding for the same
+        // Netlify-function-freeze reason as awardFavoritePoints above.
+        if (result.status === "accepted") {
+          await awardNeighborConnectionRewardsForBothSides(result.connection);
+        }
+        res.status(result.status === "created" ? 201 : 200).json({
+          id: result.connection.id,
+          requester_id: result.connection.requesterId,
+          recipient_id: result.connection.recipientId,
+          status: result.connection.status,
+          created_at: result.connection.createdAt,
+          responded_at: result.connection.respondedAt,
+        });
+      } catch (err) {
+        console.error("POST /me/connections failed:", err);
+        res.status(500).json({ error: "Failed to send connection request" });
+      }
+    }
+  );
+
+  // My account page's Neighbors section: every connection involving the
+  // caller, joined with the other party's display info. ?status= narrows to
+  // just pending or accepted; omitted returns both.
+  app.get(
+    "/me/connections",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      const status = req.query.status;
+      if (status !== undefined && !CONNECTION_STATUSES.includes(status as ConnectionStatus)) {
+        res.status(400).json({ error: `status must be one of ${CONNECTION_STATUSES.join(", ")}` });
+        return;
+      }
+
+      try {
+        const connections = await getConnectionRepository().listConnectionsForUser(
+          req.appUser!.id,
+          status as ConnectionStatus | undefined
+        );
+        res.json(
+          connections.map((c) => ({
+            id: c.id,
+            status: c.status,
+            direction: c.direction,
+            created_at: c.createdAt,
+            user: {
+              id: c.user.id,
+              username: c.user.username,
+              display_name: c.user.displayName,
+              avatar_url: c.user.avatarUrl,
+              avatar_style: c.user.avatarStyle,
+            },
+          }))
+        );
+      } catch (err) {
+        console.error("GET /me/connections failed:", err);
+        res.status(500).json({ error: "Failed to list connections" });
+      }
+    }
+  );
+
+  app.post(
+    "/me/connections/:id/accept",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const result = await acceptConnectionRequest(req.appUser!.id, req.params.id, getConnectionRepository());
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Connection request not found" });
+          return;
+        }
+        if (result.status === "forbidden") {
+          res.status(403).json({ error: "Not your connection request to accept" });
+          return;
+        }
+        if (result.status === "not_pending") {
+          res.status(409).json({ error: "Connection request is no longer pending" });
+          return;
+        }
+        await awardNeighborConnectionRewardsForBothSides(result.connection);
+        res.json({
+          id: result.connection.id,
+          requester_id: result.connection.requesterId,
+          recipient_id: result.connection.recipientId,
+          status: result.connection.status,
+          created_at: result.connection.createdAt,
+          responded_at: result.connection.respondedAt,
+        });
+      } catch (err) {
+        console.error(`POST /me/connections/${req.params.id}/accept failed:`, err);
+        res.status(500).json({ error: "Failed to accept connection request" });
+      }
+    }
+  );
+
+  // Declines a pending incoming request, cancels a pending outgoing
+  // request, or removes an already-accepted connection -- all three are a
+  // hard delete rather than a status change (connections.ts removeConnection).
+  app.delete(
+    "/me/connections/:id",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const result = await removeConnection(req.appUser!.id, req.params.id, getConnectionRepository());
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Connection not found" });
+          return;
+        }
+        if (result.status === "forbidden") {
+          res.status(403).json({ error: "Not your connection to remove" });
+          return;
+        }
+        res.status(204).end();
+      } catch (err) {
+        console.error(`DELETE /me/connections/${req.params.id} failed:`, err);
+        res.status(500).json({ error: "Failed to remove connection" });
+      }
+    }
+  );
+
   // BACKLOG.md "Public user profiles": the username-keyed public counterpart
   // to /me/profile, mirroring how GET /neighborhoods/:slug is the public
   // lookup alongside the id-keyed neighborhood-admin routes. Returns 404 for
@@ -978,6 +1167,9 @@ export function createApp() {
   // favorite_count/points_summary/challenges_summary let the web app render
   // ProfileSummaryCard here too -- favorite_count is a plain count (the
   // favorited venues themselves stay private; only /me/favorites lists them).
+  // neighbor_count is likewise a plain count (BACKLOG.md Ref 14/33) -- the
+  // connections themselves stay private to the two parties, only /me/connections
+  // lists them.
   app.get("/users/:username", async (req, res) => {
     try {
       const user = await getAuthRepository().getByUsername(req.params.username.toLowerCase());
@@ -986,14 +1178,16 @@ export function createApp() {
         return;
       }
 
-      const [checkins, neighborhoods, badges, favorites, pointsSummary, challengesSummary] = await Promise.all([
-        getCheckinRepository().listCheckinsForUser(user.id),
-        listMembershipsForUser(user.id, getNeighborhoodMemberRepository()),
-        getUserBadges(user.id, getGamificationRepository()),
-        getFavoriteRepository().listFavoriteVenuesForUser(user.id),
-        getUserPoints(user.id, getGamificationRepository()),
-        getUserChallengesSummary(user.id, getGamificationRepository()),
-      ]);
+      const [checkins, neighborhoods, badges, favorites, pointsSummary, challengesSummary, neighborCount] =
+        await Promise.all([
+          getCheckinRepository().listCheckinsForUser(user.id),
+          listMembershipsForUser(user.id, getNeighborhoodMemberRepository()),
+          getUserBadges(user.id, getGamificationRepository()),
+          getFavoriteRepository().listFavoriteVenuesForUser(user.id),
+          getUserPoints(user.id, getGamificationRepository()),
+          getUserChallengesSummary(user.id, getGamificationRepository()),
+          getConnectionRepository().countAcceptedConnectionsForUser(user.id),
+        ]);
 
       res.json({
         username: user.username,
@@ -1013,6 +1207,7 @@ export function createApp() {
         favorite_count: favorites.length,
         points_summary: pointsSummary,
         challenges_summary: challengesSummary,
+        neighbor_count: neighborCount,
       });
     } catch (err) {
       console.error(`GET /users/${req.params.username} failed:`, err);

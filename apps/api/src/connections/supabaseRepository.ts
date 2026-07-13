@@ -1,0 +1,153 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AvatarStyle } from "@blockwise/types";
+import type {
+  ConnectionListItem,
+  ConnectionRepository,
+  ConnectionStatus,
+  ConnectionUserSummary,
+  UserConnectionRecord,
+} from "./repository";
+
+type UserRow = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  avatar_style: AvatarStyle;
+};
+
+function toUserSummary(row: UserRow): ConnectionUserSummary {
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    avatarStyle: row.avatar_style,
+  };
+}
+
+function toRecord(row: {
+  id: string;
+  requester_id: string;
+  recipient_id: string;
+  status: string;
+  created_at: string;
+  responded_at: string | null;
+}): UserConnectionRecord {
+  return {
+    id: row.id,
+    requesterId: row.requester_id,
+    recipientId: row.recipient_id,
+    status: row.status as ConnectionStatus,
+    createdAt: row.created_at,
+    respondedAt: row.responded_at,
+  };
+}
+
+const CONNECTION_COLUMNS = "id, requester_id, recipient_id, status, created_at, responded_at";
+const USER_COLUMNS = "id, username, display_name, avatar_url, avatar_style";
+
+export class SupabaseConnectionRepository implements ConnectionRepository {
+  constructor(private readonly supabase: SupabaseClient) {}
+
+  async getUserIdByUsername(username: string): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .from("app_user")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+
+    if (error) throw new Error(`getUserIdByUsername failed: ${error.message}`);
+    return data?.id ?? null;
+  }
+
+  async findConnectionBetween(userIdA: string, userIdB: string): Promise<UserConnectionRecord | null> {
+    const { data, error } = await this.supabase
+      .from("user_connection")
+      .select(CONNECTION_COLUMNS)
+      .or(
+        `and(requester_id.eq.${userIdA},recipient_id.eq.${userIdB}),and(requester_id.eq.${userIdB},recipient_id.eq.${userIdA})`
+      )
+      .maybeSingle();
+
+    if (error) throw new Error(`findConnectionBetween failed: ${error.message}`);
+    return data ? toRecord(data) : null;
+  }
+
+  async getConnectionById(id: string): Promise<UserConnectionRecord | null> {
+    const { data, error } = await this.supabase
+      .from("user_connection")
+      .select(CONNECTION_COLUMNS)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw new Error(`getConnectionById failed: ${error.message}`);
+    return data ? toRecord(data) : null;
+  }
+
+  async createConnectionRequest(requesterId: string, recipientId: string): Promise<UserConnectionRecord> {
+    const { data, error } = await this.supabase
+      .from("user_connection")
+      .insert({ requester_id: requesterId, recipient_id: recipientId })
+      .select(CONNECTION_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`createConnectionRequest failed: ${error.message}`);
+    return toRecord(data);
+  }
+
+  async acceptConnectionRequest(id: string): Promise<UserConnectionRecord> {
+    const { data, error } = await this.supabase
+      .from("user_connection")
+      .update({ status: "accepted", responded_at: new Date().toISOString() })
+      .eq("id", id)
+      .select(CONNECTION_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`acceptConnectionRequest failed: ${error.message}`);
+    return toRecord(data);
+  }
+
+  async deleteConnection(id: string): Promise<void> {
+    const { error } = await this.supabase.from("user_connection").delete().eq("id", id);
+    if (error) throw new Error(`deleteConnection failed: ${error.message}`);
+  }
+
+  async listConnectionsForUser(userId: string, status?: ConnectionStatus): Promise<ConnectionListItem[]> {
+    let query = this.supabase
+      .from("user_connection")
+      .select(
+        `id, status, requester_id, recipient_id, created_at, requester:requester_id (${USER_COLUMNS}), recipient:recipient_id (${USER_COLUMNS})`
+      )
+      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
+
+    if (status) query = query.eq("status", status);
+
+    const { data, error } = await query;
+    if (error) throw new Error(`listConnectionsForUser failed: ${error.message}`);
+
+    return (data ?? []).map((row) => {
+      const isRequester = row.requester_id === userId;
+      const other = (isRequester ? row.recipient : row.requester) as unknown as UserRow;
+      return {
+        id: row.id as string,
+        status: row.status as ConnectionStatus,
+        direction: isRequester ? ("outgoing" as const) : ("incoming" as const),
+        createdAt: row.created_at as string,
+        user: toUserSummary(other),
+      };
+    });
+  }
+
+  async countAcceptedConnectionsForUser(userId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("user_connection")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`);
+
+    if (error) throw new Error(`countAcceptedConnectionsForUser failed: ${error.message}`);
+    return count ?? 0;
+  }
+}

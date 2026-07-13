@@ -1,8 +1,8 @@
 import type { Badge } from "@blockwise/types";
 import type { GamificationRepository } from "./repository";
 import { type CompletedChallengeSummary, evaluateChallengesAfterCheckin } from "./challenges";
-import { evaluateBadgesAfterCheckin } from "./badges";
-import { CHECKIN_POINTS } from "./points";
+import { evaluateBadgesAfterCheckin, evaluateBadgesForNeighborCount } from "./badges";
+import { CHECKIN_POINTS, NEIGHBOR_CONNECTION_POINTS } from "./points";
 
 export interface CheckinRewardsSummary {
   pointsEarned: number;
@@ -67,4 +67,33 @@ export async function awardCheckinRewards(
     CHECKIN_POINTS + challengesCompleted.reduce((sum, c) => sum + c.pointsReward, 0);
 
   return { pointsEarned, challengesCompleted, badgesEarned };
+}
+
+export interface NeighborConnectionRewardsSummary {
+  pointsEarned: number;
+  badgesEarned: Badge[];
+}
+
+// Awards NEIGHBOR_CONNECTION_POINTS to one side of a newly-accepted neighbor
+// connection (BACKLOG.md Ref 14/33) and evaluates neighbor_count_reached
+// badge rules against that side's new connection count. The caller (app.ts)
+// invokes this once per party -- accepting a connection is symmetric, so
+// both users earn the same reward, unlike awardCheckinRewards above which
+// only ever rewards the one user who checked in. neighborCount is passed in
+// rather than queried here since it comes from ConnectionRepository, a
+// different repository than this one.
+export async function awardNeighborConnectionRewards(
+  input: { userId: string; otherUserId: string; neighborCount: number },
+  repository: GamificationRepository
+): Promise<NeighborConnectionRewardsSummary> {
+  const wasAwarded = await repository.awardPoints({
+    userId: input.userId,
+    eventType: "neighbor_connection",
+    points: NEIGHBOR_CONNECTION_POINTS,
+    neighborUserId: input.otherUserId,
+  });
+
+  const badgesEarned = await evaluateBadgesForNeighborCount(input.userId, input.neighborCount, repository);
+
+  return { pointsEarned: wasAwarded ? NEIGHBOR_CONNECTION_POINTS : 0, badgesEarned };
 }

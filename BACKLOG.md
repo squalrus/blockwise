@@ -63,9 +63,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
-| 14 | [Connect with other users](#connect-with-other-users) | feature | M | M | — |
-| 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | 14 |
-| 33 | [Friends/neighbors on profile](#friendsneighbors-on-profile) | feature | L | M | — |
+| 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
@@ -246,7 +244,7 @@ No open limitations.
 **Type:** feature
 **Depends:** —
 **Why** — Two related asks: showing who is/was recently at a business (social proof, "who's here right now"), and letting users connect with each other while physically co-located at a venue — turns a shared check-in into a natural, low-friction moment to start a connection.
-**Notes:** Only public/opted-in check-ins (the profile visibility flag, shipped v0.20.0) should be visible to other visitors. Pairs with [Connect with other users](#connect-with-other-users) (Ref 14) for the actual connect action — likely a "people here now" list on the venue detail page (recent `checkin` rows within a short window) with a connect button per person. Consider whether this needs a tighter privacy control than the general activity feed, since "currently at this specific location" is more sensitive than general recent activity.
+**Notes:** Only public/opted-in check-ins (the profile visibility flag, shipped v0.20.0) should be visible to other visitors. Neighbor connections (the actual connect action, formerly Ref 14) shipped in v0.42.0 — this item is now the "people here now" list on the venue detail page (recent `checkin` rows within a short window) with a connect button per person, reusing that mechanism. Consider whether this needs a tighter privacy control than the general activity feed, since "currently at this specific location" is more sensitive than general recent activity.
 
 #### Monetization: credits & entitlements
 
@@ -306,29 +304,13 @@ No open limitations.
 **Why** — Anonymous users today can favorite and wishlist unlimited venues, filling the database with noise and potentially being abused (e.g., scripted requests). Limiting anonymous users to 5 favorites and 5 wishlist items protects the system while still giving explorers a meaningful experience.
 **Notes:** Enforce quotas on `POST /venues/:id/favorites` and `POST /venues/:id/wishlist` (backlog Ref 2 covers wishlist) by checking (user_id IS NULL AND SELECT COUNT(*) FROM favorites WHERE user_id IS NULL AND device_id = ?) before allowing the insert. After signup, migrate anonymous favorites/wishlist to the new account.
 
-#### Connect with other users
-
-**Ref:** 14
-**Type:** feature
-**Depends:** —
-**Why** — The requested "friend"-equivalent relationship, using neighborhood-flavored language instead of "friend" per the user's ask — lets two users see each other's activity ([Activity feed of recent check-ins](#activity-feed-of-recent-check-ins)) regardless of the public/private default, and is the mechanism behind "connect while at the business" in [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect).
-**Notes:** User profiles with visibility (something to send a request to/from) shipped in v0.20.0. Likely a `user_connection` table (requester/recipient/status: pending|accepted|declined), symmetric once accepted. Naming is still open — user wants a neighborhood-appropriate term rather than "friend" (e.g. "neighbor"); worth deciding before writing UI copy.
-
 #### Activity feed of recent check-ins
 
 **Ref:** 15
 **Type:** feature
-**Depends:** [14](#connect-with-other-users)
-**Why** — Lets a user see what people they're connected to (or public profiles) have been checking into recently — the social payoff for connecting at all, and a natural discovery surface ("what's popular right now among people I know").
-**Notes:** Respect the profile visibility flag (shipped v0.20.0) and likely build on Ref 14 — open question: is the feed public-profiles-only, connections-only, or both (with connections seeing more)? Resolve before scoping. Reads off the existing `checkin` table (project plan §4/§14.2) — no new check-in schema needed, just a query surface and visibility filtering.
-
-#### Friends/neighbors on profile
-
-**Ref:** 33
-**Type:** feature
 **Depends:** —
-**Why** — Users today can see profiles and activity, but have no way to explicitly connect with people they've met at venues or events. A friend/follower model lets users build a social graph and see what their friends are up to, especially the venues they've checked in to.
-**Notes:** Add a `user_connection` table with (user_id, connected_user_id, status: 'pending'|'accepted'|'blocked', created_at) and a partial unique index. Endpoints: `POST /users/:id/connect` (send request), `POST /users/:id/connect/:connectionId/accept` (accept), `DELETE /users/:id/connect/:connectionId` (remove). Show "Friends" section on public profiles. Open question: model this as one-way "follows" or mutual "friends"? Geolocation-based "nearby users" suggestion is separate scope.
+**Why** — Lets a user see what people they're connected to (or public profiles) have been checking into recently — the social payoff for connecting at all, and a natural discovery surface ("what's popular right now among people I know").
+**Notes:** Respect the profile visibility flag (shipped v0.20.0). Prerequisite (neighbor connections) shipped in v0.42.0 — open question: is the feed public-profiles-only, connections-only, or both (with connections seeing more)? Resolve before scoping. Reads off the existing `checkin` table (project plan §4/§14.2) — no new check-in schema needed, just a query surface and visibility filtering.
 
 #### Leaderboard aggregation performance
 

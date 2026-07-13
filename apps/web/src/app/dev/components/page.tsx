@@ -119,6 +119,7 @@ const PROFILE_CARDS: {
   pointsSummary: UserPointsSummary;
   badgeCount: number;
   challengeCount: number;
+  neighborCount: number;
 }[] = [
   {
     label: "New forager -- Level 1, just getting started",
@@ -128,6 +129,7 @@ const PROFILE_CARDS: {
     pointsSummary: { points: 5, level: 1, points_into_level: 5, points_to_next_level: 45 },
     badgeCount: 0,
     challengeCount: 0,
+    neighborCount: 0,
   },
   {
     label: "Level 4 -- matches screenshot",
@@ -137,6 +139,7 @@ const PROFILE_CARDS: {
     pointsSummary: { points: 160, level: 4, points_into_level: 60, points_to_next_level: 40 },
     badgeCount: 3,
     challengeCount: 1,
+    neighborCount: 4,
   },
   {
     label: "Level 9 -- heavy activity, near level-up",
@@ -146,6 +149,7 @@ const PROFILE_CARDS: {
     pointsSummary: { points: 940, level: 9, points_into_level: 90, points_to_next_level: 10 },
     badgeCount: 11,
     challengeCount: 6,
+    neighborCount: 19,
   },
   {
     label: "Long display name -- wrapping/truncation check",
@@ -155,6 +159,7 @@ const PROFILE_CARDS: {
     pointsSummary: { points: 25, level: 2, points_into_level: 5, points_to_next_level: 45 },
     badgeCount: 1,
     challengeCount: 0,
+    neighborCount: 1,
   },
 ];
 
@@ -289,19 +294,22 @@ export default function ComponentLibraryPage() {
         </h2>
 
         <div className="flex flex-col gap-6">
-          {PROFILE_CARDS.map(({ label, user, favoriteCount, checkinCount, pointsSummary, badgeCount, challengeCount }) => (
-            <div key={user.id} className="flex flex-col gap-2">
-              <p className="text-[11px] font-extrabold tracking-wide text-muted uppercase">{label}</p>
-              <ProfileSummaryCard
-                user={user}
-                favoriteCount={favoriteCount}
-                checkinCount={checkinCount}
-                pointsSummary={pointsSummary}
-                badgeCount={badgeCount}
-                challengeCount={challengeCount}
-              />
-            </div>
-          ))}
+          {PROFILE_CARDS.map(
+            ({ label, user, favoriteCount, checkinCount, pointsSummary, badgeCount, challengeCount, neighborCount }) => (
+              <div key={user.id} className="flex flex-col gap-2">
+                <p className="text-[11px] font-extrabold tracking-wide text-muted uppercase">{label}</p>
+                <ProfileSummaryCard
+                  user={user}
+                  favoriteCount={favoriteCount}
+                  checkinCount={checkinCount}
+                  pointsSummary={pointsSummary}
+                  badgeCount={badgeCount}
+                  challengeCount={challengeCount}
+                  neighborCount={neighborCount}
+                />
+              </div>
+            )
+          )}
         </div>
       </section>
 

@@ -16,16 +16,55 @@ async function getActivity(id: string): Promise<ActivityItem[]> {
   return (await res.json()) as ActivityItem[];
 }
 
-function describe(item: ActivityItem): string {
+// Actor/venue names render as their own links (to the public profile /
+// location detail page) rather than the whole sentence linking to just one
+// of the two -- either can be null (private actor, or a badge/challenge row
+// with no venue), in which case that piece falls back to plain text.
+function ActorLink({ item }: { item: ActivityItem }) {
+  if (!item.actor_username) return <>{item.actor_name}</>;
+  return (
+    <a href={`/profile/${item.actor_username}`} className="hover:text-brand-purple">
+      {item.actor_name}
+    </a>
+  );
+}
+
+function VenueLink({ item }: { item: ActivityItem }) {
+  const name = item.venue_name ?? "a location";
+  if (!item.venue_id) return <>{name}</>;
+  return (
+    <a href={`/location/${item.venue_id}`} className="hover:text-brand-purple">
+      {name}
+    </a>
+  );
+}
+
+function Description({ item }: { item: ActivityItem }) {
   switch (item.type) {
     case "checkin":
-      return `${item.actor_name} checked in at ${item.venue_name ?? "a location"}`;
+      return (
+        <>
+          <ActorLink item={item} /> checked in at <VenueLink item={item} />
+        </>
+      );
     case "favorite":
-      return `${item.actor_name} favorited ${item.venue_name ?? "a location"}`;
+      return (
+        <>
+          <ActorLink item={item} /> favorited <VenueLink item={item} />
+        </>
+      );
     case "challenge_completion":
-      return `${item.actor_name} completed the ${item.challenge_title ?? "a"} challenge`;
+      return (
+        <>
+          <ActorLink item={item} /> completed the {item.challenge_title ?? "a"} challenge
+        </>
+      );
     case "badge":
-      return `${item.actor_name} unlocked the ${item.badge_name ?? ""} badge`;
+      return (
+        <>
+          <ActorLink item={item} /> unlocked the {item.badge_name ?? ""} badge
+        </>
+      );
   }
 }
 
@@ -50,16 +89,9 @@ export default async function NeighborhoodActivityPage({
       emptyMessage="No activity yet."
       items={activity.map((item) => ({
         key: item.id,
-        primary: item.venue_id ? (
-          <a
-            href={`/location/${item.venue_id}`}
-            className="text-sm font-extrabold text-foreground hover:text-brand-purple"
-          >
-            {describe(item)}
-          </a>
-        ) : (
+        primary: (
           <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-foreground">
-            {describe(item)}
+            <Description item={item} />
             {item.type === "badge" && <BadgeIcon icon={item.badge_icon} name={item.badge_name ?? "Badge"} />}
           </span>
         ),

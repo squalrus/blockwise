@@ -38,6 +38,10 @@ function isRelevant(rule: BadgeRuleRecord, categoryId: string | undefined, kind:
     case "same_venue_repeat_in_day":
     case "level_reached":
       return true;
+    // Never affected by a check-in -- evaluated separately, after a
+    // connection is accepted (see evaluateBadgesForNeighborCount below).
+    case "neighbor_count_reached":
+      return false;
   }
 }
 
@@ -66,6 +70,10 @@ async function progressForRule(
       });
     case "level_reached":
       return computeLevel(input.totalPoints).level;
+    // Unreachable -- isRelevant above filters this rule type out of every
+    // checkin-triggered call before progressForRule is ever invoked with it.
+    case "neighbor_count_reached":
+      return 0;
   }
 }
 
@@ -104,6 +112,30 @@ export async function evaluateBadgesAfterCheckin(
     if (progress < rule.threshold) continue;
 
     const wasAwarded = await repository.awardRuleBadge(input.userId, rule.badgeId);
+    if (wasAwarded) awarded.push(toBadge(rule.badge));
+  }
+  return awarded;
+}
+
+// Called after a neighbor connection is accepted (BACKLOG.md Ref 14/33),
+// entirely independent of evaluateBadgesAfterCheckin -- a connection isn't a
+// check-in, so isRelevant/progressForRule above never run for it. The
+// caller already knows the user's new accepted-connection count (from
+// ConnectionRepository, a different repository than this one), so it's
+// passed in rather than queried here.
+export async function evaluateBadgesForNeighborCount(
+  userId: string,
+  neighborCount: number,
+  repository: GamificationRepository
+): Promise<Badge[]> {
+  const rules = (await repository.getAllBadgeRules()).filter((rule) => rule.ruleType === "neighbor_count_reached");
+
+  const awarded: Badge[] = [];
+  for (const rule of rules) {
+    if (neighborCount < rule.threshold) continue;
+    if (await repository.hasEarnedBadge(userId, rule.badgeId)) continue;
+
+    const wasAwarded = await repository.awardRuleBadge(userId, rule.badgeId);
     if (wasAwarded) awarded.push(toBadge(rule.badge));
   }
   return awarded;

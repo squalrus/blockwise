@@ -58,6 +58,17 @@ export class FakeGamificationRepository implements GamificationRepository {
     ) {
       return false;
     }
+    if (
+      input.eventType === "neighbor_connection" &&
+      this.pointEvents.some(
+        (e) =>
+          e.eventType === "neighbor_connection" &&
+          e.userId === input.userId &&
+          e.neighborUserId === input.neighborUserId
+      )
+    ) {
+      return false;
+    }
     this.pointEvents.push({ ...input, id: `point-${this.nextId++}` });
     return true;
   }
