@@ -6,6 +6,7 @@ import type {
   BusinessClaimStatus,
   CheckinRewardsSummary,
   HealthCheckResponse,
+  MushroomCustomization,
   NeighborhoodDashboardSummary,
   NeighborhoodProfile,
   NeighborhoodSummary,
@@ -120,6 +121,76 @@ const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
 const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "private"];
 const AVATAR_STYLES: AvatarStyle[] = ["social", "mushroom"];
+// BACKLOG.md Ref 75 "Mushroom avatar customizer" -- apps/api can't depend on
+// @blockwise/ui (its React peer deps), so these literal values mirror
+// packages/ui/src/colors.ts and mushroomConfig.ts's MUSHROOM_CAPS/
+// MUSHROOM_STALK_*/MUSHROOM_SPOT_* exports. Keep in sync if the brand
+// palette changes.
+const MUSHROOM_CAPS = [
+  "#e8542a",
+  "#f2a93b",
+  "#4c8c4a",
+  "#8b5fbf",
+  "#2b1b12",
+  "#4a5fa5",
+  "#b33a3a",
+  "#d98a9c",
+];
+const MUSHROOM_STALK_CREAM = "#fbf2e4";
+const MUSHROOM_STALK_COCOA = "#2b1b12";
+const MUSHROOM_STALK_WHEAT = "#f2d9a8";
+const MUSHROOM_STALK_MEADOW = "#dcebd3";
+const MUSHROOM_STALK_LILAC = "#c9b3e0";
+const MUSHROOM_STALK_OAT = "#f5e8d3";
+const MUSHROOM_STALK_SAGE = "#c8d3be";
+const MUSHROOM_STALK_MIST = "#d8e3e8";
+const MUSHROOM_STALK_CLAY = "#e3c9ae";
+const MUSHROOM_STALK_AMBER = "#f2a93b";
+const MUSHROOM_STALKS = [
+  MUSHROOM_STALK_CREAM,
+  MUSHROOM_STALK_COCOA,
+  MUSHROOM_STALK_WHEAT,
+  MUSHROOM_STALK_MEADOW,
+  MUSHROOM_STALK_LILAC,
+  MUSHROOM_STALK_OAT,
+  MUSHROOM_STALK_SAGE,
+  MUSHROOM_STALK_MIST,
+  MUSHROOM_STALK_CLAY,
+  MUSHROOM_STALK_AMBER,
+];
+const MUSHROOM_MIN_SPOT_COUNT = 0;
+const MUSHROOM_MAX_SPOT_COUNT = 6;
+const MUSHROOM_SPOT_SHAPES = ["circle", "ring", "sparks", "star", "triangle", "cross"];
+
+// null clears a saved customization back to the hash-derived default -- only
+// that or a fully-approved { cap, stalk, spots, bg, spotCount, spotShape }
+// combination is accepted. Stalk, spots, and bg are independent choices (not
+// one mirroring another), but share the same approved palette and the same
+// amber-only-with-Cocoa-cap contrast rule (mirroring mushroomConfigForUser's
+// own auto-assignment). spotCount and spotShape are likewise independent
+// choices (any count 0-6 pairs with any shape), not a fused named pattern.
+function isValidMushroomCustomization(value: unknown): value is MushroomCustomization | null {
+  if (value === null) return true;
+  if (typeof value !== "object" || Array.isArray(value)) return false;
+
+  const { cap, stalk, spots, bg, spotCount, spotShape } = value as Record<string, unknown>;
+  if (typeof cap !== "string" || !MUSHROOM_CAPS.includes(cap)) return false;
+  if (typeof stalk !== "string" || !MUSHROOM_STALKS.includes(stalk)) return false;
+  if (stalk === MUSHROOM_STALK_AMBER && cap !== MUSHROOM_STALK_COCOA) return false;
+  if (typeof spots !== "string" || !MUSHROOM_STALKS.includes(spots)) return false;
+  if (spots === MUSHROOM_STALK_AMBER && cap !== MUSHROOM_STALK_COCOA) return false;
+  if (typeof bg !== "string" || !MUSHROOM_STALKS.includes(bg)) return false;
+  if (bg === MUSHROOM_STALK_AMBER && cap !== MUSHROOM_STALK_COCOA) return false;
+  if (
+    typeof spotCount !== "number" ||
+    !Number.isInteger(spotCount) ||
+    spotCount < MUSHROOM_MIN_SPOT_COUNT ||
+    spotCount > MUSHROOM_MAX_SPOT_COUNT
+  )
+    return false;
+  if (typeof spotShape !== "string" || !MUSHROOM_SPOT_SHAPES.includes(spotShape)) return false;
+  return true;
+}
 const CONNECTION_STATUSES: ConnectionStatus[] = ["pending", "accepted"];
 // BACKLOG.md "Public user profiles": matches the app_user.username check
 // constraint (migration 20260707010000) -- kept in sync with it.
@@ -970,13 +1041,20 @@ export function createApp() {
     "/me/profile",
     requireAuthUser(getSupabaseClient, getAuthRepository),
     async (req, res) => {
-      const { display_name, avatar_style, username, visibility } = req.body ?? {};
+      const { display_name, avatar_style, mushroom_customization, username, visibility } = req.body ?? {};
       if (display_name !== undefined && display_name !== null && typeof display_name !== "string") {
         res.status(400).json({ error: "display_name must be a string or null" });
         return;
       }
       if (avatar_style !== undefined && !AVATAR_STYLES.includes(avatar_style)) {
         res.status(400).json({ error: `avatar_style must be one of ${AVATAR_STYLES.join(", ")}` });
+        return;
+      }
+      if (mushroom_customization !== undefined && !isValidMushroomCustomization(mushroom_customization)) {
+        res.status(400).json({
+          error:
+            "mushroom_customization must be null or an approved { cap, stalk, spots, bg, spotCount, spotShape } combination",
+        });
         return;
       }
       if (username !== undefined && username !== null && typeof username !== "string") {
@@ -1004,6 +1082,7 @@ export function createApp() {
           {
             ...(display_name !== undefined && { displayName: display_name }),
             ...(avatar_style !== undefined && { avatarStyle: avatar_style }),
+            ...(mushroom_customization !== undefined && { mushroomCustomization: mushroom_customization }),
             ...(username !== undefined && { username }),
             ...(visibility !== undefined && { visibility }),
           },
@@ -1105,6 +1184,7 @@ export function createApp() {
               display_name: c.user.displayName,
               avatar_url: c.user.avatarUrl,
               avatar_style: c.user.avatarStyle,
+              mushroom_customization: c.user.mushroomCustomization,
             },
           }))
         );
@@ -1212,6 +1292,7 @@ export function createApp() {
         display_name: user.displayName,
         avatar_url: user.avatarUrl,
         avatar_style: user.avatarStyle,
+        mushroom_customization: user.mushroomCustomization,
         joined_at: user.createdAt,
         neighborhoods,
         recent_checkins: checkins.slice(0, PUBLIC_PROFILE_CHECKIN_LIMIT).map((c) => ({

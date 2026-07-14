@@ -107,6 +107,7 @@ function profileUser(overrides: Partial<AppUser> & Pick<AppUser, "id" | "display
     phone: null,
     avatar_url: null,
     avatar_style: "mushroom",
+    mushroom_customization: null,
     username: null,
     visibility: "public",
     created_at: NOW,

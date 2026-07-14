@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MushroomLogo } from "@blockwise/ui";
+import type { AppUser } from "@blockwise/types";
+import { MushroomLogo, MushroomMark, resolveMushroomConfig } from "@blockwise/ui";
+import type { MushroomConfig, SpotShape } from "@blockwise/ui";
+import { getCurrentUser } from "@/lib/auth";
 import { CheckinResultCard } from "./CheckinResultCard";
 import { useCheckIn, type CheckinStatus } from "./useCheckIn";
 
@@ -30,6 +33,12 @@ const CONTROL_HEIGHT_PX = 84;
 // height (default align-items, not items-start), so a *shorter* result (no
 // badges, a one-line error) doesn't visually shrink the card either -- the
 // explicit min-height below is the floor for that same reason.
+//
+// The thumb itself renders the signed-in account's own mushroom (customized
+// or hash-derived default, same as Avatar elsewhere), including its own
+// background tint, rather than a generic fixed icon -- falls back to the
+// original on-accent icon on a plain orange circle only until the user
+// loads.
 export function SlideToCheckIn({
   locationId,
   // Component-library preview only (apps/web/src/app/dev/components) -- the
@@ -50,6 +59,31 @@ export function SlideToCheckIn({
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const dragOriginRef = useRef(0);
+  const [user, setUser] = useState<AppUser | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser().then((u) => {
+      if (!cancelled) setUser(u);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The thumb is the account's own mushroom (its saved customization if one
+  // exists, else the same hash-derived default Avatar would fall back to) --
+  // null only while the user hasn't loaded yet, in which case the thumb
+  // falls back to the generic on-accent icon below rather than flashing an
+  // empty circle.
+  const mushroom: MushroomConfig | null = user
+    ? resolveMushroomConfig(
+        user.id,
+        user.mushroom_customization
+          ? { ...user.mushroom_customization, spotShape: user.mushroom_customization.spotShape as SpotShape }
+          : null
+      )
+    : null;
 
   function checkIn() {
     if (!mockResolution) {
@@ -143,9 +177,9 @@ export function SlideToCheckIn({
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
-              className={`absolute left-1.5 flex items-center justify-center rounded-full bg-brand-orange shadow-none dark:shadow-[0_0_12px_rgba(255,107,61,0.6)] ${
-                dragging ? "" : "transition-transform duration-300 ease-out"
-              }`}
+              className={`absolute left-1.5 flex items-center justify-center rounded-full shadow-none dark:shadow-[0_0_12px_rgba(255,107,61,0.6)] ${
+                mushroom ? "" : "bg-brand-orange"
+              } ${dragging ? "" : "transition-transform duration-300 ease-out"}`}
               style={{
                 width: THUMB_SIZE,
                 height: THUMB_SIZE,
@@ -153,7 +187,19 @@ export function SlideToCheckIn({
                 cursor: locked ? "default" : "grab",
               }}
             >
-              <MushroomLogo size={20} capColor="var(--on-accent)" stemClassName="text-ink" />
+              {mushroom ? (
+                <MushroomMark
+                  size={THUMB_SIZE}
+                  cap={mushroom.cap}
+                  stalk={mushroom.stalk}
+                  spots={mushroom.spots}
+                  spotCount={mushroom.spotCount}
+                  spotShape={mushroom.spotShape}
+                  bg={mushroom.bg}
+                />
+              ) : (
+                <MushroomLogo size={20} capColor="var(--on-accent)" stemClassName="text-ink" />
+              )}
             </div>
             <div className="flex-1 text-center text-sm font-extrabold text-nav-muted">{label}</div>
           </div>

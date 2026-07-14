@@ -131,10 +131,10 @@ export default function NeighborhoodAdminClaimsPage() {
                 size={42}
                 cap={mushroom.cap}
                 stalk={mushroom.stalk}
-                spots={mushroom.stalk}
-                pattern={mushroom.pattern}
-                bg="var(--card-alt)"
-                bgShape="circle"
+                spots={mushroom.spots}
+                spotCount={mushroom.spotCount}
+                spotShape={mushroom.spotShape}
+                bg={mushroom.bg}
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2.5">

@@ -107,7 +107,7 @@ export function AccountNav() {
         href={state.status === "signed_in" && state.homeNeighborhood ? `/neighborhoods/${state.homeNeighborhood.slug}` : "/"}
         className="flex items-center gap-2 font-heading font-extrabold text-nav-foreground"
       >
-        <MushroomLogo size={22} capColor="var(--brand-amber)" stemClassName="text-nav-foreground" />
+        <MushroomLogo size={22} capColor="var(--brand-orange)" stemClassName="text-nav-foreground" />
         Spored
       </a>
 
@@ -130,6 +130,7 @@ export function AccountNav() {
             <Avatar
               avatarUrl={state.user.avatar_url}
               avatarStyle={state.user.avatar_style}
+              mushroomCustomization={state.user.mushroom_customization}
               seed={state.user.id}
               label="My account"
               size={22}

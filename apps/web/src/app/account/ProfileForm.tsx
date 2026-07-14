@@ -16,8 +16,11 @@ type Status = { state: "idle" | "submitting" | "error"; message?: string };
 // Avatar is a choice, not a free-text URL (BACKLOG.md "Mushroom avatars") --
 // letting a user paste any image URL was an explicit-content risk, so the
 // only two options are the social photo already on file (from OAuth signup)
-// and the account's randomly-assigned mushroom. avatar_url itself is never
-// submitted from here; PATCH /me/profile no longer accepts it at all.
+// and the account's mushroom. avatar_url itself is never submitted from
+// here; PATCH /me/profile no longer accepts it at all. The mushroom preview
+// shows whatever's already saved (user.mushroom_customization) -- editing it
+// lives in its own account/settings section (MushroomSection.tsx), not here,
+// so this form never touches that field.
 export function ProfileForm({
   user,
   onSaved,
@@ -104,7 +107,14 @@ export function ProfileForm({
               onChange={() => setAvatarStyle("mushroom")}
               className="sr-only"
             />
-            <Avatar avatarUrl={null} avatarStyle="mushroom" seed={user.id} label={label} size={48} />
+            <Avatar
+              avatarUrl={null}
+              avatarStyle="mushroom"
+              mushroomCustomization={user.mushroom_customization}
+              seed={user.id}
+              label={label}
+              size={48}
+            />
             <span className="text-xs font-bold text-foreground">Mushroom avatar</span>
           </label>
         </div>

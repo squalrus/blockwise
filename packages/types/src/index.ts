@@ -323,6 +323,24 @@ export type ProfileVisibility = "public" | "private";
 // involved either way).
 export type AvatarStyle = "social" | "mushroom";
 
+// BACKLOG.md Ref 75 "Mushroom avatar customizer" -- a deliberate override of
+// the hash-derived look mushroomConfigForUser (packages/ui) would otherwise
+// pick. Approved cap/stalk/spots/bg/spotCount/spotShape values are enforced
+// server-side (PATCH /me/profile), not by this type, so a stored value is
+// always renderable. stalk, spots, and bg are independent choices (not one
+// mirroring another), as are spotCount and spotShape (any count 0-6 pairs
+// with any shape) rather than a fused named pattern. bg only affects Avatar
+// rendering's backdrop circle, not MushroomField's decorative growing-field
+// icons (which never render a background at all).
+export interface MushroomCustomization {
+  cap: string;
+  stalk: string;
+  spots: string;
+  bg: string;
+  spotCount: number;
+  spotShape: string;
+}
+
 export interface AppUser {
   id: string;
   is_anonymous: boolean;
@@ -332,6 +350,9 @@ export interface AppUser {
   display_name: string | null;
   avatar_url: string | null;
   avatar_style: AvatarStyle;
+  // Null until the user saves a customizer choice -- rendering falls back
+  // to mushroomConfigForUser(id) until then.
+  mushroom_customization: MushroomCustomization | null;
   // BACKLOG.md "Public user profiles" -- the handle a public profile is
   // addressed by (/profile/:username), distinct from the internal id.
   // Unset (null) until the user chooses one; unique when set.
@@ -347,6 +368,7 @@ export interface AppUser {
 export interface UpdateProfileRequest {
   display_name?: string | null;
   avatar_style?: AvatarStyle;
+  mushroom_customization?: MushroomCustomization | null;
   username?: string | null;
   visibility?: ProfileVisibility;
 }
@@ -458,6 +480,7 @@ export interface PublicUserProfile {
   display_name: string | null;
   avatar_url: string | null;
   avatar_style: AvatarStyle;
+  mushroom_customization: MushroomCustomization | null;
   joined_at: string;
   neighborhoods: NeighborhoodMembership[];
   recent_checkins: CheckinHistoryItem[];
@@ -510,6 +533,7 @@ export interface ConnectionSummary {
     display_name: string | null;
     avatar_url: string | null;
     avatar_style: AvatarStyle;
+    mushroom_customization: MushroomCustomization | null;
   };
 }
 

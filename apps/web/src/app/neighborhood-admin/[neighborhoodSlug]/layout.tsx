@@ -295,6 +295,7 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
               <Avatar
                 avatarUrl={user.avatar_url}
                 avatarStyle={user.avatar_style}
+                mushroomCustomization={user.mushroom_customization}
                 seed={user.id}
                 label={user.display_name ?? "Admin"}
                 size={26}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { MushroomSection } from "../MushroomSection";
 import { ProfileForm } from "../ProfileForm";
 
 type State =
@@ -117,6 +118,11 @@ export default function AccountSettingsPage() {
           <section className="flex flex-col gap-2.5">
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Profile</h2>
             <ProfileForm user={state.user} onSaved={handleProfileSaved} />
+          </section>
+
+          <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Mushroom avatar</h2>
+            <MushroomSection user={state.user} onSaved={handleProfileSaved} />
           </section>
 
           <section className="flex flex-col gap-2.5">

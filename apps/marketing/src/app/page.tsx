@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { MushroomLogo } from "@blockwise/ui";
+import { MushroomLogo, MushroomMark } from "@blockwise/ui";
+import type { SpotShape } from "@blockwise/ui";
 import { APP_URL } from "@/lib/appUrl";
 import { SITE_URL } from "@/lib/siteUrl";
 import { MarketingNav } from "./MarketingNav";
@@ -32,10 +33,29 @@ const AMBER = "#F2A93B";
 const GREEN = "#4C8C4A";
 const PURPLE = "#8B5FBF";
 
-function Spore({ size, color, className, style }: { size: number; color: string; className?: string; style?: React.CSSProperties }) {
+// Each floating spore uses the real generator (packages/ui's MushroomMark,
+// same one behind per-user avatars) with its own spot count/shape rather
+// than one fixed pattern repeated in different colors -- the homepage's
+// whole pitch is "every mushroom is unique," so its own decoration should
+// show that instead of ~13 identical dot patterns.
+function Spore({
+  size,
+  color,
+  spotCount,
+  spotShape,
+  className,
+  style,
+}: {
+  size: number;
+  color: string;
+  spotCount: number;
+  spotShape: SpotShape;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return (
     <div className={className} style={style}>
-      <MushroomLogo size={size} capColor={color} stemClassName="text-[#FBF2E4]" />
+      <MushroomMark size={size} cap={color} stalk={CREAM} spots={CREAM} spotCount={spotCount} spotShape={spotShape} />
     </div>
   );
 }
@@ -118,9 +138,9 @@ export default function Home() {
           />
         </svg>
 
-        <Spore size={30} color={PURPLE} className="absolute left-[8%] top-[22%]" style={{ animation: "float-spore 5s ease-in-out infinite" }} />
-        <Spore size={22} color={AMBER} className="absolute right-[12%] top-[16%]" style={{ animation: "float-spore 4.5s ease-in-out infinite 0.6s" }} />
-        <Spore size={20} color={GREEN} className="absolute right-[6%] top-[52%]" style={{ animation: "float-spore 6s ease-in-out infinite 1.2s" }} />
+        <Spore size={30} color={PURPLE} spotCount={2} spotShape="ring" className="absolute left-[8%] top-[22%]" style={{ animation: "float-spore 5s ease-in-out infinite" }} />
+        <Spore size={22} color={AMBER} spotCount={4} spotShape="star" className="absolute right-[12%] top-[16%]" style={{ animation: "float-spore 4.5s ease-in-out infinite 0.6s" }} />
+        <Spore size={20} color={GREEN} spotCount={3} spotShape="circle" className="absolute right-[6%] top-[52%]" style={{ animation: "float-spore 6s ease-in-out infinite 1.2s" }} />
 
         <div className="relative mx-auto max-w-6xl text-center">
           <div
@@ -166,7 +186,7 @@ export default function Home() {
             >
               <div className="flex items-center justify-between px-4 py-3.5" style={{ background: INK }}>
                 <div className="flex items-center gap-1.5">
-                  <MushroomLogo size={16} capColor={AMBER} stemClassName="text-[#FBF2E4]" />
+                  <MushroomLogo size={16} capColor={ORANGE} stemClassName="text-[#FBF2E4]" />
                   <span className="font-heading text-sm font-extrabold" style={{ color: CREAM }}>
                     Spored
                   </span>
@@ -178,9 +198,9 @@ export default function Home() {
                     <path d="M0 30 Q70 0 140 22 Q200 42 260 15 L260 0 L0 0 Z" fill="#F2D9A8" />
                     <path d="M0 130 Q60 82 130 112 Q200 140 260 90 L260 130 Z" fill="#C9B3E0" />
                   </svg>
-                  <Spore size={14} color={ORANGE} className="absolute left-10 top-[58px]" />
-                  <Spore size={12} color={GREEN} className="absolute left-[110px] top-[38px]" />
-                  <Spore size={14} color={PURPLE} className="absolute left-[170px] top-[62px]" />
+                  <Spore size={14} color={ORANGE} spotCount={1} spotShape="circle" className="absolute left-10 top-[58px]" />
+                  <Spore size={12} color={GREEN} spotCount={3} spotShape="triangle" className="absolute left-[110px] top-[38px]" />
+                  <Spore size={14} color={PURPLE} spotCount={2} spotShape="sparks" className="absolute left-[170px] top-[62px]" />
                 </div>
                 <div className="mt-3 font-heading text-xl font-extrabold" style={{ color: INK }}>
                   Phinneywood
@@ -360,11 +380,11 @@ export default function Home() {
                 opacity="0.45"
               />
             </svg>
-            <Spore size={30} color={ORANGE} className="absolute left-[14%] top-[38%]" />
-            <Spore size={26} color={GREEN} className="absolute left-[32%] top-[22%]" />
-            <Spore size={30} color={PURPLE} className="absolute left-[48%] top-[48%]" />
-            <Spore size={24} color={AMBER} className="absolute left-[64%] top-[28%]" />
-            <Spore size={26} color={ORANGE} className="absolute left-[78%] top-[52%]" />
+            <Spore size={30} color={ORANGE} spotCount={5} spotShape="circle" className="absolute left-[14%] top-[38%]" />
+            <Spore size={26} color={GREEN} spotCount={2} spotShape="cross" className="absolute left-[32%] top-[22%]" />
+            <Spore size={30} color={PURPLE} spotCount={6} spotShape="circle" className="absolute left-[48%] top-[48%]" />
+            <Spore size={24} color={AMBER} spotCount={3} spotShape="star" className="absolute left-[64%] top-[28%]" />
+            <Spore size={26} color={ORANGE} spotCount={4} spotShape="ring" className="absolute left-[78%] top-[52%]" />
 
             <div
               className="absolute translate-x-[-50%] translate-y-[26px] rounded-full px-3 py-1.5 text-xs font-extrabold whitespace-nowrap"
@@ -472,8 +492,8 @@ export default function Home() {
 
       {/* FINAL CTA */}
       <div className="relative overflow-hidden px-5 py-14 text-center md:px-6 md:py-[90px]" style={{ background: INK }}>
-        <Spore size={26} color={AMBER} className="absolute left-[10%] top-[24%]" style={{ animation: "float-spore 5.5s ease-in-out infinite" }} />
-        <Spore size={22} color={PURPLE} className="absolute right-[12%] top-[60%]" style={{ animation: "float-spore 4.8s ease-in-out infinite 0.8s" }} />
+        <Spore size={26} color={AMBER} spotCount={3} spotShape="sparks" className="absolute left-[10%] top-[24%]" style={{ animation: "float-spore 5.5s ease-in-out infinite" }} />
+        <Spore size={22} color={PURPLE} spotCount={2} spotShape="triangle" className="absolute right-[12%] top-[60%]" style={{ animation: "float-spore 4.8s ease-in-out infinite 0.8s" }} />
         <div className="font-heading text-[28px] font-extrabold md:text-[38px]" style={{ color: "#F5E8D3" }}>
           Ready to spore up your block?
         </div>

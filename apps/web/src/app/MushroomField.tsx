@@ -1,4 +1,6 @@
-import { MushroomMark, hashSeed, mulberry32, mushroomConfigForUser } from "@blockwise/ui";
+import type { MushroomCustomization } from "@blockwise/types";
+import { MushroomMark, hashSeed, mulberry32, mushroomConfigForUser, resolveMushroomConfig } from "@blockwise/ui";
+import type { MushroomConfig, SpotShape } from "@blockwise/ui";
 
 // Purely decorative -- caps how many little mushrooms a field draws so an
 // implausibly high count doesn't fill the card with hundreds of icons.
@@ -31,28 +33,39 @@ function fieldLayout(seed: string, count: number): { leftPct: number; liftPx: nu
 // Renders nothing at count 0, so a brand-new entity's card just ends at its
 // stat grid instead of showing an empty dirt strip.
 //
-// `distinctMushrooms` switches each mushroom's cap/stalk/pattern from one
+// `distinctMushrooms` switches each mushroom's cap/stalk/spots from one
 // skin shared by the whole field to a unique skin per mushroom, seeded by
 // its position rather than by `seed` -- a neighborhood/location's check-ins
 // come from many different foragers, so its field should read as a mosaic
 // of visitors rather than one person's skin repeated (which is exactly what
 // the account card's field should do, since there it *is* one person's own
-// skin growing).
+// skin growing). `customization` (BACKLOG.md Ref 75) overrides that shared
+// skin with the account's saved customizer choice, if any -- only meaningful
+// when `distinctMushrooms` is false, since the mosaic case isn't any one
+// person's look to begin with.
 export function MushroomField({
   seed,
   count,
   ariaLabel,
   distinctMushrooms = false,
+  customization = null,
 }: {
   seed: string;
   count: number;
   ariaLabel: string;
   distinctMushrooms?: boolean;
+  customization?: MushroomCustomization | null;
 }) {
   const mushroomCount = Math.min(Math.max(Math.floor(count), 0), MAX_MUSHROOMS);
   if (mushroomCount === 0) return null;
 
-  const sharedMushroom = mushroomConfigForUser(seed);
+  // Server-validated against the same enum a customizer save is checked
+  // against (PATCH /me/profile), so the spotShape string is safe to trust as
+  // a SpotShape here.
+  const config: MushroomConfig | null = customization
+    ? { ...customization, spotShape: customization.spotShape as SpotShape }
+    : null;
+  const sharedMushroom = resolveMushroomConfig(seed, config);
   const layout = fieldLayout(seed, mushroomCount);
 
   return (
@@ -72,7 +85,14 @@ export function MushroomField({
               className="absolute bottom-0"
               style={{ left: `${pos.leftPct}%`, transform: `translate(-50%, ${-pos.liftPx}px)` }}
             >
-              <MushroomMark size={18} cap={mushroom.cap} stalk={mushroom.stalk} spots={mushroom.stalk} pattern={mushroom.pattern} />
+              <MushroomMark
+                size={18}
+                cap={mushroom.cap}
+                stalk={mushroom.stalk}
+                spots={mushroom.spots}
+                spotCount={mushroom.spotCount}
+                spotShape={mushroom.spotShape}
+              />
             </div>
           );
         })}

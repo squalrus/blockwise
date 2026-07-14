@@ -1,8 +1,18 @@
-import { BRAND_AMBER, BRAND_GREEN, BRAND_INK, BRAND_ORANGE, BRAND_PURPLE } from "./colors";
-import type { SporePattern } from "./MushroomMark";
+import {
+  BRAND_AMBER,
+  BRAND_BLUSHER,
+  BRAND_GREEN,
+  BRAND_INDIGO,
+  BRAND_INK,
+  BRAND_ORANGE,
+  BRAND_PURPLE,
+  BRAND_RUSSULA,
+} from "./colors";
+import type { SpotShape } from "./MushroomMark";
+import { SPOT_SHAPES } from "./MushroomMark";
 
 // Deterministic PRNG (mulberry32) so a user's mushroom looks the same on
-// every device/session without persisting cap/stalk/pattern choices in the
+// every device/session without persisting cap/stalk/spot choices in the
 // database -- it's a pure function of a stable id (app_user.id, or username
 // on the public profile where the internal id isn't exposed). Exported so
 // callers needing their own reproducible-but-scattered layout (e.g.
@@ -28,27 +38,87 @@ export function hashSeed(input: string): number {
   return hash >>> 0;
 }
 
-const CAPS = [BRAND_ORANGE, BRAND_AMBER, BRAND_GREEN, BRAND_PURPLE, BRAND_INK];
+const CAPS = [BRAND_ORANGE, BRAND_AMBER, BRAND_GREEN, BRAND_PURPLE, BRAND_INK, BRAND_INDIGO, BRAND_RUSSULA, BRAND_BLUSHER];
 const CREAM_STALK = "#fbf2e4";
-// "none" excluded -- every user's mushroom should read as a mushroom, not a
-// blank cap that looks unfinished.
-const PATTERNS: SporePattern[] = ["solo", "classic", "rings", "sparks", "halftone"];
+// Background-tint colors (brand page's "04 Color" swatch table), also
+// approved as stalk/spot accents -- not gated to a particular cap since
+// they're all light-toned like Cream.
+const WHEAT = "#f2d9a8";
+const MEADOW = "#dcebd3";
+const LILAC = "#c9b3e0";
+const OAT = "#f5e8d3";
+const SAGE = "#c8d3be";
+const MIST = "#d8e3e8";
+const CLAY = "#e3c9ae";
+// Always available regardless of cap (unlike Amber, gated below).
+const BASE_ACCENTS = [CREAM_STALK, BRAND_INK, WHEAT, MEADOW, LILAC, OAT, SAGE, MIST, CLAY];
+// 0 excluded -- every user's mushroom should read as a mushroom, not a blank
+// cap that looks unfinished.
+const MIN_AUTO_SPOT_COUNT = 1;
+const MAX_SPOT_COUNT = 6;
+
+// Approved swatch values for the mushroom avatar customizer (BACKLOG.md Ref
+// 75) -- exported so both the customizer UI and the API's own validation
+// copy (apps/api can't depend on @blockwise/ui's React peer deps) stay in
+// sync with the values auto-assignment actually uses. Unlike auto-assignment,
+// the customizer offers a spot count of 0 -- a user choosing a bare cap on
+// purpose reads differently than one fabricated by chance (auto-assignment
+// deliberately excludes it below).
+//
+// MUSHROOM_STALK_* also doubles as the approved palette for spot color --
+// stalk and spots are independent choices (each picked separately below,
+// not one mirroring the other), but they share the same palette and the
+// same amber-only-with-cocoa-cap contrast rule.
+export const MUSHROOM_CAPS = CAPS;
+export const MUSHROOM_STALK_CREAM = CREAM_STALK;
+export const MUSHROOM_STALK_COCOA = BRAND_INK;
+export const MUSHROOM_STALK_WHEAT = WHEAT;
+export const MUSHROOM_STALK_MEADOW = MEADOW;
+export const MUSHROOM_STALK_LILAC = LILAC;
+export const MUSHROOM_STALK_OAT = OAT;
+export const MUSHROOM_STALK_SAGE = SAGE;
+export const MUSHROOM_STALK_MIST = MIST;
+export const MUSHROOM_STALK_CLAY = CLAY;
+// Only ever paired with a Cocoa cap (contrast reasons, mirrored below in
+// mushroomConfigForUser) -- the customizer must enforce that pairing itself.
+export const MUSHROOM_STALK_AMBER = BRAND_AMBER;
+// The always-available options (everything except Amber) -- customizer UI
+// appends Amber itself only when the selected cap is Cocoa.
+export const MUSHROOM_STALK_BASE_OPTIONS = BASE_ACCENTS;
+export const MUSHROOM_SPOT_COUNTS = [0, 1, 2, 3, 4, 5, 6];
+export const MUSHROOM_SPOT_SHAPES = SPOT_SHAPES;
 
 export interface MushroomConfig {
   cap: string;
   stalk: string;
-  pattern: SporePattern;
+  spots: string;
+  spotCount: number;
+  spotShape: SpotShape;
+  // Avatar rendering's backdrop circle (Avatar.tsx) -- not used by
+  // MushroomField's decorative growing-field icons, which never render a
+  // background at all.
+  bg: string;
 }
 
 // One randomly-assigned mushroom "skin" per user, stable for that user's
-// lifetime (BACKLOG.md: mushroom avatars). Spots always match the stalk
-// color per brand guidelines, so callers should pass stalk as `spots` too.
+// lifetime (BACKLOG.md: mushroom avatars). Stalk, spots, and background are
+// each picked independently (separate rolls), not fused into one color.
 export function mushroomConfigForUser(seed: string): MushroomConfig {
   const rnd = mulberry32(hashSeed(seed));
   const cap = CAPS[Math.floor(rnd() * CAPS.length)];
-  // Mirrors the brand mosaic's rule: an ink-dark cap gets an amber stalk
-  // (cream would be too low-contrast); otherwise mostly cream, sometimes ink.
-  const stalk = cap === BRAND_INK ? BRAND_AMBER : rnd() < 0.25 ? BRAND_INK : CREAM_STALK;
-  const pattern = PATTERNS[Math.floor(rnd() * PATTERNS.length)];
-  return { cap, stalk, pattern };
+  // Mirrors the brand mosaic's rule: an ink-dark cap gets an amber accent
+  // (cream would be too low-contrast); otherwise any of the base accents.
+  const stalk = cap === BRAND_INK ? BRAND_AMBER : BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
+  const spots = cap === BRAND_INK ? BRAND_AMBER : BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
+  const bg = cap === BRAND_INK ? BRAND_AMBER : BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
+  const spotCount = MIN_AUTO_SPOT_COUNT + Math.floor(rnd() * (MAX_SPOT_COUNT - MIN_AUTO_SPOT_COUNT + 1));
+  const spotShape = SPOT_SHAPES[Math.floor(rnd() * SPOT_SHAPES.length)];
+  return { cap, stalk, spots, spotCount, spotShape, bg };
+}
+
+// Prefers a user's saved customizer choice (BACKLOG.md Ref 75) over the
+// hash-derived default, so render call sites don't each need to branch on
+// null themselves.
+export function resolveMushroomConfig(seed: string, customization: MushroomConfig | null): MushroomConfig {
+  return customization ?? mushroomConfigForUser(seed);
 }

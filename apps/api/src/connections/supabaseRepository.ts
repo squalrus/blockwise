@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AvatarStyle } from "@blockwise/types";
+import type { AvatarStyle, MushroomCustomization } from "@blockwise/types";
 import type {
   ConnectionListItem,
   ConnectionRepository,
@@ -14,6 +14,7 @@ type UserRow = {
   display_name: string | null;
   avatar_url: string | null;
   avatar_style: AvatarStyle;
+  mushroom_customization: MushroomCustomization | null;
 };
 
 function toUserSummary(row: UserRow): ConnectionUserSummary {
@@ -23,6 +24,7 @@ function toUserSummary(row: UserRow): ConnectionUserSummary {
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
     avatarStyle: row.avatar_style,
+    mushroomCustomization: row.mushroom_customization,
   };
 }
 
@@ -45,7 +47,7 @@ function toRecord(row: {
 }
 
 const CONNECTION_COLUMNS = "id, requester_id, recipient_id, status, created_at, responded_at";
-const USER_COLUMNS = "id, username, display_name, avatar_url, avatar_style";
+const USER_COLUMNS = "id, username, display_name, avatar_url, avatar_style, mushroom_customization";
 
 export class SupabaseConnectionRepository implements ConnectionRepository {
   constructor(private readonly supabase: SupabaseClient) {}

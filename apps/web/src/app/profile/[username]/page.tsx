@@ -11,7 +11,8 @@ import { NeighborRequestButton } from "./NeighborRequestButton";
 import { ProfileDetails } from "./ProfileDetails";
 
 // ProfileSummaryCard takes a full AppUser, but a public profile only ever
-// exposes username/display_name/avatar_url/avatar_style -- the rest are
+// exposes username/display_name/avatar_url/avatar_style/mushroom_customization
+// -- the rest are
 // placeholders the card never reads (it only touches those plus the
 // display_name/username/email fallback chain for its label, and this
 // profile always has a username since GET /users/:username 404s
@@ -29,6 +30,7 @@ function toCardUser(profile: PublicUserProfile): AppUser {
     display_name: profile.display_name,
     avatar_url: profile.avatar_url,
     avatar_style: profile.avatar_style,
+    mushroom_customization: profile.mushroom_customization,
     username: profile.username,
     visibility: "public",
     created_at: profile.joined_at,

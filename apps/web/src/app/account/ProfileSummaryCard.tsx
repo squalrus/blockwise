@@ -43,7 +43,14 @@ export function ProfileSummaryCard({
     <div className="flex flex-col gap-4 overflow-hidden rounded-2xl bg-card-alt px-5 pt-4 pb-6">
       <div className="flex items-start justify-between gap-3.5">
         <div className="flex items-center gap-3.5">
-          <Avatar avatarUrl={user.avatar_url} avatarStyle={user.avatar_style} seed={user.id} label={label} size={56} />
+          <Avatar
+            avatarUrl={user.avatar_url}
+            avatarStyle={user.avatar_style}
+            mushroomCustomization={user.mushroom_customization}
+            seed={user.id}
+            label={label}
+            size={56}
+          />
           <div>
             <span className="font-heading text-xl font-extrabold text-foreground">{label}</span>
             <p className="mt-0.5 text-xs font-bold text-muted">
@@ -93,10 +100,15 @@ export function ProfileSummaryCard({
 
       {/* Every user's mushroom "skin" grows here regardless of whether
           they've set it as their actual avatar image, so it stays a visible
-          part of their identity either way -- derived from the id for now
-          (a future mushroom editor will let a user override this with a
-          stored choice instead of this default). */}
-      <MushroomField seed={user.id} count={level} ariaLabel={`Level ${level}`} />
+          part of their identity either way -- the account's saved
+          customizer choice (BACKLOG.md Ref 75) if any, else derived from
+          the id. */}
+      <MushroomField
+        seed={user.id}
+        count={level}
+        ariaLabel={`Level ${level}`}
+        customization={user.mushroom_customization}
+      />
     </div>
   );
 }

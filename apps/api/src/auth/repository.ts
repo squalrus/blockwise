@@ -1,4 +1,4 @@
-import type { AccountType, AvatarStyle, ProfileVisibility } from "@blockwise/types";
+import type { AccountType, AvatarStyle, MushroomCustomization, ProfileVisibility } from "@blockwise/types";
 
 export interface AppUserRecord {
   id: string;
@@ -12,6 +12,7 @@ export interface AppUserRecord {
   displayName: string | null;
   avatarUrl: string | null;
   avatarStyle: AvatarStyle;
+  mushroomCustomization: MushroomCustomization | null;
   username: string | null;
   visibility: ProfileVisibility;
   createdAt: string;
@@ -25,6 +26,11 @@ export interface UpdateProfileInput {
   // URLs. avatarStyle (social vs. mushroom) is the only avatar choice a user
   // can make via PATCH /me/profile.
   avatarStyle?: AvatarStyle;
+  // BACKLOG.md Ref 75 "Mushroom avatar customizer" -- null clears back to the
+  // hash-derived default (mushroomConfigForUser); already validated against
+  // the approved cap/stalk/pattern enum by the route handler before this
+  // point, so the repository just persists it.
+  mushroomCustomization?: MushroomCustomization | null;
   username?: string | null;
   visibility?: ProfileVisibility;
 }
