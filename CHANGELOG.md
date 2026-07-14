@@ -2,6 +2,19 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.44.0] — 2026-07-13
+
+### Added
+
+- **Google Analytics 4 on both apps.** apps/marketing and apps/web each report to their own GA4 property/data stream (kept separate since marketing traffic is anonymous/conversion-funnel-focused while in-app usage is authenticated/feature-usage-focused), via `@next/third-parties`'s `GoogleAnalytics` component. Gated behind `NEXT_PUBLIC_GA_MEASUREMENT_ID`, which is left unset in local dev so `npm run dev`/local builds never report traffic. Completes BACKLOG.md Ref 68/69. (`apps/marketing/src/app/layout.tsx`, `apps/web/src/app/layout.tsx`, `apps/marketing/.env.example`, `apps/web/.env.example`)
+- **Marketing site SEO.** apps/marketing gained `metadataBase`/OpenGraph/Twitter card defaults, a `robots.txt` (allow all), a sitemap covering every static route, per-page canonical URLs, and `Organization` JSON-LD structured data on the homepage. Completes BACKLOG.md Ref 67. (`apps/marketing/src/app/layout.tsx`, `apps/marketing/src/app/page.tsx`, `apps/marketing/src/app/robots.ts`, `apps/marketing/src/app/sitemap.ts`, `apps/marketing/src/lib/siteUrl.ts`)
+- **App-wide SEO.** apps/web gained `metadataBase`/OpenGraph/Twitter card defaults, a `robots.txt` disallowing authenticated/utility routes (account, business, neighborhood-admin, admin, etc.) and the "/" auth-redirect stub, and a dynamic sitemap covering every active neighborhood and its active business venues. Neighborhood, location, and profile pages gained per-page `generateMetadata` (title/description/canonical), and business-kind location pages gained `LocalBusiness` JSON-LD. Public profile pages default to `noindex,follow` since most of their content is gated behind an accepted neighbor connection. Completes BACKLOG.md Ref 70. (`apps/web/src/app/layout.tsx`, `apps/web/src/app/robots.ts`, `apps/web/src/app/sitemap.ts`, `apps/web/src/app/neighborhoods/[slug]/layout.tsx`, `apps/web/src/app/neighborhoods/[slug]/*/page.tsx`, `apps/web/src/app/location/[id]/page.tsx`, `apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/lib/siteUrl.ts`)
+- **Terms of Service and Privacy Policy pages.** New static `/terms` and `/privacy` pages on apps/marketing, describing account/check-in/location data handling, third-party processors (Supabase, Google, Netlify, GA4), and user choices, sharing a new `LegalLayout` shell. Linked from the marketing footer. Completes BACKLOG.md Ref 63/64. (`apps/marketing/src/app/terms/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `apps/marketing/src/app/LegalLayout.tsx`, `apps/marketing/src/app/MarketingFooter.tsx`)
+
+### Changed
+
+- **CLAUDE.md gained a "Keeping Terms/Privacy current" section**, flagging that the new Terms/Privacy pages describe specific product behavior (data collected, third-party processors, sharing/deletion) that must be kept in sync with future changes, not evergreen boilerplate.
+
 ## [0.43.0] — 2026-07-13
 
 ### Added

@@ -7,6 +7,7 @@ import { BrandMushroom, BrandMosaic, SPOT_PATTERNS, type SporePattern } from "./
 export const metadata: Metadata = {
   title: "Brand guidelines — Spored",
   description: "Logo lockups, color palette, spot patterns, and usage guidelines for the Spored mycelial mark.",
+  alternates: { canonical: "/brand" },
 };
 
 // Fixed hex palette, not the themed app's CSS variables -- same convention

@@ -1,6 +1,6 @@
 {
   "name": "@blockwise/web",
-  "version": "0.43.0",
+  "version": "0.44.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,6 +13,7 @@
     "@blockwise/ui": "*",
     "@googlemaps/js-api-loader": "^2.1.1",
     "@googlemaps/markerclusterer": "^2.6.2",
+    "@next/third-parties": "16.2.10",
     "@supabase/supabase-js": "^2.45.4",
     "express": "^4.21.1",
     "next": "16.2.10",

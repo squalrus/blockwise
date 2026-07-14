@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-07-12 (Added user-to-user "neighbor" connections — see History).
+Last reviewed: 2026-07-13 (Added SEO metadata/sitemaps/robots.txt to both apps and Terms/Privacy pages to apps/marketing — see History).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -14,6 +14,8 @@ Legend: **P** = public, no auth · **C** = client-side auth check only (soft) ·
 apps/web/src/app/
 ├── layout.tsx                                    (root layout — SiteChrome swaps in the marketing nav/footer on "/", AccountNav/Footer elsewhere)
 ├── SiteChrome.tsx                                 (client component, no route — hides AccountNav/Footer on "/" in favor of the homepage's own nav/footer)
+├── robots.ts                                      /robots.txt — P — disallows "/" (auth redirect stub, not real content) and every authenticated/utility route; allows everything else
+├── sitemap.ts                                     /sitemap.xml — P — dynamic: every active neighborhood + its active business venues (GET /neighborhoods, GET /neighborhoods/:id/venues); public profiles deliberately excluded (noindex default, see profile/[username])
 ├── page.tsx                                       / — C — redirects to /account (signed in) or /login (signed out); marketing homepage now lives at tryspored.com (apps/marketing)
 ├── login/page.tsx                                 /login — P
 ├── signup/page.tsx                                /signup — P
@@ -66,13 +68,20 @@ Deployed separately at `tryspored.com` (apps/web is `app.tryspored.com`). Fully 
 ```text
 apps/marketing/src/app/
 ├── page.tsx                                       / — P — marketing homepage (hero, how-it-works, leaderboard teaser, neighborhood map, business pitch, final CTA)
+├── robots.ts                                       /robots.txt — P — allows all, points at /sitemap.xml
+├── sitemap.ts                                      /sitemap.xml — P — static route list (home, brand, terms, privacy)
 ├── MarketingNav.tsx                                (shared component, no route — sticky nav used by every marketing page)
-├── MarketingFooter.tsx                              (shared component, no route — footer used by every marketing page)
-└── brand/
-    └── page.tsx                                    /brand — P — brand guidelines: logo lockups, four-part mark anatomy, spot pattern library, color palette, favicon/app icon, generated-identity concept, usage do/don't
+├── MarketingFooter.tsx                              (shared component, no route — footer used by every marketing page, links to Brand/Terms/Privacy)
+├── LegalLayout.tsx                                  (shared component, no route — nav/footer shell + heading/section styling for Terms/Privacy)
+├── brand/
+│   └── page.tsx                                    /brand — P — brand guidelines: logo lockups, four-part mark anatomy, spot pattern library, color palette, favicon/app icon, generated-identity concept, usage do/don't
+├── terms/
+│   └── page.tsx                                    /terms — P — Terms of Service
+└── privacy/
+    └── page.tsx                                    /privacy — P — Privacy Policy
 ```
 
-Terms, privacy, FAQ, and changelog pages are planned but not built yet.
+FAQ and changelog pages are planned but not built yet.
 
 ## API (`apps/api/src/app.ts`)
 
@@ -178,6 +187,7 @@ Identifier note: every neighborhood-identifying path param in the API is the **i
 
 ## History
 
+- **2026-07-13** — SEO pass (BACKLOG.md Ref 67/70): both apps gained `robots.ts`/`sitemap.ts` (apps/marketing's is a static route list; apps/web's is dynamic, covering active neighborhoods + active business venues, deliberately excluding public profiles), `metadataBase`/OpenGraph/Twitter defaults on both root layouts, and per-page `generateMetadata` on apps/web's dynamic public pages (`neighborhoods/[slug]/*`, `location/[id]`, `profile/[username]`, `neighborhoods`) — profile pages default to `noindex,follow` since most of their content is gated behind a neighbor connection. `location/[id]` also gained `LocalBusiness` JSON-LD for business-kind locations, and the marketing homepage gained `Organization` JSON-LD. New `apps/marketing/terms` and `apps/marketing/privacy` static pages (BACKLOG.md Ref 63/64), linked from `MarketingFooter.tsx`, sharing a new `LegalLayout.tsx` shell.
 - **2026-07-12** — Public profile pages (`/profile/:username`) now gate everything below the summary card (badges, neighborhoods, recent check-ins) behind an accepted neighbor connection (or viewing your own profile) via a new client-side `ProfileDetails` wrapper -- a non-neighbor sees just the summary card plus a one-line hint to add the person as a neighbor. Badges and challenges each collapse to just the *latest* one, rendered full-width in the same row style as `/account`'s Badges/Challenges tabs, rather than the old wrapped icon grid / a bare count. `GET /users/:username` gained a `challenges: UserChallenge[]` field (full list, mirroring `badges`) in place of the old `challenges_summary` count-only field.
 - **2026-07-12** — `/account` and the neighborhood profile pages (`/neighborhoods/:slug*`) now share a `TabNav` secondary-nav component (`apps/web/src/app/TabNav.tsx`): a horizontally-scrollable, mobile-friendly pill bar sticky under the main nav. `NeighborhoodTabs` was refactored to render through it (still route-driven via `getHref`); `/account` gained its own in-page tab state (`onSelect`) switching between Favorites/Check-ins/Badges/Challenges/Neighbors sections, replacing the old single long stacked list (`ProfileSummaryCard`'s stat tiles are plain again, no longer links/tabs). New `GET /me/challenges` backs the account page's Challenges tab.
 - **2026-07-12** — Added a mutual, request-based "neighbor" connection between two accounts (BACKLOG.md Ref 14/33 "Connect with other users" / "Friends/neighbors on profile"; "neighbor" is deliberate neighborhood-flavored language in place of "friend"). New `user_connection` table (`requester_id`/`recipient_id`/`status: pending|accepted`) and `POST/GET /me/connections`, `POST /me/connections/:id/accept`, `DELETE /me/connections/:id` (the last handles decline/cancel/remove uniformly as a hard delete). If two users each already have a pending request out to the other, the second request auto-accepts instead of leaving two pending rows. `GET /users/:username` gained `neighbor_count` (a plain count, like `favorite_count` -- the connections themselves stay private to the two parties). `/account` gained a Neighbors section (add by username, accept/decline/cancel/remove) and `ProfileSummaryCard` gained a 6th stat tile.

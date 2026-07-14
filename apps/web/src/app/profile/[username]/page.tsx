@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import type { AppUser, PublicUserProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { ProfileSummaryCard } from "../../account/ProfileSummaryCard";
@@ -40,6 +41,28 @@ async function getProfile(username: string): Promise<PublicUserProfile | null> {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load profile ${username}: ${res.status}`);
   return (await res.json()) as PublicUserProfile;
+}
+
+// Deliberately noindex by default (BACKLOG.md Ref 70's open question):
+// "public visibility" means viewable by anyone with the link, not "opted
+// into search indexing" -- most of the page's content is gated behind an
+// accepted neighbor connection anyway (see ProfileDetails), so there's
+// little for a search engine to index besides the summary card. Revisit if
+// users ask for their profile to be discoverable via search.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ username: string }>;
+}): Promise<Metadata> {
+  const { username } = await params;
+  const profile = await getProfile(username);
+  if (!profile) return {};
+
+  return {
+    title: `${profile.display_name ?? profile.username} (@${profile.username}) — Spored`,
+    alternates: { canonical: `/profile/${profile.username}` },
+    robots: { index: false, follow: true },
+  };
 }
 
 // Public user profiles (BACKLOG.md Ref 37): the profile-page counterpart to
