@@ -61,6 +61,8 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
+| 71 | [Google auth branding update](#google-auth-branding-update) | improvement | S | M | — |
+| 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | — |
@@ -78,8 +80,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 63 | [Terms of service page](#terms-of-service-page) | feature | S | M | — |
-| 64 | [Privacy policy page](#privacy-policy-page) | feature | S | M | — |
 | 65 | [FAQ page](#faq-page) | feature | S | L | — |
 | 66 | [Changelog page](#changelog-page) | feature | S | L | — |
 
@@ -288,6 +288,22 @@ No open limitations.
 **Why** — Every account currently auto-awards a "founder" badge at signup (shipped v0.24.0), which is correct while the app is pre-launch but wrong forever — once v1.0.0 actually ships, a signup after that point isn't a founder and shouldn't get the badge.
 **Notes:** Remove (or gate behind a cutoff date check against `created_at`/`now()`) the `awardFounderBadge` call in the `/auth/complete-signup` handler (`apps/api/src/app.ts`). Simplest version is deleting the call entirely once v1.0.0 ships, since by then every pre-launch account already holds the badge via the v0.24.0 migration backfill and auto-award.
 
+#### Google auth branding update
+
+**Ref:** 71
+**Type:** improvement
+**Depends:** —
+**Why** — The Google sign-in flow (shipped v0.10.0) currently shows Google/Supabase default branding (app name, logo, support contact) on the OAuth consent screen rather than Blockwise's own — likely still showing placeholder or unverified-app details from initial setup, which looks unpolished/untrustworthy to a new user mid-signup.
+**Notes:** Update the OAuth consent screen configuration in Google Cloud Console (app name, logo, support email, authorized domains) and complete Google's verification process if not already done, so the "Continue to [App]" screen shows correct Blockwise branding instead of defaults. No code change — configuration only.
+
+#### Additional low-complexity auth providers
+
+**Ref:** 72
+**Type:** feature
+**Depends:** —
+**Why** — Beyond Google (shipped v0.10.0) and Apple ([Apple social sign-in](#apple-social-sign-in-sign-in-with-apple), Ref 17, deliberately scoped separately for its heavier Apple Developer Program/rotating-secret overhead), other OAuth providers Supabase supports out of the box (e.g. Microsoft, GitHub, Facebook, Discord) would add sign-in options with setup comparable to Google's — no rotating secrets or paid developer program required — before taking on Apple's bigger lift.
+**Notes:** `verifyToken.ts` already reads the provider generically off `app_metadata` (per Ref 17's notes), so the server-side path likely needs no changes — this is mostly `supabase.auth.signInWithOAuth` provider registration plus a button on the sign-in page. Open question: which provider(s) actually match Blockwise's user base — worth picking one (e.g. Microsoft, given broad consumer email adoption) rather than adding all of them speculatively.
+
 #### Apple social sign-in (Sign in with Apple)
 
 **Ref:** 17
@@ -347,22 +363,6 @@ No open limitations.
 **Notes:** Google attribution needed wherever Places-sourced data or a Google map renders (map view, venue detail pages). OSM attribution only applies once/if the optional OSM backup source (project plan §1.2) is actually used — otherwise that half can be skipped.
 
 ### Marketing
-
-#### Terms of service page
-
-**Ref:** 63
-**Type:** feature
-**Depends:** —
-**Why** — The marketing site (`apps/marketing`) currently only has a homepage and `/brand` (shipped v0.36.0/v0.37.0) — there's no terms-of-service page, which is a standard baseline requirement before onboarding real (non-pilot) users and businesses.
-**Notes:** New `apps/marketing/src/app/terms/page.tsx`, linked from `MarketingFooter.tsx` alongside the existing "Brand" link. Static content page — no schema/API changes. Update [docs/url-map.md](./docs/url-map.md) with the new route per CLAUDE.md.
-
-#### Privacy policy page
-
-**Ref:** 64
-**Type:** feature
-**Depends:** —
-**Why** — Same rationale as [Terms of service page](#terms-of-service-page) (Ref 63) — a privacy policy is a standard compliance baseline, and Blockwise already collects location/check-in data that a policy should disclose.
-**Notes:** New `apps/marketing/src/app/privacy/page.tsx`, linked from `MarketingFooter.tsx`. Static content page — no schema/API changes. Update [docs/url-map.md](./docs/url-map.md) with the new route per CLAUDE.md.
 
 #### FAQ page
 

@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
 import type { Event, NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return { alternates: { canonical: `/neighborhoods/${slug}/events` } };
+}
 
 async function getNeighborhood(slug: string): Promise<NeighborhoodProfile | null> {
   const res = await fetch(apiUrl(`/neighborhoods/${slug}`), { cache: "no-store" });

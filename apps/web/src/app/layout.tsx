@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { baloo2, nunito } from "@blockwise/ui";
+import { SITE_URL } from "@/lib/siteUrl";
 import { AccountNav } from "./AccountNav";
 import { Footer } from "./Footer";
 import "./globals.css";
@@ -18,9 +20,27 @@ try {
 } catch (e) {}
 `;
 
+const title = "Spored";
+const description = "Hyperlocal neighborhood discovery app";
+
 export const metadata: Metadata = {
-  title: "Spored",
-  description: "Hyperlocal neighborhood discovery app",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: title,
+    template: `%s — ${title}`,
+  },
+  description,
+  openGraph: {
+    title,
+    description,
+    siteName: title,
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title,
+    description,
+  },
 };
 
 // Matches --nav's cocoa in both themes, so the browser/OS chrome (mobile
@@ -47,6 +67,9 @@ export default function RootLayout({
         <div className="flex flex-1 flex-col">{children}</div>
         <Footer />
       </body>
+      {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+        <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+      )}
     </html>
   );
 }

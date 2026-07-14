@@ -1,6 +1,16 @@
+import type { Metadata } from "next";
 import type { LeaderboardEntry } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { ChallengesView } from "../ChallengesView";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return { alternates: { canonical: `/neighborhoods/${slug}/challenges` } };
+}
 
 async function getLeaderboard(slug: string): Promise<LeaderboardEntry[]> {
   const res = await fetch(apiUrl(`/neighborhoods/${slug}/leaderboard`), { cache: "no-store" });

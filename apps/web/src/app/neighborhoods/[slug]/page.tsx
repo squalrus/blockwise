@@ -1,6 +1,16 @@
+import type { Metadata } from "next";
 import type { HappeningNow, NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { PlaceListItem } from "../../PlaceListItem";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return { alternates: { canonical: `/neighborhoods/${slug}` } };
+}
 
 async function getNeighborhood(slug: string): Promise<NeighborhoodProfile | null> {
   const res = await fetch(apiUrl(`/neighborhoods/${slug}`), { cache: "no-store" });

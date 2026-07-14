@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { NeighborhoodsSection } from "./NeighborhoodsSection";
+
+export const metadata: Metadata = {
+  title: "Neighborhoods",
+  description: "Browse every active neighborhood on Spored and join the one you live in.",
+  alternates: { canonical: "/neighborhoods" },
+};
 
 // Split out from the landing page (BACKLOG.md "Neighborhoods on landing page
 // and user profile") so "/" can stay a simple stub while this page owns

@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import type { ActivityItem, NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { BadgeIcon } from "../../../BadgeIcon";
 import { Timeline } from "../../../Timeline";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return { alternates: { canonical: `/neighborhoods/${slug}/activity` } };
+}
 
 async function getNeighborhood(slug: string): Promise<NeighborhoodProfile | null> {
   const res = await fetch(apiUrl(`/neighborhoods/${slug}`), { cache: "no-store" });

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import type { Announcement, Event, VenueDetail } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
+import { SITE_URL } from "@/lib/siteUrl";
 import { EnrichmentAbout, EnrichmentPhotos, EnrichmentReviews } from "../../EnrichmentSection";
 import { ClaimBusinessForm } from "./ClaimBusinessForm";
 import { FavoriteButton } from "./FavoriteButton";
@@ -12,6 +14,49 @@ async function getLocation(id: string): Promise<VenueDetail | null> {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load location ${id}: ${res.status}`);
   return (await res.json()) as VenueDetail;
+}
+
+// Next.js dedupes this against the identical fetch in the page component
+// below via request memoization (same URL/options, same render pass).
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const location = await getLocation(id);
+  if (!location) return {};
+
+  const title = `${location.name} — ${location.neighborhood_name} — Spored`;
+  const description =
+    location.description ??
+    location.enrichment?.editorial_summary ??
+    `${location.name}${location.category_name ? `, ${location.category_name}` : ""} in ${location.neighborhood_name}.${location.address ? ` ${location.address}.` : ""}`;
+  const hasPhoto = (location.enrichment?.photo_refs.length ?? 0) > 0;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/location/${location.id}` },
+    openGraph: {
+      title,
+      description,
+      ...(hasPhoto ? { images: [`/api/locations/${location.id}/photo?index=0`] } : {}),
+    },
+  };
+}
+
+function locationJsonLd(location: VenueDetail): Record<string, unknown> | null {
+  if (location.kind !== "business") return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: location.name,
+    url: `${SITE_URL}/location/${location.id}`,
+    ...(location.address ? { address: location.address } : {}),
+    ...(location.category_name ? { additionalType: location.category_name } : {}),
+    ...(location.enrichment?.rating != null ? { aggregateRating: { "@type": "AggregateRating", ratingValue: location.enrichment.rating } } : {}),
+  };
 }
 
 // Business owner venue dashboard (BACKLOG.md): read-only display of a
@@ -49,9 +94,13 @@ export default async function LocationDetailPage({
   const [announcements, events] = isBusiness
     ? await Promise.all([getAnnouncements(id), getEvents(id)])
     : [[], []];
+  const jsonLd = locationJsonLd(location);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-4 font-sans sm:p-16">
+      {jsonLd && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      )}
       <Link
         href={`/neighborhoods/${location.neighborhood_slug}`}
         className="text-sm font-bold text-brand-purple hover:text-brand-orange"

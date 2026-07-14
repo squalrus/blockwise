@@ -1,7 +1,24 @@
+import type { Metadata } from "next";
 import { MushroomLogo } from "@blockwise/ui";
 import { APP_URL } from "@/lib/appUrl";
+import { SITE_URL } from "@/lib/siteUrl";
 import { MarketingNav } from "./MarketingNav";
 import { MarketingFooter } from "./MarketingFooter";
+
+export const metadata: Metadata = {
+  title: "Spored — Hyperlocal neighborhood discovery",
+  description:
+    "Check in to local businesses, earn badges, and connect with neighbors. Spored is a free app for discovering what's happening on your block.",
+  alternates: { canonical: "/" },
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Spored",
+  url: SITE_URL,
+  logo: `${SITE_URL}/icon.svg`,
+};
 
 // Marketing landing page. Its palette is the fixed set of hex values from
 // the Spored Homepage design rather than the app's light/dark CSS variables
@@ -52,6 +69,10 @@ function PillButton({
 export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden font-sans" style={{ background: CREAM }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       <MarketingNav />
 
       {/* HERO */}
