@@ -138,9 +138,16 @@ export function BoundaryMap({
         mapRef.current = map;
 
         if (initialPolygon) {
-          const polygon = new Polygon({ paths: ringToLiterals(initialPolygon), editable: true, map });
+          const points = ringToLiterals(initialPolygon);
+          const polygon = new Polygon({ paths: points, editable: true, map });
           polygonRef.current = polygon;
           makeEditable(polygon);
+
+          // Fit the whole saved shape in view on load instead of the fixed
+          // zoom=15 above, which cuts off anything bigger than a few blocks.
+          const bounds = new google.maps.LatLngBounds();
+          points.forEach((p) => bounds.extend(p));
+          map.fitBounds(bounds, 24);
         } else {
           startDrawing();
         }

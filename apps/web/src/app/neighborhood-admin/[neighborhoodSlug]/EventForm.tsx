@@ -62,44 +62,44 @@ export function EventForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl bg-card-alt px-6 py-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2.5 rounded-2xl bg-card-alt p-4">
       <input
         name="title"
         required
         placeholder="Title"
-        className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <textarea
         name="description"
         required
         placeholder="Describe the event"
         rows={2}
-        className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <div className="flex gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
+        <label className="flex flex-1 flex-col gap-1 text-xs font-extrabold text-muted-strong">
           Starts
           <input
             type="datetime-local"
             name="start_time"
             required
-            className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+            className="rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] font-normal text-foreground"
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
+        <label className="flex flex-1 flex-col gap-1 text-xs font-extrabold text-muted-strong">
           Ends
           <input
             type="datetime-local"
             name="end_time"
             required
-            className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+            className="rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] font-normal text-foreground"
           />
         </label>
       </div>
       <button
         type="submit"
         disabled={status.state === "submitting"}
-        className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
+        className="self-start rounded-xl bg-brand-purple px-5 py-2.5 font-heading text-sm font-bold text-on-accent disabled:opacity-50"
       >
         {status.state === "submitting" ? "Creating…" : "Create event"}
       </button>

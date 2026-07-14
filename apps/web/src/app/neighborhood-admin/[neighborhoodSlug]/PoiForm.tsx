@@ -79,27 +79,27 @@ export function PoiForm({
         required
         defaultValue={existing?.name}
         placeholder="Name (e.g. Woodland Park)"
-        className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <input
         name="type"
         required
         defaultValue={existing?.type ?? undefined}
         placeholder="Type (e.g. park, transit, landmark)"
-        className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <textarea
         name="description"
         defaultValue={existing?.description ?? ""}
         placeholder="Optional description"
         rows={2}
-        className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <input
         name="address"
         defaultValue={existing?.address ?? ""}
         placeholder="Optional address"
-        className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <div className="flex gap-3">
         <input
@@ -109,7 +109,7 @@ export function PoiForm({
           required
           defaultValue={existing?.lat ?? undefined}
           placeholder="Latitude"
-          className="w-1/2 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+          className="w-1/2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
         <input
           name="lng"
@@ -118,7 +118,7 @@ export function PoiForm({
           required
           defaultValue={existing?.lng ?? undefined}
           placeholder="Longitude"
-          className="w-1/2 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+          className="w-1/2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
       </div>
       <div className="flex items-center gap-2">

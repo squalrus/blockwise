@@ -4,38 +4,48 @@ import { useEffect, useState } from "react";
 import type { BusinessClaimStatus, BusinessClaimWithVenue } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { MushroomMark, mushroomConfigForUser } from "@blockwise/ui";
 import { useNeighborhoodAdmin } from "../NeighborhoodAdminContext";
+
+const STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"];
+
+type ClaimsByStatus = Record<BusinessClaimStatus, BusinessClaimWithVenue[] | null>;
 
 // Business claims tab (docs/url-map.md refactor -- was the global
 // admin/claims page, gated only by "admin of some neighborhood" with no
 // per-neighborhood filter). Signed-in/forbidden handling lives in
-// layout.tsx; this only tracks the pending/approved/rejected filter and the
-// claims list itself.
+// layout.tsx. Visually redesigned per BACKLOG.md Ref 31 "SimCity-style
+// redesign" -- all three statuses are fetched together now so the segmented
+// filter can show a real count per status, rather than one status at a time.
 export default function NeighborhoodAdminClaimsPage() {
   const { neighborhoodId } = useNeighborhoodAdmin();
   const [status, setStatus] = useState<BusinessClaimStatus>("pending");
-  const [claims, setClaims] = useState<BusinessClaimWithVenue[] | null>(null);
+  const [claims, setClaims] = useState<ClaimsByStatus>({ pending: null, approved: null, rejected: null });
   const [error, setError] = useState<"failed" | null>(null);
 
-  async function loadClaims(activeStatus: BusinessClaimStatus) {
+  async function loadAll() {
     setError(null);
     const token = await getAccessToken();
-    const res = await fetch(
-      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/claims?status=${activeStatus}`),
-      { headers: { Authorization: `Bearer ${token}` } }
+    const results = await Promise.all(
+      STATUSES.map((s) =>
+        fetch(clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/claims?status=${s}`), {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      )
     );
-    if (!res.ok) {
+    if (results.some((r) => !r.ok)) {
       setError("failed");
       return;
     }
-    setClaims(await res.json());
+    const [pending, approved, rejected] = await Promise.all(results.map((r) => r.json()));
+    setClaims({ pending, approved, rejected });
   }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadClaims(status);
+    loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [neighborhoodId, status]);
+  }, [neighborhoodId]);
 
   async function handleReview(claimId: string, decision: "approve" | "reject") {
     const token = await getAccessToken();
@@ -51,7 +61,7 @@ export default function NeighborhoodAdminClaimsPage() {
       setError("failed");
       return;
     }
-    await loadClaims(status);
+    await loadAll();
   }
 
   // Un-approves an already-approved claim (BACKLOG.md "POIs and venues
@@ -73,70 +83,106 @@ export default function NeighborhoodAdminClaimsPage() {
       setError("failed");
       return;
     }
-    await loadClaims(status);
+    await loadAll();
   }
 
+  const activeClaims = claims[status];
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex gap-2 text-sm">
-        {(["pending", "approved", "rejected"] as const).map((s) => (
+    <div className="flex max-w-[820px] flex-col gap-5">
+      <div>
+        <h1 className="font-heading text-4xl font-extrabold">Business claims</h1>
+        <p className="mt-1 text-[15px] text-body-text">
+          Owners asking to run their venue&apos;s page. Approving hands them the keys to hours, photos, and posts.
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        {STATUSES.map((s) => (
           <button
             key={s}
+            type="button"
             onClick={() => setStatus(s)}
-            className={`rounded-full px-3 py-1 font-bold ${
-              status === s ? "bg-brand-purple text-on-accent" : "border-2 border-foreground text-foreground"
+            className={`flex items-center gap-1.5 rounded-full px-4.5 py-2 text-[13.5px] font-extrabold capitalize ${
+              status === s ? "bg-foreground text-background" : "border border-border bg-card text-muted-strong"
             }`}
           >
             {s}
+            <span className="font-mono text-[10px] opacity-70">{claims[s]?.length ?? "…"}</span>
           </button>
         ))}
       </div>
 
       {error === "failed" && <p className="text-sm text-red-600 dark:text-red-400">Something went wrong.</p>}
 
-      {claims?.length === 0 && <p className="text-sm text-muted">No {status} claims.</p>}
+      <div className="flex flex-col gap-3">
+        {activeClaims?.length === 0 && (
+          <div className="rounded-2xl border-1.5 border-dashed border-border px-9 py-9 text-center text-sm text-muted">
+            Nothing here — all quiet on this shelf.
+          </div>
+        )}
 
-      <ul className="flex flex-col gap-2">
-        {claims?.map((claim) => (
-          <li key={claim.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
-            <p className="font-extrabold text-foreground">{claim.contact_name}</p>
-            <p className="text-muted">
-              {claim.contact_method}: {claim.contact_value}
-            </p>
-            {claim.note && <p className="mt-1 text-muted">{claim.note}</p>}
-            <p className="mt-1 text-xs font-bold text-muted">
-              Venue: {claim.venue_name} ({claim.venue_address}) · Submitted{" "}
-              {new Date(claim.created_at).toLocaleString()}
-            </p>
-            {claim.status === "pending" && (
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => handleReview(claim.id, "approve")}
-                  className="rounded-md bg-brand-green px-3 py-1 text-sm font-bold text-on-accent"
-                >
-                  Approve
-                </button>
-                <button
-                  onClick={() => handleReview(claim.id, "reject")}
-                  className="rounded-md border border-border px-3 py-1 text-sm font-bold text-foreground hover:bg-card"
-                >
-                  Reject
-                </button>
+        {activeClaims?.map((claim) => {
+          const seed = claim.claimed_by_user_id ?? claim.id;
+          const mushroom = mushroomConfigForUser(seed);
+          return (
+            <div key={claim.id} className="flex items-start gap-4 rounded-2xl border border-border bg-card px-5 py-4.5">
+              <MushroomMark
+                size={42}
+                cap={mushroom.cap}
+                stalk={mushroom.stalk}
+                spots={mushroom.stalk}
+                pattern={mushroom.pattern}
+                bg="var(--card-alt)"
+                bgShape="circle"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="font-heading text-[17px] font-bold">{claim.contact_name}</span>
+                  <span className="font-mono text-[11px] text-muted">
+                    {claim.contact_method}: {claim.contact_value}
+                  </span>
+                </div>
+                <div className="mt-1.5 text-[13.5px]">
+                  wants to claim <span className="font-extrabold">{claim.venue_name}</span>{" "}
+                  <span className="text-muted">· {claim.venue_address}</span>
+                </div>
+                {claim.note && <p className="mt-1 text-[13.5px] text-muted">{claim.note}</p>}
+                <div className="mt-1.5 font-mono text-[11px] text-muted">
+                  submitted {new Date(claim.created_at).toLocaleString()}
+                  {claim.reviewed_at && ` · reviewed ${new Date(claim.reviewed_at).toLocaleString()}`}
+                </div>
               </div>
-            )}
-            {claim.status === "approved" && (
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => handleRevoke(claim.id)}
-                  className="rounded-md border border-border px-3 py-1 text-sm font-bold text-red-600 hover:bg-card dark:text-red-400"
-                >
-                  Revoke
-                </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {claim.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => handleReview(claim.id, "reject")}
+                      className="rounded-xl border-1.5 border-red-300 px-4 py-2 text-[13px] font-bold text-red-600 dark:border-red-900 dark:text-red-400"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => handleReview(claim.id, "approve")}
+                      className="rounded-xl bg-brand-green px-4.5 py-2 text-[13px] font-bold text-on-accent"
+                    >
+                      Approve
+                    </button>
+                  </>
+                )}
+                {claim.status === "approved" && (
+                  <button
+                    onClick={() => handleRevoke(claim.id)}
+                    className="rounded-xl border-1.5 border-red-300 px-4 py-2 text-[13px] font-bold text-red-600 dark:border-red-900 dark:text-red-400"
+                  >
+                    Revoke
+                  </button>
+                )}
               </div>
-            )}
-          </li>
-        ))}
-      </ul>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

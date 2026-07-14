@@ -46,6 +46,7 @@
   --color-brand-purple: var(--brand-purple);
   --font-sans: var(--font-nunito);
   --font-heading: var(--font-baloo);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 /* Dark palette applies when the OS prefers dark and the user hasn't
