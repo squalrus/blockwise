@@ -32,7 +32,7 @@ export function TabNav({
       {items.map((item) => {
         const active = item.key === activeKey;
         const className = `shrink-0 rounded-full px-4 py-2 font-extrabold whitespace-nowrap ${
-          active ? "bg-foreground text-ink" : "bg-card-alt text-muted"
+          active ? "bg-foreground text-on-accent" : "bg-card-alt text-muted"
         }`;
 
         if (getHref) {
