@@ -46,6 +46,7 @@
   --color-brand-purple: var(--brand-purple);
   --font-sans: var(--font-nunito);
   --font-heading: var(--font-baloo);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 /* Dark palette applies when the OS prefers dark and the user hasn't
@@ -110,8 +111,14 @@ h4 {
   font-family: var(--font-baloo), sans-serif;
 }
 
-a {
-  color: var(--brand-purple);
+/* Layered (not a plain rule) so element-level text-* utilities -- e.g.
+   TabNav's active/inactive colors on its Link variant -- can override this
+   default per Tailwind v4 cascade-layer rules (unlayered CSS always beats
+   @layer utilities, regardless of specificity). */
+@layer base {
+  a {
+    color: var(--brand-purple);
+  }
 }
 
 ::selection {

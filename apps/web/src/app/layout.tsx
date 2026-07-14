@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { GoogleAnalytics } from "@next/third-parties/google";
-import { baloo2, nunito } from "@blockwise/ui";
+import { baloo2, jetbrainsMono, nunito } from "@blockwise/ui";
 import { SITE_URL } from "@/lib/siteUrl";
-import { AccountNav } from "./AccountNav";
-import { Footer } from "./Footer";
+import { SiteChrome } from "./SiteChrome";
 import "./globals.css";
 
 // Mirrors lib/theme.ts's storage key and apply logic in plain JS so the
@@ -57,15 +56,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${baloo2.variable} ${nunito.variable} h-full antialiased`}
+      className={`${baloo2.variable} ${nunito.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
         </Script>
-        <AccountNav />
-        <div className="flex flex-1 flex-col">{children}</div>
-        <Footer />
+        <SiteChrome>{children}</SiteChrome>
       </body>
       {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
         <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />

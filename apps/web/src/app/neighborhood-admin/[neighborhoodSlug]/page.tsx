@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Event, NeighborhoodDashboardSummary, SocialLinks } from "@blockwise/types";
+import type { Event, NeighborhoodDashboardSummary, NeighborhoodProfile, SocialLinks } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "./NeighborhoodAdminContext";
@@ -14,13 +14,49 @@ type State =
   | { status: "ready"; summary: NeighborhoodDashboardSummary }
   | { status: "error"; message: string };
 
+function StatTile({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1 rounded-2xl border border-border bg-card px-4.5 py-4">
+      <div className="flex items-center gap-2">
+        {icon}
+        <span className="text-xs font-extrabold text-muted">{label}</span>
+      </div>
+      <div className="font-heading text-3xl font-extrabold" style={{ color }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function MushroomIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 40 40" aria-hidden="true">
+      <path d="M4 22 Q4 6 20 6 Q36 6 36 22 Z" fill={color} />
+      <rect x="16" y="21" width="8" height="15" rx="4" fill="var(--ink)" />
+    </svg>
+  );
+}
+
 // Overview tab of the neighborhood-admin dashboard (docs/url-map.md refactor
 // -- was the whole of NeighborhoodAdminDashboard.tsx before Business claims
-// and Venue categories became sibling tabs). Signed-in/forbidden handling now
+// and Venue categories became sibling tabs; visually redesigned per
+// BACKLOG.md Ref 31 "SimCity-style redesign"). Signed-in/forbidden handling
 // lives in layout.tsx, which is why this only tracks loading/ready/error.
 export default function NeighborhoodAdminOverviewPage() {
   const { neighborhoodId, slug } = useNeighborhoodAdmin();
   const [state, setState] = useState<State>({ status: "loading" });
+  const [profile, setProfile] = useState<NeighborhoodProfile | null>(null);
+  const [pendingClaimCount, setPendingClaimCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +73,23 @@ export default function NeighborhoodAdminOverviewPage() {
         return;
       }
       setState({ status: "ready", summary: await res.json() });
+
+      // Reuses the public profile endpoint (venue_count/poi_count/member_count/
+      // checkin_count) for the stat tiles below, rather than a new admin-only
+      // endpoint just for counts already computed elsewhere.
+      fetch(clientApiUrl(`/neighborhoods/${slug}`))
+        .then((r) => (r.ok ? r.json() : null))
+        .then((p) => {
+          if (!cancelled && p) setProfile(p);
+        });
+
+      fetch(clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/claims?status=pending`), {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((claims) => {
+          if (!cancelled && claims) setPendingClaimCount(claims.length);
+        });
     }
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -44,7 +97,7 @@ export default function NeighborhoodAdminOverviewPage() {
     return () => {
       cancelled = true;
     };
-  }, [neighborhoodId]);
+  }, [neighborhoodId, slug]);
 
   function handleDescriptionSaved(description: string | null) {
     setState((prev) =>
@@ -73,70 +126,154 @@ export default function NeighborhoodAdminOverviewPage() {
     return <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>;
   }
 
+  const activePois = state.summary.pois.filter((poi) => poi.status === "active");
+
   return (
-    <>
-      <section className="flex flex-col gap-2.5">
-        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Description</h2>
-        <DescriptionForm
-          neighborhoodId={neighborhoodId}
-          initialDescription={state.summary.description}
-          onSaved={handleDescriptionSaved}
-        />
-      </section>
+    <div className="flex flex-col gap-5.5">
+      <div>
+        <h1 className="font-heading text-4xl font-extrabold">{state.summary.name}</h1>
+        <p className="mt-1 text-[15px] text-body-text">
+          The public face of the neighborhood — its story, links, and the people who tend it.
+        </p>
+      </div>
+
+      {profile && (
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+          <StatTile
+            icon={<MushroomIcon color="var(--brand-orange)" />}
+            label="Businesses"
+            value={profile.venue_count}
+            color="var(--brand-orange)"
+          />
+          <StatTile
+            icon={<MushroomIcon color="var(--brand-green)" />}
+            label="Points of interest"
+            value={profile.poi_count}
+            color="var(--brand-green)"
+          />
+          <StatTile
+            icon={<MushroomIcon color="var(--brand-purple)" />}
+            label="Members"
+            value={profile.member_count}
+            color="var(--brand-purple)"
+          />
+          <StatTile
+            icon={<MushroomIcon color="var(--brand-amber)" />}
+            label="Check-ins"
+            value={profile.checkin_count}
+            color="var(--brand-amber)"
+          />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1.5fr_1fr]">
+        <div className="flex flex-col gap-5">
+          <section className="rounded-3xl border border-border bg-card p-6">
+            <h2 className="mb-3.5 font-heading text-lg font-extrabold">Description</h2>
+            <DescriptionForm
+              neighborhoodId={neighborhoodId}
+              initialDescription={state.summary.description}
+              onSaved={handleDescriptionSaved}
+            />
+          </section>
+
+          <section className="rounded-3xl border border-border bg-card p-6">
+            <h2 className="mb-4 font-heading text-lg font-extrabold">Social links</h2>
+            <SocialLinksForm
+              neighborhoodId={neighborhoodId}
+              initialSocialLinks={state.summary.social_links}
+              onSaved={handleSocialLinksSaved}
+            />
+          </section>
+        </div>
+
+        <div className="flex flex-col gap-5">
+          <section className="rounded-3xl border border-border bg-card p-6">
+            <div className="mb-3.5 flex items-baseline gap-2.5">
+              <h2 className="font-heading text-lg font-extrabold">Events</h2>
+              <span className="font-mono text-[11px] text-muted">{state.summary.events.length} upcoming</span>
+            </div>
+            <EventForm neighborhoodId={neighborhoodId} onCreated={handleEventCreated} />
+            {state.summary.events.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">No events yet.</p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-2">
+                {state.summary.events.map((e) => (
+                  <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+                    <p className="font-extrabold text-foreground">{e.title}</p>
+                    <p className="text-muted">{e.description}</p>
+                    <p className="mt-1 font-mono text-xs text-muted">
+                      {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-3xl bg-nav p-5.5 text-nav-foreground">
+            <div className="flex items-center gap-2.5">
+              <MushroomIcon color="var(--brand-amber)" />
+              <h2 className="font-heading text-[17px] font-extrabold">The neighborhood at a glance</h2>
+            </div>
+            <p className="mt-2 text-[13px] leading-relaxed text-nav-muted">
+              {pendingClaimCount === null ? (
+                "Loading…"
+              ) : pendingClaimCount > 0 ? (
+                <>
+                  There {pendingClaimCount === 1 ? "is" : "are"}{" "}
+                  <a
+                    href={`/neighborhood-admin/${slug}/claims`}
+                    className="font-bold text-brand-amber hover:underline"
+                  >
+                    {pendingClaimCount} waiting claim{pendingClaimCount === 1 ? "" : "s"}
+                  </a>{" "}
+                  to review.
+                </>
+              ) : (
+                "No pending business claims right now."
+              )}{" "}
+              Redraw the{" "}
+              <a href={`/neighborhood-admin/${slug}/boundary`} className="font-bold text-brand-amber hover:underline">
+                boundary
+              </a>{" "}
+              or curate{" "}
+              <a
+                href={`/neighborhood-admin/${slug}/locations`}
+                className="font-bold text-brand-amber hover:underline"
+              >
+                locations
+              </a>{" "}
+              any time.
+            </p>
+          </section>
+        </div>
+      </div>
 
       <section className="flex flex-col gap-2.5">
-        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Social links</h2>
-        <SocialLinksForm
-          neighborhoodId={neighborhoodId}
-          initialSocialLinks={state.summary.social_links}
-          onSaved={handleSocialLinksSaved}
-        />
-      </section>
-
-      <section className="flex flex-col gap-2.5">
-        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Events</h2>
-        <EventForm neighborhoodId={neighborhoodId} onCreated={handleEventCreated} />
-        {state.summary.events.length === 0 ? (
-          <p className="text-sm text-muted">No events yet.</p>
+        <div className="flex items-baseline gap-2.5">
+          <h2 className="font-heading text-lg font-extrabold">Points of interest</h2>
+          <a
+            href={`/neighborhood-admin/${slug}/locations`}
+            className="text-sm font-bold text-brand-purple hover:text-brand-orange"
+          >
+            Manage in Locations tab →
+          </a>
+        </div>
+        {activePois.length === 0 ? (
+          <p className="text-sm text-muted">No points of interest yet.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {state.summary.events.map((e) => (
-              <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
-                <p className="font-extrabold text-foreground">{e.title}</p>
-                <p className="text-muted">{e.description}</p>
-                <p className="text-xs font-bold text-muted">
-                  {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
-                </p>
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {activePois.map((poi) => (
+              <li key={poi.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+                <span className="font-extrabold text-foreground">{poi.name}</span>
+                <span className="ml-2 text-muted">{poi.type}</span>
+                {poi.description && <p className="mt-1 text-muted">{poi.description}</p>}
               </li>
             ))}
           </ul>
         )}
       </section>
-
-      <section className="flex flex-col gap-2.5">
-        <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Points of interest</h2>
-        <a
-          href={`/neighborhood-admin/${slug}/locations`}
-          className="self-start text-sm font-bold text-brand-purple hover:text-brand-orange"
-        >
-          Manage in Locations tab →
-        </a>
-        {state.summary.pois.filter((poi) => poi.status === "active").length === 0 ? (
-          <p className="text-sm text-muted">No points of interest yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {state.summary.pois
-              .filter((poi) => poi.status === "active")
-              .map((poi) => (
-                <li key={poi.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
-                  <span className="font-extrabold text-foreground">{poi.name}</span>
-                  <span className="ml-2 text-muted">{poi.type}</span>
-                  {poi.description && <p className="mt-1 text-muted">{poi.description}</p>}
-                </li>
-              ))}
-          </ul>
-        )}
-      </section>
-    </>
+    </div>
   );
 }

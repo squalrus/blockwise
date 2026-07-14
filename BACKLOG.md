@@ -31,10 +31,12 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | — |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
-| 56 | [Locations tab: category filter and hide-hidden-by-default](#locations-tab-category-filter-and-hide-hidden-by-default) | improvement | S | M | — |
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
+| 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
+| 76 | [Self-serve neighborhood-admin invite/remove UI](#self-serve-neighborhood-admin-inviteremove-ui) | feature | M | M | — |
+| 78 | [Neighborhood-admin Events tab](#neighborhood-admin-events-tab) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
-| 31 | [SimCity-style UI redesign for neighborhood management](#simcity-style-ui-redesign-for-neighborhood-management) | improvement | L | M | — |
+| 77 | [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) | feature | L | M | — |
 | 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
 | 62 | ["New" badge for recently-launched neighborhoods](#new-badge-for-recently-launched-neighborhoods) | improvement | S | L | — |
 
@@ -66,6 +68,8 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | — |
+| 74 | [Mushroom fingerprint stamps on connections and check-ins](#mushroom-fingerprint-stamps-on-connections-and-check-ins) | feature | M | M | — |
+| 75 | [Mushroom avatar customizer](#mushroom-avatar-customizer) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
@@ -89,6 +93,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 51 | [Woodland Park POI missing coordinates](#woodland-park-poi-missing-coordinates) | known issue | S | M | — |
 | 57 | [Category dropdowns: dark-mode option contrast and alphabetization](#category-dropdowns-dark-mode-option-contrast-and-alphabetization) | known issue | S | M | — |
+| 73 | [Places sync can silently miss venues in dense areas](#places-sync-can-silently-miss-venues-in-dense-areas) | known issue | M | M | — |
 
 ### Limitations
 
@@ -132,14 +137,6 @@ No open limitations.
 **Why** — Business announcements are per-venue and reach only that business's followers; there's no way for neighborhood-level staff (neighborhood admin roles shipped v0.12.0) to broadcast something to everyone in a neighborhood at once (e.g. an event, a service outage, a safety notice).
 **Notes:** Likely a `NeighborhoodNotification` (or reuse `Announcement` with a nullable `venue_id` for neighborhood-wide scope) authored via an admin tool gated the same way as other admin surfaces (`requireAdmin`, v0.12.0); delivery channel (push vs. in-app feed) probably follows whatever [Business announcements](#business-announcements) settles on.
 
-#### SimCity-style UI redesign for neighborhood management
-
-**Ref:** 31
-**Type:** improvement
-**Depends:** —
-**Why** — The neighborhood management interface (admin dashboard, map-based POI curation, boundary drawing) is functional but text-heavy and utilitarian. A more playful, visual "SimCity" aesthetic (colorful neighborhoods as zoned regions, venues as draggable/filterable objects, pixel-art or stylized map) would make the admin experience more engaging and reinforce the neighborhood-as-a-place concept for users browsing from the landing page.
-**Notes:** Primarily a design/CSS/component refactor; no schema or API changes. Could include custom map styling (already supported by Mapbox), themed icons/colors per category, card-based layout with visual hierarchy, interactive dragging/filtering. Likely pairs well with the Locations tab's Places review/curation UI (shipped v0.28.0/v0.29.0). Scope: from polish (tweaks to existing components) to full redesign (new neighborhood detail cards, animated transitions, etc.) — worth scoping early with the user.
-
 #### Bulk removals: check all / uncheck all toggle
 
 **Ref:** 55
@@ -147,14 +144,6 @@ No open limitations.
 **Depends:** —
 **Why** — The Locations review wizard's Removals step (shipped v0.29.0) surfaces every active venue/POI that falls outside a redrawn boundary as a checklist for admin approval. For neighborhoods with many removals, manually checking/unchecking each one is tedious — a "Select all / Clear all" button pair would speed up the workflow when an admin wants to approve or skip the entire removal batch.
 **Notes:** Add a button pair at the top of the removals list (or inline with the count summary) that toggles all checkboxes in that step. Already using `approvedRemovals` state (`Set<string>` of removal keys) in `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/review/page.tsx`, so the UI change is just two buttons + a `setApprovedRemovals` call to either copy the full removal list or clear it. No API/schema changes.
-
-#### Locations tab: category filter and hide-hidden-by-default
-
-**Ref:** 56
-**Type:** improvement
-**Depends:** —
-**Why** — The Locations tab (shipped v0.28.0) only filters by kind (All/Businesses/POIs/Hidden) — there's no way to filter by category, and the default "All" view mixes active and hidden rows together. For a neighborhood with a lot of venues, an admin scanning for a specific category has to read every row, and hidden rows (already-omitted businesses, already-hidden POIs) clutter a view an admin usually wants to be active-only.
-**Notes:** Two independent additions to `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`'s client-side filtering (no API/schema changes needed — `LocationListItem` already carries `category_id`/`category_or_type` and `status`): (1) a category dropdown (reusing the same `categories` list already fetched for the reassign-category action) that filters the merged list by `category_id`; (2) default the "All" chip to excluding `status === "hidden"` rows, with the existing "Hidden" chip remaining the way to see them. Open question: should the category filter also apply to POI rows via their free-text `type` field, or stay business-only since POIs don't use the category taxonomy?
 
 #### Venues tab: default to map view
 
@@ -171,6 +160,38 @@ No open limitations.
 **Depends:** —
 **Why** — The Spored Mockups design (Screen 5: All Neighborhoods) shows a low-traction neighborhood with a muted "🌱 New" pill in place of Join/Joined, and the card at reduced opacity — a visual cue that a neighborhood is newly launched and still building momentum. Skipped when the All Neighborhoods browse list was rebuilt (v0.35.0, search box + business/member counts) because there's no "new" concept in the data model today.
 **Notes:** `neighborhood.created_at` isn't currently exposed via `NeighborhoodRecord`/`NeighborhoodSummary` (`apps/api/src/neighborhoods/repository.ts`, `packages/types/src/index.ts`) — open question: define "new" by age (e.g. created within the last N days) or by low traction (member_count/business_count below some floor, both already returned by `GET /neighborhoods` as of v0.35.0)? Age needs a new exposed field; a traction floor needs none. Once decided, the pill/opacity treatment is a small addition to `NeighborhoodCard` in `apps/web/src/app/neighborhoods/NeighborhoodsSection.tsx`.
+
+#### Self-serve neighborhood-admin invite/remove UI
+
+**Ref:** 76
+**Type:** feature
+**Depends:** —
+**Why** — Granting neighborhood-admin access today is a one-off CLI script (`apps/api/src/scripts/grantNeighborhoodAdmin.ts`) run against the `neighborhood_admin` table (`user_id`, `neighborhood_id`, no role column) — there is no self-serve way for an existing admin to bring on a co-admin. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed an "Admins" card on the Overview tab (invite by email with a role picker, active/invited list, remove action) that was deliberately left out since it needs real backend, not just restyling.
+**Notes:** `neighborhood_admin` has no pending/invited state today, only accepted rows — needs either an invite-token/email flow (requires email delivery infra, and handling an invitee with no account yet) or a simpler invite-by-existing-username flow (no email infra, but the invitee must already have signed up) — open question which to build first. Also needs a `GET .../neighborhoods/:id/admins` list endpoint and a remove endpoint (`DELETE .../neighborhoods/:id/admins/:userId`), both `neighborhoodAdminGate`-scoped like the rest of `/neighborhood-admin/*`. No role column exists on `neighborhood_admin` — the mockup's Owner/Admin role picker would need one added, or could be dropped in favor of a flat "admin" concept matching what actually exists.
+
+#### Neighborhood-admin Events tab
+
+**Ref:** 78
+**Type:** feature
+**Depends:** —
+**Why** — Events currently live as a create-only section on the neighborhood-admin Overview tab (`EventForm.tsx` + list, `POST /neighborhood-admin/neighborhoods/:id/events`) — there's no dedicated Events tab, no edit action, and no way to hide/cancel an already-created event. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed Events as its own sidebar tab with a two-column layout (calendar-feed status + create form on the left, an "Upcoming" list with per-event Hide/Edit actions on the right) that was left out of the visual-only redesign since edit/hide are net-new capabilities, not a restyle.
+**Notes:** Softly related to but independent of [iCal/webcal event feed import](#icalwebcal-event-feed-import) (Ref 30) — the mockup's calendar-feed sync-status card ("synced 2 hours ago, N events imported") is only real once Ref 30 lands, but the tab split plus edit/hide actions on manually-created events don't depend on it and could ship first. Needs `PATCH`/a status field on `event` (or reuse the `active`/`hidden` pattern already used for `venue`/`poi` status) for the hide action, and an edit form reusing `EventForm.tsx`'s fields. Promote the existing Overview-tab event list into its own `events/page.tsx` route alongside the sidebar's other tabs (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/layout.tsx`'s `TABS` array).
+
+#### Neighborhood-admin challenge authoring
+
+**Ref:** 77
+**Type:** feature
+**Depends:** —
+**Why** — Challenges today are template-driven and read-only from the admin's perspective (`GET /neighborhoods/:slug/challenges` is the only challenge route; badge rule engine shipped v0.40.0) — there is no admin CRUD or "launch a challenge" concept at all. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed a full Challenges tab (a live challenge card with joined/completed/check-ins-driven stats and pause/edit actions, ready-to-launch template cards with an eligible-venue count and a Launch button, and a "Build your own" custom challenge creator) that was left out entirely since it's materially new schema and API, not a restyle.
+**Notes:** Likely needs a `neighborhood_challenge` instance table distinct from whatever backs the existing badge-rule-engine templates — an admin "launching" a template creates a live, trackable instance (joined/completed/check-ins-driven counts, pause state) rather than just referencing the static template. The "Build your own" flow (pick category, set a target count, name the badge) implies the badge rule engine needs to accept admin-authored rules, not just seeded ones. Largest of the redesign's deferred pieces — worth its own scoping pass before starting (template launch vs. build-your-own could ship as two separate cuts).
+
+#### Real interactive map on the Locations tab
+
+**Ref:** 79
+**Type:** feature
+**Depends:** —
+**Why** — The Locations tab (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`) is list-only today. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed a split list+map layout (color-coded markers per category, click-to-select syncing between list row and marker, a category legend) that was deliberately left out of the visual-only redesign pending a real map integration decision.
+**Notes:** No schema/API changes needed — `LocationListItem` already carries `lat`/`lng` for every row. Most likely adapts `BoundaryMap.tsx`'s existing Google Maps setup (already a dependency for the Boundary tab) for marker display instead of polygon editing, rather than introducing a second mapping library. Marker color should reuse the same category-group color mapping the redesigned list rows already use (`GROUP_COLORS` in `locations/page.tsx`).
 
 ### Business & Venue
 
@@ -328,6 +349,36 @@ No open limitations.
 **Why** — Lets a user see what people they're connected to (or public profiles) have been checking into recently — the social payoff for connecting at all, and a natural discovery surface ("what's popular right now among people I know").
 **Notes:** Respect the profile visibility flag (shipped v0.20.0). Prerequisite (neighbor connections) shipped in v0.42.0 — open question: is the feed public-profiles-only, connections-only, or both (with connections seeing more)? Resolve before scoping. Reads off the existing `checkin` table (project plan §4/§14.2) — no new check-in schema needed, just a query surface and visibility filtering.
 
+#### Mushroom fingerprint stamps on connections and check-ins
+
+**Ref:** 74
+**Type:** feature
+**Depends:** —
+**Why** — A user's mushroom look (`mushroomConfigForUser`, `packages/ui/src/mushroomConfig.ts:46`) is currently a pure, unstored function of a seed (`app_user.id`) — deterministic cap/stalk/pattern chosen via djb2 hash + mulberry32 PRNG, recomputed fresh on every render, never persisted. The ask is to turn that ephemeral look into a real historical record: when a user checks in somewhere, or connects with another user, a stamp of what their mushroom looked like *at that moment* gets permanently attached to the other side (the location, the other user) and can surface on their profile/bio card — e.g. a venue's "who's foraged here" garden, or a mushroom strip on each connection. `MushroomField.tsx` already renders a scattered strip of mushroom icons on account/neighborhood/location cards via a `distinctMushrooms` mode, but today it fabricates pseudo-random icons per position rather than showing real per-user history — this feature would make that strip literally true instead of decorative.
+**Notes:** Snapshot, not live reference (decided explicitly over the live-reference alternative): if the seed→look algorithm ever changes (new palette/pattern added, or a future "pick your own" customizer — see [Mushroom avatar customizer](#mushroom-avatar-customizer), Ref 75 — changes what "current" means), a live reference would silently repaint history; a frozen snapshot keeps the record honest. Concretely:
+
+- Add nullable `jsonb` columns captured once, at write time, not backfilled for existing rows: `checkin.mushroom_snapshot` (one per check-in), and on `user_connection` (`supabase/migrations/20260712010000_user_connections.sql:9`) both `requester_mushroom_snapshot` and `recipient_mushroom_snapshot`, captured at accept time (`status` transitions to `'accepted'`), not at request time.
+- Shape: `{ "v": 1, "cap": "...", "stalk": "...", "pattern": "..." }` — the `v` field is an algorithm-version tag so future palette/pattern changes don't get confused with old snapshots.
+- Compute server-side, not client-submitted, to avoid a spoofed fingerprint: port `mushroomConfigForUser`/`hashSeed`/`mulberry32` (pure functions, no DOM/React) out of `packages/ui` into a small isomorphic module both `apps/api` and `packages/ui` can import, so the API computes the snapshot itself from `user.id` inside the same insert transaction as the check-in (`apps/api/src/checkins`) or connection-accept (`apps/api/src/connections`).
+- Rendering: swap `MushroomField`'s `distinctMushrooms` data source, for a location, from fabricated `${seed}-mushroom-${i}` icons to the venue's actual `checkin.mushroom_snapshot` values (dedup by user, cap at some N most recent/distinct); for a profile, a similar strip sourced from `user_connection` snapshots.
+- Open question: cap check-in snapshot storage/query growth for a popular venue (dedup by user rather than storing every repeat check-in's identical snapshot again, or query only the N most recent distinct users).
+
+#### Mushroom avatar customizer
+
+**Ref:** 75
+**Type:** feature
+**Depends:** —
+**Why** — Every user's mushroom is currently auto-assigned and fixed — there is no user-facing customization at all; `mushroomConfigForUser` deterministically picks cap/stalk/pattern from the seed with no override path. The brand system (documented on the marketing site's `/brand` guidelines page, and rendered via the shared `MushroomMark` component, `packages/ui/src/MushroomMark.tsx`) already defines a richer set of approved variations than what's actually wired up to user avatars today: 5 cap colors (Chanterelle `#E8542A`, Golden `#F2A93B`, Moss `#4C8C4A`, Amethyst `#8B5FBF`, Cocoa `#2B1B12` — all in use), 6 spot patterns (`SPOT_PATTERNS`, `MushroomMark.tsx:14` — "none" is deliberately excluded from auto-assignment today per `mushroomConfig.ts:33`, but a customizer could offer it since a user is choosing on purpose, not getting a blank mushroom by chance), and — entirely unused by per-user avatars currently — 4 background tints (Wheat `#F2D9A8`, Meadow `#DCEBD3`, Lilac `#C9B3E0`, Oat `#F5E8D3`) and 2 background shapes (circle, squircle), both of which `MushroomMark` already renders (`bg`/`bgShape` props, `MushroomMark.tsx:65-66`) but no avatar call site passes. Letting users actually pick their look (within the approved palette) is a low-cost, high-personality expression feature that reuses assets Blockwise has already designed but never exposed.
+**Notes:**
+
+- Persisted, not derived: unlike auto-assignment, a user's deliberate choice can't be reconstructed from a hash, so it needs real storage — either discrete nullable columns (`app_user.mushroom_cap`, `mushroom_stalk`, `mushroom_pattern`, `mushroom_bg_tint`, `mushroom_bg_shape`) or a single `mushroom_customization jsonb` column, checked against a server-side enum of approved values only (mirrors the brand guide's "each layer takes any approved value" rule) — reject/ignore arbitrary hex or unlisted pattern names.
+- `mushroomConfigForUser` becomes the fallback for users who haven't customized (`avatar_style = 'mushroom'` and no stored customization); once a user saves a choice, rendering prefers the stored value over the hash-derived default.
+- Stalk color needs reconciling before building: the brand guide's stated stalk options are Cream/Cocoa only, but the current auto-assignment logic (`mushroomConfig.ts:51`) also uses Amber as a third stalk color when the cap is Cocoa/ink (contrast reasons) — decide whether the customizer offers exactly the brand guide's 2 stalk colors, or keeps the amber-for-dark-cap allowance, before locking the UI's swatch options.
+- Background tint/shape are additive surface area, not just re-exposing existing pieces — needs a UI decision on whether background customization ships in the same pass as cap/stalk/pattern or is scoped separately given it's currently unused anywhere in avatar rendering.
+- UI: likely an account-settings section with swatch pickers per layer and a live `MushroomMark` preview; gate behind `avatar_style = 'mushroom'` (no-op when a user has chosen the 'social' avatar style, `supabase/migrations/20260711010000_avatar_style.sql:12`).
+- Complements but doesn't require [Mushroom fingerprint stamps on connections and check-ins](#mushroom-fingerprint-stamps-on-connections-and-check-ins) (Ref 74) — a customized look just becomes the thing that gets snapshotted going forward, no interaction needed between the two beyond that.
+- Open-ended per the user's ask: "and potentially more" variations — worth revisiting the brand guide periodically as new layers/options get added there, rather than treating this as a closed one-time set.
+
 #### Leaderboard aggregation performance
 
 **Ref:** 43
@@ -396,4 +447,12 @@ No open limitations.
 **Type:** known issue
 **Depends:** —
 **Why** — The category `<select>` dropdowns (venue category reassignment in the Locations tab, and the business classification picker in the Locations review wizard, shipped v0.28.0/v0.29.0) use `dark:bg-transparent` on the `<select>` element with plain, unstyled `<option>` children. In dark mode, the browser falls back to OS-native popup styling for the option list instead of inheriting the page's dark background, which on several platforms renders dark text on a dark background — the options are effectively invisible until the user mouses over one. Separately, the dropdown lists categories sorted by the leaf category's bare `name` (`category.supabaseRepository.ts`'s `.order("name")`), but the label actually shown is `"{group_name} / {name}"` — so the on-screen order doesn't read as alphabetical once categories from different groups interleave.
-**Notes:** Contrast fix: give the `<select>` (and/or `<option>` elements) an explicit solid background color for dark mode (e.g. `dark:bg-zinc-900`) instead of `dark:bg-transparent`, so native option-list rendering has a real color to inherit rather than falling back to system defaults. Alphabetization fix: sort client-side (or server-side in `listAssignableCategories`/`toCategoryOption`) by the same composed label the UI displays (`group_name` then `name`), not just the bare leaf `name`. Affects `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx` and `.../locations/review/page.tsx`, both of which build their category `<option>` list from the same `GET /admin/categories` response.
+**Notes:** Contrast fix: give the `<select>` (and/or `<option>` elements) an explicit solid background color for dark mode (e.g. `dark:bg-zinc-900`) instead of `dark:bg-transparent`, so native option-list rendering has a real color to inherit rather than falling back to system defaults. Alphabetization fix: sort client-side (or server-side in `listAssignableCategories`/`toCategoryOption`) by the same composed label the UI displays (`group_name` then `name`), not just the bare leaf `name`. Affects `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx` and `.../locations/review/page.tsx`, both of which build their category `<option>` list from the same `GET /admin/categories` response. **Partially done (v0.44.1):** `locations/page.tsx`'s reassign-category dropdown now sorts client-side by the composed `group_name`/`name` label (`sortedCategories`). Still open: the same sort on `locations/review/page.tsx`'s classification picker, and the dark-mode contrast fix on both.
+
+#### Places sync can silently miss venues in dense areas
+
+**Ref:** 73
+**Type:** known issue
+**Depends:** —
+**Why** — The Places sync (`syncNeighborhoodPlaces`/`searchPlacesInPolygon`, `apps/api/src/places/sync.ts`) tiles a neighborhood's boundary polygon into overlapping 400m-radius circles and queries Google's Places API (New) `searchNearby` per tile/type-chunk. That API caps results at 20 per request with no pagination cursor (unlike the legacy API's 60-via-`next_page_token`) — if a single tile in a genuinely dense area (packed downtown block, food hall, strip mall) has more than 20 matching venues for one category, the overflow beyond the cap is dropped with no sub-tiling or retry. The sync report already tracks `callsAtResultCap` (`sync.ts:106`) so a saturated tile is visible per run, but nothing automatically corrects it — an admin has to notice and manually intervene (e.g. redraw a smaller sub-boundary and re-sync).
+**Notes:** When a tile+type-chunk call hits the 20-result cap, automatically sub-tile that circle (smaller radius, e.g. half) and re-query to catch the overflow, merging/deduping against the parent tile's results. Needs a recursion/depth limit to bound API usage on pathologically dense areas. `generateCoverageGrid`/`isPointInPolygon` (`apps/api/src/places/geo.ts`) are the relevant tiling/containment functions to extend.

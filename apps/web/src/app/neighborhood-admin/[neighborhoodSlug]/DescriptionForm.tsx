@@ -46,21 +46,24 @@ export function DescriptionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl bg-card-alt px-6 py-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <textarea
         name="description"
         defaultValue={initialDescription ?? ""}
         placeholder="Tell visitors what makes this neighborhood worth a trip"
         rows={3}
-        className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+        className="rounded-xl border border-border bg-card-alt px-3.5 py-3 text-sm text-foreground"
       />
-      <button
-        type="submit"
-        disabled={status.state === "submitting"}
-        className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
-      >
-        {status.state === "submitting" ? "Saving…" : "Save description"}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={status.state === "submitting"}
+          className="self-start rounded-xl bg-brand-purple px-5 py-2.5 font-heading text-sm font-bold text-on-accent disabled:opacity-50"
+        >
+          {status.state === "submitting" ? "Saving…" : "Save description"}
+        </button>
+        <span className="font-mono text-[11px] text-muted">shown on the public page</span>
+      </div>
       {status.state === "error" && (
         <p className="text-sm text-red-600 dark:text-red-400">{status.message}</p>
       )}
