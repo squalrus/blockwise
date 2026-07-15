@@ -22,7 +22,7 @@ export default function SignupPage() {
 
     try {
       const user = await signUp(email, password, accountType);
-      router.push(user.account_type === "business" ? "/business" : "/");
+      router.push(user.account_type === "business" ? "/admin" : "/");
     } catch (err) {
       setStatus({ state: "error", message: err instanceof Error ? err.message : "Signup failed" });
     }

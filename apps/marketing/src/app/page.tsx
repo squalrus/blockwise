@@ -448,7 +448,7 @@ export default function Home() {
                   Your name
                 </div>
                 <a
-                  href={`${APP_URL}/business`}
+                  href={`${APP_URL}/admin`}
                   className="rounded-[10px] py-2.5 text-center text-[13px] font-extrabold"
                   style={{ background: PURPLE, color: CREAM }}
                 >

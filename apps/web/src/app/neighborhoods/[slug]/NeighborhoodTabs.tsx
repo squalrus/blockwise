@@ -12,7 +12,7 @@ const TABS = [
 ];
 
 // BACKLOG.md Ref 44: subnav tab bar, mirroring the tab nav in
-// /neighborhood-admin/[neighborhoodSlug]/layout.tsx. Split out as its own
+// /admin/neighborhood/[neighborhoodSlug]/layout.tsx. Split out as its own
 // client component (rather than making the whole layout a client component)
 // since usePathname is the only client-only piece of the shared chrome.
 //

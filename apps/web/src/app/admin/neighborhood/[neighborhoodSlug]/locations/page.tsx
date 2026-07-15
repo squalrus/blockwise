@@ -414,7 +414,7 @@ export default function NeighborhoodAdminLocationsPage() {
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       <a
-        href={`/neighborhood-admin/${slug}/locations/review`}
+        href={`/admin/neighborhood/${slug}/locations/review`}
         className="self-start text-sm font-bold text-brand-purple hover:text-brand-orange"
       >
         Review Places →

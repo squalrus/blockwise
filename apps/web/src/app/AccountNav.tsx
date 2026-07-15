@@ -172,20 +172,12 @@ export function AccountNav() {
                 Account settings
               </a>
             )}
-            {state.status === "signed_in" && state.user.account_type === "business" && (
-              <a href="/business" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
-                Business portal
-              </a>
-            )}
-            {state.status === "signed_in" && state.user.is_neighborhood_admin && (
-              <a
-                href="/neighborhood-admin"
-                onClick={() => setIsMenuOpen(false)}
-                className="block px-4 py-2 hover:bg-card-alt"
-              >
-                Neighborhood admin
-              </a>
-            )}
+            {state.status === "signed_in" &&
+              (state.user.account_type === "business" || state.user.is_neighborhood_admin) && (
+                <a href="/admin" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
+                  Admin
+                </a>
+              )}
             {state.status === "signed_out" && (
               <>
                 <a href="/login" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">

@@ -8,44 +8,12 @@ import { useNeighborhoodAdmin } from "./NeighborhoodAdminContext";
 import { DescriptionForm } from "./DescriptionForm";
 import { EventForm } from "./EventForm";
 import { SocialLinksForm } from "./SocialLinksForm";
+import { StatTile, MushroomIcon } from "../../../StatTile";
 
 type State =
   | { status: "loading" }
   | { status: "ready"; summary: NeighborhoodDashboardSummary }
   | { status: "error"; message: string };
-
-function StatTile({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-border bg-card px-4.5 py-4">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-xs font-extrabold text-muted">{label}</span>
-      </div>
-      <div className="font-heading text-3xl font-extrabold" style={{ color }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function MushroomIcon({ color }: { color: string }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 40 40" aria-hidden="true">
-      <path d="M4 22 Q4 6 20 6 Q36 6 36 22 Z" fill={color} />
-      <rect x="16" y="21" width="8" height="15" rx="4" fill="var(--ink)" />
-    </svg>
-  );
-}
 
 // Overview tab of the neighborhood-admin dashboard (docs/url-map.md refactor
 // -- was the whole of NeighborhoodAdminDashboard.tsx before Business claims
@@ -223,7 +191,7 @@ export default function NeighborhoodAdminOverviewPage() {
                 <>
                   There {pendingClaimCount === 1 ? "is" : "are"}{" "}
                   <a
-                    href={`/neighborhood-admin/${slug}/claims`}
+                    href={`/admin/neighborhood/${slug}/claims`}
                     className="font-bold text-brand-amber hover:underline"
                   >
                     {pendingClaimCount} waiting claim{pendingClaimCount === 1 ? "" : "s"}
@@ -234,12 +202,12 @@ export default function NeighborhoodAdminOverviewPage() {
                 "No pending business claims right now."
               )}{" "}
               Redraw the{" "}
-              <a href={`/neighborhood-admin/${slug}/boundary`} className="font-bold text-brand-amber hover:underline">
+              <a href={`/admin/neighborhood/${slug}/boundary`} className="font-bold text-brand-amber hover:underline">
                 boundary
               </a>{" "}
               or curate{" "}
               <a
-                href={`/neighborhood-admin/${slug}/locations`}
+                href={`/admin/neighborhood/${slug}/locations`}
                 className="font-bold text-brand-amber hover:underline"
               >
                 locations
@@ -254,7 +222,7 @@ export default function NeighborhoodAdminOverviewPage() {
         <div className="flex items-baseline gap-2.5">
           <h2 className="font-heading text-lg font-extrabold">Points of interest</h2>
           <a
-            href={`/neighborhood-admin/${slug}/locations`}
+            href={`/admin/neighborhood/${slug}/locations`}
             className="text-sm font-bold text-brand-purple hover:text-brand-orange"
           >
             Manage in Locations tab →
