@@ -148,6 +148,50 @@ describe("evaluateChallengesAfterCheckin", () => {
     expect(await repo.hasCompletedChallenge("user-1", "challenge-all-pois")).toBe(true);
   });
 
+  it("a live-count visit-every-POI challenge doesn't complete early when a new POI goes active mid-progress", async () => {
+    const repo = new FakeGamificationRepository();
+    for (let i = 1; i <= 3; i++) {
+      repo.locations.set(`poi-${i}`, { neighborhoodId: "neighborhood-1", categoryId: null, kind: "poi" });
+      repo.venues.push({ neighborhoodId: "neighborhood-1", kind: "poi", status: "active" });
+    }
+    repo.challenges.push(
+      makeChallenge({
+        id: "challenge-all-pois",
+        targetKind: "poi",
+        targetCount: 3,
+        targetCountLive: true,
+        pointsReward: 100,
+      })
+    );
+
+    for (let i = 1; i <= 2; i++) {
+      repo.checkins.push({ userId: "user-1", venueId: `poi-${i}`, checkedInAt: NOW });
+      await evaluateChallengesAfterCheckin(
+        { userId: "user-1", neighborhoodId: "neighborhood-1", venueId: `poi-${i}`, locationKind: "poi" },
+        repo
+      );
+    }
+
+    // A 4th POI goes active before the user finishes -- the live target is
+    // now 4, not the challenge row's stale stored value of 3.
+    repo.locations.set("poi-4", { neighborhoodId: "neighborhood-1", categoryId: null, kind: "poi" });
+    repo.venues.push({ neighborhoodId: "neighborhood-1", kind: "poi", status: "active" });
+
+    repo.checkins.push({ userId: "user-1", venueId: "poi-3", checkedInAt: NOW });
+    await evaluateChallengesAfterCheckin(
+      { userId: "user-1", neighborhoodId: "neighborhood-1", venueId: "poi-3", locationKind: "poi" },
+      repo
+    );
+    expect(await repo.hasCompletedChallenge("user-1", "challenge-all-pois")).toBe(false);
+
+    repo.checkins.push({ userId: "user-1", venueId: "poi-4", checkedInAt: NOW });
+    await evaluateChallengesAfterCheckin(
+      { userId: "user-1", neighborhoodId: "neighborhood-1", venueId: "poi-4", locationKind: "poi" },
+      repo
+    );
+    expect(await repo.hasCompletedChallenge("user-1", "challenge-all-pois")).toBe(true);
+  });
+
   it("completes an any-activity challenge from a check-in to a business, regardless of category", async () => {
     const repo = new FakeGamificationRepository();
     repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: "category-coffee", kind: "business" });
@@ -247,6 +291,21 @@ describe("listChallengesWithProgress", () => {
     expect(progress.target_type).toBe("any_poi");
     expect(progress.progress_count).toBe(1);
     expect(progress.poi_id).toBeNull();
+  });
+
+  it("resolves target_count live for a targetCountLive challenge, ignoring a stale stored value", async () => {
+    const repo = new FakeGamificationRepository();
+    for (let i = 1; i <= 4; i++) {
+      repo.venues.push({ neighborhoodId: "neighborhood-1", kind: "poi", status: "active" });
+    }
+    // Stored target_count (3) is stale -- a 4th POI went active after the
+    // challenge row was created/last resynced.
+    repo.challenges.push(
+      makeChallenge({ id: "challenge-all-pois", targetKind: "poi", targetCount: 3, targetCountLive: true })
+    );
+
+    const [progress] = await listChallengesWithProgress("neighborhood-1", "user-1", repo);
+    expect(progress.target_count).toBe(4);
   });
 
   it("excludes challenges that have already ended", async () => {

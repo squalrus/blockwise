@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.46.2] — 2026-07-15
+
+### Changed
+
+- **Google sign-in's OAuth consent screen now shows Spored's own branding** (app name, logo, support email) instead of default/placeholder details from initial setup. Configuration change in Google Cloud Console — no code change.
+- **Neighborhood-admin and business-admin dashboard sidebars' mushroom logo switched from amber to orange**, matching the cap color used everywhere else (marketing nav, main site nav) instead of a one-off amber. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`)
+
+### Fixed
+
+- **The admin dashboard sidebar's account pill (avatar/name/"admin" tag) is now a link back to `/account`** — previously inert. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`)
+- **"Visit every POI" challenge's progress denominator is now live-computed instead of a stale snapshot.** Its `target_count` was fixed at whatever the active POI count happened to be when the challenge template was created (3), so it silently fell out of sync as POIs were added or hidden afterward (4 active today). Completionist-style challenges now carry a `target_count_live` flag; when set, progress is checked against a live count of active locations of that kind rather than the stored column. (`supabase/migrations/20260714060000_live_challenge_target_count.sql`, `apps/api/src/gamification/challenges.ts`, `apps/api/src/gamification/repository.ts`, `apps/api/src/gamification/supabaseRepository.ts`)
+
 ## [0.46.1] — 2026-07-14
 
 ### Changed

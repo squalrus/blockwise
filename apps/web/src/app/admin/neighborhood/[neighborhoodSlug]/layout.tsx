@@ -204,7 +204,7 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
       {/* ================= SIDEBAR ================= */}
       <div className="flex w-64 shrink-0 flex-col bg-nav px-3.5 pt-4.5 pb-4 text-nav-foreground">
         <div className="flex items-center gap-2.5 px-2 pb-4">
-          <MushroomLogo size={26} capColor="var(--brand-amber)" stemClassName="text-nav-foreground" />
+          <MushroomLogo size={26} capColor="var(--brand-orange)" stemClassName="text-nav-foreground" />
           <span className="font-heading text-xl font-extrabold text-nav-foreground">Spored</span>
           <span className="ml-auto rounded-full bg-nav-foreground/10 px-2 py-0.75 font-mono text-[10px] text-nav-muted">
             admin
@@ -287,7 +287,7 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
               ← Admin
             </a>
             <div className="flex-1" />
-            <div className="flex items-center gap-2 rounded-full bg-card-alt py-1 pr-3.5 pl-1">
+            <a href="/account" className="flex items-center gap-2 rounded-full bg-card-alt py-1 pr-3.5 pl-1">
               <Avatar
                 avatarUrl={user.avatar_url}
                 avatarStyle={user.avatar_style}
@@ -298,7 +298,7 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
               />
               <span className="text-[13px] font-extrabold text-foreground">{user.display_name ?? "Admin"}</span>
               <span className="font-mono text-[10px] text-muted">admin</span>
-            </div>
+            </a>
           </div>
 
           <NeighborhoodAdminProvider

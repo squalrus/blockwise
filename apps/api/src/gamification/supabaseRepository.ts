@@ -26,7 +26,7 @@ function single<T>(embed: T[] | T | null | undefined): T | null {
 
 const CHALLENGE_COLUMNS =
   "id, neighborhood_id, title, description, category_id, category:category_id(name), " +
-  "venue_id, venue:venue_id(name), target_kind, target_count, points_reward, " +
+  "venue_id, venue:venue_id(name), target_kind, target_count, target_count_live, points_reward, " +
   "badge:badge_id(id, code, name, description, icon), starts_at, ends_at";
 
 interface ChallengeRow {
@@ -40,6 +40,7 @@ interface ChallengeRow {
   venue: { name: string } | { name: string }[] | null;
   target_kind: ChallengeTargetKind | null;
   target_count: number;
+  target_count_live: boolean;
   points_reward: number;
   badge: BadgeRecord | BadgeRecord[] | null;
   starts_at: string;
@@ -58,6 +59,7 @@ function toChallengeRecord(row: ChallengeRow): ChallengeRecord {
     venueName: single(row.venue)?.name ?? null,
     targetKind: row.target_kind,
     targetCount: row.target_count,
+    targetCountLive: row.target_count_live,
     pointsReward: row.points_reward,
     badge: single(row.badge),
     startsAt: row.starts_at,
@@ -264,6 +266,17 @@ export class SupabaseGamificationRepository implements GamificationRepository {
     const { data, error } = await query;
     if (error) throw new Error(`countDistinctVenuesCheckedInForKind failed: ${error.message}`);
     return new Set((data ?? []).map((row) => row.venue_id as string)).size;
+  }
+
+  async countActiveLocationsForKind(input: { neighborhoodId: string; kind: LocationKind }): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("venue")
+      .select("id", { count: "exact", head: true })
+      .eq("neighborhood_id", input.neighborhoodId)
+      .eq("kind", input.kind)
+      .eq("status", "active");
+    if (error) throw new Error(`countActiveLocationsForKind failed: ${error.message}`);
+    return count ?? 0;
   }
 
   async hasAnyCheckinForLocation(input: {

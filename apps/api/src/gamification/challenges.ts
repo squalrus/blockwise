@@ -19,6 +19,7 @@ export interface CompletedChallengeSummary {
 
 function toChallengeProgress(
   challenge: ChallengeRecord,
+  targetCount: number,
   progressCount: number,
   completed: boolean
 ): ChallengeProgress {
@@ -39,7 +40,7 @@ function toChallengeProgress(
     // ChallengeRecord.venueId/venueName (challenge.venue_id post-merge).
     poi_id: challenge.venueId,
     poi_name: challenge.venueName,
-    target_count: challenge.targetCount,
+    target_count: targetCount,
     points_reward: challenge.pointsReward,
     badge: challenge.badge,
     starts_at: challenge.startsAt,
@@ -47,6 +48,25 @@ function toChallengeProgress(
     progress_count: progressCount,
     completed,
   };
+}
+
+// challenge.targetCount is a stale snapshot for a targetCountLive
+// "completionist" challenge (e.g. "Visit every POI") -- taken once when the
+// challenge row was created/last resynced, not updated as locations are
+// added or hidden. Resolve the real denominator live in that case; every
+// other challenge (fixed-count category/venue/any-POI challenges) just uses
+// the stored column.
+async function effectiveTargetCount(
+  challenge: ChallengeRecord,
+  repository: GamificationRepository
+): Promise<number> {
+  if (!challenge.targetCountLive || !challenge.targetKind || challenge.targetKind === "any") {
+    return challenge.targetCount;
+  }
+  return repository.countActiveLocationsForKind({
+    neighborhoodId: challenge.neighborhoodId,
+    kind: challenge.targetKind,
+  });
 }
 
 async function progressFor(
@@ -103,7 +123,8 @@ export async function listChallengesWithProgress(
 
   return Promise.all(
     challenges.map(async (challenge) => {
-      if (!userId) return toChallengeProgress(challenge, 0, false);
+      const targetCount = await effectiveTargetCount(challenge, repository);
+      if (!userId) return toChallengeProgress(challenge, targetCount, 0, false);
 
       const [alreadyCompleted, progressCount] = await Promise.all([
         repository.hasCompletedChallenge(userId, challenge.id),
@@ -111,7 +132,7 @@ export async function listChallengesWithProgress(
       ]);
 
       let completed = alreadyCompleted;
-      if (!completed && progressCount >= challenge.targetCount) {
+      if (!completed && progressCount >= targetCount) {
         // completeChallenge returns false only on a unique-violation (a
         // concurrent request already inserted the completion row) -- either
         // way, the challenge is now completed.
@@ -124,7 +145,7 @@ export async function listChallengesWithProgress(
         });
         completed = true;
       }
-      return toChallengeProgress(challenge, progressCount, completed);
+      return toChallengeProgress(challenge, targetCount, progressCount, completed);
     })
   );
 }
@@ -217,8 +238,11 @@ export async function evaluateChallengesAfterCheckin(
   for (const challenge of challenges) {
     if (await repository.hasCompletedChallenge(input.userId, challenge.id)) continue;
 
-    const progressCount = await progressFor(challenge, input.userId, repository);
-    if (progressCount < challenge.targetCount) continue;
+    const [targetCount, progressCount] = await Promise.all([
+      effectiveTargetCount(challenge, repository),
+      progressFor(challenge, input.userId, repository),
+    ]);
+    if (progressCount < targetCount) continue;
 
     const wasCompleted = await repository.completeChallenge({
       userId: input.userId,

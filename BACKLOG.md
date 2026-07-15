@@ -63,7 +63,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
-| 71 | [Google auth branding update](#google-auth-branding-update) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
@@ -90,7 +89,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 51 | [Woodland Park POI missing coordinates](#woodland-park-poi-missing-coordinates) | known issue | S | M | — |
 | 57 | [Category dropdowns: dark-mode option contrast and alphabetization](#category-dropdowns-dark-mode-option-contrast-and-alphabetization) | known issue | S | M | — |
 | 73 | [Places sync can silently miss venues in dense areas](#places-sync-can-silently-miss-venues-in-dense-areas) | known issue | M | M | — |
 
@@ -308,14 +306,6 @@ No open limitations.
 **Why** — Every account currently auto-awards a "founder" badge at signup (shipped v0.24.0), which is correct while the app is pre-launch but wrong forever — once v1.0.0 actually ships, a signup after that point isn't a founder and shouldn't get the badge.
 **Notes:** Remove (or gate behind a cutoff date check against `created_at`/`now()`) the `awardFounderBadge` call in the `/auth/complete-signup` handler (`apps/api/src/app.ts`). Simplest version is deleting the call entirely once v1.0.0 ships, since by then every pre-launch account already holds the badge via the v0.24.0 migration backfill and auto-award.
 
-#### Google auth branding update
-
-**Ref:** 71
-**Type:** improvement
-**Depends:** —
-**Why** — The Google sign-in flow (shipped v0.10.0) currently shows Google/Supabase default branding (app name, logo, support contact) on the OAuth consent screen rather than Blockwise's own — likely still showing placeholder or unverified-app details from initial setup, which looks unpolished/untrustworthy to a new user mid-signup.
-**Notes:** Update the OAuth consent screen configuration in Google Cloud Console (app name, logo, support email, authorized domains) and complete Google's verification process if not already done, so the "Continue to [App]" screen shows correct Blockwise branding instead of defaults. No code change — configuration only.
-
 #### Additional low-complexity auth providers
 
 **Ref:** 72
@@ -415,14 +405,6 @@ No open limitations.
 **Notes:** New `apps/marketing/src/app/changelog/page.tsx`, linked from `MarketingFooter.tsx`. Could render `CHANGELOG.md` directly (parsed at build time) to avoid duplicating content, or hand-curate a user-facing subset/rewrite if the raw changelog is too dev-oriented. Update [docs/url-map.md](./docs/url-map.md) with the new route per CLAUDE.md.
 
 ### Known issues
-
-#### Woodland Park POI missing coordinates
-
-**Ref:** 51
-**Type:** known issue
-**Depends:** —
-**Why** — The seeded "Woodland Park" POI (Phinneywood) has `lat`/`lng` = `null`. It predates the v0.22.0 migration that added location columns to `poi` — the row was created manually before POI had coordinates at all, and the seed migration's `where not exists` dedup guard correctly found it already there and skipped re-inserting it, so it never got backfilled with real coordinates. `POST /pois/:id/checkins` requires a non-null `lat`/`lng` to resolve the check-in target, so checking in to Woodland Park currently 404s — meaning the seeded "Explore Woodland Park" challenge is permanently uncompletable as-is.
-**Notes:** One-row `UPDATE poi SET lat = ..., lng = ... WHERE name = 'Woodland Park'` (e.g. to the neighborhood's center point, same value the seed migration would have used). Related to but distinct from "Backfill points for existing check-ins/favorites" (Ref 49, shipped v0.24.0) — that was missing `point_event` rows, this is a missing location on one `poi` row.
 
 #### Category dropdowns: dark-mode option contrast and alphabetization
 

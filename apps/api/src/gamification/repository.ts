@@ -58,6 +58,10 @@ export interface ChallengeRecord {
   // challenge.
   targetKind: ChallengeTargetKind | null;
   targetCount: number;
+  // When true, targetCount is a stale snapshot -- callers should resolve the
+  // effective target via countActiveLocationsForKind instead of trusting it
+  // directly (challenges.ts's effectiveTargetCount).
+  targetCountLive: boolean;
   pointsReward: number;
   badge: BadgeRecord | null;
   startsAt: string;
@@ -199,6 +203,13 @@ export interface GamificationRepository {
     startsAt: string;
     endsAt: string | null;
   }): Promise<number>;
+
+  // Currently-active (status='active') locations of this kind in the
+  // neighborhood -- the live target for a targetCountLive completionist
+  // challenge like "Visit every POI" (challenges.ts's effectiveTargetCount),
+  // as opposed to countDistinctVenuesCheckedInForKind above, which counts
+  // this *user's* progress, not the denominator.
+  countActiveLocationsForKind(input: { neighborhoodId: string; kind: LocationKind }): Promise<number>;
 
   // Marks the challenge complete (idempotent -- returns false if already
   // completed), awards the bonus points, and awards the badge if any.
