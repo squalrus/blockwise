@@ -114,6 +114,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       .from("venue")
       .select(LOCATION_COLUMNS)
       .eq("neighborhood_id", neighborhoodId)
+      .neq("status", "removed")
       .order("name");
     if (search) query = query.or(`name.ilike.%${search}%,address.ilike.%${search}%`);
 
@@ -264,6 +265,7 @@ export class SupabaseLocationRepository implements LocationRepository {
         lng: input.lng,
         google_place_id: input.googlePlaceId,
         address: input.address,
+        ...(input.status ? { status: input.status } : {}),
       })
       .select(LOCATION_COLUMNS)
       .single();
@@ -292,7 +294,7 @@ export class SupabaseLocationRepository implements LocationRepository {
     return toRecord(data as unknown as LocationRow);
   }
 
-  async setLocationStatus(locationId: string, status: "active" | "hidden"): Promise<LocationRecord> {
+  async setLocationStatus(locationId: string, status: LocationRecord["status"]): Promise<LocationRecord> {
     const { data, error } = await this.supabase
       .from("venue")
       .update({ status })

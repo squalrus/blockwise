@@ -377,6 +377,10 @@ export interface AppUser {
   // business owner, and a neighborhood admin all at once (BACKLOG.md
   // "Neighborhood admin invites").
   is_neighborhood_admin: boolean;
+  // A rung above is_neighborhood_admin (BACKLOG.md) -- bypasses the 24h
+  // "Reimport Locations" cooldown and, for now, is the only role that can
+  // create a brand-new neighborhood at all.
+  is_super_admin: boolean;
 }
 
 export interface UpdateProfileRequest {
@@ -727,7 +731,12 @@ export interface VenueDashboardSummary {
 // Category mapping admin tool (BACKLOG.md) -- manual override for venues the
 // sync's category-normalization step (README §1.4 step 3) mapped incorrectly.
 
-export type VenueStatus = "active" | "hidden";
+// "removed" (BACKLOG.md "Reimport Locations") is distinct from "hidden": set
+// only when a location review's boundary-removal is approved (it's no
+// longer geographically part of the neighborhood at all), and -- unlike
+// "hidden" -- never surfaced in the admin Locations tab even with "Show
+// hidden" toggled on.
+export type VenueStatus = "active" | "hidden" | "removed";
 
 // Locations admin tab (BACKLOG.md Ref 29) -- a single merged view over every
 // location in a neighborhood regardless of kind, so an admin doesn't have to
@@ -786,6 +795,19 @@ export interface LocationReviewReport {
   calls_at_result_cap: number;
   new_candidates: LocationReviewCandidate[];
   proposed_removals: LocationRemovalCandidate[];
+  last_reviewed_at: string;
+  next_allowed_at: string;
+}
+
+// "Reimport Locations" cooldown (BACKLOG.md) -- once every 24h per
+// neighborhood, enforced server-side. Read on both the Locations tab (to
+// show/disable the reimport button before the admin even navigates to the
+// review page) and the review page itself (so "Run review" reflects the
+// same cooldown rather than only failing after the fact with a 429).
+export interface LocationsReviewCooldownStatus {
+  last_reviewed_at: string | null;
+  next_allowed_at: string | null;
+  can_run: boolean;
 }
 
 export type LocationClassification = "business" | "poi" | "omit";
@@ -815,8 +837,15 @@ export interface CommitLocationReviewRequest {
 export interface CommitLocationReviewResult {
   created_businesses: string[];
   created_pois: string[];
+  // Persisted as a hidden POI, not just skipped -- see BACKLOG.md "Reimport
+  // Locations": an omitted candidate is still recorded (matched by
+  // google_place_id on future reviews) so it never resurfaces asking for a
+  // decision again, it just doesn't show up as an active location.
   omitted: string[];
-  hidden: string[];
+  // Set to "removed" (not "hidden") -- fully detached from the
+  // neighborhood, never shown in the admin Locations tab even with "Show
+  // hidden" on.
+  removed: string[];
   failed: { name: string; error: string }[];
 }
 

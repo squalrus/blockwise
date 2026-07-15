@@ -112,6 +112,7 @@ function profileUser(overrides: Partial<AppUser> & Pick<AppUser, "id" | "display
     visibility: "public",
     created_at: NOW,
     is_neighborhood_admin: false,
+    is_super_admin: false,
     ...overrides,
   };
 }

@@ -189,9 +189,6 @@ export default function BusinessAdminLayout({ children }: { children: React.Reac
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-[1460px] flex-col px-9 pt-5.5 pb-18">
           <div className="mb-5.5 flex items-center gap-3.5">
-            <a href="/admin" className="text-[13px] font-bold text-foreground hover:text-brand-purple">
-              ← Admin
-            </a>
             <div className="flex-1" />
             <a href="/account" className="flex items-center gap-2 rounded-full bg-card-alt py-1 pr-3.5 pl-1">
               <Avatar

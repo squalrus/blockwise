@@ -6,6 +6,7 @@ import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "../NeighborhoodAdminContext";
 import { PoiForm } from "../PoiForm";
+import { formatCooldownRemaining, useLocationsReviewCooldown } from "../useLocationsReviewCooldown";
 
 type Filter = "all" | "business" | "poi";
 
@@ -54,6 +55,7 @@ export default function NeighborhoodAdminLocationsPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [editingPoi, setEditingPoi] = useState<Venue | null>(null);
   const [addingPoi, setAddingPoi] = useState(false);
+  const cooldown = useLocationsReviewCooldown(neighborhoodId);
 
   async function loadLocations(activeSearch: string) {
     setError(null);
@@ -296,6 +298,30 @@ export default function NeighborhoodAdminLocationsPage() {
             Every venue and point of interest in the neighborhood — curate what neighbors see.
           </p>
         </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {cooldown && !cooldown.can_run ? (
+            <button
+              type="button"
+              disabled
+              title={`Available again ${cooldown.next_allowed_at ? formatCooldownRemaining(cooldown.next_allowed_at) : "later"}`}
+              className="cursor-not-allowed rounded-xl bg-brand-purple/50 px-4.5 py-2.75 font-heading text-sm font-bold text-on-accent whitespace-nowrap opacity-70"
+            >
+              Reimport Locations
+            </button>
+          ) : (
+            <a
+              href={`/admin/neighborhood/${slug}/locations/review`}
+              className="shrink-0 rounded-xl bg-brand-purple px-4.5 py-2.75 font-heading text-sm font-bold text-on-accent whitespace-nowrap"
+            >
+              Reimport Locations
+            </a>
+          )}
+          {cooldown && !cooldown.can_run && cooldown.next_allowed_at && (
+            <span className="text-xs font-bold text-muted">
+              Next available {formatCooldownRemaining(cooldown.next_allowed_at)}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setAddingPoi((prev) => !prev)}
@@ -412,13 +438,6 @@ export default function NeighborhoodAdminLocationsPage() {
       )}
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-
-      <a
-        href={`/admin/neighborhood/${slug}/locations/review`}
-        className="self-start text-sm font-bold text-brand-purple hover:text-brand-orange"
-      >
-        Review Places →
-      </a>
 
       {addingPoi && (
         <PoiForm neighborhoodId={neighborhoodId} onCreated={handlePoiCreated} onCancel={() => setAddingPoi(false)} />

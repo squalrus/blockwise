@@ -226,7 +226,10 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
         <nav className="flex flex-col gap-0.5">
           {TABS.map((tab) => {
             const href = `/admin/neighborhood/${neighborhoodSlug}${tab.href}`;
-            const isActive = pathname === href;
+            // Sub-routes (e.g. locations/review) should keep their parent
+            // tab highlighted -- exact-match only for Overview, whose own
+            // href is a strict prefix of every other tab's.
+            const isActive = tab.href === "" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
             return (
               <a
                 key={tab.key}
@@ -283,9 +286,6 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-[1460px] flex-col px-9 pt-5.5 pb-18">
           <div className="mb-5.5 flex items-center gap-3.5">
-            <a href="/admin" className="text-[13px] font-bold text-foreground hover:text-brand-purple">
-              ← Admin
-            </a>
             <div className="flex-1" />
             <a href="/account" className="flex items-center gap-2 rounded-full bg-card-alt py-1 pr-3.5 pl-1">
               <Avatar

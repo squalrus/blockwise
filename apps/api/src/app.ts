@@ -24,7 +24,8 @@ import {
 } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
 import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
-import { SupabaseNeighborhoodAdminRepository } from "./admin/supabaseRepository";
+import { requireSuperAdmin } from "./admin/requireSuperAdmin";
+import { SupabaseNeighborhoodAdminRepository, SupabaseSuperAdminRepository } from "./admin/supabaseRepository";
 import { listRecentActivity } from "./activity/activity";
 import { SupabaseActivityRepository } from "./activity/supabaseRepository";
 import { createAnnouncement, listAnnouncementsForVenue } from "./announcements/announcements";
@@ -118,6 +119,7 @@ import {
 } from "./locations/locations";
 import {
   commitLocationReview,
+  getLocationsReviewCooldownStatus,
   reviewNeighborhoodLocations,
   type LocationClassification,
 } from "./locations/review";
@@ -329,6 +331,12 @@ function getNeighborhoodAdminRepository(): SupabaseNeighborhoodAdminRepository {
   return neighborhoodAdminRepository;
 }
 
+let superAdminRepository: SupabaseSuperAdminRepository | undefined;
+function getSuperAdminRepository(): SupabaseSuperAdminRepository {
+  superAdminRepository ??= new SupabaseSuperAdminRepository(getSupabaseClient());
+  return superAdminRepository;
+}
+
 let announcementRepository: SupabaseAnnouncementRepository | undefined;
 function getAnnouncementRepository(): SupabaseAnnouncementRepository {
   announcementRepository ??= new SupabaseAnnouncementRepository(getSupabaseClient());
@@ -369,6 +377,7 @@ export function createApp() {
     getAuthRepository,
     getNeighborhoodAdminRepository
   );
+  const superAdminGate = requireSuperAdmin(getSupabaseClient, getAuthRepository, getSuperAdminRepository);
 
   app.use((req, _res, next) => {
     req.url =
@@ -1100,8 +1109,11 @@ export function createApp() {
           },
           getAuthRepository()
         );
-        const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(updated.id);
-        res.json(toAppUser(updated, isAdmin));
+        const [isAdmin, isSuperAdmin] = await Promise.all([
+          getNeighborhoodAdminRepository().isNeighborhoodAdmin(updated.id),
+          getSuperAdminRepository().isSuperAdmin(updated.id),
+        ]);
+        res.json(toAppUser(updated, isAdmin, isSuperAdmin));
       } catch (err) {
         if (err instanceof UsernameTakenError) {
           res.status(409).json({ error: err.message });
@@ -1436,7 +1448,13 @@ export function createApp() {
     }
   });
 
-  app.post("/admin/neighborhoods", adminGate, async (req, res) => {
+  // Gated to super admin, not just adminGate's "admin of some neighborhood"
+  // (BACKLOG.md) -- until the platform is ready to scale, creating a
+  // brand-new neighborhood is a super-admin-only action. The dry-run
+  // preview-boundary route just above stays on adminGate since it's shared
+  // with the existing-neighborhood boundary-redraw flow (BoundaryMap.tsx),
+  // which any neighborhood admin should still be able to preview.
+  app.post("/admin/neighborhoods", superAdminGate, async (req, res) => {
     const { name, slug, city, state, country, timezone, boundary_geojson } = req.body ?? {};
     if (
       typeof name !== "string" ||
@@ -1645,8 +1663,11 @@ export function createApp() {
         getAuthRepository()
       );
       await awardFounderBadge(user.id, getGamificationRepository());
-      const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(user.id);
-      res.status(200).json(toAppUser(user, isAdmin));
+      const [isAdmin, isSuperAdmin] = await Promise.all([
+        getNeighborhoodAdminRepository().isNeighborhoodAdmin(user.id),
+        getSuperAdminRepository().isSuperAdmin(user.id),
+      ]);
+      res.status(200).json(toAppUser(user, isAdmin, isSuperAdmin));
     } catch (err) {
       console.error("POST /auth/complete-signup failed:", err);
       res.status(500).json({ error: "Failed to complete signup" });
@@ -1681,8 +1702,11 @@ export function createApp() {
         res.status(404).json({ error: "No account found for this login -- complete signup first" });
         return;
       }
-      const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(result.user.id);
-      res.json(toAppUser(result.user, isAdmin));
+      const [isAdmin, isSuperAdmin] = await Promise.all([
+        getNeighborhoodAdminRepository().isNeighborhoodAdmin(result.user.id),
+        getSuperAdminRepository().isSuperAdmin(result.user.id),
+      ]);
+      res.json(toAppUser(result.user, isAdmin, isSuperAdmin));
     } catch (err) {
       console.error("POST /auth/complete-login failed:", err);
       res.status(500).json({ error: "Failed to complete login" });
@@ -1690,8 +1714,11 @@ export function createApp() {
   });
 
   app.get("/auth/me", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
-    const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(req.appUser!.id);
-    res.json(toAppUser(req.appUser!, isAdmin));
+    const [isAdmin, isSuperAdmin] = await Promise.all([
+      getNeighborhoodAdminRepository().isNeighborhoodAdmin(req.appUser!.id),
+      getSuperAdminRepository().isSuperAdmin(req.appUser!.id),
+    ]);
+    res.json(toAppUser(req.appUser!, isAdmin, isSuperAdmin));
   });
 
   // Any signed-in account can upgrade itself to a business account -- there's
@@ -1702,8 +1729,11 @@ export function createApp() {
     async (req, res) => {
       try {
         const user = await promoteToBusiness(req.appUser!, getAuthRepository());
-        const isAdmin = await getNeighborhoodAdminRepository().isNeighborhoodAdmin(user.id);
-        res.json(toAppUser(user, isAdmin));
+        const [isAdmin, isSuperAdmin] = await Promise.all([
+          getNeighborhoodAdminRepository().isNeighborhoodAdmin(user.id),
+          getSuperAdminRepository().isSuperAdmin(user.id),
+        ]);
+        res.json(toAppUser(user, isAdmin, isSuperAdmin));
       } catch (err) {
         console.error("POST /auth/promote-to-business failed:", err);
         res.status(500).json({ error: "Failed to upgrade to a business account" });
@@ -2117,6 +2147,218 @@ export function createApp() {
     }
   });
 
+  // Reimport cooldown status (BACKLOG.md "Reimport Locations") -- read-only,
+  // never touches Google Places, so both the Locations tab (to show/disable
+  // the reimport button before the admin even navigates to the review page)
+  // and the review page itself (so "Run review" reflects the same cooldown
+  // rather than only failing after the fact with a 429) can check without
+  // spending API quota. Registered ahead of the generic GET
+  // .../locations/:locationId route below for the same reason
+  // .../locations/review is -- see that route's comment.
+  app.get(
+    "/neighborhood-admin/neighborhoods/:id/locations/review/status",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      try {
+        const [boundaryResult, isSuperAdmin] = await Promise.all([
+          getNeighborhoodBoundary(req.params.id, getNeighborhoodRepository()),
+          getSuperAdminRepository().isSuperAdmin(req.appUser!.id),
+        ]);
+        if (boundaryResult.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+
+        const cooldown = getLocationsReviewCooldownStatus(
+          boundaryResult.boundary.locationsReviewedAt,
+          new Date(),
+          isSuperAdmin
+        );
+        res.json({
+          last_reviewed_at: cooldown.lastReviewedAt,
+          next_allowed_at: cooldown.nextAllowedAt,
+          can_run: cooldown.canRun,
+        });
+      } catch (err) {
+        console.error(
+          `GET /neighborhood-admin/neighborhoods/${req.params.id}/locations/review/status failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to load reimport status" });
+      }
+    }
+  );
+
+  // Bulk Places review (BACKLOG.md Ref 29) -- an admin-triggered dry-run
+  // Google Places query against the neighborhood's *saved* boundary (never
+  // an unsaved draft -- that's what /admin/neighborhoods/preview-boundary is
+  // for), listing places not yet represented as a venue or POI. Costs a real
+  // Places API call each time it runs, same as preview-boundary -- rate
+  // limited to once per 24h per neighborhood (BACKLOG.md "Reimport
+  // Locations") since an earlier unthrottled version of this exhausted a
+  // real Google Cloud project's SearchNearbyRequest-per-minute quota.
+  //
+  // Registered ahead of the generic GET .../locations/:locationId route
+  // below -- Express matches routes in registration order, and `:locationId`
+  // matches any single path segment including the literal "review", so this
+  // has to come first or every "Run review" click 500s with "Failed to fetch
+  // location" (the generic route trying, and failing, to look up a location
+  // whose id is literally the string "review").
+  app.get(
+    "/neighborhood-admin/neighborhoods/:id/locations/review",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      try {
+        const [boundaryResult, isSuperAdmin] = await Promise.all([
+          getNeighborhoodBoundary(req.params.id, getNeighborhoodRepository()),
+          getSuperAdminRepository().isSuperAdmin(req.appUser!.id),
+        ]);
+        if (boundaryResult.status === "not_found" || !boundaryResult.boundary.boundaryGeojson) {
+          res.status(400).json({ error: "Neighborhood has no boundary set" });
+          return;
+        }
+
+        const cooldown = getLocationsReviewCooldownStatus(
+          boundaryResult.boundary.locationsReviewedAt,
+          new Date(),
+          isSuperAdmin
+        );
+        if (!cooldown.canRun) {
+          res.status(429).json({
+            error: "Locations were reimported recently -- try again later",
+            next_allowed_at: cooldown.nextAllowedAt,
+          });
+          return;
+        }
+
+        const report = await reviewNeighborhoodLocations(
+          req.params.id,
+          boundaryResult.boundary.boundaryGeojson,
+          getCachedPlacesClient(),
+          getPlacesRepository(),
+          getLocationRepository()
+        );
+
+        const reviewedAt = new Date().toISOString();
+        await getNeighborhoodRepository().markLocationsReviewed(req.params.id, reviewedAt);
+        const newCooldown = getLocationsReviewCooldownStatus(reviewedAt);
+
+        res.json({
+          tiles_queried: report.tilesQueried,
+          api_calls_made: report.apiCallsMade,
+          calls_at_result_cap: report.callsAtResultCap,
+          new_candidates: report.newCandidates.map((c) => ({
+            google_place_id: c.googlePlaceId,
+            name: c.name,
+            lat: c.lat,
+            lng: c.lng,
+            address: c.address,
+            suggested_category_id: c.suggestedCategoryId,
+            suggested_category_name: c.suggestedCategoryName,
+          })),
+          proposed_removals: report.proposedRemovals.map((r) => ({
+            id: r.id,
+            name: r.name,
+            address: r.address,
+          })),
+          last_reviewed_at: newCooldown.lastReviewedAt,
+          next_allowed_at: newCooldown.nextAllowedAt,
+        });
+      } catch (err) {
+        console.error(
+          `GET /neighborhood-admin/neighborhoods/${req.params.id}/locations/review failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to review locations" });
+      }
+    }
+  );
+
+  const LOCATION_CLASSIFICATIONS: LocationClassification[] = ["business", "poi", "omit"];
+
+  app.post(
+    "/neighborhood-admin/neighborhoods/:id/locations/review/commit",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { classifications, removals } = req.body ?? {};
+      if (!Array.isArray(classifications)) {
+        res.status(400).json({ error: "classifications must be an array" });
+        return;
+      }
+      if (!Array.isArray(removals)) {
+        res.status(400).json({ error: "removals must be an array" });
+        return;
+      }
+      for (const item of removals) {
+        if (typeof item !== "object" || item === null || typeof item.id !== "string" || !item.id) {
+          res.status(400).json({ error: "each removal requires an id" });
+          return;
+        }
+      }
+      for (const item of classifications) {
+        if (
+          typeof item !== "object" ||
+          item === null ||
+          typeof item.google_place_id !== "string" ||
+          !item.google_place_id ||
+          typeof item.name !== "string" ||
+          !item.name ||
+          typeof item.lat !== "number" ||
+          typeof item.lng !== "number" ||
+          typeof item.address !== "string" ||
+          !LOCATION_CLASSIFICATIONS.includes(item.classification)
+        ) {
+          res.status(400).json({
+            error:
+              "each classification requires google_place_id, name, lat, lng, address, and a valid classification",
+          });
+          return;
+        }
+        if (item.classification === "business" && typeof item.category_id !== "string") {
+          res.status(400).json({ error: "category_id is required to classify as a business" });
+          return;
+        }
+        if (item.classification === "poi" && typeof item.type !== "string") {
+          res.status(400).json({ error: "type is required to classify as a point of interest" });
+          return;
+        }
+      }
+
+      try {
+        const result = await commitLocationReview(
+          req.params.id,
+          classifications.map((item) => ({
+            googlePlaceId: item.google_place_id,
+            name: item.name,
+            lat: item.lat,
+            lng: item.lng,
+            address: item.address,
+            classification: item.classification,
+            categoryId: item.category_id,
+            type: item.type,
+          })),
+          removals.map((item) => ({ id: item.id })),
+          getPlacesRepository(),
+          getLocationRepository()
+        );
+
+        res.json({
+          created_businesses: result.createdBusinesses,
+          created_pois: result.createdPois,
+          omitted: result.omitted,
+          removed: result.removed,
+          failed: result.failed,
+        });
+      } catch (err) {
+        console.error(
+          `POST /neighborhood-admin/neighborhoods/${req.params.id}/locations/review/commit failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to commit location review" });
+      }
+    }
+  );
+
   app.get(
     "/neighborhood-admin/neighborhoods/:id/locations/:locationId",
     neighborhoodAdminGate,
@@ -2479,144 +2721,6 @@ export function createApp() {
           err
         );
         res.status(500).json({ error: "Failed to reassign category" });
-      }
-    }
-  );
-
-  // Bulk Places review (BACKLOG.md Ref 29) -- an admin-triggered dry-run
-  // Google Places query against the neighborhood's *saved* boundary (never
-  // an unsaved draft -- that's what /admin/neighborhoods/preview-boundary is
-  // for), listing places not yet represented as a venue or POI. Costs a real
-  // Places API call each time it runs, same as preview-boundary.
-  app.get(
-    "/neighborhood-admin/neighborhoods/:id/locations/review",
-    neighborhoodAdminGate,
-    async (req, res) => {
-      try {
-        const boundaryResult = await getNeighborhoodBoundary(req.params.id, getNeighborhoodRepository());
-        if (boundaryResult.status === "not_found" || !boundaryResult.boundary.boundaryGeojson) {
-          res.status(400).json({ error: "Neighborhood has no boundary set" });
-          return;
-        }
-
-        const report = await reviewNeighborhoodLocations(
-          req.params.id,
-          boundaryResult.boundary.boundaryGeojson,
-          getCachedPlacesClient(),
-          getPlacesRepository(),
-          getLocationRepository()
-        );
-
-        res.json({
-          tiles_queried: report.tilesQueried,
-          api_calls_made: report.apiCallsMade,
-          calls_at_result_cap: report.callsAtResultCap,
-          new_candidates: report.newCandidates.map((c) => ({
-            google_place_id: c.googlePlaceId,
-            name: c.name,
-            lat: c.lat,
-            lng: c.lng,
-            address: c.address,
-            suggested_category_id: c.suggestedCategoryId,
-            suggested_category_name: c.suggestedCategoryName,
-          })),
-          proposed_removals: report.proposedRemovals.map((r) => ({
-            id: r.id,
-            name: r.name,
-            address: r.address,
-          })),
-        });
-      } catch (err) {
-        console.error(
-          `GET /neighborhood-admin/neighborhoods/${req.params.id}/locations/review failed:`,
-          err
-        );
-        res.status(500).json({ error: "Failed to review locations" });
-      }
-    }
-  );
-
-  const LOCATION_CLASSIFICATIONS: LocationClassification[] = ["business", "poi", "omit"];
-
-  app.post(
-    "/neighborhood-admin/neighborhoods/:id/locations/review/commit",
-    neighborhoodAdminGate,
-    async (req, res) => {
-      const { classifications, removals } = req.body ?? {};
-      if (!Array.isArray(classifications)) {
-        res.status(400).json({ error: "classifications must be an array" });
-        return;
-      }
-      if (!Array.isArray(removals)) {
-        res.status(400).json({ error: "removals must be an array" });
-        return;
-      }
-      for (const item of removals) {
-        if (typeof item !== "object" || item === null || typeof item.id !== "string" || !item.id) {
-          res.status(400).json({ error: "each removal requires an id" });
-          return;
-        }
-      }
-      for (const item of classifications) {
-        if (
-          typeof item !== "object" ||
-          item === null ||
-          typeof item.google_place_id !== "string" ||
-          !item.google_place_id ||
-          typeof item.name !== "string" ||
-          !item.name ||
-          typeof item.lat !== "number" ||
-          typeof item.lng !== "number" ||
-          typeof item.address !== "string" ||
-          !LOCATION_CLASSIFICATIONS.includes(item.classification)
-        ) {
-          res.status(400).json({
-            error:
-              "each classification requires google_place_id, name, lat, lng, address, and a valid classification",
-          });
-          return;
-        }
-        if (item.classification === "business" && typeof item.category_id !== "string") {
-          res.status(400).json({ error: "category_id is required to classify as a business" });
-          return;
-        }
-        if (item.classification === "poi" && typeof item.type !== "string") {
-          res.status(400).json({ error: "type is required to classify as a point of interest" });
-          return;
-        }
-      }
-
-      try {
-        const result = await commitLocationReview(
-          req.params.id,
-          classifications.map((item) => ({
-            googlePlaceId: item.google_place_id,
-            name: item.name,
-            lat: item.lat,
-            lng: item.lng,
-            address: item.address,
-            classification: item.classification,
-            categoryId: item.category_id,
-            type: item.type,
-          })),
-          removals.map((item) => ({ id: item.id })),
-          getPlacesRepository(),
-          getLocationRepository()
-        );
-
-        res.json({
-          created_businesses: result.createdBusinesses,
-          created_pois: result.createdPois,
-          omitted: result.omitted,
-          hidden: result.hidden,
-          failed: result.failed,
-        });
-      } catch (err) {
-        console.error(
-          `POST /neighborhood-admin/neighborhoods/${req.params.id}/locations/review/commit failed:`,
-          err
-        );
-        res.status(500).json({ error: "Failed to commit location review" });
       }
     }
   );

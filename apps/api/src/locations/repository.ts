@@ -69,6 +69,11 @@ export interface CreateLocationInput {
   lng: number;
   googlePlaceId: string | null;
   address: string | null;
+  // Defaults to the DB's "active" default when omitted -- set explicitly to
+  // "hidden" when persisting an omitted review candidate (BACKLOG.md
+  // "Reimport Locations"), so it's recorded without appearing as a new
+  // active location.
+  status?: VenueStatus;
 }
 
 export interface UpdateLocationInput {
@@ -105,7 +110,11 @@ export interface LocationRepository {
   listVenues(neighborhoodId: string): Promise<VenueListItem[]>;
   // Neighborhood-scoped listing for the admin Locations tab and the public
   // POI list (NeighborhoodProfile.pois/NeighborhoodDashboardSummary.pois) --
-  // every kind, every status (callers filter by kind/status as needed).
+  // every kind, active or hidden (callers filter further by kind/status as
+  // needed). Never returns "removed" rows -- those are fully detached from
+  // the neighborhood (BACKLOG.md "Reimport Locations"), so a redraw that
+  // later re-includes their area treats them as a brand-new candidate again
+  // rather than a still-known one.
   listLocationsForNeighborhood(neighborhoodId: string, search?: string): Promise<LocationRecord[]>;
   // Active-only count for one kind, for neighborhood profile stats
   // (BACKLOG.md Ref 58).

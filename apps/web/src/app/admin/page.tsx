@@ -98,7 +98,7 @@ export default function AdminLandingPage() {
 
       {state.status === "empty" && (
         <div className="flex flex-col gap-4">
-          {state.user.is_neighborhood_admin ? (
+          {state.user.is_super_admin ? (
             <p className="text-sm text-muted">
               You aren&apos;t an admin of any neighborhood yet.{" "}
               <a href="/admin/neighborhood/new" className="font-bold text-brand-purple hover:text-brand-orange">
@@ -108,7 +108,8 @@ export default function AdminLandingPage() {
             </p>
           ) : (
             <p className="text-sm text-muted">
-              This account isn&apos;t a neighborhood admin for any neighborhood.
+              This account isn&apos;t a neighborhood admin for any neighborhood. Neighborhood creation is
+              currently limited to super admins.
             </p>
           )}
 

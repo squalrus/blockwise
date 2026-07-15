@@ -4,6 +4,7 @@ import {
   haversineMeters,
   isPointInPolygon,
   isValidPolygon,
+  subdivideCircle,
   type GeoJsonPolygon,
 } from "./geo";
 
@@ -118,5 +119,46 @@ describe("generateCoverageGrid", () => {
     const fewerTiles = generateCoverageGrid(SQUARE, 800).length;
     const moreTiles = generateCoverageGrid(SQUARE, 150).length;
     expect(moreTiles).toBeGreaterThan(fewerTiles);
+  });
+});
+
+describe("subdivideCircle", () => {
+  it("produces exactly 4 sub-circles, each smaller than the original", () => {
+    const center = { lat: 47.68, lng: -122.35 };
+    const subCircles = subdivideCircle(center, 400);
+
+    expect(subCircles).toHaveLength(4);
+    for (const sub of subCircles) {
+      expect(sub.radiusMeters).toBeLessThan(400);
+      expect(sub.radiusMeters).toBeGreaterThan(0);
+    }
+  });
+
+  it("fans out in 4 distinct directions from the center", () => {
+    const center = { lat: 47.68, lng: -122.35 };
+    const subCircles = subdivideCircle(center, 400);
+
+    const uniqueCenters = new Set(subCircles.map((s) => `${s.center.lat},${s.center.lng}`));
+    expect(uniqueCenters.size).toBe(4);
+    for (const sub of subCircles) {
+      expect(haversineMeters(center, sub.center)).toBeGreaterThan(0);
+    }
+  });
+
+  it("fully covers the original circle -- every boundary point falls within some sub-circle", () => {
+    const center = { lat: 47.68, lng: -122.35 };
+    const radiusMeters = 300;
+    const subCircles = subdivideCircle(center, radiusMeters);
+
+    for (const angleDeg of [0, 30, 45, 60, 90, 135, 180, 225, 270, 315]) {
+      const angleRad = (angleDeg * Math.PI) / 180;
+      const lat = center.lat + (Math.cos(angleRad) * radiusMeters) / 111_320;
+      const metersPerDegreeLng = 111_320 * Math.cos((center.lat * Math.PI) / 180);
+      const lng = center.lng + (Math.sin(angleRad) * radiusMeters) / metersPerDegreeLng;
+      const point = { lat, lng };
+
+      const covered = subCircles.some((sub) => haversineMeters(point, sub.center) <= sub.radiusMeters);
+      expect(covered).toBe(true);
+    }
   });
 });
