@@ -38,6 +38,10 @@ export class FakeGamificationRepository implements GamificationRepository {
   // getUserCompletedChallenges to return a real name rather than the id.
   neighborhoodNames = new Map<string, string>();
   checkins: { userId: string; venueId: string; checkedInAt: string }[] = [];
+  // Full venue directory (not just checked-in ones) -- backs
+  // countActiveLocationsForKind, mirroring the venue table's neighborhood_id/
+  // kind/status columns.
+  venues: { neighborhoodId: string; kind: LocationKind; status: "active" | "hidden" }[] = [];
   users = new Map<string, { displayName: string | null; username: string | null; avatarUrl: string | null; visibility: "public" | "private" }>();
   badgeRules: BadgeRuleRecord[] = [];
   private nextId = 1;
@@ -156,6 +160,12 @@ export class FakeGamificationRepository implements GamificationRepository {
         .map((c) => c.venueId)
     );
     return venueIds.size;
+  }
+
+  async countActiveLocationsForKind(input: { neighborhoodId: string; kind: LocationKind }): Promise<number> {
+    return this.venues.filter(
+      (v) => v.neighborhoodId === input.neighborhoodId && v.kind === input.kind && v.status === "active"
+    ).length;
   }
 
   async hasAnyCheckinForLocation(input: {
@@ -379,6 +389,7 @@ export function makeChallenge(overrides: Partial<ChallengeRecord> = {}): Challen
     venueName: null,
     targetKind: null,
     targetCount: 1,
+    targetCountLive: false,
     pointsReward: 0,
     badge: null,
     startsAt: "2026-07-01T00:00:00.000Z",
