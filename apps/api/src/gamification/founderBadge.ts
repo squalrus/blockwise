@@ -1,7 +1,7 @@
 import type { GamificationRepository } from "./repository";
 
 // BACKLOG.md Ref 50: every account gets the "founder" badge automatically
-// while Blockwise is still pre-launch, so early signups see recognition
+// while Spored is still pre-launch, so early signups see recognition
 // right away instead of waiting on a manually-run backfill. Existing
 // accounts were backfilled directly in 20260707070000_founder_badge_backfill.sql.
 // Turn this off once v1.0.0 ships (BACKLOG.md Ref 52) -- signups after that

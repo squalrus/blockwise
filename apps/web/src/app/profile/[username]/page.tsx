@@ -113,7 +113,7 @@ export default async function PublicProfilePage({
               const latest = profile.badges[0];
               return (
                 <div className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3.5">
-                  <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border-[3px] border-foreground bg-brand-amber text-2xl">
+                  <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border-[3px] border-foreground bg-brand-purple text-2xl">
                     <BadgeIcon icon={latest.badge.icon} name={latest.badge.name} />
                   </span>
                   <div className="min-w-0">
@@ -146,7 +146,7 @@ export default async function PublicProfilePage({
                       {latest.description && <p className="mt-1 text-body-text">{latest.description}</p>}
                     </div>
                     {latest.badge && (
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-brand-amber text-lg">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-brand-purple text-lg">
                         <BadgeIcon icon={latest.badge.icon} name={latest.badge.name} />
                       </span>
                     )}

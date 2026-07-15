@@ -40,28 +40,33 @@ export async function awardCheckinRewards(
     checkinId: checkin.checkinId,
   });
 
-  const [challengesCompleted, badgesEarned] = await Promise.all([
-    evaluateChallengesAfterCheckin(
-      {
-        userId: checkin.userId,
-        neighborhoodId: context.neighborhoodId,
-        categoryId: context.categoryId ?? undefined,
-        venueId: checkin.venueId,
-        locationKind: context.kind,
-      },
-      repository
-    ),
-    evaluateBadgesAfterCheckin(
-      {
-        userId: checkin.userId,
-        venueId: checkin.venueId,
-        categoryId: context.categoryId ?? undefined,
-        kind: context.kind,
-        checkedInAt: checkin.checkedInAt,
-      },
-      repository
-    ),
-  ]);
+  // Sequential, not Promise.all: evaluateBadgesAfterCheckin's level_reached
+  // rule takes one getUserPointsTotal snapshot and checks every rule against
+  // it. If a challenge this same check-in completes awards enough bonus
+  // points to cross a level threshold, that snapshot has to be taken *after*
+  // evaluateChallengesAfterCheckin's point_event write commits -- otherwise
+  // the level-up badge silently misses this check-in (and only catches up
+  // whenever the user's next check-in happens to re-evaluate it, if ever).
+  const challengesCompleted = await evaluateChallengesAfterCheckin(
+    {
+      userId: checkin.userId,
+      neighborhoodId: context.neighborhoodId,
+      categoryId: context.categoryId ?? undefined,
+      venueId: checkin.venueId,
+      locationKind: context.kind,
+    },
+    repository
+  );
+  const badgesEarned = await evaluateBadgesAfterCheckin(
+    {
+      userId: checkin.userId,
+      venueId: checkin.venueId,
+      categoryId: context.categoryId ?? undefined,
+      kind: context.kind,
+      checkedInAt: checkin.checkedInAt,
+    },
+    repository
+  );
 
   const pointsEarned =
     CHECKIN_POINTS + challengesCompleted.reduce((sum, c) => sum + c.pointsReward, 0);

@@ -115,7 +115,7 @@ where b.code = 'back_for_seconds'
 -- added later as the community's point totals actually approach the ceiling.
 insert into badge (code, name, description, icon)
 select 'level_' || t.tier_count, 'Level ' || t.tier_count || ' Forager',
-  'Reached Level ' || t.tier_count || '.', 'star'
+  'Reached Level ' || t.tier_count || '.', 'mushroom'
 from (values (1), (2), (3), (4), (5), (6), (7), (8), (9), (10)) as t(tier_count)
 where not exists (select 1 from badge where code = 'level_' || t.tier_count);
 

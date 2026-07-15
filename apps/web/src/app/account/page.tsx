@@ -9,6 +9,7 @@ import type {
   FavoriteVenueSummary,
   UserBadge,
   UserChallenge,
+  UserChallengeProgress,
   UserPointsSummary,
 } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
@@ -47,6 +48,7 @@ type State =
       // `badges` (earned) to render locked placeholders too.
       badgeCatalog: Badge[];
       challenges: UserChallenge[];
+      activeChallenges: UserChallengeProgress[];
       // BACKLOG.md Ref 14/33 "Connect with other users": every connection
       // involving this account, pending or accepted, in either direction.
       connections: ConnectionSummary[];
@@ -67,16 +69,25 @@ async function loadAccount(setState: (state: State) => void) {
 
   const token = await getAccessToken();
   const headers = { Authorization: `Bearer ${token}` };
-  const [favoritesRes, checkinsRes, pointsRes, badgesRes, catalogRes, challengesRes, connectionsRes] =
-    await Promise.all([
-      fetch(clientApiUrl("/me/favorites"), { headers }),
-      fetch(clientApiUrl("/me/checkins"), { headers }),
-      fetch(clientApiUrl("/me/points"), { headers }),
-      fetch(clientApiUrl("/me/badges"), { headers }),
-      fetch(clientApiUrl("/badges")),
-      fetch(clientApiUrl("/me/challenges"), { headers }),
-      fetch(clientApiUrl("/me/connections"), { headers }),
-    ]);
+  const [
+    favoritesRes,
+    checkinsRes,
+    pointsRes,
+    badgesRes,
+    catalogRes,
+    challengesRes,
+    activeChallengesRes,
+    connectionsRes,
+  ] = await Promise.all([
+    fetch(clientApiUrl("/me/favorites"), { headers }),
+    fetch(clientApiUrl("/me/checkins"), { headers }),
+    fetch(clientApiUrl("/me/points"), { headers }),
+    fetch(clientApiUrl("/me/badges"), { headers }),
+    fetch(clientApiUrl("/badges")),
+    fetch(clientApiUrl("/me/challenges"), { headers }),
+    fetch(clientApiUrl("/me/challenges/active"), { headers }),
+    fetch(clientApiUrl("/me/connections"), { headers }),
+  ]);
   if (
     !favoritesRes.ok ||
     !checkinsRes.ok ||
@@ -84,6 +95,7 @@ async function loadAccount(setState: (state: State) => void) {
     !badgesRes.ok ||
     !catalogRes.ok ||
     !challengesRes.ok ||
+    !activeChallengesRes.ok ||
     !connectionsRes.ok
   ) {
     setState({ status: "error", message: "Failed to load your account" });
@@ -99,6 +111,7 @@ async function loadAccount(setState: (state: State) => void) {
     badges: await badgesRes.json(),
     badgeCatalog: await catalogRes.json(),
     challenges: await challengesRes.json(),
+    activeChallenges: await activeChallengesRes.json(),
     connections: await connectionsRes.json(),
   });
 }
@@ -184,7 +197,7 @@ export default function AccountPage() {
                         key={userBadge.badge.id}
                         className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3.5"
                       >
-                        <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border-[3px] border-foreground bg-brand-amber text-2xl">
+                        <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border-[3px] border-foreground bg-brand-purple text-2xl">
                           <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
                         </span>
                         <div className="min-w-0">
@@ -222,37 +235,83 @@ export default function AccountPage() {
 
           {activeTab === "challenges" && (
             <section className="flex flex-col gap-2.5">
-              {state.challenges.length === 0 ? (
+              {state.challenges.length === 0 && state.activeChallenges.length === 0 ? (
                 <p className="text-sm text-muted">
-                  No challenges completed yet -- check a neighborhood&apos;s Challenges tab to see what&apos;s active.
+                  No challenges yet -- check a neighborhood&apos;s Challenges tab to see what&apos;s active.
                 </p>
               ) : (
-                <ul className="flex flex-col gap-2">
-                  {state.challenges.map((challenge) => (
-                    <li key={challenge.id} className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <span className="font-extrabold text-foreground">{challenge.title}</span>
-                          {challenge.description && (
-                            <p className="mt-1 text-body-text">{challenge.description}</p>
-                          )}
-                        </div>
-                        {challenge.badge && (
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-brand-amber text-lg">
-                            <BadgeIcon icon={challenge.badge.icon} name={challenge.badge.name} />
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-2.5">
-                        <ProgressBar percent={100} />
-                      </div>
-                      <p className="mt-1.5 text-xs font-bold text-muted">
-                        {challenge.neighborhood_name} · +{challenge.points_reward} pts · Completed{" "}
-                        {new Date(challenge.completed_at).toLocaleString()}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  {state.activeChallenges.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {state.challenges.length > 0 && (
+                        <h2 className="text-xs font-extrabold text-muted">In progress</h2>
+                      )}
+                      <ul className="flex flex-col gap-2">
+                        {state.activeChallenges.map((challenge) => {
+                          const progress = Math.min(challenge.progress_count, challenge.target_count);
+                          const percent = (progress / challenge.target_count) * 100;
+                          return (
+                            <li key={challenge.id} className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <span className="font-extrabold text-foreground">{challenge.title}</span>
+                                  {challenge.description && (
+                                    <p className="mt-1 text-body-text">{challenge.description}</p>
+                                  )}
+                                </div>
+                                {challenge.badge && (
+                                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-brand-purple text-lg">
+                                    <BadgeIcon icon={challenge.badge.icon} name={challenge.badge.name} />
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-2.5">
+                                <ProgressBar percent={percent} />
+                              </div>
+                              <p className="mt-1.5 text-xs font-bold text-muted">
+                                {challenge.neighborhood_name} · {progress} of {challenge.target_count} · +
+                                {challenge.points_reward} pts
+                              </p>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                  {state.challenges.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {state.activeChallenges.length > 0 && (
+                        <h2 className="mt-2 text-xs font-extrabold text-muted">Completed</h2>
+                      )}
+                      <ul className="flex flex-col gap-2">
+                        {state.challenges.map((challenge) => (
+                          <li key={challenge.id} className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <span className="font-extrabold text-foreground">{challenge.title}</span>
+                                {challenge.description && (
+                                  <p className="mt-1 text-body-text">{challenge.description}</p>
+                                )}
+                              </div>
+                              {challenge.badge && (
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-brand-purple text-lg">
+                                  <BadgeIcon icon={challenge.badge.icon} name={challenge.badge.name} />
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2.5">
+                              <ProgressBar percent={100} />
+                            </div>
+                            <p className="mt-1.5 text-xs font-bold text-muted">
+                              {challenge.neighborhood_name} · +{challenge.points_reward} pts · Completed{" "}
+                              {new Date(challenge.completed_at).toLocaleString()}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
               )}
             </section>
           )}

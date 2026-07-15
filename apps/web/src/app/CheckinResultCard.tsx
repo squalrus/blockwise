@@ -28,7 +28,7 @@ export function CheckinResultCard({ status, onDismiss }: { status: ResultStatus;
                 className="unlock-card relative flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 text-left"
                 style={{ animationDelay: `${i * 140}ms`, zIndex: unlockCount - i }}
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-nav-foreground bg-brand-amber text-xl">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-nav-foreground bg-brand-purple text-xl">
                   <BadgeIcon icon={badge.icon} name={badge.name} />
                 </span>
                 <div className="min-w-0">
@@ -50,7 +50,7 @@ export function CheckinResultCard({ status, onDismiss }: { status: ResultStatus;
                     <p className="mt-0.5 text-xs font-bold text-brand-green">+{challenge.points_reward} pts</p>
                   </div>
                   {challenge.badge && (
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-nav-foreground bg-brand-amber text-lg">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-nav-foreground bg-brand-purple text-lg">
                       <BadgeIcon icon={challenge.badge.icon} name={challenge.badge.name} />
                     </span>
                   )}

@@ -2,6 +2,26 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.46.0] — 2026-07-14
+
+### Added
+
+- **In-progress challenges on the account page.** The Challenges tab now has an "In progress" section (challenges started but not yet completed, across every neighborhood the user belongs to, sorted by percent-complete descending) above the existing "Completed" list, each with a progress bar and "X of Y" count. Backed by a new `GET /me/challenges/active` endpoint. (`apps/api/src/gamification/challenges.ts`, `apps/api/src/app.ts`, `apps/web/src/app/account/page.tsx`, `packages/types/src/index.ts`)
+- **Same In progress / Completed grouping on the neighborhood page's Challenges tab**, plus a new "Not started" section listing every challenge template the user hasn't begun. (`apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+- **"Everybody's Neighbor" easter-egg badge.** Connecting with @squalrus (Spored's answer to Tom, everyone's first friend on Myspace) now awards a one-off badge to the other party. (`supabase/migrations/20260714050000_squalrus_connection_badge.sql`, `apps/api/src/gamification/squalrusBadge.ts`, `apps/api/src/app.ts`)
+
+### Changed
+
+- **Forager level badges now use a mushroom emoji** instead of a generic star, and the "Neighbor" connection badges use a handshake emoji. (`supabase/migrations/20260714020000_forager_badge_mushroom_icon.sql`, `apps/web/src/app/BadgeIcon.tsx`)
+- **"Founder" badge renamed to "Early Sprout"** with a seedling icon, and its description updated from "Blockwise" to "Spored". (`supabase/migrations/20260714030000_founder_badge_seedling_icon.sql`, `supabase/migrations/20260714040000_founder_badge_spored_rename.sql`, `apps/api/src/gamification/founderBadge.ts`)
+- **Badge and challenge icon backgrounds switched from amber to purple** for better contrast — many badge/challenge emoji are yellow-heavy and blended into the previous amber circle. (`apps/web/src/app/CheckinResultCard.tsx`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+- **Favorite venues list is now alphabetized** rather than returned in insertion order. (`apps/api/src/favorites/supabaseRepository.ts`)
+
+### Fixed
+
+- **Challenges that were already complete before their template existed (or before their first qualifying check-in was evaluated) now auto-complete on read**, instead of showing 100% progress forever without ever awarding points or a badge. (`apps/api/src/gamification/challenges.ts`)
+- **A challenge's bonus points now count toward the same check-in's badge level-up evaluation.** Challenge completion and badge-rule evaluation ran in parallel, so a check-in that both completed a challenge and crossed a level threshold could evaluate the level badge against a stale points total; they now run sequentially. (`apps/api/src/gamification/rewards.ts`)
+
 ## [0.45.0] — 2026-07-14
 
 ### Added

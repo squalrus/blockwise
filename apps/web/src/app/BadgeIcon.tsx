@@ -16,6 +16,9 @@ const ICONS: Record<string, string> = {
   "ice-cream": "🍦",
   zap: "⚡",
   repeat: "🔁",
+  mushroom: "🍄",
+  seedling: "🌱",
+  handshake: "🤝",
 };
 
 const FALLBACK_ICON = "🏅";
