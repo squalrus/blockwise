@@ -45,7 +45,7 @@ export async function generateMetadata({
 
 // BACKLOG.md Ref 44: shared chrome (header, social links, join button) and
 // the subnav tab bar for the neighborhood profile pages, mirroring the
-// /neighborhood-admin/[neighborhoodSlug]/layout.tsx tab pattern. Each tab is
+// /admin/neighborhood/[neighborhoodSlug]/layout.tsx tab pattern. Each tab is
 // its own route (page.tsx = Happening now, activity/, events/, locations/,
 // challenges/) so it's directly linkable and only fetches the data it needs.
 export default async function NeighborhoodLayout({

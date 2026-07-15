@@ -156,7 +156,7 @@ export default function LocationReviewPage() {
   return (
     <div className="flex flex-col gap-4">
       <a
-        href={`/neighborhood-admin/${slug}/locations`}
+        href={`/admin/neighborhood/${slug}/locations`}
         className="text-sm font-bold text-brand-purple hover:text-brand-orange"
       >
         ← Locations
@@ -337,7 +337,7 @@ export default function LocationReviewPage() {
             </div>
           )}
           <a
-            href={`/neighborhood-admin/${slug}/locations`}
+            href={`/admin/neighborhood/${slug}/locations`}
             className="self-start rounded-md border border-border px-3 py-1 text-foreground hover:bg-card-alt"
           >
             Back to Locations

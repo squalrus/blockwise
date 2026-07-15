@@ -6,9 +6,10 @@ import type { AppUser, NeighborhoodAdminSummary, NeighborhoodProfile } from "@bl
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomLogo } from "@blockwise/ui";
-import { Avatar } from "../../Avatar";
+import { Avatar } from "../../../Avatar";
+import { AdminSwitcher } from "../../../AdminSwitcher";
 import { NeighborhoodAdminProvider } from "./NeighborhoodAdminContext";
-import packageJson from "../../../../package.json";
+import packageJson from "../../../../../package.json";
 
 type State =
   | { status: "loading" }
@@ -174,8 +175,8 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
   if (state.status !== "ready") {
     return (
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 font-sans sm:p-16">
-        <a href="/neighborhood-admin" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
-          ← Neighborhood admin
+        <a href="/admin" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
+          ← Admin
         </a>
         {state.status === "signed_out" && (
           <p className="text-sm text-muted">
@@ -210,26 +211,21 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
           </span>
         </div>
 
-        <a
-          href="/neighborhood-admin"
-          className="mb-4 flex items-center gap-2.5 rounded-2xl bg-nav-foreground/8 p-3 hover:bg-nav-foreground/12"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="font-heading text-[15px] leading-tight font-bold text-nav-foreground">
-              {neighborhood.name}
-            </div>
-            {profile && <div className="text-[11px] text-nav-muted">{profile.city}, {profile.state}</div>}
-          </div>
-          <svg width="10" height="6" viewBox="0 0 10 6" className="shrink-0 text-nav-muted" aria-hidden="true">
-            <path d="M1 1 L5 5 L9 1" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
-          </svg>
-        </a>
+        <AdminSwitcher
+          current={{
+            kind: "neighborhood",
+            id: neighborhood.neighborhood_id,
+            label: neighborhood.name,
+            sublabel: profile ? `${profile.city}, ${profile.state}` : undefined,
+          }}
+          user={user}
+        />
 
         <div className="px-2.5 pb-2 font-mono text-[10px] tracking-wide text-nav-muted/80 uppercase">Manage</div>
 
         <nav className="flex flex-col gap-0.5">
           {TABS.map((tab) => {
-            const href = `/neighborhood-admin/${neighborhoodSlug}${tab.href}`;
+            const href = `/admin/neighborhood/${neighborhoodSlug}${tab.href}`;
             const isActive = pathname === href;
             return (
               <a
@@ -287,8 +283,8 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-[1460px] flex-col px-9 pt-5.5 pb-18">
           <div className="mb-5.5 flex items-center gap-3.5">
-            <a href="/neighborhood-admin" className="text-[13px] font-bold text-foreground hover:text-brand-purple">
-              ← All neighborhoods
+            <a href="/admin" className="text-[13px] font-bold text-foreground hover:text-brand-purple">
+              ← Admin
             </a>
             <div className="flex-1" />
             <div className="flex items-center gap-2 rounded-full bg-card-alt py-1 pr-3.5 pl-1">

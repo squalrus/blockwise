@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.46.1] — 2026-07-14
+
+### Changed
+
+- **Business admin and neighborhood admin unified under a single `/admin` namespace, sharing one sidebar-shell UI.** `/business/:venueId` moved to `/admin/business/:venueId` and was restyled to match the neighborhood-admin shell (stat tiles, rounded cards, sidebar nav) instead of its old plain single-column layout; `/neighborhood-admin/:slug` moved to `/admin/neighborhood/:slug`. The old plain `/business` and `/neighborhood-admin` list pages were removed — an account can administer many neighborhoods and/or own many businesses (independent `account_type`/`is_neighborhood_admin` flags), so a single "your list" page no longer fit. (`apps/web/src/app/admin/business/[venueId]/`, `apps/web/src/app/admin/neighborhood/`)
+- **New `/admin` landing page** redirects straight to the first neighborhood you admin, else the first business you own, else shows a "nothing to admin yet" state (become a business owner / create a neighborhood, as applicable). (`apps/web/src/app/admin/page.tsx`)
+- **New `AdminSwitcher` sidebar dropdown** (replacing the old static "back to the list" card) lists every neighborhood and business the signed-in account administers, so you can jump between them without leaving either shell. (`apps/web/src/app/AdminSwitcher.tsx`)
+- **`AccountNav`'s "Business portal" and "Neighborhood admin" menu items collapsed into one "Admin" link.** (`apps/web/src/app/AccountNav.tsx`)
+- Extracted a shared `StatTile` component (icon/label/value stat tile) used by both admin shells' Overview tabs, and restyled the business admin's forms to match the neighborhood-admin versions' input/button treatment. (`apps/web/src/app/StatTile.tsx`)
+- Marketing homepage's "Claim your business" CTAs now point at `/admin` instead of the removed `/business`. (`apps/marketing/src/app/page.tsx`)
+
 ## [0.46.0] — 2026-07-14
 
 ### Added

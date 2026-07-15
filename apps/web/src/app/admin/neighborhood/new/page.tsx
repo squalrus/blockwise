@@ -89,7 +89,7 @@ export default function NewNeighborhoodPage() {
         return;
       }
       const created: CreateNeighborhoodResponse = body;
-      router.push(`/neighborhood-admin/${created.slug}`);
+      router.push(`/admin/neighborhood/${created.slug}`);
     } catch {
       setStatus({ state: "error", message: "Failed to create neighborhood" });
     }
@@ -99,7 +99,7 @@ export default function NewNeighborhoodPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 font-sans sm:p-16">
-      <a href="/neighborhood-admin" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
+      <a href="/admin/neighborhood" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
         ← Neighborhood admin
       </a>
 
