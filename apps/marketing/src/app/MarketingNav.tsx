@@ -4,7 +4,6 @@ import { APP_URL } from "@/lib/appUrl";
 // Shared chrome for every apps/marketing page (homepage, /brand, and future
 // terms/privacy/FAQ pages) -- see page.tsx's note on the fixed hex palette.
 const CREAM = "#FBF2E4";
-const AMBER = "#F2A93B";
 const ORANGE = "#E8542A";
 
 export function MarketingNav() {
@@ -12,7 +11,7 @@ export function MarketingNav() {
     <div className="sticky top-0 z-50 backdrop-blur-sm" style={{ background: "rgba(43,27,18,0.96)" }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
         <a href="/" className="flex items-center gap-2.5">
-          <MushroomLogo size={28} capColor={AMBER} stemClassName="text-[#FBF2E4]" />
+          <MushroomLogo size={28} capColor={ORANGE} stemClassName="text-[#FBF2E4]" />
           <span className="font-heading text-xl font-extrabold" style={{ color: CREAM }}>
             Spored
           </span>

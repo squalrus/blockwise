@@ -12,6 +12,7 @@ export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean): 
     display_name: record.displayName,
     avatar_url: record.avatarUrl,
     avatar_style: record.avatarStyle,
+    mushroom_customization: record.mushroomCustomization,
     username: record.username,
     visibility: record.visibility,
     created_at: record.createdAt,
@@ -70,6 +71,7 @@ export async function updateProfile(
     patch.displayName = trimmed ? trimmed : null;
   }
   if ("avatarStyle" in input) patch.avatarStyle = input.avatarStyle;
+  if ("mushroomCustomization" in input) patch.mushroomCustomization = input.mushroomCustomization;
   if ("username" in input) {
     const trimmed = input.username?.trim().toLowerCase();
     patch.username = trimmed ? trimmed : null;

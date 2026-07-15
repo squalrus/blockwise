@@ -24,6 +24,7 @@ class FakeAuthRepository implements AuthRepository {
       displayName: null,
       avatarUrl: null,
       avatarStyle: "social",
+      mushroomCustomization: null,
       username: null,
       visibility: "private",
       createdAt: new Date().toISOString(),
@@ -73,6 +74,7 @@ class FakeAuthRepository implements AuthRepository {
       displayName: null,
       avatarUrl: input.avatarUrl,
       avatarStyle: "social",
+      mushroomCustomization: null,
       username: null,
       visibility: "private",
       createdAt: new Date().toISOString(),
@@ -113,6 +115,7 @@ class FakeAuthRepository implements AuthRepository {
     }
     if ("displayName" in input) user.displayName = input.displayName ?? null;
     if ("avatarStyle" in input) user.avatarStyle = input.avatarStyle!;
+    if ("mushroomCustomization" in input) user.mushroomCustomization = input.mushroomCustomization ?? null;
     if ("username" in input) user.username = input.username ?? null;
     if ("visibility" in input) user.visibility = input.visibility!;
     return user;
@@ -225,6 +228,37 @@ describe("updateProfile", () => {
     const updated = await updateProfile(user, { displayName: "   " }, repo);
 
     expect(updated.displayName).toBeNull();
+  });
+
+  it("saves and clears a mushroom customization (BACKLOG.md Ref 75)", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", null, repo);
+
+    const customized = await updateProfile(
+      user,
+      {
+        mushroomCustomization: {
+          cap: "#8b5fbf",
+          stalk: "#2b1b12",
+          spots: "#fbf2e4",
+          bg: "#c9b3e0",
+          spotCount: 2,
+          spotShape: "ring",
+        },
+      },
+      repo
+    );
+    expect(customized.mushroomCustomization).toEqual({
+      cap: "#8b5fbf",
+      stalk: "#2b1b12",
+      spots: "#fbf2e4",
+      bg: "#c9b3e0",
+      spotCount: 2,
+      spotShape: "ring",
+    });
+
+    const cleared = await updateProfile(user, { mushroomCustomization: null }, repo);
+    expect(cleared.mushroomCustomization).toBeNull();
   });
 
   it("switches avatar style back and forth (mushroom <-> social)", async () => {

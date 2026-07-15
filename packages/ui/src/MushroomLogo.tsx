@@ -6,18 +6,21 @@
 // capColor should normally be a `var(--brand-*)` reference (not a raw hex) so
 // the cap re-colors and glows automatically when the dark theme's brighter
 // accent palette kicks in (see .icon-glow in globals.css) -- a literal hex
-// would freeze the icon to one theme's shade. stemClassName is a Tailwind
-// text-color utility (default "text-card") applied to both the stem and the
-// spots (per brand guidelines, spots always match the stalk color) so they
-// blend into whatever surface the icon sits on in both themes.
+// would freeze the icon to one theme's shade. stemClassName and dotClassName
+// are Tailwind text-color utilities (each a stand-in for the mushroom
+// avatar system's independent stalk/spots colors, packages/ui's
+// mushroomConfig.ts) -- dotClassName defaults to stemClassName so existing
+// callers that only set one color keep their prior look.
 export function MushroomLogo({
   size = 24,
   capColor = "var(--brand-orange)",
   stemClassName = "text-card",
+  dotClassName = stemClassName,
 }: {
   size?: number;
   capColor?: string;
   stemClassName?: string;
+  dotClassName?: string;
 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
@@ -27,8 +30,8 @@ export function MushroomLogo({
         className="icon-glow"
         style={{ color: capColor }}
       />
-      <g fill="currentColor" className={stemClassName}>
-        <rect x="16" y="21" width="8" height="15" rx="4" />
+      <rect x="16" y="21" width="8" height="15" rx="4" fill="currentColor" className={stemClassName} />
+      <g fill="currentColor" className={dotClassName}>
         <circle cx="13" cy="14" r="2.6" />
         <circle cx="21" cy="10" r="1.9" />
         <circle cx="26" cy="16" r="2.3" />

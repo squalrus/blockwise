@@ -1,4 +1,4 @@
-import type { AvatarStyle } from "@blockwise/types";
+import type { AvatarStyle, MushroomCustomization } from "@blockwise/types";
 
 // BACKLOG.md Ref 14/33 "Connect with other users" / "Friends/neighbors on
 // profile" -- mirrors ConnectionStatus in @blockwise/types (no "declined"
@@ -21,6 +21,7 @@ export interface ConnectionUserSummary {
   displayName: string | null;
   avatarUrl: string | null;
   avatarStyle: AvatarStyle;
+  mushroomCustomization: MushroomCustomization | null;
 }
 
 // GET /me/connections listing (My account page's Neighbors section) -- the

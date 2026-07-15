@@ -135,7 +135,7 @@ Auth gates:
 ├── badges                                              GET — auth — every badge this user has earned, across every neighborhood
 ├── challenges/completed-count                          GET — auth — all-time, all-neighborhood completed-challenge count
 ├── challenges                                          GET — auth — every challenge this user has completed, across every neighborhood (account page Challenges tab)
-├── profile                                            PATCH — auth — display_name/avatar_style/username/visibility (avatar_url is read-only, seeded from OAuth at signup)
+├── profile                                            PATCH — auth — display_name/avatar_style/mushroom_customization/username/visibility (avatar_url is read-only, seeded from OAuth at signup; mushroom_customization is null or an approved {cap,stalk,pattern}, BACKLOG.md Ref 75)
 └── connections/
     ├── (root)                                          GET, POST — auth — GET takes ?status= (pending|accepted); POST body is {username}, sends a request (BACKLOG.md Ref 14/33 "Connect with other users" -- a mutual, request-based "neighbor" relationship)
     ├── :id/accept                                      POST — auth — accepts a pending incoming request
@@ -143,7 +143,7 @@ Auth gates:
 
 /badges                                              GET — public — every badge that exists (earned or not), for locked-badge display (BACKLOG.md Ref 61)
 
-/users/:username                                     GET — public — profile (only reachable if visibility = public); checkin_count/favorite_count/neighbor_count/points_summary/avatar_style alongside badges/challenges/recent_checkins/neighborhoods
+/users/:username                                     GET — public — profile (only reachable if visibility = public); checkin_count/favorite_count/neighbor_count/points_summary/avatar_style/mushroom_customization alongside badges/challenges/recent_checkins/neighborhoods
 
 /business/
 ├── venues                                            GET — business — venues this account has claimed

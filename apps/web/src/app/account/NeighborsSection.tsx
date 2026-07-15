@@ -182,6 +182,7 @@ function ConnectionRow({ connection, children }: { connection: ConnectionSummary
       <Avatar
         avatarUrl={connection.user.avatar_url}
         avatarStyle={connection.user.avatar_style}
+        mushroomCustomization={connection.user.mushroom_customization}
         seed={connection.user.id}
         label={label}
         size={40}
