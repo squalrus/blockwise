@@ -1,4 +1,11 @@
-import type { LocationKind, SocialLinks, VenueEnrichmentCache, VenueListItem, VenueStatus } from "@blockwise/types";
+import type {
+  LocationKind,
+  MushroomSnapshot,
+  SocialLinks,
+  VenueEnrichmentCache,
+  VenueListItem,
+  VenueStatus,
+} from "@blockwise/types";
 
 export interface LocationRecord {
   id: string;
@@ -43,6 +50,12 @@ export interface LocationDetailRecord {
   socialLinks: SocialLinks;
   checkinCount: number;
   favoriteCount: number;
+  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+  // the most recent distinct check-in-ers' stamped looks, for the "who's
+  // foraged here" mosaic (MushroomField's distinctMushrooms mode). Most
+  // recent first; excludes users with no snapshot (check-ins that predate
+  // this feature) and repeat visits by the same user.
+  recentCheckinMushrooms: MushroomSnapshot[];
 }
 
 export interface CreateLocationInput {

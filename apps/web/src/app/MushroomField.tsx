@@ -43,18 +43,28 @@ function fieldLayout(seed: string, count: number): { leftPct: number; liftPx: nu
 // skin with the account's saved customizer choice, if any -- only meaningful
 // when `distinctMushrooms` is false, since the mosaic case isn't any one
 // person's look to begin with.
+//
+// `mushrooms` (BACKLOG.md "Mushroom fingerprint stamps on connections and
+// check-ins") supplies real per-visitor snapshots, most-recent-first, for
+// the distinctMushrooms mosaic -- position i renders mushrooms[i] when
+// present, falling back to a positionally-fabricated skin otherwise (either
+// because no snapshot list was passed at all, or because count exceeds how
+// many real snapshots were fetched). Ignored when distinctMushrooms is
+// false.
 export function MushroomField({
   seed,
   count,
   ariaLabel,
   distinctMushrooms = false,
   customization = null,
+  mushrooms,
 }: {
   seed: string;
   count: number;
   ariaLabel: string;
   distinctMushrooms?: boolean;
   customization?: MushroomCustomization | null;
+  mushrooms?: MushroomConfig[];
 }) {
   const mushroomCount = Math.min(Math.max(Math.floor(count), 0), MAX_MUSHROOMS);
   if (mushroomCount === 0) return null;
@@ -78,7 +88,9 @@ export function MushroomField({
       </svg>
       <div className="relative bg-brand-green/55" style={{ height: FIELD_HEIGHT_PX }} aria-label={ariaLabel}>
         {layout.map((pos, i) => {
-          const mushroom = distinctMushrooms ? mushroomConfigForUser(`${seed}-mushroom-${i}`) : sharedMushroom;
+          const mushroom = distinctMushrooms
+            ? (mushrooms?.[i] ?? mushroomConfigForUser(`${seed}-mushroom-${i}`))
+            : sharedMushroom;
           return (
             <div
               key={i}

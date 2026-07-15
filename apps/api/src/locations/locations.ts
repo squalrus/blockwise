@@ -142,6 +142,7 @@ export async function getLocationDetailWithFreshEnrichment(
     neighborhood_slug: record.neighborhoodSlug,
     neighborhood_name: record.neighborhoodName,
     social_links: record.socialLinks,
+    recent_checkin_mushrooms: record.recentCheckinMushrooms,
   };
 }
 

@@ -1,3 +1,5 @@
+import type { MushroomSnapshot } from "./mushroom";
+
 export interface HealthCheckResponse {
   status: "ok";
   service: string;
@@ -176,6 +178,12 @@ export interface VenueDetail {
   // empty for venues with no approved claim, and always empty for kind "poi"
   // since a POI can never be claimed.
   social_links: SocialLinks;
+  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+  // the most recent distinct check-in-ers' stamped looks, for the "who's
+  // foraged here" mosaic (MushroomField's distinctMushrooms mode). Most
+  // recent first; excludes check-ins that predate this feature (no
+  // snapshot) and repeat visits by the same user.
+  recent_checkin_mushrooms: MushroomSnapshot[];
 }
 
 // Business claiming + GPS check-in (BACKLOG.md, README §4/§5/§14.2).
@@ -190,6 +198,12 @@ export interface Checkin {
   device_lat: number;
   device_lng: number;
   checked_in_at: string;
+  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+  // what the checking-in user's mushroom looked like at this moment
+  // (resolveMushroomConfig(userId, customization) at insert time), frozen so
+  // a later customizer edit doesn't repaint history. Null for check-ins that
+  // predate this feature.
+  mushroom_snapshot: MushroomSnapshot | null;
 }
 
 export interface CreateCheckinRequest {
@@ -324,7 +338,7 @@ export type ProfileVisibility = "public" | "private";
 export type AvatarStyle = "social" | "mushroom";
 
 // BACKLOG.md Ref 75 "Mushroom avatar customizer" -- a deliberate override of
-// the hash-derived look mushroomConfigForUser (packages/ui) would otherwise
+// the hash-derived look mushroomConfigForUser (./mushroom.ts) would otherwise
 // pick. Approved cap/stalk/spots/bg/spotCount/spotShape values are enforced
 // server-side (PATCH /me/profile), not by this type, so a stored value is
 // always renderable. stalk, spots, and bg are independent choices (not one
@@ -456,6 +470,11 @@ export interface NeighborhoodProfile {
   poi_count: number;
   member_count: number;
   checkin_count: number;
+  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+  // the most recent distinct check-in-ers' stamped looks across the
+  // neighborhood, for the mosaic (MushroomField's distinctMushrooms mode).
+  // Most recent first; excludes check-ins that predate this feature.
+  recent_checkin_mushrooms: MushroomSnapshot[];
 }
 
 // Neighborhood membership (BACKLOG.md "Neighborhoods on landing page and user
@@ -497,9 +516,17 @@ export interface PublicUserProfile {
   favorite_count: number;
   points_summary: UserPointsSummary;
   // BACKLOG.md Ref 14/33 "Connect with other users" -- accepted-connection
-  // count only; the neighbors themselves are a separate, request-gated
-  // listing (GET /me/connections), not exposed on someone else's profile.
+  // count only; the neighbors themselves (usernames, avatars) are a
+  // separate, request-gated listing (GET /me/connections), not exposed on
+  // someone else's profile.
   neighbor_count: number;
+  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+  // unlike neighbor identities above, these carry no username/id linkage
+  // (just the stamped look each neighbor had at accept time), so -- like
+  // the venue/neighborhood mosaics -- they're safe to expose alongside the
+  // bare count rather than gated behind the request-based neighbor check
+  // ProfileDetails.tsx applies to badges/neighborhoods/check-ins.
+  neighbor_mushrooms: MushroomSnapshot[];
 }
 
 // BACKLOG.md Ref 14/33 "Connect with other users" / "Friends/neighbors on
@@ -534,6 +561,10 @@ export interface ConnectionSummary {
     avatar_url: string | null;
     avatar_style: AvatarStyle;
     mushroom_customization: MushroomCustomization | null;
+    // The other party's stamped look at the moment this connection was
+    // accepted (BACKLOG.md "Mushroom fingerprint stamps on connections and
+    // check-ins") -- not their current live look. Null until accepted.
+    mushroom_snapshot: MushroomSnapshot | null;
   };
 }
 
@@ -975,3 +1006,5 @@ export interface UserChallenge {
 export interface UserChallengeProgress extends ChallengeProgress {
   neighborhood_name: string;
 }
+
+export * from "./mushroom";

@@ -15,6 +15,13 @@ import type {
   SocialPlatform,
   VenueDashboardSummary,
 } from "@blockwise/types";
+import {
+  MUSHROOM_CAPS,
+  MUSHROOM_STALK_COCOA,
+  MUSHROOM_STALK_AMBER,
+  MUSHROOM_STALKS,
+  MUSHROOM_SPOT_SHAPES,
+} from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
 import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
 import { SupabaseNeighborhoodAdminRepository } from "./admin/supabaseRepository";
@@ -122,47 +129,19 @@ const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
 const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "private"];
+// BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+// how many distinct-user snapshots a mosaic (neighborhood profile, public
+// profile's neighbors strip) surfaces at once, mirroring
+// locations/supabaseRepository.ts's venue-scoped RECENT_CHECKIN_SNAPSHOT_DISTINCT_LIMIT.
+const RECENT_CHECKIN_MOSAIC_LIMIT = 12;
 const AVATAR_STYLES: AvatarStyle[] = ["social", "mushroom"];
-// BACKLOG.md Ref 75 "Mushroom avatar customizer" -- apps/api can't depend on
-// @blockwise/ui (its React peer deps), so these literal values mirror
-// packages/ui/src/colors.ts and mushroomConfig.ts's MUSHROOM_CAPS/
-// MUSHROOM_STALK_*/MUSHROOM_SPOT_* exports. Keep in sync if the brand
-// palette changes.
-const MUSHROOM_CAPS = [
-  "#e8542a",
-  "#f2a93b",
-  "#4c8c4a",
-  "#8b5fbf",
-  "#2b1b12",
-  "#4a5fa5",
-  "#b33a3a",
-  "#d98a9c",
-];
-const MUSHROOM_STALK_CREAM = "#fbf2e4";
-const MUSHROOM_STALK_COCOA = "#2b1b12";
-const MUSHROOM_STALK_WHEAT = "#f2d9a8";
-const MUSHROOM_STALK_MEADOW = "#dcebd3";
-const MUSHROOM_STALK_LILAC = "#c9b3e0";
-const MUSHROOM_STALK_OAT = "#f5e8d3";
-const MUSHROOM_STALK_SAGE = "#c8d3be";
-const MUSHROOM_STALK_MIST = "#d8e3e8";
-const MUSHROOM_STALK_CLAY = "#e3c9ae";
-const MUSHROOM_STALK_AMBER = "#f2a93b";
-const MUSHROOM_STALKS = [
-  MUSHROOM_STALK_CREAM,
-  MUSHROOM_STALK_COCOA,
-  MUSHROOM_STALK_WHEAT,
-  MUSHROOM_STALK_MEADOW,
-  MUSHROOM_STALK_LILAC,
-  MUSHROOM_STALK_OAT,
-  MUSHROOM_STALK_SAGE,
-  MUSHROOM_STALK_MIST,
-  MUSHROOM_STALK_CLAY,
-  MUSHROOM_STALK_AMBER,
-];
+// BACKLOG.md Ref 75 "Mushroom avatar customizer" -- customizer offers 0
+// (bare cap) unlike mushroomConfigForUser's auto-assignment, which excludes
+// it (MUSHROOM_CAPS/MUSHROOM_STALKS/MUSHROOM_SPOT_SHAPES imported from
+// @blockwise/types above, the single source of truth for the approved
+// palette).
 const MUSHROOM_MIN_SPOT_COUNT = 0;
 const MUSHROOM_MAX_SPOT_COUNT = 6;
-const MUSHROOM_SPOT_SHAPES = ["circle", "ring", "sparks", "star", "triangle", "cross"];
 
 // null clears a saved customization back to the hash-derived default -- only
 // that or a fully-approved { cap, stalk, spots, bg, spotCount, spotShape }
@@ -190,7 +169,7 @@ function isValidMushroomCustomization(value: unknown): value is MushroomCustomiz
     spotCount > MUSHROOM_MAX_SPOT_COUNT
   )
     return false;
-  if (typeof spotShape !== "string" || !MUSHROOM_SPOT_SHAPES.includes(spotShape)) return false;
+  if (typeof spotShape !== "string" || !(MUSHROOM_SPOT_SHAPES as string[]).includes(spotShape)) return false;
   return true;
 }
 const CONNECTION_STATUSES: ConnectionStatus[] = ["pending", "accepted"];
@@ -535,12 +514,13 @@ export function createApp() {
         return;
       }
 
-      const [pois, venueCount, poiCount, memberCount, checkinCount] = await Promise.all([
+      const [pois, venueCount, poiCount, memberCount, checkinCount, recentCheckinMushrooms] = await Promise.all([
         listLocationsForNeighborhood(neighborhood.id, getLocationRepository(), "poi"),
         getLocationRepository().countActiveLocationsForNeighborhood(neighborhood.id, "business"),
         getLocationRepository().countActiveLocationsForNeighborhood(neighborhood.id, "poi"),
         getNeighborhoodMemberRepository().countMembersForNeighborhood(neighborhood.id),
         getCheckinRepository().countCheckinsForNeighborhood(neighborhood.id),
+        getCheckinRepository().listRecentCheckinSnapshotsForNeighborhood(neighborhood.id, RECENT_CHECKIN_MOSAIC_LIMIT),
       ]);
       const profile: NeighborhoodProfile = {
         id: neighborhood.id,
@@ -555,6 +535,7 @@ export function createApp() {
         poi_count: poiCount,
         member_count: memberCount,
         checkin_count: checkinCount,
+        recent_checkin_mushrooms: recentCheckinMushrooms,
       };
       res.json(profile);
     } catch (err) {
@@ -1216,6 +1197,7 @@ export function createApp() {
               avatar_url: c.user.avatarUrl,
               avatar_style: c.user.avatarStyle,
               mushroom_customization: c.user.mushroomCustomization,
+              mushroom_snapshot: c.user.mushroomSnapshot,
             },
           }))
         );
@@ -1307,7 +1289,7 @@ export function createApp() {
         return;
       }
 
-      const [checkins, neighborhoods, badges, challenges, favorites, pointsSummary, neighborCount] =
+      const [checkins, neighborhoods, badges, challenges, favorites, pointsSummary, neighborCount, connections] =
         await Promise.all([
           getCheckinRepository().listCheckinsForUser(user.id),
           listMembershipsForUser(user.id, getNeighborhoodMemberRepository()),
@@ -1316,7 +1298,16 @@ export function createApp() {
           getFavoriteRepository().listFavoriteVenuesForUser(user.id),
           getUserPoints(user.id, getGamificationRepository()),
           getConnectionRepository().countAcceptedConnectionsForUser(user.id),
+          getConnectionRepository().listConnectionsForUser(user.id, "accepted"),
         ]);
+      // Snapshots only (no username/id) -- see PublicUserProfile's
+      // neighbor_mushrooms comment for why this is safe to expose alongside
+      // the bare neighbor_count, unlike the request-gated neighbor list
+      // itself.
+      const neighborMushrooms = connections
+        .map((c) => c.user.mushroomSnapshot)
+        .filter((snapshot): snapshot is NonNullable<typeof snapshot> => snapshot !== null)
+        .slice(0, RECENT_CHECKIN_MOSAIC_LIMIT);
 
       res.json({
         username: user.username,
@@ -1338,6 +1329,7 @@ export function createApp() {
         favorite_count: favorites.length,
         points_summary: pointsSummary,
         neighbor_count: neighborCount,
+        neighbor_mushrooms: neighborMushrooms,
       });
     } catch (err) {
       console.error(`GET /users/${req.params.username} failed:`, err);

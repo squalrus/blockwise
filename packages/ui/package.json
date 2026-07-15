@@ -7,6 +7,9 @@
   "scripts": {
     "lint": "tsc --noEmit"
   },
+  "dependencies": {
+    "@blockwise/types": "*"
+  },
   "peerDependencies": {
     "next": "16.2.10",
     "react": "19.2.4",

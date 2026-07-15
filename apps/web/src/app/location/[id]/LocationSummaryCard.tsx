@@ -95,6 +95,7 @@ export function LocationSummaryCard({
         count={Math.sqrt(location.checkin_count)}
         ariaLabel={`${location.checkin_count} check-ins`}
         distinctMushrooms
+        mushrooms={location.recent_checkin_mushrooms}
       />
     </div>
   );

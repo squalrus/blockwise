@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AvatarStyle, MushroomCustomization } from "@blockwise/types";
+import type { AvatarStyle, MushroomConfig, MushroomCustomization, MushroomSnapshot, SpotShape } from "@blockwise/types";
+import { snapshotMushroomForUser } from "@blockwise/types";
 import type {
   ConnectionListItem,
   ConnectionRepository,
@@ -17,7 +18,16 @@ type UserRow = {
   mushroom_customization: MushroomCustomization | null;
 };
 
-function toUserSummary(row: UserRow): ConnectionUserSummary {
+// MushroomCustomization's spotShape is a plain string (packages/types has no
+// dependency on the SpotShape union it validates against server-side, per
+// app.ts's isValidMushroomCustomization) -- narrow it for
+// snapshotMushroomForUser, mirroring apps/web's Avatar.tsx and
+// checkins/checkin.ts.
+function toMushroomConfig(customization: MushroomCustomization | null): MushroomConfig | null {
+  return customization ? { ...customization, spotShape: customization.spotShape as SpotShape } : null;
+}
+
+function toUserSummary(row: UserRow, mushroomSnapshot: MushroomSnapshot | null = null): ConnectionUserSummary {
   return {
     id: row.id,
     username: row.username,
@@ -25,6 +35,7 @@ function toUserSummary(row: UserRow): ConnectionUserSummary {
     avatarUrl: row.avatar_url,
     avatarStyle: row.avatar_style,
     mushroomCustomization: row.mushroom_customization,
+    mushroomSnapshot,
   };
 }
 
@@ -35,6 +46,8 @@ function toRecord(row: {
   status: string;
   created_at: string;
   responded_at: string | null;
+  requester_mushroom_snapshot: MushroomSnapshot | null;
+  recipient_mushroom_snapshot: MushroomSnapshot | null;
 }): UserConnectionRecord {
   return {
     id: row.id,
@@ -43,10 +56,13 @@ function toRecord(row: {
     status: row.status as ConnectionStatus,
     createdAt: row.created_at,
     respondedAt: row.responded_at,
+    requesterMushroomSnapshot: row.requester_mushroom_snapshot,
+    recipientMushroomSnapshot: row.recipient_mushroom_snapshot,
   };
 }
 
-const CONNECTION_COLUMNS = "id, requester_id, recipient_id, status, created_at, responded_at";
+const CONNECTION_COLUMNS =
+  "id, requester_id, recipient_id, status, created_at, responded_at, requester_mushroom_snapshot, recipient_mushroom_snapshot";
 const USER_COLUMNS = "id, username, display_name, avatar_url, avatar_style, mushroom_customization";
 
 export class SupabaseConnectionRepository implements ConnectionRepository {
@@ -98,16 +114,54 @@ export class SupabaseConnectionRepository implements ConnectionRepository {
     return toRecord(data);
   }
 
+  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+  // stamped here (not in connections.ts's service function) since
+  // sendConnectionRequest's mutual-interest auto-accept branch calls this
+  // repository method directly, bypassing that service function entirely.
   async acceptConnectionRequest(id: string): Promise<UserConnectionRecord> {
+    const { data: existing, error: lookupError } = await this.supabase
+      .from("user_connection")
+      .select("requester_id, recipient_id")
+      .eq("id", id)
+      .single();
+    if (lookupError) throw new Error(`acceptConnectionRequest (lookup) failed: ${lookupError.message}`);
+
+    const [requesterCustomization, recipientCustomization] = await Promise.all([
+      this.getMushroomCustomization(existing.requester_id),
+      this.getMushroomCustomization(existing.recipient_id),
+    ]);
+
     const { data, error } = await this.supabase
       .from("user_connection")
-      .update({ status: "accepted", responded_at: new Date().toISOString() })
+      .update({
+        status: "accepted",
+        responded_at: new Date().toISOString(),
+        requester_mushroom_snapshot: snapshotMushroomForUser(
+          existing.requester_id,
+          toMushroomConfig(requesterCustomization)
+        ),
+        recipient_mushroom_snapshot: snapshotMushroomForUser(
+          existing.recipient_id,
+          toMushroomConfig(recipientCustomization)
+        ),
+      })
       .eq("id", id)
       .select(CONNECTION_COLUMNS)
       .single();
 
     if (error) throw new Error(`acceptConnectionRequest failed: ${error.message}`);
     return toRecord(data);
+  }
+
+  private async getMushroomCustomization(userId: string): Promise<MushroomCustomization | null> {
+    const { data, error } = await this.supabase
+      .from("app_user")
+      .select("mushroom_customization")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) throw new Error(`getMushroomCustomization failed: ${error.message}`);
+    return data?.mushroom_customization ?? null;
   }
 
   async deleteConnection(id: string): Promise<void> {
@@ -119,7 +173,7 @@ export class SupabaseConnectionRepository implements ConnectionRepository {
     let query = this.supabase
       .from("user_connection")
       .select(
-        `id, status, requester_id, recipient_id, created_at, requester:requester_id (${USER_COLUMNS}), recipient:recipient_id (${USER_COLUMNS})`
+        `id, status, requester_id, recipient_id, created_at, requester_mushroom_snapshot, recipient_mushroom_snapshot, requester:requester_id (${USER_COLUMNS}), recipient:recipient_id (${USER_COLUMNS})`
       )
       .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
       .order("created_at", { ascending: false });
@@ -132,12 +186,16 @@ export class SupabaseConnectionRepository implements ConnectionRepository {
     return (data ?? []).map((row) => {
       const isRequester = row.requester_id === userId;
       const other = (isRequester ? row.recipient : row.requester) as unknown as UserRow;
+      // The *other* party's snapshot, mirroring the isRequester branch above.
+      const otherSnapshot = (
+        isRequester ? row.recipient_mushroom_snapshot : row.requester_mushroom_snapshot
+      ) as MushroomSnapshot | null;
       return {
         id: row.id as string,
         status: row.status as ConnectionStatus,
         direction: isRequester ? ("outgoing" as const) : ("incoming" as const),
         createdAt: row.created_at as string,
-        user: toUserSummary(other),
+        user: toUserSummary(other, otherSnapshot),
       };
     });
   }

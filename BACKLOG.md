@@ -67,7 +67,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | — |
-| 74 | [Mushroom fingerprint stamps on connections and check-ins](#mushroom-fingerprint-stamps-on-connections-and-check-ins) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
@@ -337,20 +336,6 @@ No open limitations.
 **Depends:** —
 **Why** — Lets a user see what people they're connected to (or public profiles) have been checking into recently — the social payoff for connecting at all, and a natural discovery surface ("what's popular right now among people I know").
 **Notes:** Respect the profile visibility flag (shipped v0.20.0). Prerequisite (neighbor connections) shipped in v0.42.0 — open question: is the feed public-profiles-only, connections-only, or both (with connections seeing more)? Resolve before scoping. Reads off the existing `checkin` table (project plan §4/§14.2) — no new check-in schema needed, just a query surface and visibility filtering.
-
-#### Mushroom fingerprint stamps on connections and check-ins
-
-**Ref:** 74
-**Type:** feature
-**Depends:** —
-**Why** — A user's mushroom look (`mushroomConfigForUser`, `packages/ui/src/mushroomConfig.ts:46`) is, absent a saved customization (BACKLOG.md's now-shipped Mushroom avatar customizer), a pure function of a seed (`app_user.id`) — deterministic cap/stalk/spots/background chosen via djb2 hash + mulberry32 PRNG, recomputed fresh on every render, never persisted. The ask is to turn that ephemeral look into a real historical record: when a user checks in somewhere, or connects with another user, a stamp of what their mushroom looked like *at that moment* gets permanently attached to the other side (the location, the other user) and can surface on their profile/bio card — e.g. a venue's "who's foraged here" garden, or a mushroom strip on each connection. `MushroomField.tsx` already renders a scattered strip of mushroom icons on account/neighborhood/location cards via a `distinctMushrooms` mode, but today it fabricates pseudo-random icons per position rather than showing real per-user history — this feature would make that strip literally true instead of decorative.
-**Notes:** Snapshot, not live reference (decided explicitly over the live-reference alternative): the look behind a given account can change now — either because the user edits their saved customization in account settings, or because someone with no customization gets a different auto-assigned look after a palette/shape change (both already possible after the customizer shipped) — a live reference would silently repaint history in either case; a frozen snapshot keeps the record honest. Concretely:
-
-- Add nullable `jsonb` columns captured once, at write time, not backfilled for existing rows: `checkin.mushroom_snapshot` (one per check-in), and on `user_connection` (`supabase/migrations/20260712010000_user_connections.sql:9`) both `requester_mushroom_snapshot` and `recipient_mushroom_snapshot`, captured at accept time (`status` transitions to `'accepted'`), not at request time.
-- Shape: `{ "v": 2, "cap": "...", "stalk": "...", "spots": "...", "bg": "...", "spotCount": ..., "spotShape": "..." }` — the `v` field is an algorithm-version tag so future palette/shape changes don't get confused with old snapshots (bumped from `1` since the shipped customizer split the old fused "pattern" into independent spotCount/spotShape and added independent spots/bg colors).
-- Compute server-side, not client-submitted, to avoid a spoofed fingerprint: port `mushroomConfigForUser`/`hashSeed`/`mulberry32` (pure functions, no DOM/React) out of `packages/ui` into a small isomorphic module both `apps/api` and `packages/ui` can import, so the API computes the snapshot itself from `user.id` inside the same insert transaction as the check-in (`apps/api/src/checkins`) or connection-accept (`apps/api/src/connections`).
-- Rendering: swap `MushroomField`'s `distinctMushrooms` data source, for a location, from fabricated `${seed}-mushroom-${i}` icons to the venue's actual `checkin.mushroom_snapshot` values (dedup by user, cap at some N most recent/distinct); for a profile, a similar strip sourced from `user_connection` snapshots.
-- Open question: cap check-in snapshot storage/query growth for a popular venue (dedup by user rather than storing every repeat check-in's identical snapshot again, or query only the N most recent distinct users).
 
 #### Leaderboard aggregation performance
 

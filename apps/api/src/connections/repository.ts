@@ -1,4 +1,4 @@
-import type { AvatarStyle, MushroomCustomization } from "@blockwise/types";
+import type { AvatarStyle, MushroomCustomization, MushroomSnapshot } from "@blockwise/types";
 
 // BACKLOG.md Ref 14/33 "Connect with other users" / "Friends/neighbors on
 // profile" -- mirrors ConnectionStatus in @blockwise/types (no "declined"
@@ -13,6 +13,12 @@ export interface UserConnectionRecord {
   status: ConnectionStatus;
   createdAt: string;
   respondedAt: string | null;
+  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+  // each side's mushroom look at accept time, stamped by
+  // acceptConnectionRequest. Null until accepted (and for rows that predate
+  // this feature).
+  requesterMushroomSnapshot: MushroomSnapshot | null;
+  recipientMushroomSnapshot: MushroomSnapshot | null;
 }
 
 export interface ConnectionUserSummary {
@@ -22,6 +28,10 @@ export interface ConnectionUserSummary {
   avatarUrl: string | null;
   avatarStyle: AvatarStyle;
   mushroomCustomization: MushroomCustomization | null;
+  // The *other* party's stamped snapshot for this specific connection (i.e.
+  // whichever of requesterMushroomSnapshot/recipientMushroomSnapshot belongs
+  // to this user), not their current live look -- null until accepted.
+  mushroomSnapshot: MushroomSnapshot | null;
 }
 
 // GET /me/connections listing (My account page's Neighbors section) -- the

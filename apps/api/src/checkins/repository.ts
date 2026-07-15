@@ -1,3 +1,5 @@
+import type { MushroomCustomization, MushroomSnapshot } from "@blockwise/types";
+
 export interface LocationCoords {
   id: string;
   lat: number;
@@ -11,6 +13,7 @@ export interface CheckinRecord {
   deviceLat: number;
   deviceLng: number;
   checkedInAt: string;
+  mushroomSnapshot: MushroomSnapshot | null;
 }
 
 export interface CreateCheckinInput {
@@ -18,6 +21,7 @@ export interface CreateCheckinInput {
   venueId: string;
   deviceLat: number;
   deviceLng: number;
+  mushroomSnapshot: MushroomSnapshot | null;
 }
 
 export interface CheckinVenue {
@@ -37,6 +41,12 @@ export interface CheckinRepository {
   // Upserts by anonymous_device_id -- README §14.2: every device gets a User
   // row from first launch, created lazily on its first check-in attempt.
   getOrCreateAnonymousUser(anonymousDeviceId: string): Promise<string>;
+  // The checking-in user's saved customizer choice (BACKLOG.md Ref 75), if
+  // any -- performCheckin resolves it through snapshotMushroomForUser before
+  // calling createCheckin, so a stamped "fingerprint" (BACKLOG.md "Mushroom
+  // fingerprint stamps") reflects a saved override rather than always the
+  // hash-derived default.
+  getMushroomCustomization(userId: string): Promise<MushroomCustomization | null>;
   // Most recent check-in against this specific location, for the 4-hour
   // per-target cooldown.
   getLastCheckinForLocation(userId: string, locationId: string): Promise<CheckinRecord | null>;
@@ -55,4 +65,9 @@ export interface CheckinRepository {
   countCheckinsForLocation(locationId: string): Promise<number>;
   // Neighborhood profile stats (BACKLOG.md Ref 58).
   countCheckinsForNeighborhood(neighborhoodId: string): Promise<number>;
+  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+  // the most recent distinct check-in-ers' stamped looks across the whole
+  // neighborhood, for the neighborhood profile's mosaic, mirroring
+  // LocationRepository.getLocationDetail's venue-scoped equivalent.
+  listRecentCheckinSnapshotsForNeighborhood(neighborhoodId: string, limit: number): Promise<MushroomSnapshot[]>;
 }
