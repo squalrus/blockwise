@@ -6,6 +6,7 @@ import { apiUrl } from "@/lib/api";
 import { ProfileSummaryCard } from "../../account/ProfileSummaryCard";
 import { BadgeIcon } from "../../BadgeIcon";
 import { CheckinTimeline } from "../../CheckinTimeline";
+import { MushroomField } from "../../MushroomField";
 import { JoinNeighborhoodButton } from "../../neighborhoods/[slug]/JoinNeighborhoodButton";
 import { NeighborRequestButton } from "./NeighborRequestButton";
 import { ProfileDetails } from "./ProfileDetails";
@@ -102,6 +103,28 @@ export default async function PublicProfilePage({
           @{profile.username} · Joined {new Date(profile.joined_at).toLocaleDateString()}
         </p>
       </div>
+
+      {/* Each neighbor's mushroom look as it was stamped at the moment the
+          connection was accepted (BACKLOG.md "Mushroom fingerprint stamps
+          on connections and check-ins") -- not gated behind ProfileDetails'
+          accepted-neighbor check like badges/neighborhoods/check-ins below,
+          since these snapshots carry no username/id linkage (see
+          PublicUserProfile's neighbor_mushrooms comment). Hidden entirely
+          for a zero-neighbor profile rather than showing an empty card. */}
+      {profile.neighbor_count > 0 && (
+        <div className="overflow-hidden rounded-2xl bg-card-alt px-5 pt-4 pb-6">
+          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Neighbors</h2>
+          <div className="mt-2.5">
+            <MushroomField
+              seed={`${profile.username}-neighbors`}
+              count={Math.sqrt(profile.neighbor_count)}
+              ariaLabel={`${profile.neighbor_count} neighbors`}
+              distinctMushrooms
+              mushrooms={profile.neighbor_mushrooms}
+            />
+          </div>
+        </div>
+      )}
 
       <ProfileDetails username={profile.username}>
         <section id="badges" className="flex flex-col gap-2.5 scroll-mt-16">

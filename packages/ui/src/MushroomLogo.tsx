@@ -8,8 +8,8 @@
 // accent palette kicks in (see .icon-glow in globals.css) -- a literal hex
 // would freeze the icon to one theme's shade. stemClassName and dotClassName
 // are Tailwind text-color utilities (each a stand-in for the mushroom
-// avatar system's independent stalk/spots colors, packages/ui's
-// mushroomConfig.ts) -- dotClassName defaults to stemClassName so existing
+// avatar system's independent stalk/spots colors, @blockwise/types'
+// mushroom.ts) -- dotClassName defaults to stemClassName so existing
 // callers that only set one color keep their prior look.
 export function MushroomLogo({
   size = 24,

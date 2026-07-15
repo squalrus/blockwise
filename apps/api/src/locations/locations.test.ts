@@ -283,6 +283,7 @@ const BASE_DETAIL: LocationDetailRecord = {
   socialLinks: {},
   checkinCount: 3,
   favoriteCount: 2,
+  recentCheckinMushrooms: [],
 };
 
 describe("getLocationDetailWithFreshEnrichment", () => {
@@ -310,6 +311,21 @@ describe("getLocationDetailWithFreshEnrichment", () => {
     expect(result?.checkin_count).toBe(3);
     expect(result?.favorite_count).toBe(2);
     expect(result?.kind).toBe("business");
+  });
+
+  it("passes through recent check-in mushroom snapshots for the 'who's foraged here' mosaic", async () => {
+    const repo = new FakeLocationRepository();
+    const snapshot = { v: 2, cap: "#e8542a", stalk: "#fbf2e4", spots: "#fbf2e4", bg: "#fbf2e4", spotCount: 3, spotShape: "circle" as const };
+    repo.detail = { ...BASE_DETAIL, recentCheckinMushrooms: [snapshot] };
+
+    const result = await getLocationDetailWithFreshEnrichment(
+      "location-1",
+      repo,
+      new FakeEnrichmentRepository(),
+      new FakePlacesClient()
+    );
+
+    expect(result?.recent_checkin_mushrooms).toEqual([snapshot]);
   });
 
   it("skips enrichment when the location has no google_place_id", async () => {

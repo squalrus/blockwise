@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MushroomCustomization, MushroomSnapshot } from "@blockwise/types";
 import type {
   CheckinRecord,
   CheckinRepository,
@@ -7,7 +8,7 @@ import type {
   LocationCoords,
 } from "./repository";
 
-const CHECKIN_COLUMNS = "id, user_id, venue_id, device_lat, device_lng, checked_in_at";
+const CHECKIN_COLUMNS = "id, user_id, venue_id, device_lat, device_lng, checked_in_at, mushroom_snapshot";
 
 function toRecord(row: {
   id: string;
@@ -16,6 +17,7 @@ function toRecord(row: {
   device_lat: number;
   device_lng: number;
   checked_in_at: string;
+  mushroom_snapshot: MushroomSnapshot | null;
 }): CheckinRecord {
   return {
     id: row.id,
@@ -24,6 +26,7 @@ function toRecord(row: {
     deviceLat: row.device_lat,
     deviceLng: row.device_lng,
     checkedInAt: row.checked_in_at,
+    mushroomSnapshot: row.mushroom_snapshot,
   };
 }
 
@@ -100,12 +103,24 @@ export class SupabaseCheckinRepository implements CheckinRepository {
         venue_id: input.venueId,
         device_lat: input.deviceLat,
         device_lng: input.deviceLng,
+        mushroom_snapshot: input.mushroomSnapshot,
       })
       .select(CHECKIN_COLUMNS)
       .single();
 
     if (error) throw new Error(`createCheckin failed: ${error.message}`);
     return toRecord(data);
+  }
+
+  async getMushroomCustomization(userId: string): Promise<MushroomCustomization | null> {
+    const { data, error } = await this.supabase
+      .from("app_user")
+      .select("mushroom_customization")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) throw new Error(`getMushroomCustomization failed: ${error.message}`);
+    return data?.mushroom_customization ?? null;
   }
 
   async listCheckinsForUser(userId: string): Promise<CheckinVenue[]> {
@@ -152,5 +167,35 @@ export class SupabaseCheckinRepository implements CheckinRepository {
 
     if (error) throw new Error(`countCheckinsForNeighborhood failed: ${error.message}`);
     return count ?? 0;
+  }
+
+  // PostgREST has no DISTINCT ON, so dedupe by user in application code:
+  // over-fetch (10x limit, generous enough that a neighborhood with heavy
+  // repeat-visit traffic still surfaces `limit` distinct users) ordered most
+  // recent first, keep the first (most recent) row per user, cap at `limit`
+  // -- mirrors locations/supabaseRepository.ts's venue-scoped equivalent.
+  async listRecentCheckinSnapshotsForNeighborhood(
+    neighborhoodId: string,
+    limit: number
+  ): Promise<MushroomSnapshot[]> {
+    const { data, error } = await this.supabase
+      .from("checkin")
+      .select("user_id, mushroom_snapshot, venue:venue_id!inner(neighborhood_id)")
+      .eq("venue.neighborhood_id", neighborhoodId)
+      .not("mushroom_snapshot", "is", null)
+      .order("checked_in_at", { ascending: false })
+      .limit(limit * 10);
+
+    if (error) throw new Error(`listRecentCheckinSnapshotsForNeighborhood failed: ${error.message}`);
+
+    const seenUsers = new Set<string>();
+    const snapshots: MushroomSnapshot[] = [];
+    for (const row of data ?? []) {
+      if (snapshots.length >= limit) break;
+      if (seenUsers.has(row.user_id)) continue;
+      seenUsers.add(row.user_id);
+      snapshots.push(row.mushroom_snapshot as MushroomSnapshot);
+    }
+    return snapshots;
   }
 }

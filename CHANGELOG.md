@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.47.0] — 2026-07-15
+
+### Added
+
+- **Mushroom fingerprint stamps on connections and check-ins.** When a user checks in to a location or accepts a connection, a frozen snapshot of their mushroom look at that moment is permanently recorded (`checkin.mushroom_snapshot`, `user_connection.requester_mushroom_snapshot`/`recipient_mushroom_snapshot`). This replaces the previously fabricated "who's foraged here" mosaics (`MushroomField`'s `distinctMushrooms` mode) with real visitor history — venue detail pages and public profiles now show actual mushroom-avatar snapshots from people who checked in or connected, rather than pseudo-random decorative icons. Snapshots are immutable: if a user later edits their mushroom customization, prior check-ins and connections retain their original stamped look. (`supabase/migrations/20260715010000_mushroom_fingerprint_snapshots.sql`, `packages/types/src/mushroom.ts`, `apps/api/src/checkins/`, `apps/api/src/connections/`, `apps/api/src/locations/`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/profile/[username]/page.tsx`, `packages/ui/src/index.ts`)
+
 ## [0.46.2] — 2026-07-15
 
 ### Changed

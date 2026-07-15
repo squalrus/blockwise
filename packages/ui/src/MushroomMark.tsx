@@ -1,4 +1,5 @@
 import { useId } from "react";
+import type { SpotShape } from "@blockwise/types";
 
 // Shared four-part mushroom renderer (cap / spots / stalk / background) --
 // the full generative mark from the Spored brand system, documented on the
@@ -9,9 +10,7 @@ import { useId } from "react";
 // mushroomConfigForUser).
 const CAP_PATH = "M14 54 Q14 16 50 16 Q86 16 86 54 Z";
 
-export type SpotShape = "circle" | "ring" | "sparks" | "star" | "triangle" | "cross";
-
-export const SPOT_SHAPES: SpotShape[] = ["circle", "ring", "sparks", "star", "triangle", "cross"];
+export type { SpotShape };
 
 // Vertices for a regular polygon (or star) centered at (cx, cy) -- angles in
 // degrees, 0 pointing straight up, matching how a viewer expects a triangle

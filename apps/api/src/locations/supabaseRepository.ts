@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import type { MushroomSnapshot, SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
 import type {
   CategoryRecord,
   CreateLocationInput,
@@ -9,6 +9,14 @@ import type {
   SetLocationKindInput,
   UpdateLocationInput,
 } from "./repository";
+
+// "who's foraged here" mosaic (MushroomField's distinctMushrooms mode) --
+// PostgREST has no DISTINCT ON, so dedupe by user in application code: scan
+// the QUERY_LIMIT most recent check-ins (generous enough that a venue with
+// heavy repeat-visit traffic still surfaces DISTINCT_LIMIT distinct users),
+// keep the first (most recent) row per user, then cap at DISTINCT_LIMIT.
+const RECENT_CHECKIN_SNAPSHOT_QUERY_LIMIT = 60;
+const RECENT_CHECKIN_SNAPSHOT_DISTINCT_LIMIT = 12;
 
 interface CategoryEmbed {
   name: string;
@@ -159,6 +167,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       { data: claim, error: claimError },
       { count: checkinCount, error: checkinError },
       { count: favoriteCount, error: favoriteError },
+      { data: recentCheckins, error: recentCheckinsError },
     ] = await Promise.all([
       this.supabase
         .from("venue_enrichment_cache")
@@ -182,6 +191,13 @@ export class SupabaseLocationRepository implements LocationRepository {
         .from("favorite")
         .select("id", { count: "exact", head: true })
         .eq("venue_id", locationId),
+      this.supabase
+        .from("checkin")
+        .select("user_id, mushroom_snapshot")
+        .eq("venue_id", locationId)
+        .not("mushroom_snapshot", "is", null)
+        .order("checked_in_at", { ascending: false })
+        .limit(RECENT_CHECKIN_SNAPSHOT_QUERY_LIMIT),
     ]);
 
     if (enrichmentError)
@@ -189,6 +205,17 @@ export class SupabaseLocationRepository implements LocationRepository {
     if (claimError) throw new Error(`getLocationDetail (claim) failed: ${claimError.message}`);
     if (checkinError) throw new Error(`getLocationDetail (checkin count) failed: ${checkinError.message}`);
     if (favoriteError) throw new Error(`getLocationDetail (favorite count) failed: ${favoriteError.message}`);
+    if (recentCheckinsError)
+      throw new Error(`getLocationDetail (recent checkin snapshots) failed: ${recentCheckinsError.message}`);
+
+    const seenUsers = new Set<string>();
+    const recentCheckinMushrooms: MushroomSnapshot[] = [];
+    for (const row of recentCheckins ?? []) {
+      if (recentCheckinMushrooms.length >= RECENT_CHECKIN_SNAPSHOT_DISTINCT_LIMIT) break;
+      if (seenUsers.has(row.user_id)) continue;
+      seenUsers.add(row.user_id);
+      recentCheckinMushrooms.push(row.mushroom_snapshot as MushroomSnapshot);
+    }
 
     return {
       id: location.id,
@@ -208,6 +235,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       socialLinks: (claim?.social_links as SocialLinks | null) ?? {},
       checkinCount: checkinCount ?? 0,
       favoriteCount: favoriteCount ?? 0,
+      recentCheckinMushrooms,
     };
   }
 

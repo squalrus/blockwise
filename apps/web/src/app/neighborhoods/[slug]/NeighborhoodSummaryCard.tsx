@@ -76,6 +76,7 @@ export function NeighborhoodSummaryCard({
         count={Math.sqrt(neighborhood.checkin_count)}
         ariaLabel={`${neighborhood.checkin_count} check-ins`}
         distinctMushrooms
+        mushrooms={neighborhood.recent_checkin_mushrooms}
       />
     </div>
   );

@@ -179,6 +179,7 @@ function neighborhood(overrides: Partial<NeighborhoodProfile> & Pick<Neighborhoo
     poi_count: 0,
     member_count: 0,
     checkin_count: 0,
+    recent_checkin_mushrooms: [],
     ...overrides,
   };
 }
@@ -228,6 +229,7 @@ function venueDetail(overrides: Partial<VenueDetail> & Pick<VenueDetail, "id" | 
     neighborhood_slug: "greenwood",
     neighborhood_name: "Greenwood",
     social_links: {},
+    recent_checkin_mushrooms: [],
     ...overrides,
   };
 }
