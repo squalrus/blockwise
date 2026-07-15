@@ -967,3 +967,11 @@ export interface UserChallenge {
   badge: Badge | null;
   completed_at: string;
 }
+
+// GET /me/challenges/active -- every active, not-yet-completed challenge
+// across every neighborhood this user belongs to, for the account page's
+// Challenges tab, mirroring UserChallenge's shape but with live progress
+// (ChallengeProgress) instead of a completion timestamp.
+export interface UserChallengeProgress extends ChallengeProgress {
+  neighborhood_name: string;
+}

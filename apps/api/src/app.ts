@@ -62,6 +62,7 @@ import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import {
+  getUserActiveChallenges,
   getUserChallengesSummary,
   getUserCompletedChallenges,
   listChallengesWithProgress,
@@ -69,6 +70,7 @@ import {
 import { awardFounderBadge } from "./gamification/founderBadge";
 import { awardFavoritePoints, getLeaderboard, getUserBadges, getUserPoints } from "./gamification/points";
 import { awardCheckinRewards, awardNeighborConnectionRewards } from "./gamification/rewards";
+import { awardSqualrusConnectionBadge } from "./gamification/squalrusBadge";
 import { SupabaseGamificationRepository } from "./gamification/supabaseRepository";
 import {
   createNeighborhood,
@@ -310,6 +312,12 @@ async function awardNeighborConnectionRewardsForBothSides(connection: {
       const neighborCount = await getConnectionRepository().countAcceptedConnectionsForUser(userId);
       await awardNeighborConnectionRewards(
         { userId, otherUserId, neighborCount },
+        getGamificationRepository()
+      );
+      await awardSqualrusConnectionBadge(
+        userId,
+        otherUserId,
+        getAuthRepository(),
         getGamificationRepository()
       );
     } catch (err) {
@@ -994,6 +1002,29 @@ export function createApp() {
       res.status(500).json({ error: "Failed to load completed challenges" });
     }
   });
+
+  // Account page Challenges tab: every challenge the signed-in user has
+  // started (progress_count > 0) but not yet completed, across every
+  // neighborhood they belong to, mirroring GET /me/challenges (completed)
+  // above.
+  app.get(
+    "/me/challenges/active",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const memberships = await listMembershipsForUser(req.appUser!.id, getNeighborhoodMemberRepository());
+        const challenges = await getUserActiveChallenges(
+          req.appUser!.id,
+          memberships.map((m) => ({ neighborhoodId: m.neighborhood_id, name: m.name })),
+          getGamificationRepository()
+        );
+        res.json(challenges);
+      } catch (err) {
+        console.error("GET /me/challenges/active failed:", err);
+        res.status(500).json({ error: "Failed to load active challenges" });
+      }
+    }
+  );
 
   // BACKLOG.md Ref 61: every badge that exists (earned or not), so the
   // account page can render "locked" badges alongside GET /me/badges'

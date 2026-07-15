@@ -107,7 +107,8 @@ export class SupabaseFavoriteRepository implements FavoriteRepository {
         name: row.venue.name,
         address: row.venue.address,
         createdAt: row.createdAt,
-      }));
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async countFavoritesForVenue(venueId: string): Promise<number> {

@@ -1,4 +1,11 @@
-import type { Badge, ChallengeProgress, LocationKind, UserChallenge, UserChallengesSummary } from "@blockwise/types";
+import type {
+  Badge,
+  ChallengeProgress,
+  LocationKind,
+  UserChallenge,
+  UserChallengeProgress,
+  UserChallengesSummary,
+} from "@blockwise/types";
 import type { ChallengeRecord, GamificationRepository } from "./repository";
 
 // Returned by evaluateChallengesAfterCheckin so the check-in response
@@ -77,6 +84,15 @@ async function progressFor(
 
 // GET /neighborhoods/:id/challenges -- template rows plus this user's live
 // progress (or zeroed-out progress for an anonymous/unauthenticated request).
+//
+// Self-heals a gap in evaluateChallengesAfterCheckin: that function only
+// completes a challenge as a side effect of a *new* check-in, so a check-in
+// that already satisfied a challenge's target before the challenge ever got
+// evaluated against it (e.g. the challenge template was added after the
+// check-in happened) would otherwise show 100% progress here forever without
+// ever actually completing -- no points, no badge, permanently stuck "in
+// progress". Catching progressCount >= targetCount here awards it exactly
+// once, the same way a qualifying check-in would have.
 export async function listChallengesWithProgress(
   neighborhoodId: string,
   userId: string | null,
@@ -89,10 +105,25 @@ export async function listChallengesWithProgress(
     challenges.map(async (challenge) => {
       if (!userId) return toChallengeProgress(challenge, 0, false);
 
-      const [completed, progressCount] = await Promise.all([
+      const [alreadyCompleted, progressCount] = await Promise.all([
         repository.hasCompletedChallenge(userId, challenge.id),
         progressFor(challenge, userId, repository),
       ]);
+
+      let completed = alreadyCompleted;
+      if (!completed && progressCount >= challenge.targetCount) {
+        // completeChallenge returns false only on a unique-violation (a
+        // concurrent request already inserted the completion row) -- either
+        // way, the challenge is now completed.
+        await repository.completeChallenge({
+          userId,
+          challengeId: challenge.id,
+          neighborhoodId: challenge.neighborhoodId,
+          pointsReward: challenge.pointsReward,
+          badgeId: challenge.badge?.id ?? null,
+        });
+        completed = true;
+      }
       return toChallengeProgress(challenge, progressCount, completed);
     })
   );
@@ -127,6 +158,35 @@ export async function getUserCompletedChallenges(
     badge: record.badge,
     completed_at: record.completedAt,
   }));
+}
+
+// GET /me/challenges/active (account page Challenges tab): every challenge
+// this user has made some progress on but not yet completed, across every
+// neighborhood they belong to, mirroring getUserCompletedChallenges above
+// but sourced from listChallengesWithProgress (per-neighborhood, like GET
+// /neighborhoods/:slug/challenges) rather than a completion table, since
+// there's no "in progress" row to query directly. Excludes progress_count
+// === 0 -- otherwise every active challenge template in every neighborhood
+// the user has ever joined would show up here regardless of whether they've
+// engaged with it at all.
+export async function getUserActiveChallenges(
+  userId: string,
+  neighborhoods: { neighborhoodId: string; name: string }[],
+  repository: GamificationRepository
+): Promise<UserChallengeProgress[]> {
+  const perNeighborhood = await Promise.all(
+    neighborhoods.map(async ({ neighborhoodId, name }) => {
+      const progress = await listChallengesWithProgress(neighborhoodId, userId, repository);
+      return progress
+        .filter((challenge) => !challenge.completed && challenge.progress_count > 0)
+        .map((challenge) => ({ ...challenge, neighborhood_name: name }));
+    })
+  );
+  // Most-complete-first -- percent rather than raw progress_count, since
+  // target_count varies across challenges (2 of 3 should rank above 2 of 10).
+  return perNeighborhood
+    .flat()
+    .sort((a, b) => b.progress_count / b.target_count - a.progress_count / a.target_count);
 }
 
 // Called after a successful check-in: finds every active challenge this

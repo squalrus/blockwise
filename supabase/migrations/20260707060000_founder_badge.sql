@@ -5,5 +5,5 @@
 -- v1.0.0 ships (BACKLOG.md Ref 52).
 
 insert into badge (code, name, description, icon)
-select 'founder', 'Founder', 'Joined Blockwise before its public launch.', 'star'
+select 'founder', 'Early Sprout', 'Joined Spored before its public launch.', 'seedling'
 where not exists (select 1 from badge where code = 'founder');
