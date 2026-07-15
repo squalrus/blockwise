@@ -70,6 +70,43 @@ export function isPointInPolygon(point: LatLng, polygon: GeoJsonPolygon): boolea
 
 const METERS_PER_DEGREE_LAT = 111_320;
 
+export interface Circle {
+  center: LatLng;
+  radiusMeters: number;
+}
+
+// Splits a saturated search circle into a fixed 4-way fan-out of smaller,
+// overlapping circles (sync.ts's sub-tiling retry, BACKLOG.md Ref 73) --
+// deliberately NOT a full grid (generateCoverageGrid) over the circle's
+// bounding box, which produces on the order of 10+ sub-tiles rather than 4
+// and blew a real project's Google Places "SearchNearbyRequest per minute"
+// quota the first time this was tried with an unbounded grid. A fixed
+// branching factor keeps worst-case API cost per saturated tile bounded and
+// predictable regardless of recursion depth (4^depth, not ~11^depth).
+//
+// Each sub-circle is centered at radiusMeters/2 from the original center
+// along one of the 4 diagonals, with radiusMeters * 0.75 as its own radius.
+// The minimum radius that still guarantees full coverage of the original
+// circle with only 4 diagonally-placed sub-circles is radiusMeters/sqrt(2)
+// (~0.707x, the distance from an axis-aligned boundary point to its nearest
+// quadrant center) -- 0.75x leaves a small overlap margin above that
+// theoretical minimum, mirroring generateCoverageGrid's own choice to space
+// tiles below their gap-free maximum.
+export function subdivideCircle(center: LatLng, radiusMeters: number): Circle[] {
+  const offsetMeters = radiusMeters / 2;
+  const subRadiusMeters = radiusMeters * 0.75;
+  const metersPerDegreeLng = METERS_PER_DEGREE_LAT * Math.cos((center.lat * Math.PI) / 180);
+  const latOffset = offsetMeters / METERS_PER_DEGREE_LAT;
+  const lngOffset = offsetMeters / metersPerDegreeLng;
+
+  return [
+    { lat: center.lat + latOffset, lng: center.lng + lngOffset },
+    { lat: center.lat + latOffset, lng: center.lng - lngOffset },
+    { lat: center.lat - latOffset, lng: center.lng + lngOffset },
+    { lat: center.lat - latOffset, lng: center.lng - lngOffset },
+  ].map((subCenter) => ({ center: subCenter, radiusMeters: subRadiusMeters }));
+}
+
 function isNearPolygon(point: LatLng, polygon: GeoJsonPolygon, thresholdMeters: number): boolean {
   if (isPointInPolygon(point, polygon)) return true;
 

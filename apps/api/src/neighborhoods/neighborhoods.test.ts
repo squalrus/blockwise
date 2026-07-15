@@ -76,9 +76,25 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
   }
 
   async updateBoundary(id: string, boundaryGeojson: GeoJsonPolygon): Promise<NeighborhoodBoundaryRecord> {
-    const boundary: NeighborhoodBoundaryRecord = { boundaryGeojson, centerLat: 47.68, centerLng: -122.35 };
+    const existing = this.boundaries.get(id);
+    const boundary: NeighborhoodBoundaryRecord = {
+      boundaryGeojson,
+      centerLat: 47.68,
+      centerLng: -122.35,
+      locationsReviewedAt: existing?.locationsReviewedAt ?? null,
+    };
     this.boundaries.set(id, boundary);
     return boundary;
+  }
+
+  async markLocationsReviewed(id: string, reviewedAt: string): Promise<void> {
+    const existing = this.boundaries.get(id);
+    this.boundaries.set(id, {
+      boundaryGeojson: existing?.boundaryGeojson ?? null,
+      centerLat: existing?.centerLat ?? 0,
+      centerLng: existing?.centerLng ?? 0,
+      locationsReviewedAt: reviewedAt,
+    });
   }
 
   async createNeighborhood(input: CreateNeighborhoodInput): Promise<CreatedNeighborhood> {
@@ -108,7 +124,12 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
       state: input.state,
       social_links: {},
     });
-    this.boundaries.set(id, { boundaryGeojson: input.boundaryGeojson, centerLat: 47.68, centerLng: -122.35 });
+    this.boundaries.set(id, {
+      boundaryGeojson: input.boundaryGeojson,
+      centerLat: 47.68,
+      centerLng: -122.35,
+      locationsReviewedAt: null,
+    });
     return created;
   }
 }
@@ -186,6 +207,7 @@ describe("getNeighborhoodBoundary", () => {
       boundaryGeojson: SQUARE,
       centerLat: 47.68,
       centerLng: -122.35,
+      locationsReviewedAt: null,
     });
 
     const result = await getNeighborhoodBoundary("neighborhood-1", repo);

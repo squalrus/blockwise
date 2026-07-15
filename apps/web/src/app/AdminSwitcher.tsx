@@ -67,7 +67,7 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
     };
   }, [isOpen]);
 
-  const showNeighborhoodsGroup = neighborhoods.length > 0 || user.is_neighborhood_admin;
+  const showNeighborhoodsGroup = neighborhoods.length > 0 || user.is_neighborhood_admin || user.is_super_admin;
   const showBusinessesGroup = venues.length > 0;
   const showEmptyState = !showNeighborhoodsGroup && !showBusinessesGroup;
 
@@ -110,7 +110,7 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
                   {n.name}
                 </a>
               ))}
-              {user.is_neighborhood_admin && (
+              {user.is_super_admin && (
                 <a
                   href="/admin/neighborhood/new"
                   className="block rounded-lg px-2.5 py-1.5 text-[13px] font-bold text-brand-purple hover:bg-card-alt"

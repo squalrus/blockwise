@@ -7,6 +7,42 @@ import { searchPlacesInPolygon } from "../places/sync";
 import { createLocation, updateLocationStatusForNeighborhood } from "./locations";
 import type { LocationRepository } from "./repository";
 
+// "Reimport Locations" cooldown (BACKLOG.md) -- once every 24h per
+// neighborhood, since each run costs a real (and rate-limited, see
+// places/sync.ts's subdivideCircle comment) Google Places query. Enforced
+// here as a pure, testable function of (lastReviewedAt, now) rather than
+// inline in the route, so the exact boundary condition is unit-testable
+// without a real clock or a real neighborhood repository.
+export const LOCATIONS_REVIEW_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+export interface LocationsReviewCooldownStatus {
+  lastReviewedAt: string | null;
+  nextAllowedAt: string | null;
+  canRun: boolean;
+}
+
+// bypassCooldown (BACKLOG.md "super admin") lets a super admin always run,
+// regardless of lastReviewedAt -- still returns the real lastReviewedAt/
+// nextAllowedAt (not nulled out) so a super admin's UI can still show when
+// the neighborhood was last actually reviewed, just without disabling the
+// button over it.
+export function getLocationsReviewCooldownStatus(
+  lastReviewedAt: string | null,
+  now: Date = new Date(),
+  bypassCooldown = false
+): LocationsReviewCooldownStatus {
+  if (!lastReviewedAt) {
+    return { lastReviewedAt: null, nextAllowedAt: null, canRun: true };
+  }
+
+  const nextAllowedAt = new Date(new Date(lastReviewedAt).getTime() + LOCATIONS_REVIEW_COOLDOWN_MS);
+  return {
+    lastReviewedAt,
+    nextAllowedAt: nextAllowedAt.toISOString(),
+    canRun: bypassCooldown || now >= nextAllowedAt,
+  };
+}
+
 export interface NewLocationCandidate {
   googlePlaceId: string;
   name: string;
@@ -132,21 +168,34 @@ export interface CommitLocationReviewResult {
   createdBusinesses: string[];
   createdPois: string[];
   omitted: string[];
-  hidden: string[];
+  removed: string[];
   failed: { name: string; error: string }[];
 }
+
+// Placeholder POI type for an omitted review candidate (below) -- omit
+// carries no category/type from the admin, so this is the generic label an
+// admin sees if they later toggle "Show hidden" and want to reclassify it.
+const OMITTED_POI_TYPE = "uncategorized";
 
 // Applies the admin's bulk classification and removal decisions. Each item
 // is applied independently (a per-item try/catch, not one DB transaction)
 // since this is a bulk admin action over many unrelated rows -- one bad row
-// (e.g. a missing category_id) shouldn't abort the rest of the batch. "omit"
-// is never persisted: an omitted candidate has nothing recorded about the
-// decision and will simply reappear on the next review run (an explicit,
-// documented non-goal for this pass -- see BACKLOG.md Ref 29's notes).
-// Removals reuse the exact hide mechanism location hide/restore already
-// uses (venue.status = "hidden", BACKLOG.md Ref 11/29) -- never a delete, so
-// existing checkin/favorite/point_event history survives, per the explicit
-// ask behind the boundary re-map wizard (Ref 54).
+// (e.g. a missing category_id) shouldn't abort the rest of the batch.
+//
+// "omit" is persisted, not skipped (BACKLOG.md "Reimport Locations"): a
+// hidden POI row keyed by google_place_id, so it reads as already-known on
+// the next review run instead of resurfacing as a new candidate forever --
+// the whole point of a rate-limited reimport is that repeat runs get
+// cheaper (fewer undecided candidates) over time.
+//
+// Removals set status to "removed", not "hidden" -- distinct from the
+// existing hide/restore mechanism (venue.status = "hidden", BACKLOG.md Ref
+// 11/29): a boundary removal is a system determination that the location is
+// no longer geographically part of the neighborhood at all, not an admin's
+// manual curation choice, so it's excluded from the Locations tab even with
+// "Show hidden" on. Never a delete either way, so existing
+// checkin/favorite/point_event history survives, per the explicit ask
+// behind the boundary re-map wizard (Ref 54).
 export async function commitLocationReview(
   neighborhoodId: string,
   classifications: LocationReviewClassificationInput[],
@@ -158,7 +207,7 @@ export async function commitLocationReview(
     createdBusinesses: [],
     createdPois: [],
     omitted: [],
-    hidden: [],
+    removed: [],
     failed: [],
   };
 
@@ -167,11 +216,11 @@ export async function commitLocationReview(
       const outcome = await updateLocationStatusForNeighborhood(
         neighborhoodId,
         removal.id,
-        "hidden",
+        "removed",
         locationRepository
       );
       if (outcome.status === "not_found") throw new Error("Location not found");
-      result.hidden.push(outcome.location.name);
+      result.removed.push(outcome.location.name);
     } catch (err) {
       result.failed.push({
         name: removal.id,
@@ -183,9 +232,24 @@ export async function commitLocationReview(
   for (const item of classifications) {
     try {
       switch (item.classification) {
-        case "omit":
+        case "omit": {
+          await createLocation(
+            neighborhoodId,
+            {
+              kind: "poi",
+              name: item.name,
+              type: OMITTED_POI_TYPE,
+              lat: item.lat,
+              lng: item.lng,
+              googlePlaceId: item.googlePlaceId,
+              address: item.address,
+              status: "hidden",
+            },
+            locationRepository
+          );
           result.omitted.push(item.name);
           break;
+        }
 
         case "business": {
           if (!item.categoryId) throw new Error("category_id is required to classify as a business");

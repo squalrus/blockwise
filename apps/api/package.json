@@ -1,6 +1,6 @@
 {
   "name": "@blockwise/api",
-  "version": "0.47.0",
+  "version": "0.48.0",
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -9,6 +9,7 @@
     "lint": "tsc --noEmit -p tsconfig.functions.json",
     "sync:places": "tsx src/scripts/syncPlaces.ts",
     "grant:admin": "tsx src/scripts/grantNeighborhoodAdmin.ts",
+    "grant:super-admin": "tsx src/scripts/grantSuperAdmin.ts",
     "test": "vitest run"
   },
   "dependencies": {

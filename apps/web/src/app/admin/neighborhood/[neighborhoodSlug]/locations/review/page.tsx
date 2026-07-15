@@ -12,6 +12,7 @@ import type {
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "../../NeighborhoodAdminContext";
+import { formatCooldownRemaining, useLocationsReviewCooldown } from "../../useLocationsReviewCooldown";
 
 type State =
   | { status: "idle" }
@@ -44,6 +45,7 @@ function removalKey(removal: LocationRemovalCandidate): string {
 // or created without the admin checking/choosing it here.
 export default function LocationReviewPage() {
   const { neighborhoodId, slug } = useNeighborhoodAdmin();
+  const cooldown = useLocationsReviewCooldown(neighborhoodId);
   const [state, setState] = useState<State>({ status: "idle" });
   const [categories, setCategories] = useState<CategoryOption[] | null>(null);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
@@ -168,13 +170,21 @@ export default function LocationReviewPage() {
       </p>
 
       {state.status === "idle" && (
-        <button
-          type="button"
-          onClick={runReview}
-          className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent"
-        >
-          Run review
-        </button>
+        <div className="flex flex-col items-start gap-1.5">
+          <button
+            type="button"
+            onClick={runReview}
+            disabled={!!cooldown && !cooldown.can_run}
+            className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Run review
+          </button>
+          {cooldown && !cooldown.can_run && cooldown.next_allowed_at && (
+            <p className="text-xs text-muted">
+              Locations were reimported recently — available again {formatCooldownRemaining(cooldown.next_allowed_at)}.
+            </p>
+          )}
+        </div>
       )}
 
       {state.status === "loading" && <p className="text-sm text-muted">Querying Google Places…</p>}
@@ -193,8 +203,10 @@ export default function LocationReviewPage() {
           ) : (
             <>
               <p className="text-sm text-muted">
-                No longer inside the neighborhood's boundary. Nothing is hidden unless you check it below —
-                hiding preserves check-in/points history, it does not delete the row.
+                No longer inside the neighborhood's boundary. Nothing is removed unless you check it below —
+                removing preserves check-in/points history and doesn't delete the row, but unlike hiding, it
+                won't reappear here even with hidden locations shown, and re-syncs the same place fresh if it's
+                ever back inside the boundary.
               </p>
               <ul className="flex flex-col gap-2">
                 {state.report.proposed_removals.map((removal) => (
@@ -247,7 +259,7 @@ export default function LocationReviewPage() {
                             disabled={state.status === "committing"}
                             onChange={() => updateDecision(candidate, { classification: option })}
                           />
-                          {option === "omit" ? "Omit" : option === "business" ? "Business" : "POI"}
+                          {option === "omit" ? "Omit (import hidden)" : option === "business" ? "Business" : "POI"}
                         </label>
                       ))}
 
@@ -322,7 +334,8 @@ export default function LocationReviewPage() {
             Created {state.result.created_businesses.length} business
             {state.result.created_businesses.length === 1 ? "" : "es"} and{" "}
             {state.result.created_pois.length} point{state.result.created_pois.length === 1 ? "" : "s"} of
-            interest. Hid {state.result.hidden.length}. Omitted {state.result.omitted.length}.
+            interest. Removed {state.result.removed.length} no longer in the boundary. Imported{" "}
+            {state.result.omitted.length} omitted as hidden.
           </p>
           {state.result.failed.length > 0 && (
             <div className="text-red-600 dark:text-red-400">

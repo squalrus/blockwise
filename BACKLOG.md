@@ -89,7 +89,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 57 | [Category dropdowns: dark-mode option contrast and alphabetization](#category-dropdowns-dark-mode-option-contrast-and-alphabetization) | known issue | S | M | — |
-| 73 | [Places sync can silently miss venues in dense areas](#places-sync-can-silently-miss-venues-in-dense-areas) | known issue | M | M | — |
 
 ### Limitations
 
@@ -398,11 +397,3 @@ No open limitations.
 **Depends:** —
 **Why** — The category `<select>` dropdowns (venue category reassignment in the Locations tab, and the business classification picker in the Locations review wizard, shipped v0.28.0/v0.29.0) use `dark:bg-transparent` on the `<select>` element with plain, unstyled `<option>` children. In dark mode, the browser falls back to OS-native popup styling for the option list instead of inheriting the page's dark background, which on several platforms renders dark text on a dark background — the options are effectively invisible until the user mouses over one. Separately, the dropdown lists categories sorted by the leaf category's bare `name` (`category.supabaseRepository.ts`'s `.order("name")`), but the label actually shown is `"{group_name} / {name}"` — so the on-screen order doesn't read as alphabetical once categories from different groups interleave.
 **Notes:** Contrast fix: give the `<select>` (and/or `<option>` elements) an explicit solid background color for dark mode (e.g. `dark:bg-zinc-900`) instead of `dark:bg-transparent`, so native option-list rendering has a real color to inherit rather than falling back to system defaults. Alphabetization fix: sort client-side (or server-side in `listAssignableCategories`/`toCategoryOption`) by the same composed label the UI displays (`group_name` then `name`), not just the bare leaf `name`. Affects `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx` and `.../locations/review/page.tsx`, both of which build their category `<option>` list from the same `GET /admin/categories` response. **Partially done (v0.44.1):** `locations/page.tsx`'s reassign-category dropdown now sorts client-side by the composed `group_name`/`name` label (`sortedCategories`). Still open: the same sort on `locations/review/page.tsx`'s classification picker, and the dark-mode contrast fix on both.
-
-#### Places sync can silently miss venues in dense areas
-
-**Ref:** 73
-**Type:** known issue
-**Depends:** —
-**Why** — The Places sync (`syncNeighborhoodPlaces`/`searchPlacesInPolygon`, `apps/api/src/places/sync.ts`) tiles a neighborhood's boundary polygon into overlapping 400m-radius circles and queries Google's Places API (New) `searchNearby` per tile/type-chunk. That API caps results at 20 per request with no pagination cursor (unlike the legacy API's 60-via-`next_page_token`) — if a single tile in a genuinely dense area (packed downtown block, food hall, strip mall) has more than 20 matching venues for one category, the overflow beyond the cap is dropped with no sub-tiling or retry. The sync report already tracks `callsAtResultCap` (`sync.ts:106`) so a saturated tile is visible per run, but nothing automatically corrects it — an admin has to notice and manually intervene (e.g. redraw a smaller sub-boundary and re-sync).
-**Notes:** When a tile+type-chunk call hits the 20-result cap, automatically sub-tile that circle (smaller radius, e.g. half) and re-query to catch the overflow, merging/deduping against the parent tile's results. Needs a recursion/depth limit to bound API usage on pathologically dense areas. `generateCoverageGrid`/`isPointInPolygon` (`apps/api/src/places/geo.ts`) are the relevant tiling/containment functions to extend.

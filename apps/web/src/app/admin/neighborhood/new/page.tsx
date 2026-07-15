@@ -1,14 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BoundaryPreviewReport, CreateNeighborhoodResponse, GeoJsonPolygon } from "@blockwise/types";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { BoundaryMap } from "../BoundaryMap";
 
 type Status = { state: "idle" | "submitting" | "error"; message?: string };
 type PreviewStatus = { state: "idle" | "loading" | "error"; message?: string };
+
+// Neighborhood creation is currently super-admin-only (BACKLOG.md) -- the API
+// (POST /admin/neighborhoods) already enforces this via superAdminGate, but a
+// client-side check here avoids letting a regular admin fill out the whole
+// form only to hit a generic 403 on submit.
+type AccessCheck = "loading" | "signed_out" | "forbidden" | "allowed";
 
 function slugify(name: string): string {
   return name
@@ -24,6 +30,7 @@ function slugify(name: string): string {
 // deliberate action once venue data is clean (not exposed here).
 export default function NewNeighborhoodPage() {
   const router = useRouter();
+  const [access, setAccess] = useState<AccessCheck>("loading");
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
@@ -35,6 +42,26 @@ export default function NewNeighborhoodPage() {
   const [preview, setPreview] = useState<BoundaryPreviewReport | null>(null);
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>({ state: "idle" });
   const [status, setStatus] = useState<Status>({ state: "idle" });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkAccess() {
+      const user = await getCurrentUser();
+      if (cancelled) return;
+      if (!user) {
+        setAccess("signed_out");
+        return;
+      }
+      setAccess(user.is_super_admin ? "allowed" : "forbidden");
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    checkAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleNameChange(value: string) {
     setName(value);
@@ -96,6 +123,30 @@ export default function NewNeighborhoodPage() {
   }
 
   const canSubmit = name.trim() && slug.trim() && city.trim() && state.trim() && country.trim() && timezone.trim() && polygon;
+
+  if (access !== "allowed") {
+    return (
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 font-sans sm:p-16">
+        <a href="/admin" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
+          ← Admin
+        </a>
+        {access === "loading" && <p className="text-sm text-muted">Loading…</p>}
+        {access === "signed_out" && (
+          <p className="text-sm text-muted">
+            <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
+              Log in
+            </a>{" "}
+            with a super admin account to create a neighborhood.
+          </p>
+        )}
+        {access === "forbidden" && (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Neighborhood creation is currently limited to super admins.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 font-sans sm:p-16">

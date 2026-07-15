@@ -121,6 +121,7 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
       boundaryGeojson: row.boundary_geojson,
       centerLat: row.center_lat,
       centerLng: row.center_lng,
+      locationsReviewedAt: row.locations_reviewed_at,
     };
   }
 
@@ -137,7 +138,17 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
       boundaryGeojson: row.boundary_geojson,
       centerLat: row.center_lat,
       centerLng: row.center_lng,
+      locationsReviewedAt: row.locations_reviewed_at,
     };
+  }
+
+  async markLocationsReviewed(id: string, reviewedAt: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("neighborhood")
+      .update({ locations_reviewed_at: reviewedAt })
+      .eq("id", id);
+
+    if (error) throw new Error(`markLocationsReviewed failed: ${error.message}`);
   }
 
   async createNeighborhood(input: CreateNeighborhoodInput): Promise<CreatedNeighborhood> {
@@ -184,6 +195,7 @@ interface BoundaryRow {
   boundary_geojson: GeoJsonPolygon | null;
   center_lat: number;
   center_lng: number;
+  locations_reviewed_at: string | null;
 }
 
 interface CreateNeighborhoodRow {

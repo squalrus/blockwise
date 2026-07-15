@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { NeighborhoodAdminRepository, NeighborhoodAdminSummaryRecord } from "./repository";
+import type { NeighborhoodAdminRepository, NeighborhoodAdminSummaryRecord, SuperAdminRepository } from "./repository";
 
 interface NeighborhoodEmbed {
   name: string;
@@ -59,5 +59,20 @@ export class SupabaseNeighborhoodAdminRepository implements NeighborhoodAdminRep
       .insert({ user_id: userId, neighborhood_id: neighborhoodId });
 
     if (error) throw new Error(`addNeighborhoodAdmin failed: ${error.message}`);
+  }
+}
+
+export class SupabaseSuperAdminRepository implements SuperAdminRepository {
+  constructor(private readonly supabase: SupabaseClient) {}
+
+  async isSuperAdmin(userId: string): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from("super_admin")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) throw new Error(`isSuperAdmin failed: ${error.message}`);
+    return data !== null;
   }
 }

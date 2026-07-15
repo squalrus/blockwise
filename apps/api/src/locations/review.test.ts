@@ -10,7 +10,7 @@ import type {
   SetLocationKindInput,
   UpdateLocationInput,
 } from "./repository";
-import { commitLocationReview, reviewNeighborhoodLocations } from "./review";
+import { commitLocationReview, getLocationsReviewCooldownStatus, reviewNeighborhoodLocations } from "./review";
 
 // Mirrors places/sync.test.ts's boundary fixture -- includes every
 // in-boundary place in mockClient.ts, excludes "Outside The Boundary Cafe".
@@ -79,7 +79,11 @@ class FakeLocationRepository implements LocationRepository {
   }
 
   async listLocationsForNeighborhood(neighborhoodId: string, search?: string): Promise<LocationRecord[]> {
-    let results = this.locations.filter((l) => l.neighborhoodId === neighborhoodId);
+    // Mirrors the real repository's .neq("status", "removed") -- a removed
+    // location is fully detached from the neighborhood (BACKLOG.md "Reimport
+    // Locations"), so it must not count as "already known" for dedup or the
+    // boundary-removal check.
+    let results = this.locations.filter((l) => l.neighborhoodId === neighborhoodId && l.status !== "removed");
     if (search) {
       const needle = search.toLowerCase();
       results = results.filter(
@@ -122,7 +126,7 @@ class FakeLocationRepository implements LocationRepository {
       lng: input.lng,
       address: input.address,
       claimedByBusiness: false,
-      status: "active",
+      status: input.status ?? "active",
       createdAt: new Date().toISOString(),
     };
     this.locations.push(record);
@@ -492,7 +496,7 @@ describe("commitLocationReview", () => {
     });
   });
 
-  it("does not persist an omit classification", async () => {
+  it("persists an omit classification as a hidden POI, not skipping it", async () => {
     const result = await commitLocationReview(
       "phinneywood-id",
       [{ ...candidate, classification: "omit" }],
@@ -503,7 +507,13 @@ describe("commitLocationReview", () => {
 
     expect(result.omitted).toEqual(["Herkimer Coffee"]);
     expect(placesRepository.upsertCalls).toHaveLength(0);
-    expect(locationRepository.locations).toHaveLength(0);
+    expect(locationRepository.locations).toHaveLength(1);
+    expect(locationRepository.locations[0]).toMatchObject({
+      name: "Herkimer Coffee",
+      googlePlaceId: "mock-herkimer-coffee",
+      kind: "poi",
+      status: "hidden",
+    });
   });
 
   it("reports a failure without aborting the rest of the batch", async () => {
@@ -524,7 +534,7 @@ describe("commitLocationReview", () => {
     expect(result.createdPois).toEqual(["Original Bakery"]);
   });
 
-  it("hides an approved business removal without deleting it", async () => {
+  it("marks an approved business removal as removed without deleting it", async () => {
     locationRepository.locations = [
       makeBusinessLocation({
         id: "venue-outside",
@@ -544,11 +554,11 @@ describe("commitLocationReview", () => {
       locationRepository
     );
 
-    expect(result.hidden).toEqual(["Outside The Boundary Cafe"]);
-    expect(locationRepository.locations[0].status).toBe("hidden");
+    expect(result.removed).toEqual(["Outside The Boundary Cafe"]);
+    expect(locationRepository.locations[0].status).toBe("removed");
   });
 
-  it("hides an approved POI removal without deleting it", async () => {
+  it("marks an approved POI removal as removed without deleting it", async () => {
     locationRepository.locations = [
       makePoiLocation({ id: "poi-faraway", name: "Faraway Park", lat: 47.6, lng: -122.3, address: null }),
     ];
@@ -561,8 +571,8 @@ describe("commitLocationReview", () => {
       locationRepository
     );
 
-    expect(result.hidden).toEqual(["Faraway Park"]);
-    expect(locationRepository.locations[0].status).toBe("hidden");
+    expect(result.removed).toEqual(["Faraway Park"]);
+    expect(locationRepository.locations[0].status).toBe("removed");
     expect(locationRepository.locations).toHaveLength(1);
   });
 
@@ -575,10 +585,75 @@ describe("commitLocationReview", () => {
       locationRepository
     );
 
-    expect(result.hidden).toHaveLength(0);
+    expect(result.removed).toHaveLength(0);
     expect(result.failed).toEqual([
       { name: "missing-venue", error: "Location not found" },
       { name: "missing-poi", error: "Location not found" },
     ]);
+  });
+
+  it("treats a removed location as forgotten -- its google place resurfaces as a new candidate again", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
+        id: "previously-removed",
+        googlePlaceId: "mock-herkimer-coffee",
+        name: "Herkimer Coffee (stale)",
+        status: "removed",
+        lat: 47.6816,
+        lng: -122.3552,
+      }),
+    ];
+
+    const report = await reviewNeighborhoodLocations(
+      "phinneywood-id",
+      PHINNEYWOOD_BOUNDARY!,
+      new MockPlacesClient(),
+      placesRepository,
+      locationRepository
+    );
+
+    expect(report.newCandidates.some((c) => c.name === "Herkimer Coffee")).toBe(true);
+  });
+});
+
+describe("getLocationsReviewCooldownStatus", () => {
+  it("allows running immediately when never reviewed before", () => {
+    const status = getLocationsReviewCooldownStatus(null);
+    expect(status).toEqual({ lastReviewedAt: null, nextAllowedAt: null, canRun: true });
+  });
+
+  it("blocks running right after a review", () => {
+    const now = new Date("2026-07-15T12:00:00.000Z");
+    const status = getLocationsReviewCooldownStatus("2026-07-15T11:00:00.000Z", now);
+    expect(status.canRun).toBe(false);
+    expect(status.nextAllowedAt).toBe("2026-07-16T11:00:00.000Z");
+  });
+
+  it("allows running again exactly 24h after the last review", () => {
+    const lastReviewedAt = "2026-07-15T11:00:00.000Z";
+    const exactlyOneDayLater = new Date("2026-07-16T11:00:00.000Z");
+    const status = getLocationsReviewCooldownStatus(lastReviewedAt, exactlyOneDayLater);
+    expect(status.canRun).toBe(true);
+  });
+
+  it("blocks running one millisecond before the 24h mark", () => {
+    const lastReviewedAt = "2026-07-15T11:00:00.000Z";
+    const justUnderOneDayLater = new Date("2026-07-16T10:59:59.999Z");
+    const status = getLocationsReviewCooldownStatus(lastReviewedAt, justUnderOneDayLater);
+    expect(status.canRun).toBe(false);
+  });
+
+  it("lets a super admin bypass the cooldown while still reporting the real last/next review times", () => {
+    const now = new Date("2026-07-15T12:00:00.000Z");
+    const lastReviewedAt = "2026-07-15T11:00:00.000Z";
+    const status = getLocationsReviewCooldownStatus(lastReviewedAt, now, true);
+    expect(status.canRun).toBe(true);
+    expect(status.lastReviewedAt).toBe(lastReviewedAt);
+    expect(status.nextAllowedAt).toBe("2026-07-16T11:00:00.000Z");
+  });
+
+  it("bypass has no effect when there's nothing to bypass (never reviewed before)", () => {
+    const status = getLocationsReviewCooldownStatus(null, new Date(), true);
+    expect(status).toEqual({ lastReviewedAt: null, nextAllowedAt: null, canRun: true });
   });
 });

@@ -178,9 +178,12 @@ describe("syncNeighborhoodPlaces", () => {
     expect(report.inserted).toEqual(expect.arrayContaining(["north-cafe", "south-bakery"]));
   });
 
-  it("reports tiles that hit the Places API's per-call result cap", async () => {
+  it("reports tiles that hit the Places API's per-call result cap, subdividing to retry each one", async () => {
     class SaturatedClient implements GooglePlacesClient {
+      calls = 0;
+
       async searchNearby(): Promise<RawGooglePlace[]> {
+        this.calls++;
         // Outside the Phinneywood boundary so the per-place pipeline just
         // skips them -- only the raw tile response size matters here.
         return Array.from({ length: 20 }, (_, i) => ({
@@ -194,13 +197,53 @@ describe("syncNeighborhoodPlaces", () => {
       }
     }
 
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new SaturatedClient(), repository);
+    const client = new SaturatedClient();
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", client, repository);
 
-    // The test taxonomy has only 3 google types, well under the 50-per-call
-    // chunk limit, so exactly one API call happens per tile here.
-    expect(report.apiCallsMade).toBe(report.tilesQueried);
+    // Every tile saturates every time (including retries), so subdivision
+    // recurses to its depth limit -- apiCallsMade should reflect every one of
+    // those calls, not just the initial top-level grid.
+    expect(report.apiCallsMade).toBe(client.calls);
+    expect(report.apiCallsMade).toBeGreaterThan(report.tilesQueried);
     expect(report.callsAtResultCap).toBe(report.apiCallsMade);
     expect(report.callsAtResultCap).toBeGreaterThan(0);
+  });
+
+  it("catches venues past the cap in a dense tile by subdividing", async () => {
+    // 25 real, distinct venues spread over a ~270m x 180m cluster -- more
+    // than the 20-result cap a single call can return, and spread widely
+    // enough that once sub-circles shrink to ~100-200m radius they only see
+    // part of the cluster each, forcing the split to actually separate them
+    // rather than every sub-circle re-seeing all 25.
+    const densePlaces: RawGooglePlace[] = Array.from({ length: 25 }, (_, i) => {
+      const row = Math.floor(i / 5);
+      const col = i % 5;
+      return {
+        id: `dense-${i}`,
+        displayName: { text: `Dense Venue ${i}` },
+        formattedAddress: "test address",
+        location: { latitude: 47.6686 + row * 0.0006, longitude: -122.355 + col * 0.0006 },
+        types: ["cafe"],
+        businessStatus: "OPERATIONAL" as const,
+      };
+    });
+
+    class DenseClient implements GooglePlacesClient {
+      async searchNearby(params: SearchNearbyParams): Promise<RawGooglePlace[]> {
+        const inRange = densePlaces.filter(
+          (p) =>
+            haversineMeters(params.center, {
+              lat: p.location.latitude,
+              lng: p.location.longitude,
+            }) <= params.radiusMeters
+        );
+        return inRange.slice(0, 20);
+      }
+    }
+
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new DenseClient(), repository);
+
+    expect(report.inserted.length).toBe(25);
   });
 
   it("chunks includedTypes across multiple calls when the taxonomy exceeds the per-call limit", async () => {

@@ -36,6 +36,7 @@ function toCardUser(profile: PublicUserProfile): AppUser {
     visibility: "public",
     created_at: profile.joined_at,
     is_neighborhood_admin: false,
+    is_super_admin: false,
   };
 }
 

@@ -1,7 +1,7 @@
 import { buildGoogleTypeIndex, matchCategory, type CategoryRecord } from "./categorize";
 import type { GooglePlacesClient, RawGooglePlace } from "./client";
 import { findDuplicate } from "./dedup";
-import { generateCoverageGrid, isPointInPolygon, type GeoJsonPolygon, type LatLng } from "./geo";
+import { generateCoverageGrid, isPointInPolygon, subdivideCircle, type GeoJsonPolygon, type LatLng } from "./geo";
 import type { PlacesRepository } from "./repository";
 
 // Small enough that a dense commercial block is unlikely to exceed Nearby
@@ -13,6 +13,62 @@ const PLACES_API_RESULT_CAP = 20;
 // practice once the taxonomy grew past it) -- chunk rather than trim the
 // taxonomy, since more chunks only cost extra requests, not coverage.
 const MAX_INCLUDED_TYPES_PER_REQUEST = 50;
+// When a tile+type-chunk call comes back saturated (BACKLOG.md Ref 73: dense
+// areas silently drop venues past the cap), re-query that same circle as a
+// fixed fan-out of 4 smaller, overlapping sub-circles (subdivideCircle) to
+// catch the overflow. Bounded by depth AND by a fixed branching factor --
+// depth alone isn't enough: an earlier version reused generateCoverageGrid's
+// full-grid tiling for sub-tiles (~11 per level instead of 4) and blew a
+// real Google Cloud project's "SearchNearbyRequest per minute" quota on one
+// review run against a real, moderately dense neighborhood. At branching
+// factor 4, worst case (every tile and sub-tile saturated) is 1 + 4 = 5 calls
+// per originally-saturated tile -- depth capped at 1 rather than 2 to keep
+// that worst case low given real quota limits are tighter than expected.
+const MAX_SUBTILE_DEPTH = 1;
+
+interface TileSearchOutcome {
+  results: RawGooglePlace[];
+  apiCallsMade: number;
+  callsAtResultCap: number;
+}
+
+async function searchTileWithSubdivision(
+  client: GooglePlacesClient,
+  center: LatLng,
+  radiusMeters: number,
+  includedTypes: string[],
+  depth: number
+): Promise<TileSearchOutcome> {
+  const results = await client.searchNearby({ center, radiusMeters, includedTypes });
+  const saturated = results.length >= PLACES_API_RESULT_CAP;
+
+  if (!saturated || depth >= MAX_SUBTILE_DEPTH) {
+    return { results, apiCallsMade: 1, callsAtResultCap: saturated ? 1 : 0 };
+  }
+
+  const subCircles = subdivideCircle(center, radiusMeters);
+
+  const subOutcomes = await Promise.all(
+    subCircles.map((sub) =>
+      searchTileWithSubdivision(client, sub.center, sub.radiusMeters, includedTypes, depth + 1)
+    )
+  );
+
+  // Merge by place ID -- sub-circles overlap by design (subdivideCircle),
+  // and the parent's own (capped) results are folded in too as a cheap safety
+  // net in case Google's ranking doesn't return a strict superset on retry.
+  const merged = new Map<string, RawGooglePlace>();
+  for (const place of results) merged.set(place.id, place);
+  for (const outcome of subOutcomes) {
+    for (const place of outcome.results) merged.set(place.id, place);
+  }
+
+  return {
+    results: [...merged.values()],
+    apiCallsMade: 1 + subOutcomes.reduce((sum, o) => sum + o.apiCallsMade, 0),
+    callsAtResultCap: 1 + subOutcomes.reduce((sum, o) => sum + o.callsAtResultCap, 0),
+  };
+}
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -58,17 +114,18 @@ export async function searchPlacesInPolygon(
   const requests = tiles.flatMap((center) =>
     includedTypesChunks.map((includedTypes) => ({ center, includedTypes }))
   );
-  const callResults = await Promise.all(
+  const outcomes = await Promise.all(
     requests.map(({ center, includedTypes }) =>
-      client.searchNearby({ center, radiusMeters: tileRadiusMeters, includedTypes })
+      searchTileWithSubdivision(client, center, tileRadiusMeters, includedTypes, 0)
     )
   );
 
   // Tiles overlap by design (see generateCoverageGrid), and a tile split
-  // across multiple type chunks can also repeat a place -- collapse by
-  // Google's place ID before the per-place pipeline below runs.
+  // across multiple type chunks (or subdivided due to saturation, above) can
+  // also repeat a place -- collapse by Google's place ID before the
+  // per-place pipeline below runs.
   const rawPlacesById = new Map<string, RawGooglePlace>();
-  for (const results of callResults) {
+  for (const { results } of outcomes) {
     for (const place of results) rawPlacesById.set(place.id, place);
   }
 
@@ -102,8 +159,8 @@ export async function searchPlacesInPolygon(
 
   return {
     tilesQueried: tiles.length,
-    apiCallsMade: requests.length,
-    callsAtResultCap: callResults.filter((results) => results.length >= PLACES_API_RESULT_CAP).length,
+    apiCallsMade: outcomes.reduce((sum, o) => sum + o.apiCallsMade, 0),
+    callsAtResultCap: outcomes.reduce((sum, o) => sum + o.callsAtResultCap, 0),
     skippedClosedPermanently,
     skippedOutOfBoundary,
     unmappedTypes,

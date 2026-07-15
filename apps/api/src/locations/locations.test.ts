@@ -91,7 +91,7 @@ class FakeLocationRepository implements LocationRepository {
       lng: input.lng,
       address: input.address,
       claimedByBusiness: false,
-      status: "active",
+      status: input.status ?? "active",
       createdAt: new Date().toISOString(),
     };
     this.locations.push(record);

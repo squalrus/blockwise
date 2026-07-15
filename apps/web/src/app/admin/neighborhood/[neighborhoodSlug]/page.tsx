@@ -94,8 +94,6 @@ export default function NeighborhoodAdminOverviewPage() {
     return <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>;
   }
 
-  const activePois = state.summary.pois.filter((poi) => poi.status === "active");
-
   return (
     <div className="flex flex-col gap-5.5">
       <div>
@@ -217,31 +215,6 @@ export default function NeighborhoodAdminOverviewPage() {
           </section>
         </div>
       </div>
-
-      <section className="flex flex-col gap-2.5">
-        <div className="flex items-baseline gap-2.5">
-          <h2 className="font-heading text-lg font-extrabold">Points of interest</h2>
-          <a
-            href={`/admin/neighborhood/${slug}/locations`}
-            className="text-sm font-bold text-brand-purple hover:text-brand-orange"
-          >
-            Manage in Locations tab →
-          </a>
-        </div>
-        {activePois.length === 0 ? (
-          <p className="text-sm text-muted">No points of interest yet.</p>
-        ) : (
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {activePois.map((poi) => (
-              <li key={poi.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
-                <span className="font-extrabold text-foreground">{poi.name}</span>
-                <span className="ml-2 text-muted">{poi.type}</span>
-                {poi.description && <p className="mt-1 text-muted">{poi.description}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

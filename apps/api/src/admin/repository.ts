@@ -21,3 +21,12 @@ export interface NeighborhoodAdminRepository {
   // including its creator, out of managing it afterward.
   addNeighborhoodAdmin(userId: string, neighborhoodId: string): Promise<void>;
 }
+
+// A rung above "admin of at least one neighborhood" (BACKLOG.md) -- bypasses
+// the 24h "Reimport Locations" cooldown and, for now, is the only role that
+// can create a brand-new neighborhood at all. Its own table/gate rather than
+// folded into NeighborhoodAdminRepository since it's a global, not
+// neighborhood-scoped, grant.
+export interface SuperAdminRepository {
+  isSuperAdmin(userId: string): Promise<boolean>;
+}

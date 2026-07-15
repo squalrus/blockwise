@@ -2,7 +2,7 @@ import type { AccountType, AppUser } from "@blockwise/types";
 import type { AppUserRecord, AuthRepository, UpdateProfileInput } from "./repository";
 import type { VerifiedAuthUser } from "./verifyToken";
 
-export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean): AppUser {
+export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean, isSuperAdmin: boolean): AppUser {
   return {
     id: record.id,
     is_anonymous: record.isAnonymous,
@@ -17,6 +17,7 @@ export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean): 
     visibility: record.visibility,
     created_at: record.createdAt,
     is_neighborhood_admin: isNeighborhoodAdmin,
+    is_super_admin: isSuperAdmin,
   };
 }
 

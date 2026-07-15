@@ -1,4 +1,11 @@
-import type { CategoryOption, LocationKind, LocationListItem, Venue, VenueDetail } from "@blockwise/types";
+import type {
+  CategoryOption,
+  LocationKind,
+  LocationListItem,
+  Venue,
+  VenueDetail,
+  VenueStatus,
+} from "@blockwise/types";
 import type { EnrichmentRepository } from "../enrichment/repository";
 import { getFreshEnrichment } from "../enrichment/refresh";
 import type { PlaceDetailsClient } from "../places/client";
@@ -40,6 +47,10 @@ export interface CreateLocationRequestInput {
   lng: number;
   googlePlaceId?: string;
   address?: string;
+  // Defaults to "active" (the DB default) when omitted -- passed explicitly
+  // as "hidden" when persisting an omitted review candidate (BACKLOG.md
+  // "Reimport Locations").
+  status?: VenueStatus;
 }
 
 export async function createLocation(
@@ -58,6 +69,7 @@ export async function createLocation(
     lng: input.lng,
     googlePlaceId: input.googlePlaceId ?? null,
     address: input.address ?? null,
+    status: input.status,
   } satisfies CreateLocationInput);
   return toVenue(record);
 }
@@ -168,7 +180,7 @@ export type UpdateLocationStatusResult = { status: "updated"; location: Venue } 
 export async function updateLocationStatusForNeighborhood(
   neighborhoodId: string,
   locationId: string,
-  newStatus: "active" | "hidden",
+  newStatus: VenueStatus,
   repository: LocationRepository
 ): Promise<UpdateLocationStatusResult> {
   const locationNeighborhoodId = await repository.getLocationNeighborhoodId(locationId);

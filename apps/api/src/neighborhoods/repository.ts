@@ -20,6 +20,11 @@ export interface NeighborhoodBoundaryRecord {
   boundaryGeojson: GeoJsonPolygon | null;
   centerLat: number;
   centerLng: number;
+  // "Reimport Locations" cooldown (BACKLOG.md) -- last time a location
+  // review actually queried Google Places for this neighborhood, or null if
+  // never. Read alongside the boundary since both back the same review GET
+  // route.
+  locationsReviewedAt: string | null;
 }
 
 export interface CreateNeighborhoodInput {
@@ -82,4 +87,9 @@ export interface NeighborhoodRepository {
   getBoundary(id: string): Promise<NeighborhoodBoundaryRecord | null>;
   updateBoundary(id: string, boundaryGeojson: GeoJsonPolygon): Promise<NeighborhoodBoundaryRecord>;
   createNeighborhood(input: CreateNeighborhoodInput): Promise<CreatedNeighborhood>;
+  // Stamps the 24h "Reimport Locations" cooldown (BACKLOG.md) the moment a
+  // location review actually queries Google Places -- takes an explicit
+  // timestamp (rather than using the DB's own now()) so the route's
+  // response and the stamped value are guaranteed to agree.
+  markLocationsReviewed(id: string, reviewedAt: string): Promise<void>;
 }

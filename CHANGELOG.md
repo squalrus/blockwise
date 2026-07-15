@@ -2,6 +2,23 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.48.0] — 2026-07-15
+
+### Added
+
+- **"Reimport Locations" button on the Locations tab, replacing the small "Review Places →" text link.** Re-runs the bulk Google Places sync/reconciliation wizard on demand, rate-limited to once per 24 hours per neighborhood since each run costs a real Google Places API query — the button shows a countdown while on cooldown, and the underlying endpoint 429s if called early regardless. Review-wizard behavior also changed: an "omit" decision on a new candidate is now saved as a hidden point of interest instead of silently skipped, so it won't keep resurfacing on every re-run; approved boundary removals now mark a location "removed" (a new status distinct from "hidden") so it's fully excluded from the Locations tab, even with "Show hidden" on, and is treated as a brand-new candidate if a later boundary redraw brings it back inside. (`apps/api/src/locations/review.ts`, `apps/api/src/neighborhoods/`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/`, `supabase/migrations/20260715020000_locations_reimport_cooldown_and_removed_status.sql`)
+- **Super admin role.** A new role above neighborhood admin — for now, the only role allowed to create a brand-new neighborhood (`POST /admin/neighborhoods` moved off the general admin gate to a dedicated super-admin gate), and one that can bypass the new 24-hour Reimport Locations cooldown. Granted via a new CLI script, `npm run grant:super-admin -- <email>`, mirroring the existing `grant:admin` script. (`apps/api/src/admin/requireSuperAdmin.ts`, `apps/api/src/scripts/grantSuperAdmin.ts`, `supabase/migrations/20260715030000_super_admin.sql`)
+
+### Changed
+
+- Neighborhood-admin sidebar's "Locations" tab now stays highlighted while on the Reimport review sub-page, instead of appearing unselected. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`)
+- Removed the neighborhood Overview tab's read-only "Points of interest" list, now redundant with the Locations tab. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/page.tsx`)
+- Removed the redundant "← Admin" back-link from both admin sidebar shells now that the `AdminSwitcher` dropdown covers cross-navigation. (`apps/web/src/app/admin/business/[venueId]/layout.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`)
+
+### Fixed
+
+- **Places sync no longer silently drops venues in dense areas.** When a search tile hit Google's 20-result-per-request cap, any venues beyond the cap were dropped with no retry. The sync now automatically re-queries a saturated tile as a fixed fan-out of 4 smaller, overlapping sub-circles (bounded to one extra level deep, to keep worst-case API usage predictable) to catch the overflow. (`apps/api/src/places/geo.ts`, `apps/api/src/places/sync.ts`)
+
 ## [0.47.0] — 2026-07-15
 
 ### Added
