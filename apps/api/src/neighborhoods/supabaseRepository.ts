@@ -20,6 +20,8 @@ function toRecord(row: {
   city: string;
   state: string;
   social_links: SocialLinks | null;
+  ical_feed_url: string | null;
+  ical_synced_at: string | null;
 }): NeighborhoodRecord {
   return {
     id: row.id,
@@ -29,10 +31,13 @@ function toRecord(row: {
     city: row.city,
     state: row.state,
     social_links: row.social_links ?? {},
+    icalFeedUrl: row.ical_feed_url,
+    icalSyncedAt: row.ical_synced_at,
   };
 }
 
-const NEIGHBORHOOD_COLUMNS = "id, name, slug, description, city, state, social_links";
+const NEIGHBORHOOD_COLUMNS =
+  "id, name, slug, description, city, state, social_links, ical_feed_url, ical_synced_at";
 
 export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -81,6 +86,27 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
 
     if (error) throw new Error(`updateSocialLinks failed: ${error.message}`);
     return toRecord(data);
+  }
+
+  async updateIcalFeedUrl(id: string, icalFeedUrl: string | null): Promise<NeighborhoodRecord> {
+    const { data, error } = await this.supabase
+      .from("neighborhood")
+      .update({ ical_feed_url: icalFeedUrl })
+      .eq("id", id)
+      .select(NEIGHBORHOOD_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`updateIcalFeedUrl failed: ${error.message}`);
+    return toRecord(data);
+  }
+
+  async markIcalSynced(id: string, syncedAt: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("neighborhood")
+      .update({ ical_synced_at: syncedAt })
+      .eq("id", id);
+
+    if (error) throw new Error(`markIcalSynced failed: ${error.message}`);
   }
 
   async listAll(): Promise<NeighborhoodRecord[]> {

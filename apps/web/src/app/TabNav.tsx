@@ -8,7 +8,7 @@ export interface TabNavItem {
 }
 
 // Shared secondary-nav pill bar (BACKLOG.md Ref 44/47): used both for a
-// route-driven subnav (neighborhood profile's Happening now/Recent
+// route-driven subnav (neighborhood profile's Today/Recent
 // activity/etc., each tab its own page) and for in-page tab state (account
 // page's Favorites/Check-ins/etc., one page swapping which section is
 // visible) -- pass `getHref` for the former, `onSelect` for the latter.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getHappeningNow } from "./happeningNow";
-import type { CreateEventInput, EventRecord, EventRepository } from "../events/repository";
+import type { CreateEventInput, EventRecord, EventRepository, IcalSyncResult } from "../events/repository";
 import type { EnrichmentRepository, OpenNowCandidate, UpsertEnrichmentInput } from "../enrichment/repository";
 import type { VenueEnrichmentCache } from "@blockwise/types";
 
@@ -17,6 +17,21 @@ class FakeEventRepository implements EventRepository {
   }
   async listEventsForNeighborhoodAndVenues(): Promise<EventRecord[]> {
     return this.events;
+  }
+  async upsertImportedEventsForNeighborhood(): Promise<IcalSyncResult> {
+    throw new Error("not implemented");
+  }
+  async upsertImportedEventsForVenue(): Promise<IcalSyncResult> {
+    throw new Error("not implemented");
+  }
+  async getEventOwner(): Promise<{ venueId: string | null; neighborhoodId: string | null } | null> {
+    throw new Error("not implemented");
+  }
+  async deleteEvent(): Promise<void> {
+    throw new Error("not implemented");
+  }
+  async setEventStatus(): Promise<EventRecord> {
+    throw new Error("not implemented");
   }
 }
 
@@ -47,28 +62,30 @@ function event(overrides: Partial<EventRecord>): EventRecord {
     startTime: "2026-07-10T16:00:00.000Z",
     endTime: "2026-07-10T20:00:00.000Z",
     createdAt: "2026-07-01T00:00:00.000Z",
+    source: "manual",
+    externalUid: null,
+    location: null,
+    status: "active",
     ...overrides,
   };
 }
 
 describe("getHappeningNow", () => {
-  it("includes events that are currently in progress and excludes ones that aren't", async () => {
+  it("includes events happening today (in progress or later today) and excludes events on other days", async () => {
     const events = new FakeEventRepository([
-      event({ id: "live", startTime: "2026-07-10T16:00:00.000Z", endTime: "2026-07-10T20:00:00.000Z" }),
-      event({ id: "future", startTime: "2026-07-11T16:00:00.000Z", endTime: "2026-07-11T20:00:00.000Z" }),
-      event({ id: "past", startTime: "2026-07-09T16:00:00.000Z", endTime: "2026-07-09T20:00:00.000Z" }),
+      event({ id: "live", startTime: "2026-07-10T16:00:00", endTime: "2026-07-10T20:00:00" }),
+      event({ id: "later-today", startTime: "2026-07-10T22:00:00", endTime: "2026-07-10T23:00:00" }),
+      event({ id: "tomorrow", startTime: "2026-07-11T09:00:00", endTime: "2026-07-11T10:00:00" }),
+      event({ id: "yesterday", startTime: "2026-07-09T09:00:00", endTime: "2026-07-09T10:00:00" }),
     ]);
     const enrichment = new FakeEnrichmentRepository([]);
 
-    const result = await getHappeningNow(
-      "neighborhood-1",
-      events,
-      enrichment,
-      new Date("2026-07-10T18:00:00.000Z")
-    );
+    // Local time (no "Z") for both `now` and the fixtures -- isToday compares
+    // against `now`'s local calendar day, so this needs to hold regardless of
+    // the machine's timezone, same reasoning as the "Open now" test below.
+    const result = await getHappeningNow("neighborhood-1", events, enrichment, new Date("2026-07-10T18:00:00"));
 
-    expect(result.live_events).toHaveLength(1);
-    expect(result.live_events[0].id).toBe("live");
+    expect(result.today_events.map((e) => e.id).sort()).toEqual(["later-today", "live"]);
   });
 
   it("includes only locations currently open per their cached hours", async () => {

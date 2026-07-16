@@ -5,6 +5,7 @@ import type {
   BusinessClaimContactMethod,
   BusinessClaimStatus,
   CheckinRewardsSummary,
+  EventStatus,
   HealthCheckResponse,
   MushroomCustomization,
   NeighborhoodDashboardSummary,
@@ -32,12 +33,14 @@ import { verifyAccessToken } from "./auth/verifyToken";
 import { performCheckin } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
 import {
+  getVenueIcalFeed,
   getVenueSocialLinks,
   listClaimsForNeighborhood,
   reviewClaim,
   reviewClaimForNeighborhood,
   revokeApprovedClaimForNeighborhood,
   submitClaim,
+  updateVenueIcalFeedUrl,
   updateVenueSocialLinks,
 } from "./claims/claims";
 import { requireVenueOwner } from "./claims/requireVenueOwner";
@@ -56,10 +59,15 @@ import { SupabaseEnrichmentRepository } from "./enrichment/supabaseRepository";
 import {
   createEvent,
   createEventForNeighborhood,
+  deleteEventForNeighborhood,
+  deleteEventForVenue,
   listEventsForNeighborhood,
   listEventsForVenue,
   listUpcomingEventsForNeighborhood,
+  setEventStatusForNeighborhood,
+  setEventStatusForVenue,
 } from "./events/events";
+import { syncNeighborhoodIcalFeed, syncVenueIcalFeed } from "./events/icalSync";
 import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
@@ -81,6 +89,7 @@ import {
   getNeighborhoodBySlug,
   updateNeighborhoodBoundary,
   updateNeighborhoodDescription,
+  updateNeighborhoodIcalFeedUrl,
   updateNeighborhoodSocialLinks,
 } from "./neighborhoods/neighborhoods";
 import { SlugTakenError } from "./neighborhoods/repository";
@@ -121,6 +130,7 @@ import { SupabaseLocationRepository } from "./locations/supabaseRepository";
 import { getSupabaseClient } from "./supabase";
 
 const CONTACT_METHODS: BusinessClaimContactMethod[] = ["phone", "email", "domain"];
+const EVENT_STATUSES: EventStatus[] = ["active", "hidden"];
 const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"];
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
@@ -626,8 +636,10 @@ export function createApp() {
     }
   });
 
-  // Happening now tab (BACKLOG.md Ref 27): events in progress right now plus
-  // businesses/POIs whose cached hours say they're currently open.
+  // Today tab (BACKLOG.md Ref 27, renamed from "Happening now"): events
+  // happening today plus businesses/POIs whose cached hours say they're
+  // currently open. Route path kept as-is (happening-now) -- only the UI
+  // label and the events filter (today vs. this-exact-instant) changed.
   app.get("/neighborhoods/:id/happening-now", async (req, res) => {
     try {
       const happeningNow = await getHappeningNow(
@@ -1766,12 +1778,13 @@ export function createApp() {
         return;
       }
 
-      const [followerCount, checkinCount, announcements, events, socialLinks] = await Promise.all([
+      const [followerCount, checkinCount, announcements, events, socialLinks, icalFeed] = await Promise.all([
         getFavoriteRepository().countFavoritesForVenue(req.params.id),
         getCheckinRepository().countCheckinsForLocation(req.params.id),
         listAnnouncementsForVenue(req.params.id, getAnnouncementRepository()),
-        listEventsForVenue(req.params.id, getEventRepository()),
+        listEventsForVenue(req.params.id, getEventRepository(), true),
         getVenueSocialLinks(req.params.id, getClaimRepository()),
+        getVenueIcalFeed(req.params.id, getClaimRepository()),
       ]);
 
       const summary: VenueDashboardSummary = {
@@ -1783,6 +1796,8 @@ export function createApp() {
         announcements,
         events,
         social_links: socialLinks,
+        ical_feed_url: icalFeed.icalFeedUrl,
+        ical_synced_at: icalFeed.icalSyncedAt,
       };
       res.json(summary);
     } catch (err) {
@@ -1804,6 +1819,57 @@ export function createApp() {
     } catch (err) {
       console.error(`PATCH /business/venues/${req.params.id}/social-links failed:`, err);
       res.status(500).json({ error: "Failed to update social links" });
+    }
+  });
+
+  // iCal/webcal event feed import (BACKLOG.md Ref 30) -- lets a claimed
+  // business publish an external calendar feed that syncs into its events
+  // list instead of manual EventForm entry for each one.
+  app.patch("/business/venues/:id/ical-feed", venueOwnerGate, async (req, res) => {
+    const { ical_feed_url } = req.body ?? {};
+    if (typeof ical_feed_url !== "string") {
+      res.status(400).json({ error: "ical_feed_url is required" });
+      return;
+    }
+
+    try {
+      const result = await updateVenueIcalFeedUrl(req.params.id, ical_feed_url, getClaimRepository());
+      if (result.status === "invalid_url") {
+        res.status(400).json({ error: "ical_feed_url must be a valid http(s):// or webcal:// URL" });
+        return;
+      }
+      res.json({ ical_feed_url: result.icalFeedUrl });
+    } catch (err) {
+      console.error(`PATCH /business/venues/${req.params.id}/ical-feed failed:`, err);
+      res.status(500).json({ error: "Failed to update calendar feed URL" });
+    }
+  });
+
+  app.post("/business/venues/:id/ical-feed/sync", venueOwnerGate, async (req, res) => {
+    try {
+      const outcome = await syncVenueIcalFeed(
+        req.params.id,
+        getClaimRepository(),
+        getEventRepository(),
+        getLocationRepository()
+      );
+      switch (outcome.status) {
+        case "not_found":
+          res.status(404).json({ error: "Venue not found" });
+          return;
+        case "no_feed_configured":
+          res.status(400).json({ error: "No calendar feed URL is configured for this venue" });
+          return;
+        case "fetch_error":
+          res.status(502).json({ error: `Failed to fetch calendar feed: ${outcome.message}` });
+          return;
+        case "synced":
+          res.json({ imported: outcome.result.imported, updated: outcome.result.updated, synced_at: outcome.syncedAt });
+          return;
+      }
+    } catch (err) {
+      console.error(`POST /business/venues/${req.params.id}/ical-feed/sync failed:`, err);
+      res.status(500).json({ error: "Failed to sync calendar feed" });
     }
   });
 
@@ -1866,6 +1932,47 @@ export function createApp() {
     }
   });
 
+  app.delete("/business/venues/:id/events/:eventId", venueOwnerGate, async (req, res) => {
+    try {
+      const result = await deleteEventForVenue(req.params.id, req.params.eventId, getEventRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      res.status(204).end();
+    } catch (err) {
+      console.error(`DELETE /business/venues/${req.params.id}/events/${req.params.eventId} failed:`, err);
+      res.status(500).json({ error: "Failed to delete event" });
+    }
+  });
+
+  // Hide/restore (BACKLOG.md Ref 30 follow-up) -- unlike DELETE above, hiding
+  // an iCal-imported event survives future "Sync now" runs, since the sync's
+  // upsert never overwrites status. Manually created events can be hidden
+  // too, for the same "keep it but don't show it" case.
+  app.patch("/business/venues/:id/events/:eventId/status", venueOwnerGate, async (req, res) => {
+    const { status } = req.body ?? {};
+    if (!EVENT_STATUSES.includes(status)) {
+      res.status(400).json({ error: `status must be one of: ${EVENT_STATUSES.join(", ")}` });
+      return;
+    }
+
+    try {
+      const result = await setEventStatusForVenue(req.params.id, req.params.eventId, status, getEventRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      res.json(result.event);
+    } catch (err) {
+      console.error(
+        `PATCH /business/venues/${req.params.id}/events/${req.params.eventId}/status failed:`,
+        err
+      );
+      res.status(500).json({ error: "Failed to update event status" });
+    }
+  });
+
   // Neighborhood profile pages (BACKLOG.md): self-serve authoring surface for
   // a neighborhood's own admins, mirroring the business owner venue
   // dashboard's shape but scoped to Neighborhood instead of Venue. The list
@@ -1913,6 +2020,8 @@ export function createApp() {
           pois,
           events,
           social_links: neighborhood.social_links,
+          ical_feed_url: neighborhood.icalFeedUrl,
+          ical_synced_at: neighborhood.icalSyncedAt,
         };
         res.json(summary);
       } catch (err) {
@@ -2033,6 +2142,82 @@ export function createApp() {
     }
   );
 
+  // iCal/webcal event feed import (BACKLOG.md Ref 30) -- lets a neighborhood
+  // publish an external calendar feed that syncs into its events list
+  // instead of manual EventForm entry for each one.
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/ical-feed",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { ical_feed_url } = req.body ?? {};
+      if (typeof ical_feed_url !== "string") {
+        res.status(400).json({ error: "ical_feed_url is required" });
+        return;
+      }
+
+      try {
+        const result = await updateNeighborhoodIcalFeedUrl(
+          req.params.id,
+          ical_feed_url,
+          getNeighborhoodRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+        if (result.status === "invalid_url") {
+          res.status(400).json({ error: "ical_feed_url must be a valid http(s):// or webcal:// URL" });
+          return;
+        }
+        res.json({ ical_feed_url: result.neighborhood.icalFeedUrl });
+      } catch (err) {
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/ical-feed failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to update calendar feed URL" });
+      }
+    }
+  );
+
+  app.post(
+    "/neighborhood-admin/neighborhoods/:id/ical-feed/sync",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      try {
+        const outcome = await syncNeighborhoodIcalFeed(
+          req.params.id,
+          getNeighborhoodRepository(),
+          getEventRepository()
+        );
+        switch (outcome.status) {
+          case "not_found":
+            res.status(404).json({ error: "Neighborhood not found" });
+            return;
+          case "no_feed_configured":
+            res.status(400).json({ error: "No calendar feed URL is configured for this neighborhood" });
+            return;
+          case "fetch_error":
+            res.status(502).json({ error: `Failed to fetch calendar feed: ${outcome.message}` });
+            return;
+          case "synced":
+            res.json({
+              imported: outcome.result.imported,
+              updated: outcome.result.updated,
+              synced_at: outcome.syncedAt,
+            });
+            return;
+        }
+      } catch (err) {
+        console.error(
+          `POST /neighborhood-admin/neighborhoods/${req.params.id}/ical-feed/sync failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to sync calendar feed" });
+      }
+    }
+  );
+
   app.post(
     "/neighborhood-admin/neighborhoods/:id/events",
     neighborhoodAdminGate,
@@ -2072,6 +2257,67 @@ export function createApp() {
       } catch (err) {
         console.error(`POST /neighborhood-admin/neighborhoods/${req.params.id}/events failed:`, err);
         res.status(500).json({ error: "Failed to create event" });
+      }
+    }
+  );
+
+  app.delete(
+    "/neighborhood-admin/neighborhoods/:id/events/:eventId",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      try {
+        const result = await deleteEventForNeighborhood(
+          req.params.id,
+          req.params.eventId,
+          getEventRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Event not found" });
+          return;
+        }
+        res.status(204).end();
+      } catch (err) {
+        console.error(
+          `DELETE /neighborhood-admin/neighborhoods/${req.params.id}/events/${req.params.eventId} failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to delete event" });
+      }
+    }
+  );
+
+  // Hide/restore (BACKLOG.md Ref 30 follow-up) -- unlike DELETE above, hiding
+  // an iCal-imported event survives future "Sync now" runs, since the sync's
+  // upsert never overwrites status. Manually created events can be hidden
+  // too, for the same "keep it but don't show it" case.
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/events/:eventId/status",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { status } = req.body ?? {};
+      if (!EVENT_STATUSES.includes(status)) {
+        res.status(400).json({ error: `status must be one of: ${EVENT_STATUSES.join(", ")}` });
+        return;
+      }
+
+      try {
+        const result = await setEventStatusForNeighborhood(
+          req.params.id,
+          req.params.eventId,
+          status,
+          getEventRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Event not found" });
+          return;
+        }
+        res.json(result.event);
+      } catch (err) {
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/events/${req.params.eventId}/status failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to update event status" });
       }
     }
   );

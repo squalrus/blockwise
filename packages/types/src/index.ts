@@ -427,6 +427,16 @@ export interface CreateAnnouncementRequest {
   body: string;
 }
 
+// "manual" is the existing EventForm authoring path; "ical" is a row
+// upserted by an iCal/webcal feed sync (BACKLOG.md Ref 30).
+export type EventSource = "manual" | "ical";
+
+// "hidden" survives an iCal re-sync (upsertImportedEvents never overwrites
+// status), unlike a hard delete which a re-sync would just undo -- the way
+// to suppress one specific imported event without excluding it from future
+// syncs.
+export type EventStatus = "active" | "hidden";
+
 export interface Event {
   id: string;
   // Exactly one of venue_id/neighborhood_id is set.
@@ -441,6 +451,17 @@ export interface Event {
   start_time: string;
   end_time: string;
   created_at: string;
+  source: EventSource;
+  // Free-text location (BACKLOG.md Ref 30) -- always null for manually
+  // created events. For imported events, it's the feed's own per-event
+  // LOCATION for a neighborhood-owned import, or the venue's own address
+  // (auto-filled, not read from the feed) for a venue-owned import.
+  location: string | null;
+  status: EventStatus;
+}
+
+export interface UpdateEventStatusRequest {
+  status: EventStatus;
 }
 
 export interface CreateEventRequest {
@@ -448,6 +469,24 @@ export interface CreateEventRequest {
   description: string;
   start_time: string;
   end_time: string;
+}
+
+// PATCH .../ical-feed request/response (BACKLOG.md Ref 30) -- shared shape
+// for both the neighborhood-admin and business-owner feed URL settings form.
+export interface UpdateIcalFeedUrlRequest {
+  ical_feed_url: string;
+}
+
+export interface IcalFeedSettings {
+  ical_feed_url: string | null;
+  ical_synced_at: string | null;
+}
+
+// POST .../ical-feed/sync response.
+export interface IcalSyncResponse {
+  imported: number;
+  updated: number;
+  synced_at: string;
 }
 
 // Neighborhood profile pages (BACKLOG.md) -- public profile mirroring the
@@ -601,6 +640,8 @@ export interface NeighborhoodDashboardSummary {
   pois: Venue[];
   events: Event[];
   social_links: SocialLinks;
+  ical_feed_url: string | null;
+  ical_synced_at: string | null;
 }
 
 // Admin portal boundary drawing (BACKLOG.md Ref 8, project plan §12.6).
@@ -717,6 +758,8 @@ export interface VenueDashboardSummary {
   announcements: Announcement[];
   events: Event[];
   social_links: SocialLinks;
+  ical_feed_url: string | null;
+  ical_synced_at: string | null;
 }
 
 // Category mapping admin tool (BACKLOG.md) -- manual override for venues the
@@ -970,8 +1013,9 @@ export interface ActivityItem {
   occurred_at: string;
 }
 
-// GET /neighborhoods/:id/happening-now -- events in progress right now plus
-// businesses/POIs whose cached hours say they're currently open.
+// GET /neighborhoods/:id/happening-now -- events happening today (in
+// progress, or later today) plus businesses/POIs whose cached hours say
+// they're currently open. Backs the neighborhood profile's "Today" tab.
 export interface OpenNowLocation {
   id: string;
   name: string;
@@ -980,7 +1024,7 @@ export interface OpenNowLocation {
 }
 
 export interface HappeningNow {
-  live_events: Event[];
+  today_events: Event[];
   open_now: OpenNowLocation[];
 }
 

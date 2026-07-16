@@ -9,6 +9,7 @@ import { StatTile, MushroomIcon } from "../../../StatTile";
 import { useBusinessAdmin } from "./BusinessAdminContext";
 import { AnnouncementForm } from "./AnnouncementForm";
 import { EventForm } from "./EventForm";
+import { IcalFeedForm } from "./IcalFeedForm";
 import { SocialLinksForm } from "./SocialLinksForm";
 
 type State =
@@ -47,6 +48,16 @@ export function BusinessVenueDashboard() {
     };
   }, [venueId]);
 
+  // Reloads the whole dashboard after a calendar sync -- simpler than
+  // reconciling imported/updated events one by one into local state.
+  async function reload() {
+    const token = await getAccessToken();
+    const res = await fetch(clientApiUrl(`/business/venues/${venueId}/dashboard`), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) setState({ status: "ready", summary: await res.json() });
+  }
+
   function handleAnnouncementCreated(announcement: Announcement) {
     setState((prev) =>
       prev.status === "ready"
@@ -59,6 +70,46 @@ export function BusinessVenueDashboard() {
     setState((prev) =>
       prev.status === "ready"
         ? { ...prev, summary: { ...prev.summary, events: [...prev.summary.events, event] } }
+        : prev
+    );
+  }
+
+  async function handleDeleteEvent(eventId: string) {
+    const token = await getAccessToken();
+    const res = await fetch(clientApiUrl(`/business/venues/${venueId}/events/${eventId}`), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    setState((prev) =>
+      prev.status === "ready"
+        ? { ...prev, summary: { ...prev.summary, events: prev.summary.events.filter((e) => e.id !== eventId) } }
+        : prev
+    );
+  }
+
+  // Hide survives a future iCal re-sync (unlike delete, which a re-sync
+  // would just undo for an imported event), so it's the way to suppress one
+  // specific event -- imported or manual -- without excluding it forever.
+  async function handleToggleEventStatus(eventId: string, currentStatus: Event["status"]) {
+    const nextStatus = currentStatus === "hidden" ? "active" : "hidden";
+    const token = await getAccessToken();
+    const res = await fetch(clientApiUrl(`/business/venues/${venueId}/events/${eventId}/status`), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    if (!res.ok) return;
+    const updated = (await res.json()) as Event;
+    setState((prev) =>
+      prev.status === "ready"
+        ? {
+            ...prev,
+            summary: {
+              ...prev.summary,
+              events: prev.summary.events.map((e) => (e.id === eventId ? updated : e)),
+            },
+          }
         : prev
     );
   }
@@ -140,18 +191,56 @@ export function BusinessVenueDashboard() {
               <h2 className="font-heading text-lg font-extrabold">Events</h2>
               <span className="font-mono text-[11px] text-muted">{state.summary.events.length} upcoming</span>
             </div>
+            <IcalFeedForm
+              venueId={venueId}
+              initialFeedUrl={state.summary.ical_feed_url}
+              initialSyncedAt={state.summary.ical_synced_at}
+              onSynced={reload}
+            />
+            <div className="my-3.5 border-t border-border" />
             <EventForm venueId={venueId} onCreated={handleEventCreated} />
             {state.summary.events.length === 0 ? (
               <p className="mt-3 text-sm text-muted">No events yet.</p>
             ) : (
               <ul className="mt-3 flex flex-col gap-2">
                 {state.summary.events.map((e) => (
-                  <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
-                    <p className="font-extrabold text-foreground">{e.title}</p>
-                    <p className="text-muted">{e.description}</p>
-                    <p className="mt-1 font-mono text-xs text-muted">
-                      {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
-                    </p>
+                  <li
+                    key={e.id}
+                    className={`flex items-start justify-between gap-3 rounded-2xl bg-card-alt px-4 py-3 text-sm ${
+                      e.status === "hidden" ? "opacity-60" : ""
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-extrabold text-foreground">{e.title}</p>
+                        {e.status === "hidden" && (
+                          <span className="rounded-full bg-card px-2 py-0.5 font-mono text-[10px] font-bold text-muted">
+                            Hidden
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-muted">{e.description}</p>
+                      <p className="mt-1 font-mono text-xs text-muted">
+                        {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
+                      </p>
+                      {e.location && <p className="mt-0.5 text-xs text-muted">{e.location}</p>}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleEventStatus(e.id, e.status)}
+                        className="text-xs font-bold text-foreground hover:underline"
+                      >
+                        {e.status === "hidden" ? "Unhide" : "Hide"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEvent(e.id)}
+                        className="text-xs font-bold text-red-600 hover:underline dark:text-red-400"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

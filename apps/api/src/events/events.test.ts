@@ -2,11 +2,22 @@ import { describe, expect, it } from "vitest";
 import {
   createEvent,
   createEventForNeighborhood,
+  deleteEventForNeighborhood,
+  deleteEventForVenue,
   listEventsForNeighborhood,
   listEventsForVenue,
   listUpcomingEventsForNeighborhood,
+  setEventStatusForNeighborhood,
+  setEventStatusForVenue,
 } from "./events";
-import type { CreateEventInput, EventRecord, EventRepository } from "./repository";
+import type {
+  CreateEventInput,
+  EventRecord,
+  EventRepository,
+  EventStatus,
+  IcalSyncResult,
+  ImportedEventInput,
+} from "./repository";
 
 // In-memory fake, mirroring the pattern used for AnnouncementRepository tests.
 class FakeEventRepository implements EventRepository {
@@ -32,13 +43,17 @@ class FakeEventRepository implements EventRepository {
       startTime: input.startTime,
       endTime: input.endTime,
       createdAt: new Date().toISOString(),
+      source: "manual",
+      externalUid: null,
+      location: null,
+      status: "active",
     };
     this.events.push(record);
     return record;
   }
 
-  async listEventsForVenue(venueId: string): Promise<EventRecord[]> {
-    return this.events.filter((e) => e.venueId === venueId);
+  async listEventsForVenue(venueId: string, includeHidden = false): Promise<EventRecord[]> {
+    return this.events.filter((e) => e.venueId === venueId && (includeHidden || e.status === "active"));
   }
 
   async listEventsForNeighborhood(neighborhoodId: string): Promise<EventRecord[]> {
@@ -46,13 +61,91 @@ class FakeEventRepository implements EventRepository {
   }
 
   async listEventsForNeighborhoodAndVenues(neighborhoodId: string): Promise<EventRecord[]> {
+    const now = new Date().toISOString();
     return this.events
       .filter(
         (e) =>
-          e.neighborhoodId === neighborhoodId ||
-          (e.venueId && this.venues.get(e.venueId)?.neighborhoodId === neighborhoodId)
+          (e.neighborhoodId === neighborhoodId ||
+            (e.venueId && this.venues.get(e.venueId)?.neighborhoodId === neighborhoodId)) &&
+          e.endTime >= now &&
+          e.status === "active"
       )
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }
+
+  async upsertImportedEventsForNeighborhood(
+    neighborhoodId: string,
+    events: ImportedEventInput[]
+  ): Promise<IcalSyncResult> {
+    return this.upsertImported({ neighborhoodId }, events);
+  }
+
+  async upsertImportedEventsForVenue(venueId: string, events: ImportedEventInput[]): Promise<IcalSyncResult> {
+    return this.upsertImported({ venueId }, events);
+  }
+
+  private upsertImported(
+    owner: { neighborhoodId?: string; venueId?: string },
+    events: ImportedEventInput[]
+  ): IcalSyncResult {
+    let imported = 0;
+    let updated = 0;
+    for (const input of events) {
+      const existing = this.events.find(
+        (e) =>
+          e.externalUid === input.uid &&
+          e.neighborhoodId === (owner.neighborhoodId ?? null) &&
+          e.venueId === (owner.venueId ?? null)
+      );
+      if (existing) {
+        // Deliberately doesn't touch `status` -- mirrors the real upsert,
+        // which never includes status in its payload so a re-sync can't
+        // silently un-hide an already-hidden imported event.
+        Object.assign(existing, {
+          title: input.title,
+          description: input.description,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          location: input.location,
+        });
+        updated++;
+      } else {
+        this.events.push({
+          id: `event-${this.nextId++}`,
+          venueId: owner.venueId ?? null,
+          neighborhoodId: owner.neighborhoodId ?? null,
+          venueName: null,
+          title: input.title,
+          description: input.description,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          createdAt: new Date().toISOString(),
+          source: "ical",
+          externalUid: input.uid,
+          location: input.location,
+          status: "active",
+        });
+        imported++;
+      }
+    }
+    return { imported, updated };
+  }
+
+  async getEventOwner(eventId: string): Promise<{ venueId: string | null; neighborhoodId: string | null } | null> {
+    const event = this.events.find((e) => e.id === eventId);
+    if (!event) return null;
+    return { venueId: event.venueId, neighborhoodId: event.neighborhoodId };
+  }
+
+  async deleteEvent(eventId: string): Promise<void> {
+    this.events = this.events.filter((e) => e.id !== eventId);
+  }
+
+  async setEventStatus(eventId: string, status: EventStatus): Promise<EventRecord> {
+    const event = this.events.find((e) => e.id === eventId);
+    if (!event) throw new Error("not found");
+    event.status = status;
+    return event;
   }
 }
 
@@ -158,5 +251,140 @@ describe("listUpcomingEventsForNeighborhood", () => {
     expect(results[0].venue_name).toBe("Phinney Farmers Market");
     expect(results[1].neighborhood_id).toBe("neighborhood-1");
     expect(results[1].venue_name).toBeNull();
+  });
+});
+
+describe("deleteEventForVenue", () => {
+  it("deletes an event owned by the given venue", async () => {
+    const repo = new FakeEventRepository();
+    const created = await createEvent("venue-1", VALID_INPUT, repo);
+    if (created.status !== "created") throw new Error("expected created");
+
+    const result = await deleteEventForVenue("venue-1", created.event.id, repo);
+
+    expect(result).toEqual({ status: "deleted" });
+    expect(await listEventsForVenue("venue-1", repo)).toHaveLength(0);
+  });
+
+  it("returns not_found for an event owned by a different venue", async () => {
+    const repo = new FakeEventRepository();
+    const created = await createEvent("venue-1", VALID_INPUT, repo);
+    if (created.status !== "created") throw new Error("expected created");
+
+    const result = await deleteEventForVenue("venue-2", created.event.id, repo);
+
+    expect(result).toEqual({ status: "not_found" });
+    expect(await listEventsForVenue("venue-1", repo)).toHaveLength(1);
+  });
+
+  it("returns not_found for a missing event id", async () => {
+    const repo = new FakeEventRepository();
+    const result = await deleteEventForVenue("venue-1", "missing-event", repo);
+    expect(result).toEqual({ status: "not_found" });
+  });
+});
+
+describe("deleteEventForNeighborhood", () => {
+  it("deletes an event owned by the given neighborhood", async () => {
+    const repo = new FakeEventRepository();
+    const created = await createEventForNeighborhood("neighborhood-1", VALID_INPUT, repo);
+    if (created.status !== "created") throw new Error("expected created");
+
+    const result = await deleteEventForNeighborhood("neighborhood-1", created.event.id, repo);
+
+    expect(result).toEqual({ status: "deleted" });
+    expect(await listEventsForNeighborhood("neighborhood-1", repo)).toHaveLength(0);
+  });
+
+  it("returns not_found for an event owned by a different neighborhood", async () => {
+    const repo = new FakeEventRepository();
+    const created = await createEventForNeighborhood("neighborhood-1", VALID_INPUT, repo);
+    if (created.status !== "created") throw new Error("expected created");
+
+    const result = await deleteEventForNeighborhood("neighborhood-2", created.event.id, repo);
+
+    expect(result).toEqual({ status: "not_found" });
+    expect(await listEventsForNeighborhood("neighborhood-1", repo)).toHaveLength(1);
+  });
+});
+
+describe("setEventStatusForVenue", () => {
+  it("hides an event owned by the given venue", async () => {
+    const repo = new FakeEventRepository();
+    const created = await createEvent("venue-1", VALID_INPUT, repo);
+    if (created.status !== "created") throw new Error("expected created");
+
+    const result = await setEventStatusForVenue("venue-1", created.event.id, "hidden", repo);
+
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") expect(result.event.status).toBe("hidden");
+    expect(await listEventsForVenue("venue-1", repo)).toHaveLength(0);
+    expect(await listEventsForVenue("venue-1", repo, true)).toHaveLength(1);
+  });
+
+  it("returns not_found for an event owned by a different venue", async () => {
+    const repo = new FakeEventRepository();
+    const created = await createEvent("venue-1", VALID_INPUT, repo);
+    if (created.status !== "created") throw new Error("expected created");
+
+    const result = await setEventStatusForVenue("venue-2", created.event.id, "hidden", repo);
+
+    expect(result).toEqual({ status: "not_found" });
+  });
+});
+
+describe("setEventStatusForNeighborhood", () => {
+  it("hides an event owned by the given neighborhood, excluding it from the public Upcoming tab", async () => {
+    const repo = new FakeEventRepository();
+    const created = await createEventForNeighborhood(
+      "neighborhood-1",
+      { ...VALID_INPUT, startTime: "2026-08-02T18:00:00.000Z", endTime: "2026-08-02T21:00:00.000Z" },
+      repo
+    );
+    if (created.status !== "created") throw new Error("expected created");
+
+    const result = await setEventStatusForNeighborhood("neighborhood-1", created.event.id, "hidden", repo);
+
+    expect(result.status).toBe("updated");
+    expect(await listUpcomingEventsForNeighborhood("neighborhood-1", repo)).toHaveLength(0);
+    // Still visible to the admin dashboard, which reads listEventsForNeighborhood directly.
+    expect(await listEventsForNeighborhood("neighborhood-1", repo)).toHaveLength(1);
+  });
+
+  it("returns not_found for an event owned by a different neighborhood", async () => {
+    const repo = new FakeEventRepository();
+    const created = await createEventForNeighborhood("neighborhood-1", VALID_INPUT, repo);
+    if (created.status !== "created") throw new Error("expected created");
+
+    const result = await setEventStatusForNeighborhood("neighborhood-2", created.event.id, "hidden", repo);
+
+    expect(result).toEqual({ status: "not_found" });
+  });
+});
+
+describe("iCal re-sync preserves a hidden status", () => {
+  it("does not un-hide a previously-hidden imported event on re-sync", async () => {
+    const repo = new FakeEventRepository();
+    const imported: ImportedEventInput = {
+      uid: "feed-uid-1",
+      title: "Weekly market",
+      description: "desc",
+      startTime: "2026-08-02T18:00:00.000Z",
+      endTime: "2026-08-02T21:00:00.000Z",
+      location: null,
+    };
+
+    await repo.upsertImportedEventsForNeighborhood("neighborhood-1", [imported]);
+    const [firstSync] = await listEventsForNeighborhood("neighborhood-1", repo);
+    await setEventStatusForNeighborhood("neighborhood-1", firstSync.id, "hidden", repo);
+
+    // Re-sync with the same uid, as an unattended "Sync now" would do.
+    await repo.upsertImportedEventsForNeighborhood("neighborhood-1", [
+      { ...imported, title: "Weekly market (updated)" },
+    ]);
+
+    const [afterResync] = await listEventsForNeighborhood("neighborhood-1", repo);
+    expect(afterResync.title).toBe("Weekly market (updated)");
+    expect(afterResync.status).toBe("hidden");
   });
 });

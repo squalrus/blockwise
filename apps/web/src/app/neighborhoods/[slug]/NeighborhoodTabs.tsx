@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { TabNav } from "../../TabNav";
 
 const TABS = [
-  { key: "", label: "Happening now" },
+  { key: "", label: "Today" },
   { key: "/activity", label: "Recent activity" },
   { key: "/events", label: "Upcoming events" },
   { key: "/locations", label: "Locations" },
