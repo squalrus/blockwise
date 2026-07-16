@@ -49,8 +49,9 @@ export const BRAND_INDIGO = "#4a5fa5";
 export const BRAND_RUSSULA = "#b33a3a";
 export const BRAND_BLUSHER = "#d98a9c";
 
-const CAPS = [BRAND_ORANGE, BRAND_AMBER, BRAND_GREEN, BRAND_PURPLE, BRAND_INK, BRAND_INDIGO, BRAND_RUSSULA, BRAND_BLUSHER];
 const CREAM_STALK = "#fbf2e4";
+// Cream first -- the softest, most neutral cap option leads the row.
+const CAPS = [CREAM_STALK, BRAND_ORANGE, BRAND_AMBER, BRAND_GREEN, BRAND_PURPLE, BRAND_INK, BRAND_INDIGO, BRAND_RUSSULA, BRAND_BLUSHER];
 // Background-tint colors (brand page's "04 Color" swatch table), also
 // approved as stalk/spot accents -- not gated to a particular cap since
 // they're all light-toned like Cream.
@@ -61,7 +62,6 @@ const OAT = "#f5e8d3";
 const SAGE = "#c8d3be";
 const MIST = "#d8e3e8";
 const CLAY = "#e3c9ae";
-// Always available regardless of cap (unlike Amber, gated below).
 const BASE_ACCENTS = [CREAM_STALK, BRAND_INK, WHEAT, MEADOW, LILAC, OAT, SAGE, MIST, CLAY];
 // 0 excluded -- every user's mushroom should read as a mushroom, not a blank
 // cap that looks unfinished.
@@ -78,8 +78,7 @@ const MAX_SPOT_COUNT = 6;
 //
 // MUSHROOM_STALK_* also doubles as the approved palette for spot color --
 // stalk and spots are independent choices (each picked separately below,
-// not one mirroring the other), but they share the same palette and the
-// same amber-only-with-cocoa-cap contrast rule.
+// not one mirroring the other), but they share the same palette.
 export const MUSHROOM_CAPS = CAPS;
 export const MUSHROOM_STALK_CREAM = CREAM_STALK;
 export const MUSHROOM_STALK_COCOA = BRAND_INK;
@@ -90,16 +89,10 @@ export const MUSHROOM_STALK_OAT = OAT;
 export const MUSHROOM_STALK_SAGE = SAGE;
 export const MUSHROOM_STALK_MIST = MIST;
 export const MUSHROOM_STALK_CLAY = CLAY;
-// Only ever paired with a Cocoa cap (contrast reasons, mirrored below in
-// mushroomConfigForUser) -- the customizer must enforce that pairing itself.
-export const MUSHROOM_STALK_AMBER = BRAND_AMBER;
-// The always-available options (everything except Amber) -- customizer UI
-// appends Amber itself only when the selected cap is Cocoa.
+// The full approved set of stalk/spots/bg values -- Amber is not one of
+// them (it remains a cap-only color).
 export const MUSHROOM_STALK_BASE_OPTIONS = BASE_ACCENTS;
-// Every approved stalk/spots/bg value, Amber included -- for validators
-// (apps/api's isValidMushroomCustomization) that need the full set rather
-// than the "base options plus Amber if Cocoa" split the customizer UI uses.
-export const MUSHROOM_STALKS = [...BASE_ACCENTS, MUSHROOM_STALK_AMBER];
+export const MUSHROOM_STALKS = BASE_ACCENTS;
 export const MUSHROOM_SPOT_COUNTS = [0, 1, 2, 3, 4, 5, 6];
 export const MUSHROOM_SPOT_SHAPES = SPOT_SHAPES;
 
@@ -121,11 +114,9 @@ export interface MushroomConfig {
 export function mushroomConfigForUser(seed: string): MushroomConfig {
   const rnd = mulberry32(hashSeed(seed));
   const cap = CAPS[Math.floor(rnd() * CAPS.length)];
-  // Mirrors the brand mosaic's rule: an ink-dark cap gets an amber accent
-  // (cream would be too low-contrast); otherwise any of the base accents.
-  const stalk = cap === BRAND_INK ? BRAND_AMBER : BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
-  const spots = cap === BRAND_INK ? BRAND_AMBER : BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
-  const bg = cap === BRAND_INK ? BRAND_AMBER : BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
+  const stalk = BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
+  const spots = BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
+  const bg = BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
   const spotCount = MIN_AUTO_SPOT_COUNT + Math.floor(rnd() * (MAX_SPOT_COUNT - MIN_AUTO_SPOT_COUNT + 1));
   const spotShape = SPOT_SHAPES[Math.floor(rnd() * SPOT_SHAPES.length)];
   return { cap, stalk, spots, spotCount, spotShape, bg };

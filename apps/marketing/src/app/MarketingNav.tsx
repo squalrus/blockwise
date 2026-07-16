@@ -39,7 +39,7 @@ export function MarketingNav() {
             className="rounded-full px-[18px] py-2.5 text-[13px] font-extrabold whitespace-nowrap"
             style={{ background: ORANGE, color: CREAM }}
           >
-            Get the app
+            Sign up
           </a>
         </div>
       </div>

@@ -120,7 +120,6 @@ class FakeLocationRepository implements LocationRepository {
       categoryId: input.categoryId,
       categoryName: null,
       categoryGroup: null,
-      type: input.type,
       description: input.description,
       lat: input.lat,
       lng: input.lng,
@@ -149,7 +148,6 @@ class FakeLocationRepository implements LocationRepository {
     const location = this.locations.find((l) => l.id === locationId)!;
     location.kind = input.kind;
     if (input.categoryId !== undefined) location.categoryId = input.categoryId;
-    if (input.type !== undefined) location.type = input.type;
     return location;
   }
 
@@ -186,7 +184,6 @@ function makeBusinessLocation(overrides: Partial<LocationRecord> = {}): Location
     categoryId: null,
     categoryName: null,
     categoryGroup: null,
-    type: null,
     description: null,
     lat: 0,
     lng: 0,
@@ -199,7 +196,7 @@ function makeBusinessLocation(overrides: Partial<LocationRecord> = {}): Location
 }
 
 function makePoiLocation(overrides: Partial<LocationRecord> = {}): LocationRecord {
-  return makeBusinessLocation({ kind: "poi", type: "park", ...overrides });
+  return makeBusinessLocation({ kind: "poi", ...overrides });
 }
 
 describe("reviewNeighborhoodLocations", () => {
@@ -481,7 +478,7 @@ describe("commitLocationReview", () => {
   it("creates a POI for a poi classification", async () => {
     const result = await commitLocationReview(
       "phinneywood-id",
-      [{ ...candidate, classification: "poi", type: "cafe" }],
+      [{ ...candidate, classification: "poi" }],
       [],
       placesRepository,
       locationRepository
@@ -521,7 +518,7 @@ describe("commitLocationReview", () => {
       "phinneywood-id",
       [
         { ...candidate, classification: "business" }, // missing categoryId
-        { ...candidate, googlePlaceId: "mock-original-bakery", name: "Original Bakery", classification: "poi", type: "bakery" },
+        { ...candidate, googlePlaceId: "mock-original-bakery", name: "Original Bakery", classification: "poi" },
       ],
       [],
       placesRepository,

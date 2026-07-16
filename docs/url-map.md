@@ -40,7 +40,7 @@ apps/web/src/app/
 │       ├── locations/page.tsx                      /neighborhoods/:slug/locations — Locations tab (list/map toggle) — merges businesses (renamed from Venues) and neighborhood-owned POIs (folded in from the former Points of interest tab)
 │       └── challenges/page.tsx                     /neighborhoods/:slug/challenges — Challenges tab — challenges on top, leaderboard below (merged from two separate tabs)
 ├── location/
-│   └── [id]/page.tsx                              /location/:id — P — merged business/POI detail page (BACKLOG.md "POIs and venues managed almost the same"), branches on `kind`: claim form/favorite/announcements/events for business, type/description/check-in stat for POI
+│   └── [id]/page.tsx                              /location/:id — P — merged business/POI detail page (BACKLOG.md "POIs and venues managed almost the same"), branches on `kind`: claim form/favorite/announcements/events for business, description/check-in stat for POI
 ├── admin/
 │   ├── page.tsx                                    /admin — C — single admin entry point (folds the old /business and /neighborhood-admin list pages together): redirects to the first neighborhood you admin, else the first business you own, else shows a "nothing to admin yet" state (become a business owner / create a neighborhood, as applicable)
 │   ├── category-taxonomy/page.tsx                  /admin/category-taxonomy — S (requireAdmin) — global category CRUD (unrelated role from neighborhood/business admin below)

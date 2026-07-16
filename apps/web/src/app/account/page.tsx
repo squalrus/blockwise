@@ -7,11 +7,13 @@ import type {
   CheckinHistoryItem,
   ConnectionSummary,
   FavoriteVenueSummary,
+  NeighborhoodMembership,
   UserBadge,
   UserChallenge,
   UserChallengeProgress,
   UserPointsSummary,
 } from "@blockwise/types";
+import { MushroomLoader, MushroomLogo } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { BadgeIcon } from "../BadgeIcon";
@@ -52,6 +54,10 @@ type State =
       // BACKLOG.md Ref 14/33 "Connect with other users": every connection
       // involving this account, pending or accepted, in either direction.
       connections: ConnectionSummary[];
+      // Gates the "join a neighborhood" prompt below -- empty for a brand
+      // new account, which otherwise has nothing else on this page pointing
+      // it at /neighborhoods.
+      neighborhoods: NeighborhoodMembership[];
     };
 
 // Activity/action hub (BACKLOG.md "My account page"): identity from GET
@@ -78,6 +84,7 @@ async function loadAccount(setState: (state: State) => void) {
     challengesRes,
     activeChallengesRes,
     connectionsRes,
+    neighborhoodsRes,
   ] = await Promise.all([
     fetch(clientApiUrl("/me/favorites"), { headers }),
     fetch(clientApiUrl("/me/checkins"), { headers }),
@@ -87,6 +94,7 @@ async function loadAccount(setState: (state: State) => void) {
     fetch(clientApiUrl("/me/challenges"), { headers }),
     fetch(clientApiUrl("/me/challenges/active"), { headers }),
     fetch(clientApiUrl("/me/connections"), { headers }),
+    fetch(clientApiUrl("/me/neighborhoods"), { headers }),
   ]);
   if (
     !favoritesRes.ok ||
@@ -96,7 +104,8 @@ async function loadAccount(setState: (state: State) => void) {
     !catalogRes.ok ||
     !challengesRes.ok ||
     !activeChallengesRes.ok ||
-    !connectionsRes.ok
+    !connectionsRes.ok ||
+    !neighborhoodsRes.ok
   ) {
     setState({ status: "error", message: "Failed to load your account" });
     return;
@@ -113,6 +122,7 @@ async function loadAccount(setState: (state: State) => void) {
     challenges: await challengesRes.json(),
     activeChallenges: await activeChallengesRes.json(),
     connections: await connectionsRes.json(),
+    neighborhoods: await neighborhoodsRes.json(),
   });
 }
 
@@ -128,14 +138,13 @@ export default function AccountPage() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <div className="flex items-center gap-3">
         <h1 className="font-heading text-xl font-extrabold text-foreground">My account</h1>
-        {state.status === "ready" && (
-          <a href="/account/settings" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
-            Settings
-          </a>
-        )}
       </div>
 
-      {state.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
+      {state.status === "loading" && (
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <MushroomLoader size={72} />
+        </div>
+      )}
 
       {state.status === "signed_out" && (
         <p className="text-sm text-muted">
@@ -152,6 +161,25 @@ export default function AccountPage() {
 
       {state.status === "ready" && (
         <>
+          {state.neighborhoods.length === 0 && (
+            <section className="flex flex-col items-start gap-2.5 rounded-3xl bg-nav p-5.5 text-nav-foreground">
+              <div className="flex items-center gap-2.5">
+                <MushroomLogo size={22} capColor="var(--brand-orange)" stemClassName="text-nav-foreground" />
+                <h2 className="font-heading text-[17px] font-extrabold">Find your neighborhood</h2>
+              </div>
+              <p className="text-[13px] leading-relaxed text-nav-muted">
+                You haven&apos;t joined a neighborhood yet -- join one to check in at nearby spots, earn points,
+                and connect with the neighbors around you.
+              </p>
+              <a
+                href="/neighborhoods"
+                className="mt-1 rounded-full bg-brand-orange px-4 py-2 text-sm font-extrabold text-on-accent"
+              >
+                Browse neighborhoods
+              </a>
+            </section>
+          )}
+
           <ProfileSummaryCard
             user={state.user}
             favoriteCount={state.favorites.length}

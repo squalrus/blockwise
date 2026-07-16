@@ -27,7 +27,7 @@ function HamburgerIcon({ open }: { open: boolean }) {
 
 function CheckinIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12Z"
         stroke="currentColor"
@@ -111,21 +111,22 @@ export function AccountNav() {
         Spored
       </a>
 
-      <div className="ml-auto flex items-center gap-1" ref={menuRef}>
+      <div className="ml-auto flex items-center gap-2" ref={menuRef}>
         {state.status === "signed_in" && (
           <a
             href="/checkin"
-            aria-label="Check in"
-            className="flex items-center justify-center rounded-md p-1 text-nav-foreground hover:text-nav-muted"
+            className="flex items-center gap-2 rounded-full bg-card-alt py-1 pr-3.5 pl-1 text-foreground hover:bg-card"
           >
-            <CheckinIcon />
+            <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-brand-orange text-white">
+              <CheckinIcon />
+            </span>
+            <span className="text-[13px] font-extrabold">Check In</span>
           </a>
         )}
         {state.status === "signed_in" && (
           <a
             href="/account"
-            aria-label="My account"
-            className="flex items-center justify-center rounded-md p-1 text-nav-foreground hover:text-nav-muted"
+            className="flex items-center gap-2 rounded-full bg-card-alt py-1 pr-3.5 pl-1 text-foreground hover:bg-card"
           >
             <Avatar
               avatarUrl={state.user.avatar_url}
@@ -135,6 +136,7 @@ export function AccountNav() {
               label="My account"
               size={22}
             />
+            <span className="text-[13px] font-extrabold">{state.user.display_name ?? "Account"}</span>
           </a>
         )}
         <button
@@ -169,7 +171,7 @@ export function AccountNav() {
                 onClick={() => setIsMenuOpen(false)}
                 className="block px-4 py-2 hover:bg-card-alt"
               >
-                Account settings
+                Settings
               </a>
             )}
             {state.status === "signed_in" &&

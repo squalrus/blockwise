@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Announcement, Event, SocialLinks, VenueDashboardSummary } from "@blockwise/types";
+import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { StatTile, MushroomIcon } from "../../../StatTile";
@@ -69,7 +70,11 @@ export function BusinessVenueDashboard() {
   }
 
   if (state.status === "loading") {
-    return <p className="text-sm text-muted">Loading…</p>;
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <MushroomLoader size={72} />
+      </div>
+    );
   }
   if (state.status === "error") {
     return <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>;

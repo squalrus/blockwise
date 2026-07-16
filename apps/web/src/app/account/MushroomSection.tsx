@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { AppUser } from "@blockwise/types";
 import { mushroomConfigForUser } from "@blockwise/ui";
 import type { MushroomConfig, SpotShape } from "@blockwise/ui";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, setCachedUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomCustomizer } from "./MushroomCustomizer";
 
@@ -61,6 +61,7 @@ export function MushroomSection({
       const responseBody = await res.json();
 
       if (res.ok) {
+        setCachedUser(responseBody);
         onSaved(responseBody);
         setStatus({ state: "idle" });
       } else {

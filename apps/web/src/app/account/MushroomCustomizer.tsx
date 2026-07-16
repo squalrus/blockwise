@@ -3,7 +3,6 @@ import {
   MUSHROOM_CAPS,
   MUSHROOM_SPOT_COUNTS,
   MUSHROOM_SPOT_SHAPES,
-  MUSHROOM_STALK_AMBER,
   MUSHROOM_STALK_BASE_OPTIONS,
   MUSHROOM_STALK_CLAY,
   MUSHROOM_STALK_COCOA,
@@ -28,7 +27,6 @@ const STALK_LABELS: Record<string, string> = {
   [MUSHROOM_STALK_SAGE]: "Sage",
   [MUSHROOM_STALK_MIST]: "Mist",
   [MUSHROOM_STALK_CLAY]: "Clay",
-  [MUSHROOM_STALK_AMBER]: "Amber",
 };
 
 const SPOT_SHAPE_LABELS: Record<SpotShape, string> = {
@@ -46,13 +44,9 @@ const SPOT_SHAPE_LABELS: Record<SpotShape, string> = {
 // settings section (not gated on avatar_style). Stalk, spots, and background
 // are independent choices (not one mirroring another), as are spot count
 // (0-6) and spot shape (circle/ring/sparks/star/triangle/cross) -- any count
-// pairs with any shape -- rather than a fused named pattern. Amber is only
-// offered (for stalk, spots, or background) with a Cocoa cap,
-// mirroring mushroomConfigForUser's own auto-assignment contrast rule --
-// switching to a different cap while Amber is selected for any of the three
-// falls back to Cream rather than leaving an invalid pairing. Background
-// only affects Avatar rendering's backdrop circle -- MushroomField's
-// decorative growing-field icons never render one, customized or not.
+// pairs with any shape -- rather than a fused named pattern. Background only
+// affects Avatar rendering's backdrop circle -- MushroomField's decorative
+// growing-field icons never render one, customized or not.
 export function MushroomCustomizer({
   value,
   isCustomized,
@@ -64,17 +58,10 @@ export function MushroomCustomizer({
   onChange: (next: MushroomConfig) => void;
   onReset: () => void;
 }) {
-  const accentOptions =
-    value.cap === MUSHROOM_STALK_COCOA
-      ? [...MUSHROOM_STALK_BASE_OPTIONS, MUSHROOM_STALK_AMBER]
-      : MUSHROOM_STALK_BASE_OPTIONS;
+  const accentOptions = MUSHROOM_STALK_BASE_OPTIONS;
 
   function selectCap(cap: string) {
-    const fallbackIfAmber = (color: string) => (color === MUSHROOM_STALK_AMBER ? MUSHROOM_STALK_CREAM : color);
-    const stalk = cap === MUSHROOM_STALK_COCOA ? value.stalk : fallbackIfAmber(value.stalk);
-    const spots = cap === MUSHROOM_STALK_COCOA ? value.spots : fallbackIfAmber(value.spots);
-    const bg = cap === MUSHROOM_STALK_COCOA ? value.bg : fallbackIfAmber(value.bg);
-    onChange({ ...value, cap, stalk, spots, bg });
+    onChange({ ...value, cap });
   }
 
   return (

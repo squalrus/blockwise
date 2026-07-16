@@ -15,13 +15,7 @@ import type {
   SocialPlatform,
   VenueDashboardSummary,
 } from "@blockwise/types";
-import {
-  MUSHROOM_CAPS,
-  MUSHROOM_STALK_COCOA,
-  MUSHROOM_STALK_AMBER,
-  MUSHROOM_STALKS,
-  MUSHROOM_SPOT_SHAPES,
-} from "@blockwise/types";
+import { MUSHROOM_CAPS, MUSHROOM_STALKS, MUSHROOM_SPOT_SHAPES } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
 import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
 import { requireSuperAdmin } from "./admin/requireSuperAdmin";
@@ -78,7 +72,7 @@ import {
 import { awardFounderBadge } from "./gamification/founderBadge";
 import { awardFavoritePoints, getLeaderboard, getUserBadges, getUserPoints } from "./gamification/points";
 import { awardCheckinRewards, awardNeighborConnectionRewards } from "./gamification/rewards";
-import { awardSqualrusConnectionBadge } from "./gamification/squalrusBadge";
+import { awardSqualrusConnectionBadge, SQUALRUS_BADGE_CODE } from "./gamification/squalrusBadge";
 import { SupabaseGamificationRepository } from "./gamification/supabaseRepository";
 import {
   createNeighborhood,
@@ -148,10 +142,9 @@ const MUSHROOM_MAX_SPOT_COUNT = 6;
 // null clears a saved customization back to the hash-derived default -- only
 // that or a fully-approved { cap, stalk, spots, bg, spotCount, spotShape }
 // combination is accepted. Stalk, spots, and bg are independent choices (not
-// one mirroring another), but share the same approved palette and the same
-// amber-only-with-Cocoa-cap contrast rule (mirroring mushroomConfigForUser's
-// own auto-assignment). spotCount and spotShape are likewise independent
-// choices (any count 0-6 pairs with any shape), not a fused named pattern.
+// one mirroring another), but share the same approved palette. spotCount and
+// spotShape are likewise independent choices (any count 0-6 pairs with any
+// shape), not a fused named pattern.
 function isValidMushroomCustomization(value: unknown): value is MushroomCustomization | null {
   if (value === null) return true;
   if (typeof value !== "object" || Array.isArray(value)) return false;
@@ -159,11 +152,8 @@ function isValidMushroomCustomization(value: unknown): value is MushroomCustomiz
   const { cap, stalk, spots, bg, spotCount, spotShape } = value as Record<string, unknown>;
   if (typeof cap !== "string" || !MUSHROOM_CAPS.includes(cap)) return false;
   if (typeof stalk !== "string" || !MUSHROOM_STALKS.includes(stalk)) return false;
-  if (stalk === MUSHROOM_STALK_AMBER && cap !== MUSHROOM_STALK_COCOA) return false;
   if (typeof spots !== "string" || !MUSHROOM_STALKS.includes(spots)) return false;
-  if (spots === MUSHROOM_STALK_AMBER && cap !== MUSHROOM_STALK_COCOA) return false;
   if (typeof bg !== "string" || !MUSHROOM_STALKS.includes(bg)) return false;
-  if (bg === MUSHROOM_STALK_AMBER && cap !== MUSHROOM_STALK_COCOA) return false;
   if (
     typeof spotCount !== "number" ||
     !Number.isInteger(spotCount) ||
@@ -1019,10 +1009,13 @@ export function createApp() {
   // BACKLOG.md Ref 61: every badge that exists (earned or not), so the
   // account page can render "locked" badges alongside GET /me/badges'
   // earned ones. Public/no auth -- the badge catalog isn't per-user data.
+  // squalrus_connection is excluded -- it's an easter egg (see
+  // gamification/squalrusBadge.ts) that shouldn't be spoiled as a "locked"
+  // goal; a user who earns it still sees it via GET /me/badges.
   app.get("/badges", async (_req, res) => {
     try {
       const badges = await getGamificationRepository().getAllBadges();
-      res.json(badges);
+      res.json(badges.filter((b) => b.code !== SQUALRUS_BADGE_CODE));
     } catch (err) {
       console.error("GET /badges failed:", err);
       res.status(500).json({ error: "Failed to load badge catalog" });
@@ -2088,17 +2081,13 @@ export function createApp() {
   // today (kind hardcoded to "poi" client-side); kind "business" is accepted
   // for forward compatibility but has no manual-create UI yet.
   app.post("/neighborhood-admin/neighborhoods/:id/locations", neighborhoodAdminGate, async (req, res) => {
-    const { kind, name, description, type, category_id, lat, lng, google_place_id, address } = req.body ?? {};
+    const { kind, name, description, category_id, lat, lng, google_place_id, address } = req.body ?? {};
     if (kind !== "business" && kind !== "poi") {
       res.status(400).json({ error: "kind must be 'business' or 'poi'" });
       return;
     }
     if (typeof name !== "string" || !name) {
       res.status(400).json({ error: "name is required" });
-      return;
-    }
-    if (kind === "poi" && (typeof type !== "string" || !type)) {
-      res.status(400).json({ error: "type is required for kind 'poi'" });
       return;
     }
     if (description !== undefined && typeof description !== "string") {
@@ -2121,7 +2110,7 @@ export function createApp() {
     try {
       const location = await createLocation(
         req.params.id,
-        { kind, name, description, type, categoryId: category_id, lat, lng, googlePlaceId: google_place_id, address },
+        { kind, name, description, categoryId: category_id, lat, lng, googlePlaceId: google_place_id, address },
         getLocationRepository()
       );
       res.status(201).json(location);
@@ -2318,10 +2307,6 @@ export function createApp() {
           res.status(400).json({ error: "category_id is required to classify as a business" });
           return;
         }
-        if (item.classification === "poi" && typeof item.type !== "string") {
-          res.status(400).json({ error: "type is required to classify as a point of interest" });
-          return;
-        }
       }
 
       try {
@@ -2335,7 +2320,6 @@ export function createApp() {
             address: item.address,
             classification: item.classification,
             categoryId: item.category_id,
-            type: item.type,
           })),
           removals.map((item) => ({ id: item.id })),
           getPlacesRepository(),
@@ -2390,17 +2374,13 @@ export function createApp() {
     "/neighborhood-admin/neighborhoods/:id/locations/:locationId",
     neighborhoodAdminGate,
     async (req, res) => {
-      const { name, description, type, lat, lng, address } = req.body ?? {};
+      const { name, description, lat, lng, address } = req.body ?? {};
       if (name !== undefined && (typeof name !== "string" || !name)) {
         res.status(400).json({ error: "name must be a non-empty string" });
         return;
       }
       if (description !== undefined && typeof description !== "string") {
         res.status(400).json({ error: "description must be a string" });
-        return;
-      }
-      if (type !== undefined && (typeof type !== "string" || !type)) {
-        res.status(400).json({ error: "type must be a non-empty string" });
         return;
       }
       if (lat !== undefined && typeof lat !== "number") {
@@ -2420,7 +2400,7 @@ export function createApp() {
         const result = await updateLocationForNeighborhood(
           req.params.id,
           req.params.locationId,
-          { name, description, type, lat, lng, address },
+          { name, description, lat, lng, address },
           getLocationRepository()
         );
         switch (result.status) {
@@ -2487,7 +2467,7 @@ export function createApp() {
     "/neighborhood-admin/neighborhoods/:id/locations/:locationId/kind",
     neighborhoodAdminGate,
     async (req, res) => {
-      const { kind, category_id, type } = req.body ?? {};
+      const { kind, category_id } = req.body ?? {};
       if (kind !== "business" && kind !== "poi") {
         res.status(400).json({ error: "kind must be 'business' or 'poi'" });
         return;
@@ -2498,7 +2478,7 @@ export function createApp() {
           req.params.id,
           req.params.locationId,
           kind,
-          { categoryId: category_id, type },
+          { categoryId: category_id },
           getLocationRepository()
         );
         switch (result.status) {
@@ -2513,9 +2493,6 @@ export function createApp() {
             res.status(409).json({
               error: "Reject or revoke this business's claim before switching it to a point of interest",
             });
-            return;
-          case "missing_type":
-            res.status(400).json({ error: "type is required to switch to a point of interest" });
             return;
           case "invalid_category":
             res.status(400).json({ error: "category_id must reference a valid leaf category" });

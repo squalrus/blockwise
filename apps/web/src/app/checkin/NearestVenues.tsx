@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { VenueListItem } from "@blockwise/types";
+import { MushroomLoader } from "@blockwise/ui";
 import { clientApiUrl } from "@/lib/clientApi";
 import { sortByDistance, type LatLng } from "@/lib/geo";
 import { getCurrentPosition } from "@/lib/geolocation";
 import { PlaceListItem } from "../PlaceListItem";
 import { SlideToCheckIn } from "../SlideToCheckIn";
 
-const NEAREST_LIMIT = 5;
+const NEAREST_LIMIT = 7;
 
 type State =
   | { status: "loading" }
@@ -23,6 +24,9 @@ type State =
 // order) if location access isn't available, same as VenuesView.
 export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: string | null }) {
   const [state, setState] = useState<State>({ status: "loading" });
+  // Which non-top row (if any) is expanded to reveal its own slide-to-check-in
+  // control -- the top spot always shows its control, so this never tracks it.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!homeNeighborhoodId) {
@@ -60,7 +64,17 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
     };
   }, [homeNeighborhoodId]);
 
-  if (state.status === "loading") return null;
+  // Covers the venues fetch and the (often slower, permission-prompt-gated)
+  // geolocation lookup below -- both run before this ever leaves "loading",
+  // so keeping the mark on screen here avoids a blank gap between the
+  // /checkin page's own loader handing off and this one finishing.
+  if (state.status === "loading") {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <MushroomLoader size={72} />
+      </div>
+    );
+  }
 
   if (state.status === "no_home") {
     return (
@@ -87,7 +101,10 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
             id={venue.id}
             name={venue.name}
             subtitle={`${venue.category_name ?? "Uncategorized"} · ${venue.address}`}
-            action={index === 0 ? <SlideToCheckIn locationId={venue.id} /> : undefined}
+            action={
+              index === 0 || expandedId === venue.id ? <SlideToCheckIn locationId={venue.id} /> : undefined
+            }
+            onSelect={index === 0 ? undefined : () => setExpandedId((cur) => (cur === venue.id ? null : venue.id))}
           />
         </li>
       ))}

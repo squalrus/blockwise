@@ -18,19 +18,23 @@ export function pinColorFor(id: string): string {
 // subtitle underneath. `action` renders below the row (e.g. a check-in
 // button) for the one row that needs it; passing it switches the row from a
 // single full-bleed link to a link around just the label so the action's own
-// button isn't nested inside an <a>.
+// button isn't nested inside an <a>. `onSelect`, when passed, swaps that
+// label link for a button (e.g. the /checkin page's non-top rows, which
+// expand in place to reveal a check-in control rather than navigating away).
 export function PlaceListItem({
   href,
   id,
   name,
   subtitle,
   action,
+  onSelect,
 }: {
   href: string;
   id: string;
   name: string;
   subtitle: string;
   action?: ReactNode;
+  onSelect?: () => void;
 }) {
   const label = (
     <>
@@ -42,7 +46,28 @@ export function PlaceListItem({
     </>
   );
 
+  const labelLink = onSelect ? (
+    <button type="button" onClick={onSelect} className="flex items-center gap-3 text-left">
+      {label}
+    </button>
+  ) : (
+    <Link href={href} className="flex items-center gap-3">
+      {label}
+    </Link>
+  );
+
   if (!action) {
+    if (onSelect) {
+      return (
+        <button
+          type="button"
+          onClick={onSelect}
+          className="flex w-full items-center gap-3 rounded-2xl bg-card-alt px-4 py-3 text-left text-sm"
+        >
+          {label}
+        </button>
+      );
+    }
     return (
       <Link href={href} className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3 text-sm">
         {label}
@@ -52,9 +77,7 @@ export function PlaceListItem({
 
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
-      <Link href={href} className="flex items-center gap-3">
-        {label}
-      </Link>
+      {labelLink}
       {action}
     </div>
   );

@@ -41,7 +41,7 @@ function categoryGroupName(embed: CategoryEmbed[] | CategoryEmbed | null): strin
 }
 
 const LOCATION_COLUMNS =
-  "id, neighborhood_id, google_place_id, name, kind, category_id, type, description, lat, lng, address, claimed_by_business, status, created_at, category:category_id(name, parent:parent_category_id(name))";
+  "id, neighborhood_id, google_place_id, name, kind, category_id, description, lat, lng, address, claimed_by_business, status, created_at, category:category_id(name, parent:parent_category_id(name))";
 
 interface LocationRow {
   id: string;
@@ -51,7 +51,6 @@ interface LocationRow {
   kind: "business" | "poi";
   category_id: string | null;
   category: CategoryEmbed[] | CategoryEmbed | null;
-  type: string | null;
   description: string | null;
   lat: number | null;
   lng: number | null;
@@ -71,7 +70,6 @@ function toRecord(row: LocationRow): LocationRecord {
     categoryId: row.category_id,
     categoryName: categoryName(row.category),
     categoryGroup: categoryGroupName(row.category),
-    type: row.type,
     description: row.description,
     lat: row.lat,
     lng: row.lng,
@@ -150,7 +148,7 @@ export class SupabaseLocationRepository implements LocationRepository {
     const { data: location, error: locationError } = await this.supabase
       .from("venue")
       .select(
-        "id, google_place_id, name, kind, type, description, address, lat, lng, claimed_by_business, category:category_id(name), neighborhood:neighborhood_id(slug, name)"
+        "id, google_place_id, name, kind, description, address, lat, lng, claimed_by_business, category:category_id(name), neighborhood:neighborhood_id(slug, name)"
       )
       .eq("id", locationId)
       .eq("status", "active")
@@ -223,7 +221,6 @@ export class SupabaseLocationRepository implements LocationRepository {
       googlePlaceId: location.google_place_id,
       name: location.name,
       kind: location.kind,
-      type: location.type,
       description: location.description,
       address: location.address,
       lat: location.lat,
@@ -259,7 +256,6 @@ export class SupabaseLocationRepository implements LocationRepository {
         kind: input.kind,
         name: input.name,
         description: input.description,
-        type: input.type,
         category_id: input.categoryId,
         lat: input.lat,
         lng: input.lng,
@@ -278,7 +274,6 @@ export class SupabaseLocationRepository implements LocationRepository {
     const patch: Record<string, unknown> = {};
     if (input.name !== undefined) patch.name = input.name;
     if (input.description !== undefined) patch.description = input.description;
-    if (input.type !== undefined) patch.type = input.type;
     if (input.lat !== undefined) patch.lat = input.lat;
     if (input.lng !== undefined) patch.lng = input.lng;
     if (input.address !== undefined) patch.address = input.address;
@@ -313,7 +308,6 @@ export class SupabaseLocationRepository implements LocationRepository {
     } else {
       patch.category_id = null;
       patch.claimed_by_business = false;
-      if (input.type !== undefined) patch.type = input.type;
     }
 
     const { data, error } = await this.supabase

@@ -34,7 +34,6 @@ export function PoiForm({
     const body = {
       ...(isEdit ? {} : { kind: "poi" as const }),
       name: String(data.get("name") ?? ""),
-      type: String(data.get("type") ?? ""),
       description: String(data.get("description") ?? "") || undefined,
       address: String(data.get("address") ?? "") || undefined,
       lat: Number(data.get("lat")),
@@ -79,13 +78,6 @@ export function PoiForm({
         required
         defaultValue={existing?.name}
         placeholder="Name (e.g. Woodland Park)"
-        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
-      />
-      <input
-        name="type"
-        required
-        defaultValue={existing?.type ?? undefined}
-        placeholder="Type (e.g. park, transit, landmark)"
         className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <textarea

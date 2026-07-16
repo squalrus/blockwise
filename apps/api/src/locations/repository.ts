@@ -16,8 +16,7 @@ export interface LocationRecord {
   categoryId: string | null;
   categoryName: string | null;
   categoryGroup: string | null;
-  // POI-only fields -- null for kind "business".
-  type: string | null;
+  // POI-only field -- null for kind "business".
   description: string | null;
   lat: number | null;
   lng: number | null;
@@ -35,7 +34,6 @@ export interface LocationDetailRecord {
   googlePlaceId: string | null;
   name: string;
   kind: LocationKind;
-  type: string | null;
   description: string | null;
   address: string | null;
   lat: number | null;
@@ -63,7 +61,6 @@ export interface CreateLocationInput {
   kind: LocationKind;
   name: string;
   description: string | null;
-  type: string | null;
   categoryId: string | null;
   lat: number;
   lng: number;
@@ -79,7 +76,6 @@ export interface CreateLocationInput {
 export interface UpdateLocationInput {
   name?: string;
   description?: string;
-  type?: string;
   lat?: number;
   lng?: number;
   address?: string;
@@ -88,7 +84,6 @@ export interface UpdateLocationInput {
 export interface SetLocationKindInput {
   kind: LocationKind;
   categoryId?: string;
-  type?: string;
 }
 
 export interface CategoryRecord {
@@ -134,8 +129,8 @@ export interface LocationRepository {
   // untouched.
   setLocationStatus(locationId: string, status: VenueStatus): Promise<LocationRecord>;
   // Switch between business and poi kind in place (BACKLOG.md "POIs and
-  // venues managed almost the same") -- validation (claimed-block,
-  // required-type-for-poi) lives in locations.ts's switchLocationKindForNeighborhood.
+  // venues managed almost the same") -- validation (claimed-block) lives in
+  // locations.ts's switchLocationKindForNeighborhood.
   setLocationKind(locationId: string, input: SetLocationKindInput): Promise<LocationRecord>;
   updateLocationCategory(locationId: string, categoryId: string): Promise<LocationRecord>;
   // Only leaf categories (those with a parent_category_id) -- the 6

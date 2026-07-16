@@ -1,16 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AccountType } from "@blockwise/types";
-import { signInWithGoogle, signUp } from "@/lib/auth";
+import { GoogleIcon, MushroomLoader } from "@blockwise/ui";
+import { getCurrentUser, signInWithGoogle, signUp } from "@/lib/auth";
 
 type Status = { state: "idle" | "submitting" | "error"; message?: string };
 
+// Every signup creates a consumer account -- a business owner claims their
+// venue afterward (BACKLOG.md), which promotes the account to "business"
+// (apps/api/src/auth/auth.ts's promoteToBusiness) rather than picking a
+// type up front here.
 export default function SignupPage() {
   const router = useRouter();
-  const [accountType, setAccountType] = useState<AccountType>("consumer");
   const [status, setStatus] = useState<Status>({ state: "idle" });
+  // Already-signed-in visitors who land here get bounced straight to
+  // /account instead of seeing a signup form for an account they already
+  // have (mirrors /login's own check).
+  const [authCheck, setAuthCheck] = useState<"checking" | "signed_out" | "redirecting">("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser().then((user) => {
+      if (cancelled) return;
+      if (user) {
+        setAuthCheck("redirecting");
+        router.replace("/account");
+      } else {
+        setAuthCheck("signed_out");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -21,7 +44,7 @@ export default function SignupPage() {
     const password = String(form.get("password") ?? "");
 
     try {
-      const user = await signUp(email, password, accountType);
+      const user = await signUp(email, password, "consumer");
       router.push(user.account_type === "business" ? "/admin" : "/");
     } catch (err) {
       setStatus({ state: "error", message: err instanceof Error ? err.message : "Signup failed" });
@@ -31,39 +54,31 @@ export default function SignupPage() {
   async function handleGoogleSignIn() {
     setStatus({ state: "submitting" });
     try {
-      await signInWithGoogle(accountType);
+      await signInWithGoogle("consumer");
     } catch (err) {
       setStatus({ state: "error", message: err instanceof Error ? err.message : "Google sign-in failed" });
     }
+  }
+
+  if (authCheck !== "signed_out") {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <MushroomLoader size={72} />
+      </div>
+    );
   }
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
       <h1 className="font-heading text-xl font-extrabold text-foreground">Sign up</h1>
 
-      <div className="flex gap-2 text-sm">
-        {(["consumer", "business"] as const).map((type) => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => setAccountType(type)}
-            className={`rounded-full px-3 py-1 font-bold ${
-              accountType === type
-                ? "bg-brand-purple text-on-accent"
-                : "border-2 border-foreground text-foreground"
-            }`}
-          >
-            {type === "consumer" ? "I'm a customer" : "I own a business"}
-          </button>
-        ))}
-      </div>
-
       <button
         type="button"
         onClick={handleGoogleSignIn}
         disabled={status.state === "submitting"}
-        className="rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
+        className="flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
       >
+        <GoogleIcon />
         Continue with Google
       </button>
 

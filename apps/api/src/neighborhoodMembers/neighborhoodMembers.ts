@@ -30,7 +30,17 @@ export async function joinNeighborhood(
   const existing = await repository.getMembership(userId, neighborhoodId);
   if (existing) return { status: "already_joined", membership: existing };
 
+  // A first-ever join has no other membership to conflict with, so it's
+  // set as home automatically -- only matters once a second join is
+  // possible (setHomeNeighborhood above stays the explicit-choice path
+  // from then on, never overriding a home the user already has).
+  const hadAnyMembership = (await repository.listMembershipsForUser(userId)).length > 0;
   const created = await repository.createMembership(userId, neighborhoodId);
+  if (!hadAnyMembership) {
+    const primary = await repository.setPrimary(userId, neighborhoodId);
+    return { status: "created", membership: primary };
+  }
+
   return { status: "created", membership: created };
 }
 

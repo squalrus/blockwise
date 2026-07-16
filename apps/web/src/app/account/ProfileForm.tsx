@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { AppUser, AvatarStyle, ProfileVisibility } from "@blockwise/types";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, setCachedUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { Avatar } from "../Avatar";
 
@@ -56,6 +56,7 @@ export function ProfileForm({
       const responseBody = await res.json();
 
       if (res.ok) {
+        setCachedUser(responseBody);
         onSaved(responseBody);
         setStatus({ state: "idle" });
       } else {

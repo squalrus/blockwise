@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import type { AppUser, ClaimedVenueSummary } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
-import { MushroomLogo } from "@blockwise/ui";
+import { MushroomLoader, MushroomLogo } from "@blockwise/ui";
 import { Avatar } from "../../../Avatar";
 import { AdminSwitcher } from "../../../AdminSwitcher";
 import { BusinessAdminProvider } from "./BusinessAdminContext";
@@ -87,7 +87,7 @@ export default function BusinessAdminLayout({ children }: { children: React.Reac
   if (state.status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted">Loading…</p>
+        <MushroomLoader size={88} />
       </div>
     );
   }

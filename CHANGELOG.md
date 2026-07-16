@@ -2,6 +2,34 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.49.0] — 2026-07-15
+
+### Added
+
+- **Prominent "join a neighborhood" prompt on the account page.** A signed-in user with zero neighborhood memberships now sees a dark callout card at the top of `/account` (mirroring the admin dashboard's `bg-nav` styling) explaining what they're missing and linking to `/neighborhoods` to browse and join — previously the page gave no indication anything was missing, and the only hint lived several taps away in Settings. (`apps/web/src/app/account/page.tsx`)
+- **Custom brand-colored loading indicator (`MushroomLoader`).** Replaces generic spinners across the app with a mushroom-shaped loader in the brand palette (Chanterelle cap, Cream spots, Cocoa stalk on light backgrounds, swapping to Cream on dark) on `/checkin`, `/account`, `/account/settings`, `/admin`, and every admin sub-page, plus `/login` and `/signup` while checking whether the visitor's already signed in. (`packages/ui/src/MushroomLoader.tsx`, `packages/ui/src/index.ts`)
+
+### Changed
+
+- **Joining your first neighborhood now sets it as your home neighborhood automatically.** Previously every join left "home" unset until manually chosen in Settings, so a brand-new member's `/checkin` page kept showing "Set a home neighborhood below" even right after they joined one. A second or later join is unaffected — it never overrides a home you already have. (`apps/api/src/neighborhoodMembers/neighborhoodMembers.ts`)
+- **Checkin and account buttons in the header unified into the same pill design**, both now showing an icon plus label ("Check In" / your display name) in a `bg-card-alt` pill instead of the previous icon-only account button next to a differently-styled check-in button. The account menu's "Account settings" item is now labeled "Settings" to match. (`apps/web/src/app/AccountNav.tsx`)
+- **Checkin page now lists the 7 nearest venues instead of 5.** Only the top spot shows its slide-to-check-in control by default; tapping any of the other 6 rows expands it in place to reveal the same control, rather than showing all 7 controls at once. (`apps/web/src/app/checkin/NearestVenues.tsx`, `apps/web/src/app/PlaceListItem.tsx`)
+- **Removed the redundant "Settings" link from the `/account` page heading** — it's still reachable from the header menu (now labeled just "Settings"), so this dropped a second, identically-purposed link next to "My account." (`apps/web/src/app/account/page.tsx`)
+- **"Everybody's Neighbor" easter-egg badge no longer appears in the locked-badge list.** It stays hidden from `GET /badges`'s public catalog so it isn't spoiled as a visible goal; a user who actually earns it still sees it normally via their own earned badges. (`apps/api/src/app.ts`)
+- **Mushroom avatar palette: Cream is now the first cap color choice, and Amber is gone entirely** as a stalk/spot/background option (previously only available in combination with a Cocoa cap) — simplifies the customizer and auto-assignment logic since there's no longer a cap-dependent exception to validate against. (`packages/types/src/mushroom.ts`, `apps/api/src/app.ts`, `apps/web/src/app/account/MushroomCustomizer.tsx`)
+- **`/account/settings`'s "no neighborhoods joined" message now links to `/neighborhoods`** instead of `/`, which no longer hosts a neighborhood browse/join UI (that moved to its own page a few versions back) and had become a dead end. (`apps/web/src/app/account/settings/page.tsx`)
+- Marketing homepage's nav CTA button now reads "Sign up" instead of "Get the app." (`apps/marketing/src/app/MarketingNav.tsx`)
+- Already-signed-in visitors who land on `/login` or `/signup` (a stale bookmark, the back button) are now bounced straight to `/account` instead of seeing a login/signup form for an account they're already in. (`apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`)
+
+### Removed
+
+- **The "Type" field for points of interest is gone**, from the database column through the API to every admin/reimport form. POI cards on venue and neighborhood location lists now show a static "Point of interest" label instead of a per-POI type value, which had never been more than free text with no real taxonomy behind it. (`supabase/migrations/20260715030000_drop_poi_type.sql`, `packages/types/src/index.ts`, `apps/api/src/locations/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/PoiForm.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/locations/page.tsx`)
+
+### Fixed
+
+- **Mushroom avatar thumb on the check-in slider no longer "pops in" after page load.** Every component that needed the current user (`SlideToCheckIn` and 14 others) fetched `/auth/me` independently on mount, so the slider's thumb rendered a generic fallback icon until its own fetch resolved, even though other components on the same page had already gotten the same data. `getCurrentUser()` now caches the in-flight request at the module level so every component mounted in the same navigation shares one fetch and resolves together. (`apps/web/src/lib/auth.ts`)
+- **Blank gap between the checkin page's loading animation and its content appearing.** The page-level loader covered the initial `/me/neighborhoods` fetch, but `NearestVenues`' own loading phase (venues fetch plus a often-slower, permission-prompt-gated geolocation lookup) rendered nothing in between, leaving a visible blank beat. It now shows the same `MushroomLoader` during its own loading state, so the handoff from one loader to the next is seamless. (`apps/web/src/app/checkin/NearestVenues.tsx`)
+
 ## [0.48.0] — 2026-07-15
 
 ### Added

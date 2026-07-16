@@ -32,19 +32,23 @@ export async function signUp(
     );
   }
 
-  return completeAuth("/auth/complete-signup", data.session.access_token, {
+  const user = await completeAuth("/auth/complete-signup", data.session.access_token, {
     anonymous_device_id: getOrCreateDeviceId(),
     account_type: accountType,
   });
+  setCachedUser(user);
+  return user;
 }
 
 export async function logIn(email: string, password: string): Promise<AppUser> {
   const { data, error } = await getBrowserSupabaseClient().auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
 
-  return completeAuth("/auth/complete-login", data.session.access_token, {
+  const user = await completeAuth("/auth/complete-login", data.session.access_token, {
     anonymous_device_id: getOrCreateDeviceId(),
   });
+  setCachedUser(user);
+  return user;
 }
 
 // The redirect through Google loses whatever account-type choice was made
@@ -80,7 +84,11 @@ export async function completeOAuthSignIn(): Promise<AppUser> {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify({ anonymous_device_id: anonymousDeviceId }),
   });
-  if (loginRes.ok) return loginRes.json();
+  if (loginRes.ok) {
+    const user = await loginRes.json();
+    setCachedUser(user);
+    return user;
+  }
   if (loginRes.status !== 404) {
     const error = await loginRes.json().catch(() => ({}));
     throw new Error(error.error ?? "Request to /auth/complete-login failed");
@@ -89,14 +97,17 @@ export async function completeOAuthSignIn(): Promise<AppUser> {
   const accountType = (window.localStorage.getItem(PENDING_ACCOUNT_TYPE_KEY) as AccountType | null) ?? "consumer";
   window.localStorage.removeItem(PENDING_ACCOUNT_TYPE_KEY);
 
-  return completeAuth("/auth/complete-signup", accessToken, {
+  const user = await completeAuth("/auth/complete-signup", accessToken, {
     anonymous_device_id: anonymousDeviceId,
     account_type: accountType,
   });
+  setCachedUser(user);
+  return user;
 }
 
 export async function logOut(): Promise<void> {
   await getBrowserSupabaseClient().auth.signOut();
+  setCachedUser(null);
 }
 
 export async function getAccessToken(): Promise<string | null> {
@@ -104,7 +115,7 @@ export async function getAccessToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
-export async function getCurrentUser(): Promise<AppUser | null> {
+async function fetchCurrentUser(): Promise<AppUser | null> {
   const token = await getAccessToken();
   if (!token) return null;
 
@@ -113,6 +124,31 @@ export async function getCurrentUser(): Promise<AppUser | null> {
   });
   if (!res.ok) return null;
   return res.json();
+}
+
+// Every caller of getCurrentUser() (16+ components, from the nav pill down
+// to one-off "am I signed in" checks) independently re-fetched /auth/me on
+// its own mount with no sharing -- harmless individually, but on a page like
+// /checkin it meant the slide-to-check-in thumb's mushroom only appeared
+// after its own private round trip, visibly "popping in" after the rest of
+// the page had already settled. Caching the in-flight/resolved promise here
+// means every caller mounted in the same navigation shares one fetch (and
+// resolves together), and callers that already have a fresh AppUser
+// (login/signup/promote, or a profile-save response) can push it in via
+// setCachedUser instead of forcing a refetch. Lives only as long as this
+// module instance -- i.e. resets on a hard reload, survives client-side
+// navigation.
+let cachedUserPromise: Promise<AppUser | null> | null = null;
+
+export async function getCurrentUser(): Promise<AppUser | null> {
+  if (!cachedUserPromise) {
+    cachedUserPromise = fetchCurrentUser();
+  }
+  return cachedUserPromise;
+}
+
+export function setCachedUser(user: AppUser | null): void {
+  cachedUserPromise = Promise.resolve(user);
 }
 
 export async function promoteToBusiness(): Promise<AppUser> {
@@ -127,5 +163,7 @@ export async function promoteToBusiness(): Promise<AppUser> {
     const error = await res.json().catch(() => ({}));
     throw new Error(error.error ?? "Failed to upgrade to a business account");
   }
-  return res.json();
+  const user = await res.json();
+  setCachedUser(user);
+  return user;
 }
