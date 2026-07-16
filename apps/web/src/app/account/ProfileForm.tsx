@@ -9,9 +9,9 @@ import { Avatar } from "../Avatar";
 type Status = { state: "idle" | "submitting" | "error"; message?: string };
 
 // BACKLOG.md "User profiles with public or private visibility": self-service
-// display name / avatar / visibility edit, private by default -- other users
-// only ever see this once the separate "Public user profiles" item builds a
-// page that reads it.
+// display name / avatar / visibility edit, public by default -- other users
+// can see this the moment a username is set, unless the account switches to
+// Private below.
 //
 // Avatar is a choice, not a free-text URL (BACKLOG.md "Mushroom avatars") --
 // letting a user paste any image URL was an explicit-content risk, so the
@@ -30,16 +30,24 @@ export function ProfileForm({
 }) {
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>(user.avatar_style);
+  const [displayName, setDisplayName] = useState(user.display_name ?? "");
+  const [username, setUsername] = useState(user.username ?? "");
+  const [visibility, setVisibility] = useState<ProfileVisibility>(user.visibility);
   const label = user.display_name ?? user.username ?? "?";
+
+  // Every field is controlled (rather than read from FormData on submit) so
+  // this can compare live values against `user` to tell whether there's
+  // anything to save -- gates the submit button's third state below,
+  // alongside idle/submitting.
+  const hasChanges =
+    displayName.trim() !== (user.display_name ?? "") ||
+    username.trim() !== (user.username ?? "") ||
+    visibility !== user.visibility ||
+    avatarStyle !== user.avatar_style;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setStatus({ state: "submitting" });
-
-    const data = new FormData(e.currentTarget);
-    const displayName = String(data.get("display_name") ?? "").trim();
-    const username = String(data.get("username") ?? "").trim();
-    const visibility = data.get("visibility") as ProfileVisibility;
 
     try {
       const token = await getAccessToken();
@@ -47,9 +55,9 @@ export function ProfileForm({
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          display_name: displayName || null,
+          display_name: displayName.trim() || null,
           avatar_style: avatarStyle,
-          username: username || null,
+          username: username.trim() || null,
           visibility,
         }),
       });
@@ -78,24 +86,6 @@ export function ProfileForm({
         Avatar
         <div className="flex gap-3">
           <label
-            className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-3 py-2.5 ${
-              avatarStyle === "social" ? "border-brand-purple bg-card" : "border-border"
-            } ${user.avatar_url ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
-          >
-            <input
-              type="radio"
-              name="avatar_style_choice"
-              value="social"
-              checked={avatarStyle === "social"}
-              disabled={!user.avatar_url}
-              onChange={() => setAvatarStyle("social")}
-              className="sr-only"
-            />
-            <Avatar avatarUrl={user.avatar_url} avatarStyle="social" seed={user.id} label={label} size={48} />
-            <span className="text-xs font-bold text-foreground">Social photo</span>
-            {!user.avatar_url && <span className="text-[11px] text-muted">None on file</span>}
-          </label>
-          <label
             className={`flex flex-1 cursor-pointer flex-col items-center gap-1.5 rounded-lg border px-3 py-2.5 ${
               avatarStyle === "mushroom" ? "border-brand-purple bg-card" : "border-border"
             }`}
@@ -118,6 +108,24 @@ export function ProfileForm({
             />
             <span className="text-xs font-bold text-foreground">Mushroom avatar</span>
           </label>
+          <label
+            className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-3 py-2.5 ${
+              avatarStyle === "social" ? "border-brand-purple bg-card" : "border-border"
+            } ${user.avatar_url ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+          >
+            <input
+              type="radio"
+              name="avatar_style_choice"
+              value="social"
+              checked={avatarStyle === "social"}
+              disabled={!user.avatar_url}
+              onChange={() => setAvatarStyle("social")}
+              className="sr-only"
+            />
+            <Avatar avatarUrl={user.avatar_url} avatarStyle="social" seed={user.id} label={label} size={48} />
+            <span className="text-xs font-bold text-foreground">Social photo</span>
+            {!user.avatar_url && <span className="text-[11px] text-muted">None on file</span>}
+          </label>
         </div>
       </fieldset>
       <label className="flex flex-col gap-1 text-sm text-muted">
@@ -125,7 +133,8 @@ export function ProfileForm({
         <input
           name="display_name"
           type="text"
-          defaultValue={user.display_name ?? ""}
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
           placeholder="How other users will see you"
           className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
@@ -135,7 +144,8 @@ export function ProfileForm({
         <input
           name="username"
           type="text"
-          defaultValue={user.username ?? ""}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           placeholder="lowercase letters, numbers, _ or -"
           pattern="[a-z0-9_-]{3,30}"
           className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
@@ -147,20 +157,32 @@ export function ProfileForm({
       <fieldset className="flex flex-col gap-1 text-sm text-muted">
         Profile visibility
         <label className="flex items-center gap-2">
-          <input type="radio" name="visibility" value="private" defaultChecked={user.visibility === "private"} />
-          Private -- hidden from other users
+          <input
+            type="radio"
+            name="visibility"
+            value="public"
+            checked={visibility === "public"}
+            onChange={() => setVisibility("public")}
+          />
+          Public -- visible to other users
         </label>
         <label className="flex items-center gap-2">
-          <input type="radio" name="visibility" value="public" defaultChecked={user.visibility === "public"} />
-          Public -- visible to other users
+          <input
+            type="radio"
+            name="visibility"
+            value="private"
+            checked={visibility === "private"}
+            onChange={() => setVisibility("private")}
+          />
+          Private -- hidden from other users
         </label>
       </fieldset>
       <button
         type="submit"
-        disabled={status.state === "submitting"}
+        disabled={status.state === "submitting" || !hasChanges}
         className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
       >
-        {status.state === "submitting" ? "Saving…" : "Save profile"}
+        {status.state === "submitting" ? "Saving…" : hasChanges ? "Save profile" : "Saved"}
       </button>
       {status.state === "error" && (
         <p className="text-sm text-red-600 dark:text-red-400">{status.message}</p>

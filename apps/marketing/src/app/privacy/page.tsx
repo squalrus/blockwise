@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const UPDATED = "July 13, 2026";
+const UPDATED = "July 16, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -57,7 +57,8 @@ export default function PrivacyPage() {
           under obligations to protect it — including Supabase (authentication and database hosting), Google
           (sign-in and Analytics), and Netlify (hosting). Other users can see information tied to your profile
           according to your visibility setting (public or private) — for example, a public profile's badges,
-          check-in count, and neighbor count are visible to others; private profiles are not.
+          check-in count, and neighbor count are visible to others; private profiles are not. New accounts default
+          to public; you can switch to private at any time from Account settings.
         </p>
       </LegalSection>
 

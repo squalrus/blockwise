@@ -7,6 +7,7 @@ import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomSection } from "../MushroomSection";
 import { ProfileForm } from "../ProfileForm";
+import { ThemeToggle } from "../../ThemeToggle";
 
 type State =
   | { status: "loading" }
@@ -121,6 +122,14 @@ export default function AccountSettingsPage() {
           </section>
 
           <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Theme</h2>
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-card-alt px-4 py-3 text-sm">
+              <span className="text-muted">Choose how Spored looks on this device.</span>
+              <ThemeToggle />
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-2.5">
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Profile</h2>
             <ProfileForm user={state.user} onSaved={handleProfileSaved} />
           </section>
@@ -156,7 +165,7 @@ export default function AccountSettingsPage() {
                       </a>
                       <p className="text-muted">
                         {n.city}, {n.state}
-                        {n.is_primary ? " · Home" : ""}
+                        {n.is_primary ? " · Active" : ""}
                       </p>
                     </div>
                     {!n.is_primary && (
@@ -164,7 +173,7 @@ export default function AccountSettingsPage() {
                         onClick={() => setHome(n.neighborhood_id)}
                         className="shrink-0 rounded-md border border-border px-3 py-1 text-xs font-bold text-foreground hover:bg-card"
                       >
-                        Set as home
+                        Set as active
                       </button>
                     )}
                   </li>

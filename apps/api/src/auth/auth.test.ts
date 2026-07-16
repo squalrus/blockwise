@@ -23,10 +23,10 @@ class FakeAuthRepository implements AuthRepository {
       anonymousDeviceId: deviceId,
       displayName: null,
       avatarUrl: null,
-      avatarStyle: "social",
+      avatarStyle: "mushroom",
       mushroomCustomization: null,
       username: null,
-      visibility: "private",
+      visibility: "public",
       createdAt: new Date().toISOString(),
     };
     this.users.push(user);
@@ -73,10 +73,10 @@ class FakeAuthRepository implements AuthRepository {
       anonymousDeviceId: deviceUser ? null : input.anonymousDeviceId,
       displayName: null,
       avatarUrl: input.avatarUrl,
-      avatarStyle: "social",
+      avatarStyle: "mushroom",
       mushroomCustomization: null,
       username: null,
-      visibility: "private",
+      visibility: "public",
       createdAt: new Date().toISOString(),
     };
     this.users.push(created);
@@ -202,10 +202,10 @@ describe("updateProfile", () => {
     expect(updated.visibility).toBe("public");
   });
 
-  it("defaults to private visibility on signup, before any profile edit", async () => {
+  it("defaults to public visibility on signup, before any profile edit", async () => {
     const repo = new FakeAuthRepository();
     const user = await completeSignup(VERIFIED, "consumer", null, repo);
-    expect(user.visibility).toBe("private");
+    expect(user.visibility).toBe("public");
   });
 
   it("leaves fields not present in the input unchanged", async () => {
@@ -264,13 +264,13 @@ describe("updateProfile", () => {
   it("switches avatar style back and forth (mushroom <-> social)", async () => {
     const repo = new FakeAuthRepository();
     const user = await completeSignup(VERIFIED, "consumer", null, repo);
-    expect(user.avatarStyle).toBe("social");
+    expect(user.avatarStyle).toBe("mushroom");
 
-    const toMushroom = await updateProfile(user, { avatarStyle: "mushroom" }, repo);
-    expect(toMushroom.avatarStyle).toBe("mushroom");
+    const toSocial = await updateProfile(user, { avatarStyle: "social" }, repo);
+    expect(toSocial.avatarStyle).toBe("social");
 
-    const backToSocial = await updateProfile(user, { avatarStyle: "social" }, repo);
-    expect(backToSocial.avatarStyle).toBe("social");
+    const backToMushroom = await updateProfile(user, { avatarStyle: "mushroom" }, repo);
+    expect(backToMushroom.avatarStyle).toBe("mushroom");
   });
 
   it("lowercases and trims a username (BACKLOG.md 'Public user profiles')", async () => {

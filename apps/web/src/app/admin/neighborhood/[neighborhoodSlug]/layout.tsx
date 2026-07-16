@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { usePathname, useParams } from "next/navigation";
 import type { AppUser, NeighborhoodAdminSummary, NeighborhoodProfile } from "@blockwise/types";
-import { getAccessToken, getCurrentUser } from "@/lib/auth";
+import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomLoader, MushroomLogo } from "@blockwise/ui";
-import { Avatar } from "../../../Avatar";
+import { AccountMenu } from "../../../AccountMenu";
 import { AdminSwitcher } from "../../../AdminSwitcher";
 import { NeighborhoodAdminProvider } from "./NeighborhoodAdminContext";
 import packageJson from "../../../../../package.json";
@@ -199,6 +199,11 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
   const { neighborhood, user } = state;
   const locationCount = profile ? profile.venue_count + profile.poi_count : null;
 
+  async function handleLogOut() {
+    await logOut();
+    window.location.href = "/";
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-background font-sans text-foreground">
       {/* ================= SIDEBAR ================= */}
@@ -287,18 +292,7 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
         <div className="mx-auto flex max-w-[1460px] flex-col px-9 pt-5.5 pb-18">
           <div className="mb-5.5 flex items-center gap-3.5">
             <div className="flex-1" />
-            <a href="/account" className="flex items-center gap-2 rounded-full bg-card-alt py-1 pr-3.5 pl-1">
-              <Avatar
-                avatarUrl={user.avatar_url}
-                avatarStyle={user.avatar_style}
-                mushroomCustomization={user.mushroom_customization}
-                seed={user.id}
-                label={user.display_name ?? "Admin"}
-                size={26}
-              />
-              <span className="text-[13px] font-extrabold text-foreground">{user.display_name ?? "Admin"}</span>
-              <span className="font-mono text-[10px] text-muted">admin</span>
-            </a>
+            <AccountMenu user={user} tag="admin" onLogOut={handleLogOut} />
           </div>
 
           <NeighborhoodAdminProvider

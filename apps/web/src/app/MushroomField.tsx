@@ -46,11 +46,20 @@ function fieldLayout(seed: string, count: number): { leftPct: number; liftPx: nu
 //
 // `mushrooms` (BACKLOG.md "Mushroom fingerprint stamps on connections and
 // check-ins") supplies real per-visitor snapshots, most-recent-first, for
-// the distinctMushrooms mosaic -- position i renders mushrooms[i] when
-// present, falling back to a positionally-fabricated skin otherwise (either
-// because no snapshot list was passed at all, or because count exceeds how
-// many real snapshots were fetched). Ignored when distinctMushrooms is
-// false.
+// the distinctMushrooms mosaic -- position i (offset by `ownCount`, see
+// below) renders mushrooms[i] when present, falling back to a
+// positionally-fabricated skin otherwise (either because no snapshot list
+// was passed at all, or because count exceeds how many real snapshots were
+// fetched). Ignored when distinctMushrooms is false.
+//
+// `ownCount` (profile summary card's merged field -- BACKLOG.md "how strong
+// their presence is") lets the field mix both modes at once: the first
+// `ownCount` positions always render `sharedMushroom` (one person's own
+// skin) even when distinctMushrooms is true, and the rest render the mosaic
+// -- so a single field can read as "my own growth" (level) plus "who I've
+// connected with" (neighbor mushroom stamps) without one obscuring the
+// other. Defaults to 0, which reproduces the old all-mosaic behavior
+// unchanged for the neighborhood/location cards that don't pass it.
 export function MushroomField({
   seed,
   count,
@@ -58,6 +67,7 @@ export function MushroomField({
   distinctMushrooms = false,
   customization = null,
   mushrooms,
+  ownCount = 0,
 }: {
   seed: string;
   count: number;
@@ -65,6 +75,7 @@ export function MushroomField({
   distinctMushrooms?: boolean;
   customization?: MushroomCustomization | null;
   mushrooms?: MushroomConfig[];
+  ownCount?: number;
 }) {
   const mushroomCount = Math.min(Math.max(Math.floor(count), 0), MAX_MUSHROOMS);
   if (mushroomCount === 0) return null;
@@ -77,6 +88,7 @@ export function MushroomField({
     : null;
   const sharedMushroom = resolveMushroomConfig(seed, config);
   const layout = fieldLayout(seed, mushroomCount);
+  const ownMushroomCount = Math.max(Math.floor(ownCount), 0);
 
   return (
     <div className="-mx-5 -mb-6">
@@ -88,9 +100,10 @@ export function MushroomField({
       </svg>
       <div className="relative bg-brand-green/55" style={{ height: FIELD_HEIGHT_PX }} aria-label={ariaLabel}>
         {layout.map((pos, i) => {
-          const mushroom = distinctMushrooms
-            ? (mushrooms?.[i] ?? mushroomConfigForUser(`${seed}-mushroom-${i}`))
-            : sharedMushroom;
+          const mushroom =
+            distinctMushrooms && i >= ownMushroomCount
+              ? (mushrooms?.[i - ownMushroomCount] ?? mushroomConfigForUser(`${seed}-mushroom-${i - ownMushroomCount}`))
+              : sharedMushroom;
           return (
             <div
               key={i}

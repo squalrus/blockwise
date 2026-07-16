@@ -2,6 +2,28 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.50.0] — 2026-07-16
+
+### Added
+
+- **Neighborhood switcher on the check-in page.** A pill dropdown next to the "Check in" heading lists every neighborhood you belong to and lets you switch which one's venues `/checkin` shows — always visible, even with just one neighborhood, so there's context for which one you're in. Switching updates your active neighborhood server-side (the same endpoint `/account/settings` uses), so it's remembered on your next visit. (`apps/web/src/app/checkin/NeighborhoodSwitcher.tsx`, `apps/web/src/app/checkin/page.tsx`, `apps/web/src/app/checkin/NearestVenues.tsx`)
+- **"View public" button on the account page's profile card**, linking straight to your own public profile — shown whenever your account is public and has a username set. (`apps/web/src/app/account/page.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`)
+
+### Changed
+
+- **"Home neighborhood" is now called your "Active" neighborhood** throughout the UI — the check-in page's neighborhood switcher sets it, and Settings now reads "Set as active" / "· Active" instead of "Set as home" / "· Home." User-facing rename only; the underlying `is_primary` field and API are unchanged. (`apps/web/src/app/account/settings/page.tsx`, `apps/web/src/app/checkin/page.tsx`)
+- **Account menu is now the account pill itself** — clicking your name/avatar opens a dropdown (home neighborhood, My account, Settings, Admin, Log out) instead of a separate hamburger button next to it. The same pattern now backs the account menu inside the business and neighborhood admin sidebars too, so admins can reach Settings/Log out without leaving the admin shell. Signed-out visitors still get the old hamburger (Log in / Sign up / Theme). (`apps/web/src/app/AccountMenu.tsx`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`)
+- **Theme toggle moved from the account dropdown menu to `/account/settings`**, its own section next to Account details and Profile. (`apps/web/src/app/account/settings/page.tsx`)
+- **Neighbor mushroom stamps now merge into your profile's main mushroom field** instead of showing in a separate "Neighbors" card — the field reads as both your own growth (level) and your reach with others (one mosaic mushroom stamp per accepted neighbor), on both `/account` and public profiles. (`apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/profile/[username]/page.tsx`)
+- **New accounts are now Public by default instead of Private** — badges, check-in count, and neighbor count are visible to others from signup unless you switch to Private in Account settings. Only affects new signups; existing accounts keep their current visibility. (`supabase/migrations/20260716010000_public_visibility_default.sql`, `apps/web/src/app/account/ProfileForm.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `apps/api/src/auth/auth.test.ts`)
+- **Mushroom customizer's six swatch pickers (Cap, Stalk, Spots, Background, Spot count, Spot shape) now collapse into accordion sections**, one open at a time, instead of all six always expanded. Picking a swatch near the bottom used to push the live preview well out of view; capping the expanded content to one section at a time keeps the preview close by no matter which category you're tweaking. (`apps/web/src/app/account/MushroomCustomizer.tsx`)
+- **"Save profile" and "Save mushroom" buttons now show a "Saved" disabled state** when there's nothing pending, alongside "Saving…" and the active save label — both forms track live edits against what's actually persisted rather than only distinguishing idle from submitting. (`apps/web/src/app/account/ProfileForm.tsx`, `apps/web/src/app/account/MushroomSection.tsx`)
+- **Avatar picker now shows Mushroom avatar first/left and Social photo second/right**, and new accounts now default to the Mushroom avatar style instead of Social. Only affects new signups; existing accounts keep their current avatar style. (`apps/web/src/app/account/ProfileForm.tsx`, `supabase/migrations/20260716020000_mushroom_avatar_default.sql`, `apps/api/src/auth/auth.test.ts`)
+
+### Fixed
+
+- **Fixed a migration version collision that broke `supabase db push`.** Two unrelated migrations shipped in v0.48.0 and v0.49.0 accidentally shared the same version timestamp (`20260715030000`), which corrupted the hosted database's migration history bookkeeping and caused pushes to fail with "relation already exists." Renamed the older migration to a unique version and repaired the remote history to match. (`supabase/migrations/20260715031000_super_admin.sql`)
+
 ## [0.49.0] — 2026-07-15
 
 ### Added

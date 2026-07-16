@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { VenueListItem } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { clientApiUrl } from "@/lib/clientApi";
@@ -13,24 +14,26 @@ const NEAREST_LIMIT = 7;
 
 type State =
   | { status: "loading" }
-  | { status: "no_home" }
+  | { status: "no_neighborhood" }
   | { status: "ready"; venues: VenueListItem[] }
   | { status: "error" };
 
 // BACKLOG.md Ref 47: the /checkin page's primary action -- check in --
-// backed by the nearest venues in the user's home neighborhood (Ref 23's
+// backed by the nearest venues in the selected neighborhood (Ref 23's
 // proximity sort, scoped to one neighborhood rather than the cross-
-// neighborhood venue list). Falls back to alphabetical (the API's default
-// order) if location access isn't available, same as VenuesView.
-export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: string | null }) {
+// neighborhood venue list; defaults to the user's active neighborhood but
+// switchable via NeighborhoodSwitcher). Falls back to alphabetical (the
+// API's default order) if location access isn't available, same as
+// VenuesView.
+export function NearestVenues({ neighborhoodId }: { neighborhoodId: string | null }) {
   const [state, setState] = useState<State>({ status: "loading" });
   // Which non-top row (if any) is expanded to reveal its own slide-to-check-in
   // control -- the top spot always shows its control, so this never tracks it.
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!homeNeighborhoodId) {
-      setState({ status: "no_home" });
+    if (!neighborhoodId) {
+      setState({ status: "no_neighborhood" });
       return;
     }
 
@@ -38,7 +41,7 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
 
     async function load() {
       try {
-        const res = await fetch(clientApiUrl(`/neighborhoods/${homeNeighborhoodId}/venues`));
+        const res = await fetch(clientApiUrl(`/neighborhoods/${neighborhoodId}/venues`));
         if (!res.ok) throw new Error("Failed to load venues");
         const venues = (await res.json()) as VenueListItem[];
         if (cancelled) return;
@@ -62,7 +65,7 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
     return () => {
       cancelled = true;
     };
-  }, [homeNeighborhoodId]);
+  }, [neighborhoodId]);
 
   // Covers the venues fetch and the (often slower, permission-prompt-gated)
   // geolocation lookup below -- both run before this ever leaves "loading",
@@ -76,10 +79,14 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
     );
   }
 
-  if (state.status === "no_home") {
+  if (state.status === "no_neighborhood") {
     return (
       <p className="text-sm text-muted">
-        Set a home neighborhood below to see nearby venues to check in to.
+        Join a neighborhood on the{" "}
+        <Link href="/neighborhoods" className="font-bold text-brand-purple hover:text-brand-orange">
+          Neighborhoods page
+        </Link>{" "}
+        to see nearby venues to check in to.
       </p>
     );
   }
@@ -89,7 +96,7 @@ export function NearestVenues({ homeNeighborhoodId }: { homeNeighborhoodId: stri
   }
 
   if (state.venues.length === 0) {
-    return <p className="text-sm text-muted">No venues yet in your home neighborhood.</p>;
+    return <p className="text-sm text-muted">No venues yet in this neighborhood.</p>;
   }
 
   return (

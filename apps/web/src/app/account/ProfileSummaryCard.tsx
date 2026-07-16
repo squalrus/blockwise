@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { AppUser, UserPointsSummary } from "@blockwise/types";
+import type { AppUser, MushroomSnapshot, UserPointsSummary } from "@blockwise/types";
 import { Avatar } from "../Avatar";
 import { MushroomField } from "../MushroomField";
 import { ProgressBar } from "../ProgressBar";
@@ -14,8 +14,10 @@ import { ProgressBar } from "../ProgressBar";
 // badges, which need the same number. `action` is an optional upper-right
 // slot (BACKLOG.md Ref 14/33) -- the public profile page uses it for a
 // NeighborRequestButton, mirroring JoinNeighborhoodButton's placement on a
-// neighborhood profile; the account page (viewing your own card) leaves it
-// unset.
+// neighborhood profile; the account page (viewing your own card) uses it for
+// a "View public" link to the same public-visibility/username gate the
+// ProfileForm settings link already uses (unset entirely otherwise, same as
+// a private or username-less account viewing its own card).
 export function ProfileSummaryCard({
   user,
   favoriteCount,
@@ -24,6 +26,7 @@ export function ProfileSummaryCard({
   badgeCount,
   challengeCount,
   neighborCount,
+  neighborMushrooms = [],
   action,
 }: {
   user: AppUser;
@@ -33,6 +36,13 @@ export function ProfileSummaryCard({
   badgeCount: number;
   challengeCount: number;
   neighborCount: number;
+  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
+  // real neighbor mushroom snapshots, most-recent-first, merged into the
+  // card's own mushroom field below (rather than a separate "Neighbors"
+  // field/card) so one field reads as both "my own growth" (level) and "my
+  // reach with others" (neighbor stamps). Optional since a brand-new
+  // account/profile has none yet.
+  neighborMushrooms?: MushroomSnapshot[];
   action?: ReactNode;
 }) {
   const label = user.display_name ?? user.username ?? user.email ?? "You";
@@ -98,16 +108,23 @@ export function ProfileSummaryCard({
         </div>
       </div>
 
-      {/* Every user's mushroom "skin" grows here regardless of whether
+      {/* Merged field (BACKLOG.md "how strong their presence is within the
+          neighborhood(s) plus their reach with others"): the leading `level`
+          mushrooms are the account's own skin -- regardless of whether
           they've set it as their actual avatar image, so it stays a visible
-          part of their identity either way -- the account's saved
-          customizer choice (BACKLOG.md Ref 75) if any, else derived from
-          the id. */}
+          part of their identity either way (the saved customizer choice,
+          BACKLOG.md Ref 75, if any, else derived from the id) -- followed by
+          a mosaic of real neighbor mushroom stamps, one per accepted
+          neighbor (sqrt-scaled like the venue/neighborhood check-in fields
+          so a highly-connected account doesn't instantly max out the cap). */}
       <MushroomField
         seed={user.id}
-        count={level}
-        ariaLabel={`Level ${level}`}
+        count={level + Math.sqrt(neighborCount)}
+        ariaLabel={`Level ${level} · ${neighborCount} neighbors`}
         customization={user.mushroom_customization}
+        distinctMushrooms
+        ownCount={level}
+        mushrooms={neighborMushrooms}
       />
     </div>
   );

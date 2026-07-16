@@ -5,7 +5,7 @@ import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomLogo } from "@blockwise/ui";
-import { Avatar } from "./Avatar";
+import { AccountMenu } from "./AccountMenu";
 import { ThemeToggle } from "./ThemeToggle";
 
 type State =
@@ -98,7 +98,6 @@ export function AccountNav() {
   async function handleLogOut() {
     await logOut();
     setState({ status: "signed_out" });
-    setIsMenuOpen(false);
   }
 
   return (
@@ -123,90 +122,46 @@ export function AccountNav() {
             <span className="text-[13px] font-extrabold">Check In</span>
           </a>
         )}
-        {state.status === "signed_in" && (
-          <a
-            href="/account"
-            className="flex items-center gap-2 rounded-full bg-card-alt py-1 pr-3.5 pl-1 text-foreground hover:bg-card"
-          >
-            <Avatar
-              avatarUrl={state.user.avatar_url}
-              avatarStyle={state.user.avatar_style}
-              mushroomCustomization={state.user.mushroom_customization}
-              seed={state.user.id}
-              label="My account"
-              size={22}
-            />
-            <span className="text-[13px] font-extrabold">{state.user.display_name ?? "Account"}</span>
-          </a>
-        )}
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen((open) => !open)}
-          aria-expanded={isMenuOpen}
-          aria-label="Menu"
-          className="flex items-center justify-center rounded-md p-1 text-nav-foreground hover:text-nav-muted"
-        >
-          <HamburgerIcon open={isMenuOpen} />
-        </button>
 
-        {isMenuOpen && (
-          <div className="absolute right-6 top-full z-10 mt-2 w-56 rounded-lg border border-border bg-card py-2 text-foreground shadow-lg">
-            {state.status === "signed_in" && state.homeNeighborhood && (
-              <a
-                href={`/neighborhoods/${state.homeNeighborhood.slug}`}
-                onClick={() => setIsMenuOpen(false)}
-                className="block px-4 py-2 hover:bg-card-alt"
-              >
-                {state.homeNeighborhood.name}
-              </a>
-            )}
-            {state.status === "signed_in" && (
-              <a href="/account" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
-                My account
-              </a>
-            )}
-            {state.status === "signed_in" && (
-              <a
-                href="/account/settings"
-                onClick={() => setIsMenuOpen(false)}
-                className="block px-4 py-2 hover:bg-card-alt"
-              >
-                Settings
-              </a>
-            )}
-            {state.status === "signed_in" &&
-              (state.user.account_type === "business" || state.user.is_neighborhood_admin) && (
-                <a href="/admin" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
-                  Admin
-                </a>
-              )}
-            {state.status === "signed_out" && (
-              <>
+        {state.status === "signed_in" && (
+          <AccountMenu
+            user={state.user}
+            homeNeighborhood={state.homeNeighborhood}
+            showAdminLink={state.user.account_type === "business" || state.user.is_neighborhood_admin}
+            onLogOut={handleLogOut}
+          />
+        )}
+
+        {state.status === "signed_out" && (
+          <>
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen((open) => !open)}
+              aria-expanded={isMenuOpen}
+              aria-label="Menu"
+              className="flex items-center justify-center rounded-md p-1 text-nav-foreground hover:text-nav-muted"
+            >
+              <HamburgerIcon open={isMenuOpen} />
+            </button>
+
+            {isMenuOpen && (
+              <div className="absolute right-6 top-full z-10 mt-2 w-56 rounded-lg border border-border bg-card py-2 text-foreground shadow-lg">
                 <a href="/login" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
                   Log in
                 </a>
                 <a href="/signup" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2 hover:bg-card-alt">
                   Sign up
                 </a>
-              </>
-            )}
 
-            <div className="my-2 border-t border-border" />
-
-            <div className="flex items-center justify-between gap-3 px-4 py-1.5">
-              <span className="text-xs font-extrabold tracking-wide text-muted uppercase">Theme</span>
-              <ThemeToggle />
-            </div>
-
-            {state.status === "signed_in" && (
-              <>
                 <div className="my-2 border-t border-border" />
-                <button onClick={handleLogOut} className="block w-full px-4 py-2 text-left hover:bg-card-alt">
-                  Log out
-                </button>
-              </>
+
+                <div className="flex items-center justify-between gap-3 px-4 py-1.5">
+                  <span className="text-xs font-extrabold tracking-wide text-muted uppercase">Theme</span>
+                  <ThemeToggle />
+                </div>
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </nav>
