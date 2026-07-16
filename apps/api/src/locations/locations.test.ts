@@ -85,7 +85,6 @@ class FakeLocationRepository implements LocationRepository {
       categoryId: input.categoryId,
       categoryName: null,
       categoryGroup: null,
-      type: input.type,
       description: input.description,
       lat: input.lat,
       lng: input.lng,
@@ -116,7 +115,6 @@ class FakeLocationRepository implements LocationRepository {
     if (input.kind === "poi") {
       location.claimedByBusiness = false;
       location.categoryId = null;
-      if (input.type !== undefined) location.type = input.type;
     } else if (input.categoryId !== undefined) {
       location.categoryId = input.categoryId;
     }
@@ -158,7 +156,6 @@ function makeBusiness(overrides: Partial<LocationRecord> = {}): LocationRecord {
     categoryId: null,
     categoryName: null,
     categoryGroup: null,
-    type: null,
     description: null,
     lat: 47.67,
     lng: -122.35,
@@ -171,7 +168,7 @@ function makeBusiness(overrides: Partial<LocationRecord> = {}): LocationRecord {
 }
 
 function makePoi(overrides: Partial<LocationRecord> = {}): LocationRecord {
-  return makeBusiness({ kind: "poi", type: "park", name: "Woodland Park", ...overrides });
+  return makeBusiness({ kind: "poi", name: "Woodland Park", ...overrides });
 }
 
 describe("createLocation", () => {
@@ -179,14 +176,13 @@ describe("createLocation", () => {
     const repo = new FakeLocationRepository();
     const location = await createLocation(
       "neighborhood-1",
-      { kind: "poi", name: "Phinney Ridge Park", type: "park", lat: 47.67, lng: -122.35 },
+      { kind: "poi", name: "Phinney Ridge Park", lat: 47.67, lng: -122.35 },
       repo
     );
 
     expect(location.neighborhood_id).toBe("neighborhood-1");
     expect(location.kind).toBe("poi");
     expect(location.name).toBe("Phinney Ridge Park");
-    expect(location.type).toBe("park");
     expect(location.claimed_by_business).toBe(false);
   });
 });
@@ -270,7 +266,6 @@ const BASE_DETAIL: LocationDetailRecord = {
   googlePlaceId: "google-place-1",
   name: "Diesel Fuel Coffee",
   kind: "business",
-  type: null,
   description: null,
   address: "123 Main St",
   lat: 47.67,
@@ -330,7 +325,7 @@ describe("getLocationDetailWithFreshEnrichment", () => {
 
   it("skips enrichment when the location has no google_place_id", async () => {
     const repo = new FakeLocationRepository();
-    repo.detail = { ...BASE_DETAIL, kind: "poi", googlePlaceId: null, type: "park" };
+    repo.detail = { ...BASE_DETAIL, kind: "poi", googlePlaceId: null };
     const placesClient = new FakePlacesClient();
 
     const result = await getLocationDetailWithFreshEnrichment("location-1", repo, new FakeEnrichmentRepository(), placesClient);
@@ -390,26 +385,19 @@ describe("reassignLocationCategoryForNeighborhood", () => {
 describe("switchLocationKindForNeighborhood", () => {
   it("switches a business to poi in place, keeping the same id", async () => {
     const repo = new FakeLocationRepository([makeBusiness({ id: "b1" })]);
-    const result = await switchLocationKindForNeighborhood("neighborhood-1", "b1", "poi", { type: "park" }, repo);
+    const result = await switchLocationKindForNeighborhood("neighborhood-1", "b1", "poi", {}, repo);
 
     expect(result.status).toBe("updated");
     if (result.status === "updated") {
       expect(result.location.id).toBe("b1");
       expect(result.location.kind).toBe("poi");
-      expect(result.location.type).toBe("park");
     }
   });
 
   it("blocks switching a claimed business to poi", async () => {
     const repo = new FakeLocationRepository([makeBusiness({ id: "b1", claimedByBusiness: true })]);
-    const result = await switchLocationKindForNeighborhood("neighborhood-1", "b1", "poi", { type: "park" }, repo);
-    expect(result).toEqual({ status: "claimed" });
-  });
-
-  it("requires a type when switching to poi with none stored", async () => {
-    const repo = new FakeLocationRepository([makeBusiness({ id: "b1" })]);
     const result = await switchLocationKindForNeighborhood("neighborhood-1", "b1", "poi", {}, repo);
-    expect(result).toEqual({ status: "missing_type" });
+    expect(result).toEqual({ status: "claimed" });
   });
 
   it("is idempotent when already the requested kind", async () => {
@@ -439,7 +427,7 @@ describe("switchLocationKindForNeighborhood", () => {
 
   it("returns not_found for a cross-neighborhood location", async () => {
     const repo = new FakeLocationRepository([makeBusiness({ id: "b1", neighborhoodId: "neighborhood-1" })]);
-    const result = await switchLocationKindForNeighborhood("neighborhood-2", "b1", "poi", { type: "park" }, repo);
+    const result = await switchLocationKindForNeighborhood("neighborhood-2", "b1", "poi", {}, repo);
     expect(result).toEqual({ status: "not_found" });
   });
 });
@@ -471,13 +459,13 @@ describe("listLocationListItemsForNeighborhood", () => {
   it("merges both kinds into one sorted-by-repository list, mapping category_or_type per kind", async () => {
     const repo = new FakeLocationRepository([
       makeBusiness({ id: "b1", categoryName: "Coffee Shop" }),
-      makePoi({ id: "p1", type: "transit" }),
+      makePoi({ id: "p1" }),
     ]);
 
     const items = await listLocationListItemsForNeighborhood("neighborhood-1", repo);
     expect(items).toEqual([
       expect.objectContaining({ id: "b1", kind: "business", category_or_type: "Coffee Shop" }),
-      expect.objectContaining({ id: "p1", kind: "poi", category_or_type: "transit" }),
+      expect.objectContaining({ id: "p1", kind: "poi", category_or_type: "Point of interest" }),
     ]);
   });
 

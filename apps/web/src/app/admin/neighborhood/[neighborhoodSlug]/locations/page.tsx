@@ -30,8 +30,8 @@ const FALLBACK_GROUP_COLOR = "var(--muted)";
 // Visually redesigned per BACKLOG.md Ref 31 "SimCity-style redesign", which
 // also folds in Ref 56's category filter chips -- a small, purely
 // client-side addition once this tab's markup was being touched anyway. The
-// category filter is business-only (POIs use a free-text `type`, not the
-// category taxonomy) per Ref 56's open question. Selecting a group chip
+// category filter is business-only (POIs carry no classification of their
+// own) per Ref 56's open question. Selecting a group chip
 // reveals an optional second-level row of that group's leaf categories
 // (subcategoryId) for finer-grained filtering -- reset whenever the group
 // selection changes so a stale subcategory can't silently filter out
@@ -141,11 +141,7 @@ export default function NeighborhoodAdminLocationsPage() {
   // (BACKLOG.md "POIs and venues managed almost the same") -- replaces the
   // old hide-then-recreate-as-a-new-row "Convert to POI" flow. Blocked (409)
   // while the location is claimed; the API's error message explains why.
-  // Switching to "poi" also requires a `type` (apps/api's
-  // switchLocationKindForNeighborhood 400s with "missing_type" otherwise,
-  // since a business has no `type` of its own to fall back on) -- the
-  // caller must prompt for one first when converting a business.
-  async function handleSwitchKind(locationId: string, kind: LocationKind, type?: string) {
+  async function handleSwitchKind(locationId: string, kind: LocationKind) {
     setSavingId(locationId);
     setError(null);
     const token = await getAccessToken();
@@ -154,7 +150,7 @@ export default function NeighborhoodAdminLocationsPage() {
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(type ? { kind, type } : { kind }),
+        body: JSON.stringify({ kind }),
       }
     );
     setSavingId(null);
@@ -168,11 +164,7 @@ export default function NeighborhoodAdminLocationsPage() {
 
   function handleSwitchToPoi(loc: LocationListItem) {
     if (loc.claimed_by_business) return;
-    const type = window.prompt(
-      `What type of point of interest is "${loc.name}"? (e.g. park, landmark, transit)`
-    );
-    if (!type || !type.trim()) return;
-    handleSwitchKind(loc.id, "poi", type.trim());
+    handleSwitchKind(loc.id, "poi");
   }
 
   async function handleEditPoi(poiId: string) {

@@ -74,9 +74,8 @@ export interface Venue {
   name: string;
   kind: LocationKind;
   category_id: string | null;
-  // POI-only free-text fields (BACKLOG.md Ref 6/29) -- null for kind
+  // POI-only free-text field (BACKLOG.md Ref 6/29) -- null for kind
   // "business", where category_id carries the equivalent classification.
-  type: string | null;
   description: string | null;
   // Nullable only for legacy rows that predate lat/lng (BACKLOG.md Ref 51);
   // address is nullable for the same reason POIs have always allowed it.
@@ -154,8 +153,7 @@ export interface VenueDetail {
   // POIs are manually created with no Google Place behind them) -- always
   // populated for kind "business".
   google_place_id: string | null;
-  // POI-only fields, null for kind "business".
-  type: string | null;
+  // POI-only field, null for kind "business".
   description: string | null;
   address: string | null;
   lat: number | null;
@@ -671,9 +669,6 @@ export interface CreateLocationRequest {
   kind: LocationKind;
   name: string;
   description?: string;
-  // Required when kind is "poi"; unused for "business" (classified via
-  // category_id instead).
-  type?: string;
   category_id?: string;
   // Required so the location can be a GPS-verified check-in target
   // (BACKLOG.md Ref 6), matching the venue check-in geofence approach.
@@ -688,7 +683,6 @@ export interface CreateLocationRequest {
 export interface UpdateLocationRequest {
   name?: string;
   description?: string;
-  type?: string;
   lat?: number;
   lng?: number;
   address?: string;
@@ -708,9 +702,6 @@ export interface SetLocationKindRequest {
   // venue.category_id ("Unmapped" is a valid state, reassignable later via
   // the existing category dropdown).
   category_id?: string;
-  // Required when switching to "poi", unless the row already has a type
-  // from a previous stint as a POI.
-  type?: string;
 }
 
 // GET /business/venues/:id/dashboard -- follower count is a count of
@@ -749,8 +740,9 @@ export interface LocationListItem {
   kind: LocationKind;
   name: string;
   address: string | null;
-  // Business: the assigned category name. POI: the free-text type. Never
-  // both, since a row is exactly one kind.
+  // Business: the assigned category name. POI: the static string "Point of
+  // interest" (POIs carry no classification of their own). Never both,
+  // since a row is exactly one kind.
   category_or_type: string;
   // Business only -- backs the category-reassign dropdown's selected value;
   // null for POI rows (and for a business with no category mapped yet).
@@ -821,8 +813,6 @@ export interface LocationReviewClassificationInput {
   classification: LocationClassification;
   // Required when classification is "business".
   category_id?: string;
-  // Required when classification is "poi".
-  type?: string;
 }
 
 export interface LocationRemovalApproval {

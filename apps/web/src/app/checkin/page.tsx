@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
+import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { NearestVenues } from "./NearestVenues";
@@ -57,7 +58,11 @@ export default function CheckinPage() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
       <h1 className="font-heading text-xl font-extrabold text-foreground">Check in</h1>
 
-      {state.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
+      {state.status === "loading" && (
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <MushroomLoader size={72} />
+        </div>
+      )}
 
       {state.status === "signed_out" && (
         <p className="text-sm text-muted">

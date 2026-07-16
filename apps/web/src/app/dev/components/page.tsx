@@ -217,7 +217,6 @@ const NEIGHBORHOOD_CARDS: { label: string; neighborhood: NeighborhoodProfile }[]
 function venueDetail(overrides: Partial<VenueDetail> & Pick<VenueDetail, "id" | "name" | "kind">): VenueDetail {
   return {
     google_place_id: null,
-    type: null,
     description: null,
     address: "9057 Greenwood Ave N, Seattle, WA 98103, USA",
     lat: 47.6896,
@@ -278,7 +277,6 @@ const LOCATION_CARDS: { label: string; location: VenueDetail }[] = [
       id: "demo-location-3",
       name: "Greenwood Water Tower",
       kind: "poi",
-      type: "Landmark",
       description: "A century-old water tower turned neighborhood landmark, visible from most of Greenwood.",
       checkin_count: 86,
       favorite_count: 14,

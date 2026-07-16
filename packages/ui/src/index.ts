@@ -1,4 +1,6 @@
+export { GoogleIcon } from "./GoogleIcon";
 export { MushroomLogo } from "./MushroomLogo";
+export { MushroomLoader } from "./MushroomLoader";
 export { MushroomMark } from "./MushroomMark";
 // Re-exported from @blockwise/types -- the pure PRNG/palette/snapshot logic
 // lives there (isomorphic, no React) so apps/api can import the same source
@@ -23,7 +25,6 @@ export {
   MUSHROOM_STALK_SAGE,
   MUSHROOM_STALK_MIST,
   MUSHROOM_STALK_CLAY,
-  MUSHROOM_STALK_AMBER,
   MUSHROOM_STALK_BASE_OPTIONS,
   MUSHROOM_STALKS,
   MUSHROOM_SPOT_COUNTS,

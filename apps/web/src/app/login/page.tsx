@@ -1,14 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { logIn, signInWithGoogle } from "@/lib/auth";
+import { GoogleIcon, MushroomLoader } from "@blockwise/ui";
+import { getCurrentUser, logIn, signInWithGoogle } from "@/lib/auth";
 
 type Status = { state: "idle" | "submitting" | "error"; message?: string };
 
 export default function LoginPage() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>({ state: "idle" });
+  // Already-signed-in visitors who land here (a stale bookmark, the back
+  // button) get bounced straight to /account instead of seeing a login form
+  // for an account they're already in.
+  const [authCheck, setAuthCheck] = useState<"checking" | "signed_out" | "redirecting">("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser().then((user) => {
+      if (cancelled) return;
+      if (user) {
+        setAuthCheck("redirecting");
+        router.replace("/account");
+      } else {
+        setAuthCheck("signed_out");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,6 +56,14 @@ export default function LoginPage() {
     }
   }
 
+  if (authCheck !== "signed_out") {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <MushroomLoader size={72} />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
       <h1 className="font-heading text-xl font-extrabold text-foreground">Log in</h1>
@@ -43,8 +72,9 @@ export default function LoginPage() {
         type="button"
         onClick={handleGoogleSignIn}
         disabled={status.state === "submitting"}
-        className="rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
+        className="flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
       >
+        <GoogleIcon />
         Continue with Google
       </button>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BoundaryPreviewReport, CreateNeighborhoodResponse, GeoJsonPolygon } from "@blockwise/types";
+import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { BoundaryMap } from "../BoundaryMap";
@@ -130,7 +131,11 @@ export default function NewNeighborhoodPage() {
         <a href="/admin" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
           ← Admin
         </a>
-        {access === "loading" && <p className="text-sm text-muted">Loading…</p>}
+        {access === "loading" && (
+          <div className="flex min-h-[50vh] items-center justify-center">
+            <MushroomLoader size={72} />
+          </div>
+        )}
         {access === "signed_out" && (
           <p className="text-sm text-muted">
             <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">

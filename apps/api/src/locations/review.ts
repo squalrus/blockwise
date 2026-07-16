@@ -156,8 +156,6 @@ export interface LocationReviewClassificationInput {
   classification: LocationClassification;
   // Required when classification is "business".
   categoryId?: string;
-  // Required when classification is "poi".
-  type?: string;
 }
 
 export interface LocationRemovalApproval {
@@ -171,11 +169,6 @@ export interface CommitLocationReviewResult {
   removed: string[];
   failed: { name: string; error: string }[];
 }
-
-// Placeholder POI type for an omitted review candidate (below) -- omit
-// carries no category/type from the admin, so this is the generic label an
-// admin sees if they later toggle "Show hidden" and want to reclassify it.
-const OMITTED_POI_TYPE = "uncategorized";
 
 // Applies the admin's bulk classification and removal decisions. Each item
 // is applied independently (a per-item try/catch, not one DB transaction)
@@ -238,7 +231,6 @@ export async function commitLocationReview(
             {
               kind: "poi",
               name: item.name,
-              type: OMITTED_POI_TYPE,
               lat: item.lat,
               lng: item.lng,
               googlePlaceId: item.googlePlaceId,
@@ -272,13 +264,11 @@ export async function commitLocationReview(
         }
 
         case "poi": {
-          if (!item.type) throw new Error("type is required to classify as a point of interest");
           await createLocation(
             neighborhoodId,
             {
               kind: "poi",
               name: item.name,
-              type: item.type,
               lat: item.lat,
               lng: item.lng,
               googlePlaceId: item.googlePlaceId,

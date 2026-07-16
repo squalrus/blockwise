@@ -25,7 +25,6 @@ type State =
 interface Decision {
   classification: LocationClassification;
   categoryId: string;
-  type: string;
 }
 
 function decisionKey(candidate: LocationReviewCandidate): string {
@@ -82,7 +81,6 @@ export default function LocationReviewPage() {
       initialDecisions[decisionKey(candidate)] = {
         classification: "omit",
         categoryId: candidate.suggested_category_id ?? "",
-        type: "",
       };
     }
     setDecisions(initialDecisions);
@@ -120,7 +118,6 @@ export default function LocationReviewPage() {
         address: candidate.address,
         classification: decision.classification,
         ...(decision.classification === "business" ? { category_id: decision.categoryId } : {}),
-        ...(decision.classification === "poi" ? { type: decision.type } : {}),
       };
     });
 
@@ -280,16 +277,6 @@ export default function LocationReviewPage() {
                           ))}
                         </select>
                       )}
-
-                      {decision?.classification === "poi" && (
-                        <input
-                          value={decision.type}
-                          disabled={state.status === "committing"}
-                          onChange={(e) => updateDecision(candidate, { type: e.target.value })}
-                          placeholder="Type (e.g. park, transit, landmark)"
-                          className="rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground"
-                        />
-                      )}
                     </div>
                   </li>
                 );
@@ -313,10 +300,7 @@ export default function LocationReviewPage() {
                 state.status === "committing" ||
                 state.report.new_candidates.some((candidate) => {
                   const decision = decisions[decisionKey(candidate)];
-                  return (
-                    (decision.classification === "business" && !decision.categoryId) ||
-                    (decision.classification === "poi" && !decision.type)
-                  );
+                  return decision.classification === "business" && !decision.categoryId;
                 })
               }
               onClick={() => commit(state.report)}

@@ -24,7 +24,6 @@ function toVenue(record: LocationRecord): Venue {
     name: record.name,
     kind: record.kind,
     category_id: record.categoryId,
-    type: record.type,
     description: record.description,
     lat: record.lat,
     lng: record.lng,
@@ -41,7 +40,6 @@ export interface CreateLocationRequestInput {
   kind: LocationKind;
   name: string;
   description?: string;
-  type?: string;
   categoryId?: string;
   lat: number;
   lng: number;
@@ -63,7 +61,6 @@ export async function createLocation(
     kind: input.kind,
     name: input.name,
     description: input.description ?? null,
-    type: input.type ?? null,
     categoryId: input.categoryId ?? null,
     lat: input.lat,
     lng: input.lng,
@@ -141,7 +138,6 @@ export async function getLocationDetailWithFreshEnrichment(
     name: record.name,
     kind: record.kind,
     google_place_id: record.googlePlaceId,
-    type: record.type,
     description: record.description,
     address: record.address,
     lat: record.lat,
@@ -222,7 +218,6 @@ export type SwitchLocationKindResult =
   | { status: "not_found" }
   | { status: "already_this_kind"; location: Venue }
   | { status: "claimed" }
-  | { status: "missing_type" }
   | { status: "invalid_category" };
 
 // Switch an existing location between business and poi kind in place
@@ -234,7 +229,7 @@ export async function switchLocationKindForNeighborhood(
   neighborhoodId: string,
   locationId: string,
   kind: LocationKind,
-  extra: { categoryId?: string; type?: string },
+  extra: { categoryId?: string },
   repository: LocationRepository
 ): Promise<SwitchLocationKindResult> {
   const locationNeighborhoodId = await repository.getLocationNeighborhoodId(locationId);
@@ -248,7 +243,6 @@ export async function switchLocationKindForNeighborhood(
     // A POI can never be claimed -- the admin must reject/revoke the claim
     // first (claims.ts's revokeApprovedClaim), then switch.
     if (record.claimedByBusiness) return { status: "claimed" };
-    if (!(extra.type ?? record.type)) return { status: "missing_type" };
   } else if (extra.categoryId) {
     // Optional even when switching to "business" -- matches today's
     // nullable venue.category_id ("Unmapped" is a valid state, reassignable
@@ -309,7 +303,7 @@ export async function listLocationListItemsForNeighborhood(
     kind: r.kind,
     name: r.name,
     address: r.address,
-    category_or_type: r.kind === "business" ? (r.categoryName ?? "Unmapped") : (r.type ?? ""),
+    category_or_type: r.kind === "business" ? (r.categoryName ?? "Unmapped") : "Point of interest",
     category_id: r.categoryId,
     status: r.status,
     claimed_by_business: r.claimedByBusiness,

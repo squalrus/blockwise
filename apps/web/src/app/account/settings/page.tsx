@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
+import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomSection } from "../MushroomSection";
@@ -82,7 +83,11 @@ export default function AccountSettingsPage() {
         </a>
       </div>
 
-      {state.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
+      {state.status === "loading" && (
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <MushroomLoader size={72} />
+        </div>
+      )}
 
       {state.status === "signed_out" && (
         <p className="text-sm text-muted">
@@ -129,9 +134,9 @@ export default function AccountSettingsPage() {
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Neighborhoods</h2>
             {state.neighborhoods.length === 0 ? (
               <p className="text-sm text-muted">
-                No neighborhoods joined yet -- join one from the{" "}
-                <a href="/" className="font-bold text-brand-purple hover:text-brand-orange">
-                  home page
+                No neighborhoods joined yet -- browse and join one on the{" "}
+                <a href="/neighborhoods" className="font-bold text-brand-purple hover:text-brand-orange">
+                  Neighborhoods page
                 </a>
                 .
               </p>

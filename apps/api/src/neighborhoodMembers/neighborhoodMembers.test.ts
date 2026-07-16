@@ -110,6 +110,30 @@ describe("joinNeighborhood", () => {
     expect(second.status).toBe("already_joined");
     expect(repo.memberships).toHaveLength(1);
   });
+
+  it("sets a first join as home automatically", async () => {
+    const repo = makeRepo();
+
+    const result = await joinNeighborhood("hood-1", "user-1", repo);
+    expect(result.status).toBe("created");
+    if (result.status === "created") expect(result.membership.isPrimary).toBe(true);
+
+    const memberships = await listMembershipsForUser("user-1", repo);
+    expect(memberships.find((m) => m.neighborhood_id === "hood-1")?.is_primary).toBe(true);
+  });
+
+  it("does not change home when joining a second neighborhood", async () => {
+    const repo = makeRepo();
+
+    await joinNeighborhood("hood-1", "user-1", repo);
+    const second = await joinNeighborhood("hood-2", "user-1", repo);
+    expect(second.status).toBe("created");
+    if (second.status === "created") expect(second.membership.isPrimary).toBe(false);
+
+    const memberships = await listMembershipsForUser("user-1", repo);
+    expect(memberships.find((m) => m.neighborhood_id === "hood-1")?.is_primary).toBe(true);
+    expect(memberships.find((m) => m.neighborhood_id === "hood-2")?.is_primary).toBe(false);
+  });
 });
 
 describe("leaveNeighborhood", () => {

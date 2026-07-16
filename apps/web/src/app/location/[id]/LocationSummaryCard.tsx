@@ -41,7 +41,7 @@ export function LocationSummaryCard({
           )
         ) : (
           <span className="rounded-full border border-border bg-card px-2.5 py-1 text-xs font-extrabold text-muted-strong">
-            {location.type}
+            Point of interest
           </span>
         )}
         {location.enrichment?.rating != null && (

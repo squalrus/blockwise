@@ -49,7 +49,7 @@ export default async function NeighborhoodLocationsPage({
       address: poi.address ?? "",
       lat: poi.lat as number,
       lng: poi.lng as number,
-      category_name: poi.type,
+      category_name: "Point of interest",
       category_group: null,
     }));
 

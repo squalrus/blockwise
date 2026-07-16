@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AppUser, ClaimedVenueSummary, NeighborhoodAdminSummary } from "@blockwise/types";
+import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser, promoteToBusiness } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
@@ -82,7 +83,9 @@ export default function AdminLandingPage() {
       <h1 className="font-heading text-xl font-extrabold text-foreground">Admin</h1>
 
       {(state.status === "loading" || state.status === "redirecting") && (
-        <p className="text-sm text-muted">Loading…</p>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <MushroomLoader size={72} />
+        </div>
       )}
 
       {state.status === "signed_out" && (
