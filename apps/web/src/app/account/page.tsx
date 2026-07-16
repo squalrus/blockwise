@@ -188,6 +188,20 @@ export default function AccountPage() {
             badgeCount={state.badges.length}
             challengeCount={state.challenges.length}
             neighborCount={state.connections.filter((c) => c.status === "accepted").length}
+            neighborMushrooms={state.connections
+              .filter((c) => c.status === "accepted")
+              .map((c) => c.user.mushroom_snapshot)
+              .filter((snapshot) => snapshot !== null)}
+            action={
+              state.user.visibility === "public" && state.user.username ? (
+                <a
+                  href={`/profile/${state.user.username}`}
+                  className="shrink-0 rounded-full border-2 border-foreground px-3.5 py-2 text-xs font-extrabold whitespace-nowrap text-foreground hover:bg-card"
+                >
+                  View public
+                </a>
+              ) : undefined
+            }
           />
 
           <TabNav

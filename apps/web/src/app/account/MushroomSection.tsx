@@ -10,6 +10,18 @@ import { MushroomCustomizer } from "./MushroomCustomizer";
 
 type Status = { state: "idle" | "submitting" | "error"; message?: string };
 
+function sameMushroomConfig(a: MushroomConfig | null, b: MushroomConfig | null): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    a.cap === b.cap &&
+    a.stalk === b.stalk &&
+    a.spots === b.spots &&
+    a.spotCount === b.spotCount &&
+    a.spotShape === b.spotShape &&
+    a.bg === b.bg
+  );
+}
+
 // BACKLOG.md Ref 75 "Mushroom avatar customizer" -- its own account/settings
 // section (a sibling to Profile, not nested inside it), always shown
 // regardless of avatar_style -- a user who currently shows their social
@@ -36,6 +48,15 @@ export function MushroomSection({
       : mushroomConfigForUser(user.id)
   );
   const [isCustomized, setIsCustomized] = useState(user.mushroom_customization !== null);
+
+  // Compares what's currently saved (user.mushroom_customization) against
+  // what saving right now would send -- gates the save button's third state
+  // below, alongside idle/submitting.
+  const savedCustomization: MushroomConfig | null = user.mushroom_customization
+    ? { ...user.mushroom_customization, spotShape: user.mushroom_customization.spotShape as SpotShape }
+    : null;
+  const pendingCustomization = isCustomized ? mushroomConfig : null;
+  const hasChanges = !sameMushroomConfig(savedCustomization, pendingCustomization);
 
   function handleChange(next: MushroomConfig) {
     setMushroomConfig(next);
@@ -83,10 +104,10 @@ export function MushroomSection({
       <button
         type="button"
         onClick={handleSave}
-        disabled={status.state === "submitting"}
+        disabled={status.state === "submitting" || !hasChanges}
         className="self-start rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
       >
-        {status.state === "submitting" ? "Saving…" : "Save mushroom"}
+        {status.state === "submitting" ? "Saving…" : hasChanges ? "Save mushroom" : "Saved"}
       </button>
       {status.state === "error" && <p className="text-sm text-red-600 dark:text-red-400">{status.message}</p>}
     </div>
