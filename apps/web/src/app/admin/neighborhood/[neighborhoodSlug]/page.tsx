@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Event, NeighborhoodDashboardSummary, NeighborhoodProfile, SocialLinks } from "@blockwise/types";
+import type { NeighborhoodDashboardSummary, NeighborhoodProfile, SocialLinks } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "./NeighborhoodAdminContext";
 import { DescriptionForm } from "./DescriptionForm";
-import { EventForm } from "./EventForm";
 import { SocialLinksForm } from "./SocialLinksForm";
 import { StatTile, MushroomIcon } from "../../../StatTile";
 
@@ -21,6 +20,10 @@ type State =
 // and Venue categories became sibling tabs; visually redesigned per
 // BACKLOG.md Ref 31 "SimCity-style redesign"). Signed-in/forbidden handling
 // lives in layout.tsx, which is why this only tracks loading/ready/error.
+// Events authoring/calendar-feed sync moved to its own Events tab
+// (BACKLOG.md Ref 78, imported Claude Design mockup "Spored Admin") -- this
+// page still fetches the same dashboard summary (it carries description/
+// social_links too), just no longer renders the events-related fields.
 export default function NeighborhoodAdminOverviewPage() {
   const { neighborhoodId, slug } = useNeighborhoodAdmin();
   const [state, setState] = useState<State>({ status: "loading" });
@@ -71,14 +74,6 @@ export default function NeighborhoodAdminOverviewPage() {
   function handleDescriptionSaved(description: string | null) {
     setState((prev) =>
       prev.status === "ready" ? { ...prev, summary: { ...prev.summary, description } } : prev
-    );
-  }
-
-  function handleEventCreated(event: Event) {
-    setState((prev) =>
-      prev.status === "ready"
-        ? { ...prev, summary: { ...prev.summary, events: [...prev.summary.events, event] } }
-        : prev
     );
   }
 
@@ -159,29 +154,6 @@ export default function NeighborhoodAdminOverviewPage() {
         </div>
 
         <div className="flex flex-col gap-5">
-          <section className="rounded-3xl border border-border bg-card p-6">
-            <div className="mb-3.5 flex items-baseline gap-2.5">
-              <h2 className="font-heading text-lg font-extrabold">Events</h2>
-              <span className="font-mono text-[11px] text-muted">{state.summary.events.length} upcoming</span>
-            </div>
-            <EventForm neighborhoodId={neighborhoodId} onCreated={handleEventCreated} />
-            {state.summary.events.length === 0 ? (
-              <p className="mt-3 text-sm text-muted">No events yet.</p>
-            ) : (
-              <ul className="mt-3 flex flex-col gap-2">
-                {state.summary.events.map((e) => (
-                  <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
-                    <p className="font-extrabold text-foreground">{e.title}</p>
-                    <p className="text-muted">{e.description}</p>
-                    <p className="mt-1 font-mono text-xs text-muted">
-                      {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
           <section className="rounded-3xl bg-nav p-5.5 text-nav-foreground">
             <div className="flex items-center gap-2.5">
               <MushroomIcon color="var(--brand-amber)" />
@@ -215,7 +187,11 @@ export default function NeighborhoodAdminOverviewPage() {
               >
                 locations
               </a>{" "}
-              any time.
+              any time, or check the{" "}
+              <a href={`/admin/neighborhood/${slug}/events`} className="font-bold text-brand-amber hover:underline">
+                events
+              </a>{" "}
+              tab for what's coming up.
             </p>
           </section>
         </div>

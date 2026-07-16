@@ -18,7 +18,7 @@ type State =
   | { status: "ready"; neighborhood: NeighborhoodAdminSummary; user: AppUser }
   | { status: "error"; message: string };
 
-type TabKey = "overview" | "boundary" | "locations" | "claims";
+type TabKey = "overview" | "boundary" | "locations" | "claims" | "events";
 
 const TABS: { key: TabKey; href: string; label: string; icon: (props: { className?: string }) => React.ReactNode }[] = [
   {
@@ -85,6 +85,19 @@ const TABS: { key: TabKey; href: string; label: string; icon: (props: { classNam
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+      </svg>
+    ),
+  },
+  {
+    key: "events",
+    href: "/events",
+    label: "Events",
+    icon: ({ className }) => (
+      <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
+        <rect x="2" y="4" width="16" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
+        <path d="M2 8.5 L18 8.5" stroke="currentColor" strokeWidth="2" />
+        <rect x="6" y="1.5" width="2" height="4" rx="1" fill="currentColor" />
+        <rect x="12" y="1.5" width="2" height="4" rx="1" fill="currentColor" />
       </svg>
     ),
   },

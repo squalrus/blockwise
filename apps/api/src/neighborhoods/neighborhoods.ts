@@ -1,4 +1,5 @@
 import type { GeoJsonPolygon, SocialLinks } from "@blockwise/types";
+import { isValidFeedUrl } from "../events/icalFeed";
 import type {
   CreatedNeighborhood,
   CreateNeighborhoodInput,
@@ -54,6 +55,29 @@ export async function updateNeighborhoodSocialLinks(
   if (!existing) return { status: "not_found" };
 
   const neighborhood = await repository.updateSocialLinks(id, socialLinks);
+  return { status: "updated", neighborhood };
+}
+
+export type UpdateNeighborhoodIcalFeedUrlResult =
+  | { status: "not_found" }
+  | { status: "invalid_url" }
+  | { status: "updated"; neighborhood: NeighborhoodRecord };
+
+// BACKLOG.md Ref 30 (iCal/webcal event feed import). Empty string clears the
+// feed (stored as null), mirroring the description form's "empty is valid"
+// pattern -- everything else must be a well-formed http(s)/webcal URL.
+export async function updateNeighborhoodIcalFeedUrl(
+  id: string,
+  icalFeedUrl: string,
+  repository: NeighborhoodRepository
+): Promise<UpdateNeighborhoodIcalFeedUrlResult> {
+  const existing = await repository.getNeighborhoodById(id);
+  if (!existing) return { status: "not_found" };
+
+  const trimmed = icalFeedUrl.trim();
+  if (trimmed && !isValidFeedUrl(trimmed)) return { status: "invalid_url" };
+
+  const neighborhood = await repository.updateIcalFeedUrl(id, trimmed || null);
   return { status: "updated", neighborhood };
 }
 

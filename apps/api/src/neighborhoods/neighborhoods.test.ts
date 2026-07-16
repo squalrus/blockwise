@@ -63,6 +63,19 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
     return neighborhood;
   }
 
+  async updateIcalFeedUrl(id: string, icalFeedUrl: string | null): Promise<NeighborhoodRecord> {
+    const neighborhood = this.neighborhoods.find((n) => n.id === id);
+    if (!neighborhood) throw new Error("not found");
+    neighborhood.icalFeedUrl = icalFeedUrl;
+    return neighborhood;
+  }
+
+  async markIcalSynced(id: string, syncedAt: string): Promise<void> {
+    const neighborhood = this.neighborhoods.find((n) => n.id === id);
+    if (!neighborhood) throw new Error("not found");
+    neighborhood.icalSyncedAt = syncedAt;
+  }
+
   async listAll(): Promise<NeighborhoodRecord[]> {
     return this.neighborhoods;
   }
@@ -123,6 +136,8 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
       city: input.city,
       state: input.state,
       social_links: {},
+      icalFeedUrl: null,
+      icalSyncedAt: null,
     });
     this.boundaries.set(id, {
       boundaryGeojson: input.boundaryGeojson,
@@ -142,6 +157,8 @@ const PHINNEYWOOD: NeighborhoodRecord = {
   city: "Seattle",
   state: "WA",
   social_links: {},
+  icalFeedUrl: null,
+  icalSyncedAt: null,
 };
 
 describe("getNeighborhoodBySlug", () => {

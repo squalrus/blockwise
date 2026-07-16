@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.51.0] — 2026-07-16
+
+### Added
+
+- **iCal/webcal event feed import.** A neighborhood or a claimed business can now publish an external `.ics`/webcal calendar feed URL and trigger a manual "Sync now" to pull its events straight into Blockwise, instead of re-keying every event by hand — manual entry via the existing event form remains the fallback for anyone without an external calendar. Recurring events (`RRULE`) are expanded into individual occurrences within a bounded 180-day/25-occurrence window. Re-syncing updates existing imported events rather than duplicating them, keyed off the feed's own iCalendar UID. (`apps/api/src/events/icalFeed.ts`, `apps/api/src/events/icalSync.ts`, `apps/web/src/app/admin/business/[venueId]/IcalFeedForm.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/IcalFeedForm.tsx`, `supabase/migrations/20260716030000_ical_event_feed_import.sql`)
+- **Neighborhood-admin Events tab**, split out of the Overview tab into its own sidebar entry: calendar feed settings and a manual "Create event" form on the left, an "Upcoming" list with per-event Hide/Unhide and Delete actions on the right. A new shared `EventListItem` component (date badge, title, time/venue/location, feed-vs-manual source pill, click-to-expand description) now backs this tab as well as the public Upcoming events and Today tabs. Events can also be hidden (survives a future feed re-sync, unlike delete) or hard-deleted from either the neighborhood-admin or business-owner dashboard. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `apps/web/src/app/EventListItem.tsx`, `supabase/migrations/20260716050000_event_status.sql`)
+
+### Changed
+
+- **Neighborhood profile's default tab renamed "Happening now" → "Today"**, and broadened from strictly-in-progress events to anything happening today (in progress or later today), not just events overlapping the current instant. (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `apps/api/src/locations/happeningNow.ts`)
+- **Imported events now carry a location.** A neighborhood-owned import keeps the feed's own per-event location as-is; a venue-owned import always shows that venue's own address instead, since a business's events are always at that business. (`supabase/migrations/20260716040000_event_location.sql`)
+
 ## [0.50.0] — 2026-07-16
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "@blockwise/api",
-  "version": "0.50.0",
+  "version": "0.51.0",
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -16,6 +16,7 @@
     "@blockwise/types": "*",
     "@supabase/supabase-js": "^2.45.4",
     "express": "^4.21.1",
+    "node-ical": "^0.26.1",
     "serverless-http": "^3.2.0"
   },
   "devDependencies": {

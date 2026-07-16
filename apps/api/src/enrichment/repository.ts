@@ -34,7 +34,7 @@ export interface EnrichmentRepository {
   // assembling a full detail record just to serve an image.
   getPhotoReference(locationId: string, index: number): Promise<string | null>;
   // Every active location in the neighborhood with cached hours, for the
-  // Happening now tab's "open right now" section (BACKLOG.md Ref 27) --
+  // Today tab's "open right now" section (BACKLOG.md Ref 27) --
   // callers run isOpenNow(hours) themselves since "now" is a runtime
   // concern, not a query concern.
   listOpenNowCandidates(neighborhoodId: string): Promise<OpenNowCandidate[]>;

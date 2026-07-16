@@ -86,4 +86,10 @@ export interface ClaimRepository {
   // the business owner dashboard only knows the venue it's editing.
   getApprovedClaimSocialLinks(venueId: string): Promise<SocialLinks>;
   updateApprovedClaimSocialLinks(venueId: string, socialLinks: SocialLinks): Promise<SocialLinks>;
+  // iCal/webcal event feed import (BACKLOG.md Ref 30) -- same
+  // approved-claim scoping as social_links above, since a feed url is
+  // owner-authored business-profile data too.
+  getApprovedClaimIcalFeed(venueId: string): Promise<{ icalFeedUrl: string | null; icalSyncedAt: string | null }>;
+  updateApprovedClaimIcalFeedUrl(venueId: string, icalFeedUrl: string | null): Promise<string | null>;
+  markApprovedClaimIcalSynced(venueId: string, syncedAt: string): Promise<void>;
 }

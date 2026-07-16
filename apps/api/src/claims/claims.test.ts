@@ -140,6 +140,25 @@ class FakeClaimRepository implements ClaimRepository {
     claim.socialLinks = socialLinks;
     return claim.socialLinks;
   }
+
+  icalFeeds = new Map<string, { icalFeedUrl: string | null; icalSyncedAt: string | null }>();
+
+  async getApprovedClaimIcalFeed(
+    venueId: string
+  ): Promise<{ icalFeedUrl: string | null; icalSyncedAt: string | null }> {
+    return this.icalFeeds.get(venueId) ?? { icalFeedUrl: null, icalSyncedAt: null };
+  }
+
+  async updateApprovedClaimIcalFeedUrl(venueId: string, icalFeedUrl: string | null): Promise<string | null> {
+    const existing = this.icalFeeds.get(venueId) ?? { icalFeedUrl: null, icalSyncedAt: null };
+    this.icalFeeds.set(venueId, { ...existing, icalFeedUrl });
+    return icalFeedUrl;
+  }
+
+  async markApprovedClaimIcalSynced(venueId: string, syncedAt: string): Promise<void> {
+    const existing = this.icalFeeds.get(venueId) ?? { icalFeedUrl: null, icalSyncedAt: null };
+    this.icalFeeds.set(venueId, { ...existing, icalSyncedAt: syncedAt });
+  }
 }
 
 const CONTACT = { contactName: "Jane Doe", contactMethod: "email" as const, contactValue: "jane@example.com" };

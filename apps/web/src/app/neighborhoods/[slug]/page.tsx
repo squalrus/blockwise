@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { HappeningNow, NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
+import { EventListItem } from "../../EventListItem";
 import { PlaceListItem } from "../../PlaceListItem";
 
 export async function generateMetadata({
@@ -25,11 +26,11 @@ async function getHappeningNow(id: string): Promise<HappeningNow> {
   return (await res.json()) as HappeningNow;
 }
 
-// BACKLOG.md Ref 27: Happening now tab, the default route for the
-// neighborhood profile (see NeighborhoodTabs.tsx) -- events currently in
-// progress plus businesses/POIs whose cached hours say they're open right
-// now.
-export default async function NeighborhoodHappeningNowPage({
+// BACKLOG.md Ref 27: Today tab (renamed from "Happening now"), the default
+// route for the neighborhood profile (see NeighborhoodTabs.tsx) -- events
+// happening today (in progress or later today, not just this exact instant)
+// plus businesses/POIs whose cached hours say they're open right now.
+export default async function NeighborhoodTodayPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -40,27 +41,20 @@ export default async function NeighborhoodHappeningNowPage({
 
   const happeningNow = await getHappeningNow(neighborhood.id);
 
-  if (happeningNow.live_events.length === 0 && happeningNow.open_now.length === 0) {
-    return <p className="text-sm text-muted">Nothing happening right now.</p>;
+  if (happeningNow.today_events.length === 0 && happeningNow.open_now.length === 0) {
+    return <p className="text-sm text-muted">Nothing happening today.</p>;
   }
 
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-2">
-        <h2 className="font-heading text-lg font-extrabold text-foreground">Live now</h2>
-        {happeningNow.live_events.length === 0 ? (
-          <p className="text-sm text-muted">No events happening right now.</p>
+        <h2 className="font-heading text-lg font-extrabold text-foreground">Today's events</h2>
+        {happeningNow.today_events.length === 0 ? (
+          <p className="text-sm text-muted">No events happening today.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {happeningNow.live_events.map((e) => (
-              <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-4 text-sm">
-                <span className="font-extrabold text-foreground">{e.title}</span>
-                {e.venue_name && <span className="ml-1.5 text-xs font-bold text-muted">@ {e.venue_name}</span>}
-                <p className="mt-1 text-body-text">{e.description}</p>
-                <p className="mt-1.5 text-xs font-bold text-muted">
-                  Until {new Date(e.end_time).toLocaleString()}
-                </p>
-              </li>
+          <ul className="flex flex-col gap-2.5">
+            {happeningNow.today_events.map((e) => (
+              <EventListItem key={e.id} event={e} showSource={false} />
             ))}
           </ul>
         )}

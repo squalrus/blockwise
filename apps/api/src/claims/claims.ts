@@ -5,6 +5,7 @@ import type {
   BusinessClaimWithVenue,
   SocialLinks,
 } from "@blockwise/types";
+import { isValidFeedUrl } from "../events/icalFeed";
 import type { ClaimRecord, ClaimRepository, ClaimWithVenueRecord } from "./repository";
 
 function toBusinessClaim(record: ClaimRecord): BusinessClaim {
@@ -169,4 +170,32 @@ export async function updateVenueSocialLinks(
   repository: ClaimRepository
 ): Promise<SocialLinks> {
   return repository.updateApprovedClaimSocialLinks(venueId, socialLinks);
+}
+
+// BACKLOG.md Ref 30 (iCal/webcal event feed import) -- same venueOwnerGate
+// precondition as getVenueSocialLinks/updateVenueSocialLinks above, so no
+// not_found branching here either.
+export async function getVenueIcalFeed(
+  venueId: string,
+  repository: ClaimRepository
+): Promise<{ icalFeedUrl: string | null; icalSyncedAt: string | null }> {
+  return repository.getApprovedClaimIcalFeed(venueId);
+}
+
+export type UpdateVenueIcalFeedUrlResult =
+  | { status: "invalid_url" }
+  | { status: "updated"; icalFeedUrl: string | null };
+
+// Empty string clears the feed (stored as null), mirroring
+// updateNeighborhoodIcalFeedUrl's "empty is valid" handling.
+export async function updateVenueIcalFeedUrl(
+  venueId: string,
+  icalFeedUrl: string,
+  repository: ClaimRepository
+): Promise<UpdateVenueIcalFeedUrlResult> {
+  const trimmed = icalFeedUrl.trim();
+  if (trimmed && !isValidFeedUrl(trimmed)) return { status: "invalid_url" };
+
+  const saved = await repository.updateApprovedClaimIcalFeedUrl(venueId, trimmed || null);
+  return { status: "updated", icalFeedUrl: saved };
 }

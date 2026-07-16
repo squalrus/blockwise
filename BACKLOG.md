@@ -28,14 +28,12 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 30 | [iCal/webcal event feed import](#icalwebcal-event-feed-import) | feature | M | H | — |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
 | 80 | [Missing location suggestion UI](#missing-location-suggestion-ui) | feature | S | M | — |
 | 76 | [Self-serve neighborhood-admin invite/remove UI](#self-serve-neighborhood-admin-inviteremove-ui) | feature | M | M | — |
-| 78 | [Neighborhood-admin Events tab](#neighborhood-admin-events-tab) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 77 | [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) | feature | L | M | — |
 | 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
@@ -65,6 +63,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
+| 81 | [Follow events](#follow-events) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | — |
@@ -100,14 +99,6 @@ No open limitations.
 ## Open
 
 ### Neighborhood
-
-#### iCal/webcal event feed import
-
-**Ref:** 30
-**Type:** feature
-**Depends:** —
-**Why** — Per the "leverage existing content" principle (see below), neighborhoods and businesses already publish events elsewhere (e.g. The Events Calendar plugin's `webcal://.../?post_type=tribe_events&ical=1&eventDisplay=list` feed, as phinneywood.com does) — pulling those in automatically means an admin/owner does zero manual data entry and the neighborhood's event list stays current for free, instead of relying on someone to re-key events into Blockwise.
-**Notes:** Add an optional `ical_feed_url` on `neighborhood` and (separately) on `venue`/business profile. A scheduled sync job fetches and parses each feed (a standard `.ics`/iCalendar format despite the `webcal://` scheme — same as `http(s)://`) and upserts into the existing `event` table (`apps/api/src/events/repository.ts`) as `neighborhoodId`- or `venueId`-scoped rows, keyed by the feed's `UID` so re-syncs update rather than duplicate. Manual event entry (already supported via `createEvent`) remains the fallback for neighborhoods/businesses without an external calendar. Feeds directly into the neighborhood's Upcoming events tab (shipped v0.39.0) as an additional event source alongside neighborhood- and business-authored events.
 
 #### Neighborhood marketplace/licensing model
 
@@ -164,14 +155,6 @@ No open limitations.
 **Depends:** —
 **Why** — Granting neighborhood-admin access today is a one-off CLI script (`apps/api/src/scripts/grantNeighborhoodAdmin.ts`) run against the `neighborhood_admin` table (`user_id`, `neighborhood_id`, no role column) — there is no self-serve way for an existing admin to bring on a co-admin. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed an "Admins" card on the Overview tab (invite by email with a role picker, active/invited list, remove action) that was deliberately left out since it needs real backend, not just restyling.
 **Notes:** `neighborhood_admin` has no pending/invited state today, only accepted rows — needs either an invite-token/email flow (requires email delivery infra, and handling an invitee with no account yet) or a simpler invite-by-existing-username flow (no email infra, but the invitee must already have signed up) — open question which to build first. Also needs a `GET .../neighborhoods/:id/admins` list endpoint and a remove endpoint (`DELETE .../neighborhoods/:id/admins/:userId`), both `neighborhoodAdminGate`-scoped like the rest of `/neighborhood-admin/*`. No role column exists on `neighborhood_admin` — the mockup's Owner/Admin role picker would need one added, or could be dropped in favor of a flat "admin" concept matching what actually exists.
-
-#### Neighborhood-admin Events tab
-
-**Ref:** 78
-**Type:** feature
-**Depends:** —
-**Why** — Events currently live as a create-only section on the neighborhood-admin Overview tab (`EventForm.tsx` + list, `POST /neighborhood-admin/neighborhoods/:id/events`) — there's no dedicated Events tab, no edit action, and no way to hide/cancel an already-created event. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed Events as its own sidebar tab with a two-column layout (calendar-feed status + create form on the left, an "Upcoming" list with per-event Hide/Edit actions on the right) that was left out of the visual-only redesign since edit/hide are net-new capabilities, not a restyle.
-**Notes:** Softly related to but independent of [iCal/webcal event feed import](#icalwebcal-event-feed-import) (Ref 30) — the mockup's calendar-feed sync-status card ("synced 2 hours ago, N events imported") is only real once Ref 30 lands, but the tab split plus edit/hide actions on manually-created events don't depend on it and could ship first. Needs `PATCH`/a status field on `event` (or reuse the `active`/`hidden` pattern already used for `venue`/`poi` status) for the hide action, and an edit form reusing `EventForm.tsx`'s fields. Promote the existing Overview-tab event list into its own `events/page.tsx` route alongside the sidebar's other tabs (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/layout.tsx`'s `TABS` array).
 
 #### Neighborhood-admin challenge authoring
 
@@ -320,6 +303,14 @@ No open limitations.
 **Depends:** —
 **Why** — Beyond Google (shipped v0.10.0) and Apple ([Apple social sign-in](#apple-social-sign-in-sign-in-with-apple), Ref 17, deliberately scoped separately for its heavier Apple Developer Program/rotating-secret overhead), other OAuth providers Supabase supports out of the box (e.g. Microsoft, GitHub, Facebook, Discord) would add sign-in options with setup comparable to Google's — no rotating secrets or paid developer program required — before taking on Apple's bigger lift.
 **Notes:** `verifyToken.ts` already reads the provider generically off `app_metadata` (per Ref 17's notes), so the server-side path likely needs no changes — this is mostly `supabase.auth.signInWithOAuth` provider registration plus a button on the sign-in page. Open question: which provider(s) actually match Blockwise's user base — worth picking one (e.g. Microsoft, given broad consumer email adoption) rather than adding all of them speculatively.
+
+#### Follow events
+
+**Ref:** 81
+**Type:** feature
+**Depends:** —
+**Why** — Events (manually created or iCal-imported, BACKLOG.md Ref 30) currently only live on the neighborhood/business Events tab and the public Upcoming events/Today tabs — there's no way for a user to bookmark one they care about and find it again later without re-browsing. Surfacing followed events on `/account` gives users a personal "what am I going to" list, mirroring what Favorite venues (shipped v0.9.0) already does for places.
+**Notes:** Likely a new `event_follow` table (`user_id`, `event_id`, `created_at`), same anonymous-first device-scoped shape as `favorite` (`supabase/migrations/20260706060000_favorite_venues.sql`) and [Venue wishlist](#venue-wishlist) (Ref 2) if anonymous following is wanted; simpler to scope to signed-in users only for a first cut. `/account` would need a new Events section (mirroring the existing Favorites/Check-ins/Badges/Challenges tabs, `apps/web/src/app/account`) rendering via the shared `EventListItem` component (`apps/web/src/app/EventListItem.tsx`, built alongside the Events tab work) with a "Following" indicator instead of admin actions. Open question: should a followed event disappear from the list once it's over, or stick around as a personal history (closer to check-ins than to favorites)?
 
 #### Apple social sign-in (Sign in with Apple)
 

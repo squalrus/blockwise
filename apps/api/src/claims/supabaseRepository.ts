@@ -231,4 +231,44 @@ export class SupabaseClaimRepository implements ClaimRepository {
     if (error) throw new Error(`updateApprovedClaimSocialLinks failed: ${error.message}`);
     return (data?.social_links as SocialLinks | null) ?? {};
   }
+
+  async getApprovedClaimIcalFeed(
+    venueId: string
+  ): Promise<{ icalFeedUrl: string | null; icalSyncedAt: string | null }> {
+    const { data, error } = await this.supabase
+      .from("business_claim")
+      .select("ical_feed_url, ical_synced_at")
+      .eq("venue_id", venueId)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (error) throw new Error(`getApprovedClaimIcalFeed failed: ${error.message}`);
+    return {
+      icalFeedUrl: data?.ical_feed_url ?? null,
+      icalSyncedAt: data?.ical_synced_at ?? null,
+    };
+  }
+
+  async updateApprovedClaimIcalFeedUrl(venueId: string, icalFeedUrl: string | null): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .from("business_claim")
+      .update({ ical_feed_url: icalFeedUrl })
+      .eq("venue_id", venueId)
+      .eq("status", "approved")
+      .select("ical_feed_url")
+      .single();
+
+    if (error) throw new Error(`updateApprovedClaimIcalFeedUrl failed: ${error.message}`);
+    return data?.ical_feed_url ?? null;
+  }
+
+  async markApprovedClaimIcalSynced(venueId: string, syncedAt: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("business_claim")
+      .update({ ical_synced_at: syncedAt })
+      .eq("venue_id", venueId)
+      .eq("status", "approved");
+
+    if (error) throw new Error(`markApprovedClaimIcalSynced failed: ${error.message}`);
+  }
 }

@@ -8,6 +8,12 @@ export interface NeighborhoodRecord {
   city: string;
   state: string;
   social_links: SocialLinks;
+  // iCal/webcal event feed import (BACKLOG.md Ref 30) -- an optional external
+  // calendar feed synced into the event table (source "ical"). Null feed url
+  // means the neighborhood has none configured yet; icalSyncedAt is null
+  // until the first successful sync.
+  icalFeedUrl: string | null;
+  icalSyncedAt: string | null;
 }
 
 export interface NeighborhoodListCounts {
@@ -70,6 +76,11 @@ export interface NeighborhoodRepository {
   getNeighborhoodById(id: string): Promise<NeighborhoodRecord | null>;
   updateDescription(id: string, description: string): Promise<NeighborhoodRecord>;
   updateSocialLinks(id: string, socialLinks: SocialLinks): Promise<NeighborhoodRecord>;
+  // iCal/webcal event feed import (BACKLOG.md Ref 30).
+  updateIcalFeedUrl(id: string, icalFeedUrl: string | null): Promise<NeighborhoodRecord>;
+  // Stamps the sync timestamp the moment a feed sync actually runs, mirroring
+  // markLocationsReviewed's explicit-timestamp pattern below.
+  markIcalSynced(id: string, syncedAt: string): Promise<void>;
   // Landing page (BACKLOG.md "Neighborhoods on landing page and user
   // profile") -- every neighborhood in the network, for the "all
   // neighborhoods" browse/join list. Not filtered by status: nothing else in

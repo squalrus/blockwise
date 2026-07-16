@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { Event, NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
+import { EventListItem } from "../../../EventListItem";
 
 export async function generateMetadata({
   params,
@@ -41,15 +42,9 @@ export default async function NeighborhoodEventsPage({
   }
 
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex flex-col gap-2.5">
       {events.map((e) => (
-        <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-4 text-sm">
-          <span className="font-extrabold text-foreground">{e.title}</span>
-          <p className="mt-1 text-body-text">{e.description}</p>
-          <p className="mt-1.5 text-xs font-bold text-muted">
-            {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
-          </p>
-        </li>
+        <EventListItem key={e.id} event={e} showSource={false} />
       ))}
     </ul>
   );

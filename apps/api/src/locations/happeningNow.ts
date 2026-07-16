@@ -4,17 +4,26 @@ import type { EventRepository } from "../events/repository";
 import { listUpcomingEventsForNeighborhood } from "../events/events";
 import { isOpenNow } from "./hours";
 
-function isLiveNow(event: Event, now: Date): boolean {
+// An event counts as "today" if its start/end range overlaps today's local
+// calendar day -- broader than a strict now-in-range check, so an event
+// later today (not yet started) or one already in progress both count, not
+// just ones happening at this exact instant. listUpcomingEventsForNeighborhood
+// already excludes anything whose end_time is in the past (server-side), so
+// an event that started earlier today and has already ended won't reach
+// this filter either way -- "today" here means "today, and not yet over".
+function isToday(event: Event, now: Date): boolean {
   const start = new Date(event.start_time).getTime();
   const end = new Date(event.end_time).getTime();
-  const nowMs = now.getTime();
-  return nowMs >= start && nowMs <= end;
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+  return start < todayEnd && end >= todayStart;
 }
 
-// Happening now tab (BACKLOG.md Ref 27): a mix of events currently in
-// progress and businesses/POIs whose cached hours say they're open right
-// now. Locations with no cached hours are simply excluded, not guessed at
-// (BACKLOG.md Ref 60's photo strip made the same call for missing photos).
+// "Today" tab (BACKLOG.md Ref 27, renamed from "Happening now"): a mix of
+// events happening today and businesses/POIs whose cached hours say they're
+// open right now. Locations with no cached hours are simply excluded, not
+// guessed at (BACKLOG.md Ref 60's photo strip made the same call for
+// missing photos).
 export async function getHappeningNow(
   neighborhoodId: string,
   eventRepository: EventRepository,
@@ -27,7 +36,7 @@ export async function getHappeningNow(
   ]);
 
   return {
-    live_events: events.filter((event) => isLiveNow(event, now)),
+    today_events: events.filter((event) => isToday(event, now)),
     open_now: openNowCandidates
       .filter((candidate) => isOpenNow(candidate.hours, now))
       .map((candidate) => ({
