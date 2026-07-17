@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { Event, NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { EventListItem } from "../../../EventListItem";
+import { FollowEventButton } from "../../../FollowEventButton";
 
 export async function generateMetadata({
   params,
@@ -44,7 +45,7 @@ export default async function NeighborhoodEventsPage({
   return (
     <ul className="flex flex-col gap-2.5">
       {events.map((e) => (
-        <EventListItem key={e.id} event={e} showSource={false} />
+        <EventListItem key={e.id} event={e} showSource={false} actions={<FollowEventButton eventId={e.id} />} />
       ))}
     </ul>
   );

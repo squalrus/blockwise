@@ -21,7 +21,7 @@ import { requireAdmin } from "./admin/requireAdmin";
 import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
 import { requireSuperAdmin } from "./admin/requireSuperAdmin";
 import { SupabaseNeighborhoodAdminRepository, SupabaseSuperAdminRepository } from "./admin/supabaseRepository";
-import { listRecentActivity } from "./activity/activity";
+import { listActivityForUsers, listMyActivity, listRecentActivity } from "./activity/activity";
 import { SupabaseActivityRepository } from "./activity/supabaseRepository";
 import { createAnnouncement, listAnnouncementsForVenue } from "./announcements/announcements";
 import { SupabaseAnnouncementRepository } from "./announcements/supabaseRepository";
@@ -69,6 +69,8 @@ import {
 } from "./events/events";
 import { syncNeighborhoodIcalFeed, syncVenueIcalFeed } from "./events/icalSync";
 import { SupabaseEventRepository } from "./events/supabaseRepository";
+import { followEvent, getEventFollowStatus, unfollowEvent } from "./eventFollows/eventFollow";
+import { SupabaseEventFollowRepository } from "./eventFollows/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import {
@@ -77,6 +79,7 @@ import {
   getUserCompletedChallenges,
   listChallengesWithProgress,
 } from "./gamification/challenges";
+import { awardEventFollowBadge } from "./gamification/eventFollowBadge";
 import { awardFounderBadge } from "./gamification/founderBadge";
 import { awardFavoritePoints, getLeaderboard, getUserBadges, getUserPoints } from "./gamification/points";
 import { awardCheckinRewards, awardNeighborConnectionRewards } from "./gamification/rewards";
@@ -353,6 +356,12 @@ let eventRepository: SupabaseEventRepository | undefined;
 function getEventRepository(): SupabaseEventRepository {
   eventRepository ??= new SupabaseEventRepository(getSupabaseClient());
   return eventRepository;
+}
+
+let eventFollowRepository: SupabaseEventFollowRepository | undefined;
+function getEventFollowRepository(): SupabaseEventFollowRepository {
+  eventFollowRepository ??= new SupabaseEventFollowRepository(getSupabaseClient());
+  return eventFollowRepository;
 }
 
 let neighborhoodRepository: SupabaseNeighborhoodRepository | undefined;
@@ -907,6 +916,88 @@ export function createApp() {
     }
   });
 
+  // Follow events (BACKLOG.md Ref 81): a signed-in-only bookmark on an
+  // event, mirroring the favorite-venues routes above.
+  app.get("/events/:id/follow", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const result = await getEventFollowStatus(req.params.id, req.appUser!.id, getEventFollowRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      res.json({ following: result.following });
+    } catch (err) {
+      console.error(`GET /events/${req.params.id}/follow failed:`, err);
+      res.status(500).json({ error: "Failed to load follow status" });
+    }
+  });
+
+  app.post("/events/:id/follow", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const result = await followEvent(req.params.id, req.appUser!.id, getEventFollowRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      if (result.status === "created") {
+        // BACKLOG.md Ref 81: "Event Scout" badge on a user's first-ever
+        // event follow -- awaited before the response is sent, same
+        // Netlify/Lambda-freeze reasoning as awardFavoritePoints above.
+        try {
+          await awardEventFollowBadge(result.follow.user_id, getGamificationRepository());
+        } catch (err) {
+          console.error(`awardEventFollowBadge (user ${result.follow.user_id}) failed:`, err);
+        }
+      }
+      res.status(result.status === "created" ? 201 : 200).json(result.follow);
+    } catch (err) {
+      console.error(`POST /events/${req.params.id}/follow failed:`, err);
+      res.status(500).json({ error: "Failed to follow event" });
+    }
+  });
+
+  app.delete("/events/:id/follow", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const result = await unfollowEvent(req.params.id, req.appUser!.id, getEventFollowRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      res.status(204).end();
+    } catch (err) {
+      console.error(`DELETE /events/${req.params.id}/follow failed:`, err);
+      res.status(500).json({ error: "Failed to unfollow event" });
+    }
+  });
+
+  // My account page's Events tab (BACKLOG.md Ref 81): event-joined listing
+  // of events the signed-in user follows, mirroring GET /me/favorites above.
+  app.get("/me/events", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const events = await getEventFollowRepository().listFollowedEventsForUser(req.appUser!.id);
+      res.json(
+        events.map((e) => ({
+          id: e.eventId,
+          venue_id: e.venueId,
+          neighborhood_id: e.neighborhoodId,
+          venue_name: e.venueName,
+          title: e.title,
+          description: e.description,
+          start_time: e.startTime,
+          end_time: e.endTime,
+          created_at: e.createdEventAt,
+          source: e.source,
+          location: e.location,
+          status: e.status,
+          followed_at: e.followedAt,
+        }))
+      );
+    } catch (err) {
+      console.error("GET /me/events failed:", err);
+      res.status(500).json({ error: "Failed to list followed events" });
+    }
+  });
+
   // Account page profile summary card (BACKLOG.md Ref 47) -- an all-time,
   // all-neighborhood points total (unlike GET /neighborhoods/:slug/leaderboard,
   // which is neighborhood-scoped and public-visibility-only).
@@ -1192,6 +1283,42 @@ export function createApp() {
       }
     }
   );
+
+  // /account's Spore Feed tab (BACKLOG.md Ref 81): the same activity types
+  // as GET /neighborhoods/:id/activity, but scoped to the caller's accepted
+  // neighbor connections instead of a whole neighborhood.
+  app.get("/me/feed", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const connections = await getConnectionRepository().listConnectionsForUser(req.appUser!.id, "accepted");
+      const feed = await listActivityForUsers(
+        connections.map((c) => c.user.id),
+        getActivityRepository()
+      );
+      res.json(feed);
+    } catch (err) {
+      console.error("GET /me/feed failed:", err);
+      res.status(500).json({ error: "Failed to load feed" });
+    }
+  });
+
+  // /account's My Activity tab (BACKLOG.md Ref 81 follow-up, renamed from
+  // the old check-ins-only tab): every activity type for the signed-in
+  // user's own actions, unmasked (see listMyActivity's doc comment) since
+  // it's the account viewing its own data.
+  app.get("/me/activity", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const activity = await listMyActivity(
+        req.appUser!.id,
+        req.appUser!.displayName,
+        req.appUser!.username,
+        getActivityRepository()
+      );
+      res.json(activity);
+    } catch (err) {
+      console.error("GET /me/activity failed:", err);
+      res.status(500).json({ error: "Failed to load activity" });
+    }
+  });
 
   app.post(
     "/me/connections/:id/accept",

@@ -65,7 +65,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
-| 81 | [Follow events](#follow-events) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
@@ -317,14 +316,6 @@ No open limitations.
 **Depends:** —
 **Why** — Beyond Google (shipped v0.10.0) and Apple ([Apple social sign-in](#apple-social-sign-in-sign-in-with-apple), Ref 17, deliberately scoped separately for its heavier Apple Developer Program/rotating-secret overhead), other OAuth providers Supabase supports out of the box (e.g. Microsoft, GitHub, Facebook, Discord) would add sign-in options with setup comparable to Google's — no rotating secrets or paid developer program required — before taking on Apple's bigger lift.
 **Notes:** `verifyToken.ts` already reads the provider generically off `app_metadata` (per Ref 17's notes), so the server-side path likely needs no changes — this is mostly `supabase.auth.signInWithOAuth` provider registration plus a button on the sign-in page. Open question: which provider(s) actually match Blockwise's user base — worth picking one (e.g. Microsoft, given broad consumer email adoption) rather than adding all of them speculatively.
-
-#### Follow events
-
-**Ref:** 81
-**Type:** feature
-**Depends:** —
-**Why** — Events (manually created or iCal-imported, BACKLOG.md Ref 30) currently only live on the neighborhood/business Events tab and the public Upcoming events/Today tabs — there's no way for a user to bookmark one they care about and find it again later without re-browsing. Surfacing followed events on `/account` gives users a personal "what am I going to" list, mirroring what Favorite venues (shipped v0.9.0) already does for places.
-**Notes:** Likely a new `event_follow` table (`user_id`, `event_id`, `created_at`), same anonymous-first device-scoped shape as `favorite` (`supabase/migrations/20260706060000_favorite_venues.sql`) and [Venue wishlist](#venue-wishlist) (Ref 2) if anonymous following is wanted; simpler to scope to signed-in users only for a first cut. `/account` would need a new Events section (mirroring the existing Favorites/Check-ins/Badges/Challenges tabs, `apps/web/src/app/account`) rendering via the shared `EventListItem` component (`apps/web/src/app/EventListItem.tsx`, built alongside the Events tab work) with a "Following" indicator instead of admin actions. Open question: should a followed event disappear from the list once it's over, or stick around as a personal history (closer to check-ins than to favorites)?
 
 #### Apple social sign-in (Sign in with Apple)
 

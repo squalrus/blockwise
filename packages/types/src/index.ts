@@ -444,6 +444,27 @@ export interface UpdateEventStatusRequest {
   status: EventStatus;
 }
 
+// Follow events (BACKLOG.md Ref 81) -- signed-in-only bookmark on an event,
+// mirroring Favorite's shape.
+export interface EventFollow {
+  id: string;
+  user_id: string;
+  event_id: string;
+  created_at: string;
+}
+
+export interface EventFollowStatusResponse {
+  following: boolean;
+}
+
+// GET /me/events -- event-joined listing for the "My account" page's Events
+// tab, mirroring FavoriteVenueSummary. Reuses the Event shape (rather than a
+// narrower summary type) since EventListItem already renders an Event
+// directly; followed_at is the only addition on top of a plain Event.
+export interface FollowedEventSummary extends Event {
+  followed_at: string;
+}
+
 export interface CreateEventRequest {
   title: string;
   description: string;
@@ -970,16 +991,24 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
-export type ActivityType = "checkin" | "favorite" | "badge" | "challenge_completion";
+export type ActivityType =
+  | "checkin"
+  | "favorite"
+  | "badge"
+  | "challenge_completion"
+  | "event_follow"
+  | "neighbor_connection";
 
-// GET /neighborhoods/:id/activity -- the neighborhood-wide Recent activity
-// tab (BACKLOG.md Ref 27's "What's happening now" scope). actor_name is
-// already resolved server-side against the actor's profile visibility --
-// "A user" for a private profile, display_name/username/"A user" for a
-// public one -- so the client never sees which private user did what.
-// actor_username is likewise only ever set for a public profile (null for
-// "A user" rows), letting the web app link the actor's name to their public
-// profile without exposing a private user's handle.
+// GET /neighborhoods/:id/activity (neighborhood-wide) and GET /me/feed
+// (BACKLOG.md Ref 81 -- your neighbors' activity, /account's Spore Feed
+// tab) share this shape. actor_name is already resolved server-side against
+// the actor's profile visibility -- "A user" for a private profile,
+// display_name/username/"A user" for a public one -- so the client never
+// sees which private user did what, even in the Spore Feed where the
+// visitor already has an accepted connection with the actor. actor_username
+// is likewise only ever set for a public profile (null for "A user" rows),
+// letting the web app link the actor's name to their public profile without
+// exposing a private user's handle.
 export interface ActivityItem {
   id: string;
   type: ActivityType;
@@ -990,6 +1019,17 @@ export interface ActivityItem {
   badge_name: string | null;
   badge_icon: string | null;
   challenge_title: string | null;
+  // Set only for type "event_follow" (BACKLOG.md Ref 81) -- the followed
+  // event's title, so the feed can render "X followed <event_title>"
+  // without a dedicated event detail page to link to.
+  event_id: string | null;
+  event_title: string | null;
+  // Set only for type "neighbor_connection" -- the other party in the
+  // connection, masked by *their own* visibility the same way actor_name/
+  // actor_username are (a private neighbor's identity stays hidden even in
+  // a friend-of-a-friend's Spore Feed).
+  other_user_name: string | null;
+  other_user_username: string | null;
   occurred_at: string;
 }
 
