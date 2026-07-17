@@ -187,7 +187,9 @@ export default function BusinessAdminLayout({ children }: { children: React.Reac
           </svg>
           View public page
         </a>
-        <div className="px-3 pt-2 font-mono text-[10px] text-nav-muted/60">Spored v{packageJson.version}</div>
+        <a href="/changelog" className="block px-3 pt-2 font-mono text-[10px] text-nav-muted/60 hover:text-nav-muted">
+          Spored v{packageJson.version}
+        </a>
       </div>
 
       {/* ================= WORKSPACE ================= */}

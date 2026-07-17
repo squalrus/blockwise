@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { Announcement, Event, VenueDetail } from "@blockwise/types";
+import { PoweredByGoogle } from "@blockwise/ui";
 import { apiUrl } from "@/lib/api";
 import { SITE_URL } from "@/lib/siteUrl";
 import { EnrichmentAbout, EnrichmentPhotos, EnrichmentReviews } from "../../EnrichmentSection";
@@ -133,6 +134,8 @@ export default async function LocationDetailPage({
       )}
 
       <EnrichmentReviews enrichment={location.enrichment} />
+
+      {location.enrichment && <PoweredByGoogle />}
 
       {isBusiness && announcements.length > 0 && (
         <div>

@@ -1,4 +1,5 @@
 export { GoogleIcon } from "./GoogleIcon";
+export { PoweredByGoogle } from "./PoweredByGoogle";
 export { MushroomLogo } from "./MushroomLogo";
 export { MushroomLoader } from "./MushroomLoader";
 export { MushroomMark } from "./MushroomMark";

@@ -2,6 +2,24 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.52.0] — 2026-07-16
+
+### Added
+
+- **FAQ page.** A new `/faq` page on the marketing site answers common questions (what Spored is, pricing, how check-ins/points/badges/events/business claims work), grouped into General, Check-ins/points/badges, Events, For businesses, and Privacy/account. Linked from the marketing footer. (`apps/marketing/src/app/faq/page.tsx`, `apps/marketing/src/app/MarketingFooter.tsx`)
+- **Marketing homepage events section.** A new "Know what's happening, before it happens" section between the leaderboard teaser and the neighborhood map, calling out the events feature (block parties, farmers markets, business specials synced from organizers' calendars) that the homepage previously didn't mention at all. (`apps/marketing/src/app/page.tsx`)
+- **In-app changelog.** A new `/changelog` page in the main app shows a condensed, one-line-per-version summary of every release (v0.1.0 through this one), rather than the full bullet-point detail in this file. Linked from the account menu ("What's new") and from the "Spored v{version}" text in the site footer and both admin sidebars. (`apps/web/src/app/changelog/page.tsx`, `apps/web/src/app/changelog/entries.ts`, `apps/web/src/app/AccountMenu.tsx`, `apps/web/src/app/Footer.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`)
+- **"Powered by Google" attribution.** Venue/POI detail pages showing Google Places-sourced data (photos, rating, hours, reviews) now show a small "Powered by Google" credit, satisfying Google Maps Platform attribution terms for Places data displayed without an accompanying map (the two existing map widgets already show Google's own default logo). OpenStreetMap attribution remains out of scope since OSM isn't used as a data source. (`packages/ui/src/PoweredByGoogle.tsx`, `apps/web/src/app/location/[id]/page.tsx`)
+
+### Changed
+
+- **Marketing homepage CTA buttons renamed "Sign up"**, matching the header nav's button instead of reading "Get the app — it's free" / "Get the app" — applies to both the hero and final-CTA sections. (`apps/marketing/src/app/page.tsx`)
+- **"Browse all 154 neighborhoods" renamed "Browse all neighborhoods"** on the marketing homepage, dropping a specific count that wasn't being kept in sync with reality. (`apps/marketing/src/app/page.tsx`)
+
+### Fixed
+
+- **Category dropdown in the Locations review wizard now sorts alphabetically.** The classification picker on `/admin/neighborhood/:slug/locations/review` was still listing categories in raw API order (by bare leaf name) even though the visible label is "{group} / {name}" — categories from different groups interleaved out of alphabetical order on screen. Now sorts client-side by the same composed label it displays, matching the fix already shipped for the Locations tab's reassign-category dropdown in v0.44.1. Completes BACKLOG.md Ref 57. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/review/page.tsx`)
+
 ## [0.51.0] — 2026-07-16
 
 ### Added

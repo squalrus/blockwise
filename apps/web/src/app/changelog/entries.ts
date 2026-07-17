@@ -1,0 +1,82 @@
+// One-line, user-facing summary per shipped version, sourced from the vX.Y.Z
+// merge-commit subjects (git log) cross-referenced with CHANGELOG.md's own
+// per-version date headers -- generated once from git history rather than
+// hand-written, since every past release already has a concise summary as
+// its commit subject. Ship a new version by appending one entry here (see
+// CLAUDE.md's backlog-shipping steps) rather than parsing CHANGELOG.md's
+// full bullet-point detail at runtime.
+export interface ChangelogEntry {
+  version: string;
+  date: string;
+  summary: string;
+}
+
+export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.52.0", date: "2026-07-16", summary: "FAQ page, in-app changelog, Google Places attribution, category dropdown sort fix" },
+  { version: "0.51.0", date: "2026-07-16", summary: "iCal/webcal event feed import, neighborhood-admin Events tab" },
+  { version: "0.50.0", date: "2026-07-16", summary: "Neighborhood switcher, unified account menu, merged mushroom fields, public/mushroom defaults" },
+  { version: "0.49.0", date: "2026-07-15", summary: "Neighborhood join prompt + auto-home, POI type removal, mushroom loader, checkin/header polish" },
+  { version: "0.48.0", date: "2026-07-15", summary: "Reimport Locations button, super admin role, dense-area sync fix" },
+  { version: "0.47.0", date: "2026-07-15", summary: "Mushroom fingerprint stamps on connections and check-ins" },
+  { version: "0.46.2", date: "2026-07-15", summary: "Google auth branding, admin logo/pill fixes, live-counted POI challenge" },
+  { version: "0.46.1", date: "2026-07-14", summary: "Unify business and neighborhood admin under /admin" },
+  { version: "0.46.0", date: "2026-07-14", summary: "In-progress challenges, forager/founder/neighbor badge polish, gamification fixes" },
+  { version: "0.45.0", date: "2026-07-14", summary: "Mushroom avatar customizer, spot count/shape redesign, expanded palette, brand refresh" },
+  { version: "0.44.1", date: "2026-07-13", summary: "Neighborhood-admin dashboard redesign, Locations tab improvements, bug fixes" },
+  { version: "0.44.0", date: "2026-07-13", summary: "GA4 analytics, SEO (metadata/sitemaps/robots.txt/JSON-LD), Terms & Privacy pages" },
+  { version: "0.43.0", date: "2026-07-13", summary: "Public profiles, profile gating, check-in unlock animations, account tab improvements" },
+  { version: "0.42.0", date: "2026-07-12", summary: "Connect with other users, activity feed links, neighbor rewards" },
+  { version: "0.41.1", date: "2026-07-12", summary: "Neighborhood and location summary cards, growing mushroom fields, check-in/favorite counts" },
+  { version: "0.41.0", date: "2026-07-12", summary: "Mushroom avatars, profile summary card growing-mushroom field, badges/challenges stats" },
+  { version: "0.40.0", date: "2026-07-11", summary: "Badge rule engine, check-in result card, Summer Series challenges" },
+  { version: "0.39.0", date: "2026-07-10", summary: "Happening now, Recent activity, and reworked neighborhood tabs" },
+  { version: "0.38.0", date: "2026-07-10", summary: "Venue and POI merged into single location entity with in-place kind switching" },
+  { version: "0.37.0", date: "2026-07-10", summary: "Brand guidelines page, spotted mushroom logo, new favicon/app icon" },
+  { version: "0.36.0", date: "2026-07-09", summary: "Marketing site split into apps/marketing, dedicated /checkin page" },
+  { version: "0.35.1", date: "2026-07-09", summary: "Profile check-in timeline, comprehensive theme migration, and map theme fix" },
+  { version: "0.35.0", date: "2026-07-09", summary: "Marketing homepage, All neighborhoods search + counts" },
+  { version: "0.34.0", date: "2026-07-09", summary: "Hamburger menu with theme picker, /neighborhoods split, unified check-in gesture" },
+  { version: "0.33.0", date: "2026-07-09", summary: "Spored visual rebrand with dark theme support" },
+  { version: "0.32.1", date: "2026-07-08", summary: "Expand Google Places field mask (hours, contact, multi-photo/review)" },
+  { version: "0.32.0", date: "2026-07-08", summary: "Fix check-ins from a newly-linked device not attributing to the account" },
+  { version: "0.31.0", date: "2026-07-08", summary: "Badges on public profile and account pages" },
+  { version: "0.30.0", date: "2026-07-08", summary: "POI landing pages, profile stat cards" },
+  { version: "0.29.0", date: "2026-07-09", summary: "Bulk Google Places review and boundary redraw reconciliation" },
+  { version: "0.28.0", date: "2026-07-09", summary: "Locations tab: full POI management, merged with venues" },
+  { version: "0.27.0", date: "2026-07-08", summary: "Venue omission and reclassification" },
+  { version: "0.26.0", date: "2026-07-08", summary: "Admin portal neighborhood boundary drawing, check-in cooldown message fix" },
+  { version: "0.25.1", date: "2026-07-08", summary: "Badge icons, neighborhood page subnav tabs, tighter mobile padding" },
+  { version: "0.25.0", date: "2026-07-08", summary: "Fix check-in points not being awarded" },
+  { version: "0.24.0", date: "2026-07-07", summary: "Account settings page, founding member badge, points backfill" },
+  { version: "0.23.0", date: "2026-07-07", summary: "Account page profile summary + nearest-venue check-in, proximity sort" },
+  { version: "0.22.0", date: "2026-07-07", summary: "Challenges, points, and neighborhood leaderboard" },
+  { version: "0.21.0", date: "2026-07-07", summary: "Public user profiles, Google avatar seeding" },
+  { version: "0.20.0", date: "2026-07-07", summary: "User profiles, homepage blurb, version footer" },
+  { version: "0.19.0", date: "2026-07-07", summary: "Neighborhood-admin unification, slug URLs, join-button fix, docs reorg" },
+  { version: "0.18.0", date: "2026-07-07", summary: "Instagram links and social media integration" },
+  { version: "0.17.0", date: "2026-07-06", summary: "Category taxonomy management" },
+  { version: "0.16.2", date: "2026-07-07", summary: "Venues on the neighborhood page, home link fix, dark mode form fix" },
+  { version: "0.16.1", date: "2026-07-06", summary: "Fix landing page showing no neighborhoods in production" },
+  { version: "0.16.0", date: "2026-07-06", summary: "Neighborhoods on landing page and user profile" },
+  { version: "0.15.0", date: "2026-07-07", summary: "Neighborhood profile pages" },
+  { version: "0.14.1", date: "2026-07-06", summary: "Fix business claims not linking to submitter's account" },
+  { version: "0.14.0", date: "2026-07-06", summary: "Business owner venue dashboard" },
+  { version: "0.13.0", date: "2026-07-06", summary: "My account page" },
+  { version: "0.12.0", date: "2026-07-06", summary: "Neighborhood admin roles" },
+  { version: "0.11.0", date: "2026-07-06", summary: "Category mapping admin tool" },
+  { version: "0.10.0", date: "2026-07-06", summary: "Google social sign-in + account promotion" },
+  { version: "0.9.0", date: "2026-07-06", summary: "Favorite venues" },
+  { version: "0.8.0", date: "2026-07-06", summary: "Real user authentication" },
+  { version: "0.7.0", date: "2026-07-06", summary: "Venues map view" },
+  { version: "0.6.0", date: "2026-07-06", summary: "Business claiming + GPS check-in" },
+  { version: "0.5.2", date: "2026-07-06", summary: "Fix venue photos rendering as broken images in production" },
+  { version: "0.5.1", date: "2026-07-06", summary: "Fix deployed API 502 on all routes due to eager Supabase client init" },
+  { version: "0.5.0", date: "2026-07-06", summary: "Venue detail pages with on-demand enrichment cache" },
+  { version: "0.4.1", date: "2026-07-06", summary: "Fix deployed API health check unreachable at localhost" },
+  { version: "0.4.0", date: "2026-07-06", summary: "Google Places sync, dedup, category normalization; Netlify + Supabase grant fixes" },
+  { version: "0.3.2", date: "2026-07-05", summary: "Data layer schema scaffold + Netlify build fix, Yelp dropped from plan" },
+  { version: "0.3.1", date: "2026-07-05", summary: "Adopt Netlify + Supabase as hosting plan of record" },
+  { version: "0.3.0", date: "2026-07-06", summary: "Web app scaffold: Turborepo monorepo with Next.js, Express API, shared types" },
+  { version: "0.2.0", date: "2026-07-05", summary: "Add backlog system and contributing guide, sequence web app first" },
+  { version: "0.1.0", date: "2026-07-05", summary: "Initial commit with build plan README" },
+];

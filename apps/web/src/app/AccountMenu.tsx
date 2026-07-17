@@ -97,6 +97,13 @@ export function AccountMenu({
               Admin
             </a>
           )}
+          <a
+            href="/changelog"
+            onClick={() => setIsOpen(false)}
+            className="block px-4 py-2 text-sm hover:bg-card-alt"
+          >
+            What&apos;s new
+          </a>
 
           <div className="my-2 border-t border-border" />
           <button

@@ -5,7 +5,10 @@ import packageJson from "../../package.json";
 export function Footer() {
   return (
     <footer className="mt-auto px-6 py-3 text-center text-xs text-muted">
-      Spored v{packageJson.version}
+      Spored{" "}
+      <a href="/changelog" className="hover:text-foreground">
+        v{packageJson.version}
+      </a>
     </footer>
   );
 }
