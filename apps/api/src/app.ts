@@ -573,10 +573,9 @@ export function createApp() {
   });
 
   // Template-driven challenges for a neighborhood, with the requesting
-  // user's live progress (BACKLOG.md Ref 6) -- works for a signed-in account
-  // or an anonymous device with prior check-in/favorite history; a device
-  // with no app_user row yet just gets zeroed-out progress on every
-  // challenge.
+  // user's live progress (BACKLOG.md Ref 6) -- browsable while signed out,
+  // but progress only shows for a signed-in account (Ref 86: no more
+  // anonymous check-in/favorite history to attribute progress to).
   app.get(
     "/neighborhoods/:slug/challenges",
     attachOptionalAuthUser(getSupabaseClient, getAuthRepository),
@@ -588,16 +587,9 @@ export function createApp() {
           return;
         }
 
-        const anonymousDeviceId = req.query.anonymous_device_id;
-        const userId = req.appUser
-          ? req.appUser.id
-          : typeof anonymousDeviceId === "string" && anonymousDeviceId
-            ? await getGamificationRepository().getUserIdForDevice(anonymousDeviceId)
-            : null;
-
         const challenges = await listChallengesWithProgress(
           neighborhood.id,
-          userId,
+          req.appUser?.id ?? null,
           getGamificationRepository()
         );
         res.json(challenges);
@@ -746,22 +738,17 @@ export function createApp() {
   // venues managed almost the same") -- merged from the old
   // POST /venues/:id/checkins + POST /pois/:id/checkins, same GPS
   // geofence/cooldown rules for both.
-  app.post("/locations/:id/checkins", async (req, res) => {
-    const { anonymous_device_id, lat, lng } = req.body ?? {};
-    if (
-      typeof anonymous_device_id !== "string" ||
-      !anonymous_device_id ||
-      typeof lat !== "number" ||
-      typeof lng !== "number"
-    ) {
-      res.status(400).json({ error: "anonymous_device_id, lat, and lng are required" });
+  app.post("/locations/:id/checkins", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    const { lat, lng } = req.body ?? {};
+    if (typeof lat !== "number" || typeof lng !== "number") {
+      res.status(400).json({ error: "lat and lng are required" });
       return;
     }
 
     try {
       const result = await performCheckin(
         req.params.id,
-        anonymous_device_id,
+        req.appUser!.id,
         { lat, lng },
         getCheckinRepository()
       );
@@ -825,8 +812,7 @@ export function createApp() {
   });
 
   // My account page (BACKLOG.md): venue-joined check-in history for the
-  // signed-in user, keyed off the real app_user id rather than an
-  // anonymous_device_id since this page requires being signed in.
+  // signed-in user.
   app.get("/me/checkins", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
     try {
       const checkins = await getCheckinRepository().listCheckinsForUser(req.appUser!.id);
@@ -844,17 +830,11 @@ export function createApp() {
     }
   });
 
-  // Favorite venues (BACKLOG.md): a device-scoped "I like this place"
+  // Favorite venues (BACKLOG.md): a signed-in-only "I like this place"
   // bookmark, toggled independently of check-ins/claims.
-  app.get("/venues/:id/favorites", async (req, res) => {
-    const anonymousDeviceId = req.query.anonymous_device_id;
-    if (typeof anonymousDeviceId !== "string" || !anonymousDeviceId) {
-      res.status(400).json({ error: "anonymous_device_id is required" });
-      return;
-    }
-
+  app.get("/venues/:id/favorites", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
     try {
-      const result = await getFavoriteStatus(req.params.id, anonymousDeviceId, getFavoriteRepository());
+      const result = await getFavoriteStatus(req.params.id, req.appUser!.id, getFavoriteRepository());
       if (result.status === "not_found") {
         res.status(404).json({ error: "Venue not found" });
         return;
@@ -866,15 +846,9 @@ export function createApp() {
     }
   });
 
-  app.post("/venues/:id/favorites", async (req, res) => {
-    const { anonymous_device_id } = req.body ?? {};
-    if (typeof anonymous_device_id !== "string" || !anonymous_device_id) {
-      res.status(400).json({ error: "anonymous_device_id is required" });
-      return;
-    }
-
+  app.post("/venues/:id/favorites", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
     try {
-      const result = await addFavorite(req.params.id, anonymous_device_id, getFavoriteRepository());
+      const result = await addFavorite(req.params.id, req.appUser!.id, getFavoriteRepository());
       if (result.status === "not_found") {
         res.status(404).json({ error: "Venue not found" });
         return;
@@ -900,15 +874,9 @@ export function createApp() {
     }
   });
 
-  app.delete("/venues/:id/favorites", async (req, res) => {
-    const { anonymous_device_id } = req.body ?? {};
-    if (typeof anonymous_device_id !== "string" || !anonymous_device_id) {
-      res.status(400).json({ error: "anonymous_device_id is required" });
-      return;
-    }
-
+  app.delete("/venues/:id/favorites", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
     try {
-      const result = await removeFavorite(req.params.id, anonymous_device_id, getFavoriteRepository());
+      const result = await removeFavorite(req.params.id, req.appUser!.id, getFavoriteRepository());
       if (result.status === "not_found") {
         res.status(404).json({ error: "Venue not found" });
         return;
@@ -1633,10 +1601,9 @@ export function createApp() {
     }
   });
 
-  // README §14.2: the anonymous app_user row gets its is_anonymous flag
-  // flipped and auth credentials attached in place -- no data migration.
   // The caller must already hold a valid Supabase Auth session (the
-  // Authorization bearer token); this endpoint only links it to app_user.
+  // Authorization bearer token); this endpoint creates the app_user row for
+  // a newly authenticated user.
   app.post("/auth/complete-signup", async (req, res) => {
     const token = bearerToken(req);
     if (!token) {
@@ -1644,11 +1611,7 @@ export function createApp() {
       return;
     }
 
-    const { anonymous_device_id, account_type } = req.body ?? {};
-    if (anonymous_device_id !== undefined && typeof anonymous_device_id !== "string") {
-      res.status(400).json({ error: "anonymous_device_id must be a string" });
-      return;
-    }
+    const { account_type } = req.body ?? {};
     if (account_type !== undefined && !ACCOUNT_TYPES.includes(account_type)) {
       res.status(400).json({ error: `account_type must be one of ${ACCOUNT_TYPES.join(", ")}` });
       return;
@@ -1661,12 +1624,7 @@ export function createApp() {
         return;
       }
 
-      const user = await completeSignup(
-        verified,
-        account_type ?? "consumer",
-        anonymous_device_id ?? null,
-        getAuthRepository()
-      );
+      const user = await completeSignup(verified, account_type ?? "consumer", getAuthRepository());
       await awardFounderBadge(user.id, getGamificationRepository());
       const [isAdmin, isSuperAdmin] = await Promise.all([
         getNeighborhoodAdminRepository().isNeighborhoodAdmin(user.id),
@@ -1679,19 +1637,10 @@ export function createApp() {
     }
   });
 
-  // README §14.2 edge case: merges a device's anonymous check-in history
-  // into the account being logged into, if the device had accumulated any
-  // under a different app_user row.
   app.post("/auth/complete-login", async (req, res) => {
     const token = bearerToken(req);
     if (!token) {
       res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-
-    const { anonymous_device_id } = req.body ?? {};
-    if (anonymous_device_id !== undefined && typeof anonymous_device_id !== "string") {
-      res.status(400).json({ error: "anonymous_device_id must be a string" });
       return;
     }
 
@@ -1702,7 +1651,7 @@ export function createApp() {
         return;
       }
 
-      const result = await completeLogin(verified, anonymous_device_id ?? null, getAuthRepository());
+      const result = await completeLogin(verified, getAuthRepository());
       if (result.status === "not_signed_up") {
         res.status(404).json({ error: "No account found for this login -- complete signup first" });
         return;

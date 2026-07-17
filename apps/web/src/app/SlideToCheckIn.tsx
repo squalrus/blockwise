@@ -6,6 +6,7 @@ import { MushroomLogo, MushroomMark, resolveMushroomConfig } from "@blockwise/ui
 import type { MushroomConfig, SpotShape } from "@blockwise/ui";
 import { getCurrentUser } from "@/lib/auth";
 import { CheckinResultCard } from "./CheckinResultCard";
+import { SignInPrompt } from "./SignInPrompt";
 import { useCheckIn, type CheckinStatus } from "./useCheckIn";
 
 const THUMB_SIZE = 40;
@@ -60,16 +61,25 @@ export function SlideToCheckIn({
   const [dragging, setDragging] = useState(false);
   const dragOriginRef = useRef(0);
   const [user, setUser] = useState<AppUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     getCurrentUser().then((u) => {
-      if (!cancelled) setUser(u);
+      if (cancelled) return;
+      setUser(u);
+      setAuthChecked(true);
     });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // mockResolution means this is the /dev/components style-guide gallery,
+  // not a real signed-out visitor -- keep it fully draggable there
+  // regardless of auth state, per that page's "review every state by
+  // actually sliding" purpose.
+  const signedOut = !mockResolution && authChecked && !user;
 
   // The thumb is the account's own mushroom (its saved customization if one
   // exists, else the same hash-derived default Avatar would fall back to) --
@@ -157,6 +167,14 @@ export function SlideToCheckIn({
       : status.state === "success"
         ? "Checked in ✓"
         : "Slide to check in →";
+
+  if (signedOut) {
+    return (
+      <div className="rounded-3xl bg-nav p-4">
+        <SignInPrompt message="to check in here." />
+      </div>
+    );
+  }
 
   return (
     <div className="[perspective:1200px]">

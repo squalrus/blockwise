@@ -2,6 +2,20 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.52.1] — 2026-07-17
+
+### Changed
+
+- **Removed the anonymous-account concept.** Signed-out visitors can still browse everything (neighborhoods, businesses, POIs, events, challenges/leaderboards), but checking in and favoriting now require a real signed-in account, prompted inline right where you tap "check in" or "favorite" instead of a device-scoped anonymous identity accumulating history that might never get claimed. Completes BACKLOG.md Ref 86. (`apps/api/src/checkins`, `apps/api/src/favorites`, `apps/api/src/auth`, `apps/web/src/app/SignInPrompt.tsx`, `apps/web/src/app/SlideToCheckIn.tsx`, `apps/web/src/app/location/[id]/FavoriteButton.tsx`)
+
+### Fixed
+
+- **Email/password sign-up no longer gets stuck after confirming your email.** Clicking the confirmation link previously landed back on the app with no session and no account created, since Supabase's confirmation redirect wasn't wired to the app's sign-in completion flow — you'd confirm your email successfully but then couldn't log in. (`apps/web/src/lib/auth.ts`, `apps/web/src/app/auth/callback/page.tsx`)
+
+### Removed
+
+- **Anonymous check-in/favorite history.** The 8 anonymous `app_user` rows accumulated before this account model existed, and the `is_anonymous`/`anonymous_device_id` columns and device-merge logic backing them, were deleted from the database. (`supabase/migrations/20260717173504_remove_anonymous_accounts.sql`)
+
 ## [0.52.0] — 2026-07-16
 
 ### Added

@@ -103,7 +103,6 @@ describe("evaluateCheckin", () => {
 // One id space for either kind (business or POI) since the venue/poi merge
 // (BACKLOG.md "POIs and venues managed almost the same").
 class FakeCheckinRepository implements CheckinRepository {
-  users = new Map<string, string>(); // anonymousDeviceId -> userId
   checkins: CheckinRecord[] = [];
   mushroomCustomizations = new Map<string, MushroomCustomization>(); // userId -> customization
   private nextId = 1;
@@ -116,15 +115,6 @@ class FakeCheckinRepository implements CheckinRepository {
 
   async getMushroomCustomization(userId: string): Promise<MushroomCustomization | null> {
     return this.mushroomCustomizations.get(userId) ?? null;
-  }
-
-  async getOrCreateAnonymousUser(anonymousDeviceId: string): Promise<string> {
-    let userId = this.users.get(anonymousDeviceId);
-    if (!userId) {
-      userId = `user-${this.users.size + 1}`;
-      this.users.set(anonymousDeviceId, userId);
-    }
-    return userId;
   }
 
   async getLastCheckinForLocation(userId: string, locationId: string): Promise<CheckinRecord | null> {
@@ -191,19 +181,18 @@ class FakeCheckinRepository implements CheckinRepository {
 describe("performCheckin", () => {
   it("returns not_found for an unknown location", async () => {
     const repo = new FakeCheckinRepository();
-    const result = await performCheckin("missing-venue", "device-1", AT_VENUE, repo);
+    const result = await performCheckin("missing-venue", "user-1", AT_VENUE, repo);
     expect(result).toEqual({ status: "not_found" });
   });
 
-  it("creates a checkin and reuses the same anonymous user on repeat visits", async () => {
+  it("creates a checkin, and a repeat visit past cooldown creates another for the same user", async () => {
     const repo = new FakeCheckinRepository([VENUE]);
 
-    const first = await performCheckin("venue-1", "device-1", AT_VENUE, repo);
+    const first = await performCheckin("venue-1", "user-1", AT_VENUE, repo);
     expect(first.status).toBe("created");
 
-    // Same device, well past both cooldowns -> allowed again, same user_id reused.
     const later = Date.now() + PAST_COOLDOWN_MS;
-    const second = await performCheckin("venue-1", "device-1", AT_VENUE, repo, later);
+    const second = await performCheckin("venue-1", "user-1", AT_VENUE, repo, later);
     expect(second.status).toBe("created");
     if (first.status === "created" && second.status === "created") {
       expect(second.checkin.user_id).toBe(first.checkin.user_id);
@@ -212,8 +201,8 @@ describe("performCheckin", () => {
 
   it("blocks a repeat check-in within the per-venue cooldown window", async () => {
     const repo = new FakeCheckinRepository([VENUE]);
-    await performCheckin("venue-1", "device-1", AT_VENUE, repo);
-    const result = await performCheckin("venue-1", "device-1", AT_VENUE, repo);
+    await performCheckin("venue-1", "user-1", AT_VENUE, repo);
+    const result = await performCheckin("venue-1", "user-1", AT_VENUE, repo);
     expect(result.status).toBe("cooldown");
     if (result.status === "cooldown") expect(result.scope).toBe("target");
   });
@@ -229,9 +218,7 @@ describe("performCheckin", () => {
       checkedInAt: new Date().toISOString(),
       mushroomSnapshot: null,
     });
-    repo.users.set("device-1", "user-1");
-
-    const result = await performCheckin("venue-1", "device-1", AT_VENUE, repo);
+    const result = await performCheckin("venue-1", "user-1", AT_VENUE, repo);
     expect(result.status).toBe("cooldown");
     if (result.status === "cooldown") expect(result.scope).toBe("global");
   });
@@ -247,11 +234,9 @@ describe("performCheckin", () => {
       checkedInAt: new Date().toISOString(),
       mushroomSnapshot: null,
     });
-    repo.users.set("device-1", "user-1");
-
     const result = await performCheckin(
       "venue-1",
-      "device-1",
+      "user-1",
       AT_VENUE,
       repo,
       Date.now() + PAST_GLOBAL_COOLDOWN_MS
@@ -261,14 +246,14 @@ describe("performCheckin", () => {
 
   it("blocks a check-in outside the geofence", async () => {
     const repo = new FakeCheckinRepository([VENUE]);
-    const result = await performCheckin("venue-1", "device-1", FAR_AWAY, repo);
+    const result = await performCheckin("venue-1", "user-1", FAR_AWAY, repo);
     expect(result).toEqual({ status: "too_far", distanceMeters: expect.any(Number) });
   });
 
   it("checks in against a former-POI-kind location the same way as a business (BACKLOG.md 'POIs and venues managed almost the same')", async () => {
     const poi: LocationCoords = { id: "poi-1", lat: 47.6062, lng: -122.3321 };
     const repo = new FakeCheckinRepository([poi]);
-    const result = await performCheckin("poi-1", "device-1", AT_VENUE, repo);
+    const result = await performCheckin("poi-1", "user-1", AT_VENUE, repo);
     expect(result.status).toBe("created");
     if (result.status === "created") {
       expect(result.checkin.venue_id).toBe("poi-1");
@@ -280,7 +265,7 @@ describe("performCheckin", () => {
     const repo = new FakeCheckinRepository([VENUE, VENUE_2]);
     // First check-in with no saved customization -- gets the hash-derived
     // default, tagged with the current snapshot algorithm version.
-    const first = await performCheckin("venue-1", "device-1", AT_VENUE, repo);
+    const first = await performCheckin("venue-1", "user-1", AT_VENUE, repo);
     expect(first.status).toBe("created");
     if (first.status !== "created") return;
     expect(first.checkin.mushroom_snapshot).toMatchObject({ v: 2 });
@@ -298,7 +283,7 @@ describe("performCheckin", () => {
     repo.mushroomCustomizations.set(first.checkin.user_id, customization);
     const second = await performCheckin(
       "venue-2",
-      "device-1",
+      "user-1",
       AT_VENUE,
       repo,
       Date.now() + PAST_GLOBAL_COOLDOWN_MS

@@ -493,58 +493,40 @@ A coupon is modeled as an attachment to an `Announcement` rather than a separate
 
 ---
 
-## 14. User Access Tiers: Anonymous Exploration → Authenticated Engagement
+## 14. User Access Tiers: Browse-Only Exploration → Authenticated Engagement
 
-**Principle: let people explore with zero signup friction, and make account creation the natural next step once they want something that requires persistence or two-way interaction** (following a venue, getting notified, redeeming a coupon).
+**Principle: let people explore with zero signup friction, and require a real account for anything interactive** (checking in, favoriting, connecting, redeeming a coupon). (BACKLOG.md Ref 86 replaced an earlier anonymous-identity design — see history below — with this simpler model: no account exists at all until someone actually signs up.)
 
-### 14.1 What works anonymously (no account, no friction)
+### 14.1 What works without an account (no friction)
 
 - Browse the map, venues, categories, and POIs
 - View business announcements, events, and coupons (read-only)
-- View challenges and the neighborhood leaderboard
-- Perform check-ins and make challenge progress, attributed to a lightweight anonymous identity rather than nothing at all (§14.2) — so early exploration isn't wasted if the person later signs up
+- View challenges and the neighborhood leaderboard (without personal progress)
 
-### 14.2 The anonymous identity is a real (unauthenticated) `User` row
-
-Rather than forking the data model into "anonymous session" vs. "real user," every device gets a `User` row from first launch — the difference is just whether it's backed by real credentials yet:
+### 14.2 The `User` row only exists for signed-up accounts
 
 ```
 User
   id
-  is_anonymous (bool)              -- true until the person completes signup
-  anonymous_device_id              -- set on first launch, before any signup
   auth_user_id                     -- join to Supabase Auth's own auth.users row, set on signup
   account_type                     -- 'consumer' | 'business'
-  auth_provider                    -- 'email' | 'phone' | 'apple' | 'google', null while anonymous
-  email / phone                    -- null while anonymous
+  auth_provider                    -- 'email' | 'phone' | 'apple' | 'google'
+  email / phone
   created_at
 ```
 
-`account_type` gates the business-account variant of this flow: a business owner signs up the same way (Supabase Auth), but with `account_type = 'business'`, which is what `requireBusinessAccount` (apps/api) checks to gate the business portal's authoring tools as they ship. `auth_user_id` is deliberately independent of `id` (which is assigned at first anonymous check-in, before any `auth.users` row exists) rather than reusing it as the primary key, since that's the more common Supabase pattern but doesn't fit an anonymous-first model.
-
-- Check-ins, badge awards, and challenge progress all reference `user_id` from the very first app open — an anonymous user accumulates real history against a real (if unauthenticated) row.
-- **Signing up doesn't migrate data — it completes the same row.** The anonymous `User` row simply gets `is_anonymous` flipped to `false` and auth credentials attached, so all prior check-in/badge history is already correctly attached with zero migration step. (Edge case: if someone signs into an *existing* account from a device that already had anonymous history, merge the two rows' check-in/badge records at that point — worth handling explicitly, but it's the exception rather than the default path.)
+`account_type` gates the business-account variant of this flow: a business owner signs up the same way (Supabase Auth), but with `account_type = 'business'`, which is what `requireBusinessAccount` (apps/api) checks to gate the business portal's authoring tools as they ship.
 
 ### 14.3 What requires authentication
 
-These features need a durable, contactable identity, so they're the natural conversion trigger — gate them behind a lightweight signup prompt (email/phone/social, not a long form) shown right at the moment the user wants the feature, not before:
+Everything interactive requires a real, signed-in account — gated behind a lightweight signup prompt (email/phone/social, not a long form) shown right at the moment the user wants the feature, not before:
 
-- **Favoriting/subscribing to a venue** for updates:
-
-```
-VenueSubscription
-  id
-  user_id -> User               -- enforced: is_anonymous = false at write time
-  venue_id -> Venue
-  created_at
-  notify_realtime (bool, default true)
-```
-
-- **Real-time notifications** — announcements, events, and coupons from subscribed venues pushed live (mobile push / web push), driven off `VenueSubscription` rows. This is meaningless for an anonymous identity with no reachable push token tied to a persistent account across sessions.
-- **Coupon redemption (§13)** — `CouponRedemption.user_id` requires `is_anonymous = false`. This is a deliberate gate, not just a technical one: a coupon is a real-world discount with per-user limits (`max_redemptions_per_user`), and enforcing that cap meaningfully requires a durable identity rather than a device ID that can be reset by reinstalling the app. Practically, this makes "redeem this coupon" one of the strongest natural signup moments — someone standing at checkout wanting to save money will take ten seconds to sign up.
-- **Joining additional neighborhoods (§12.1)** — `UserNeighborhood` rows also require authentication, since neighborhood membership drives push notification targeting; an anonymous user still gets a geolocation-suggested default neighborhood view without needing to formally "join" it.
-- **Public leaderboard presence under a persistent name/avatar** — anonymous check-ins still count toward challenge progress, but appearing on a leaderboard other people see by name is itself an identity commitment worth gating behind signup.
+- **Check-ins and challenge progress** — `POST /locations/:id/checkins` requires auth; there's no unauthenticated check-in path.
+- **Favoriting a venue** — `POST/DELETE /venues/:id/favorites` requires auth.
+- **Coupon redemption (§13)** — `CouponRedemption.user_id` requires a real account. This is a deliberate gate, not just a technical one: a coupon is a real-world discount with per-user limits (`max_redemptions_per_user`), and enforcing that cap meaningfully requires a durable identity. Practically, this makes "redeem this coupon" one of the strongest natural signup moments — someone standing at checkout wanting to save money will take ten seconds to sign up.
+- **Joining additional neighborhoods (§12.1)** — `UserNeighborhood` rows require authentication, since neighborhood membership drives push notification targeting; a signed-out visitor still gets a geolocation-suggested default neighborhood view without needing to formally "join" it.
+- **Public leaderboard presence, connecting with other users, redeeming coupons, real-time notifications** — all require a durable, contactable identity by nature.
 
 ### 14.4 Conversion moments, not upfront gates
 
-Rather than a signup wall at app launch, prompt for account creation exactly when an anonymous user taps something that needs it — "favorite," "notify me," or "redeem" — with a short explanation of what signing up unlocks and their existing check-in/badge history already visible as a preview of what carries over. This keeps the top-of-funnel experience (the thing most people will do most often: browse and explore) completely frictionless, while still converting people at the exact point they've expressed real intent to engage long-term.
+Rather than a signup wall at app launch, prompt for account creation exactly when a signed-out visitor taps something that needs it — "check in," "favorite," "notify me," or "redeem" — with a short explanation of what signing up unlocks. This keeps the top-of-funnel experience (the thing most people will do most often: browse and explore) completely frictionless, while still converting people at the exact point they've expressed real intent to engage long-term. `apps/web/src/app/SignInPrompt.tsx` is the shared inline prompt component for this.

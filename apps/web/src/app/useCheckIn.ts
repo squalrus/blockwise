@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { CheckinRewardsSummary } from "@blockwise/types";
+import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
-import { getOrCreateDeviceId } from "@/lib/deviceId";
 import { getCurrentPosition } from "@/lib/geolocation";
 
 export type CheckinStatus =
@@ -24,12 +24,11 @@ export function useCheckIn(locationId: string) {
   async function checkIn() {
     setStatus({ state: "checking" });
     try {
-      const position = await getCurrentPosition();
+      const [position, token] = await Promise.all([getCurrentPosition(), getAccessToken()]);
       const res = await fetch(clientApiUrl(`/locations/${locationId}/checkins`), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          anonymous_device_id: getOrCreateDeviceId(),
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         }),

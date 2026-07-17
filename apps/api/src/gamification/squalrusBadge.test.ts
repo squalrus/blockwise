@@ -6,13 +6,11 @@ import { FakeGamificationRepository } from "./testSupport";
 function fakeUser(overrides: Partial<AppUserRecord>): AppUserRecord {
   return {
     id: "user-1",
-    isAnonymous: false,
     accountType: "consumer",
     authUserId: null,
     authProvider: null,
     email: null,
     phone: null,
-    anonymousDeviceId: null,
     displayName: null,
     avatarUrl: null,
     avatarStyle: "social",

@@ -38,9 +38,6 @@ export interface CheckinVenue {
 // same") -- one id space, no kind discriminant needed at this layer.
 export interface CheckinRepository {
   getLocation(locationId: string): Promise<LocationCoords | null>;
-  // Upserts by anonymous_device_id -- README §14.2: every device gets a User
-  // row from first launch, created lazily on its first check-in attempt.
-  getOrCreateAnonymousUser(anonymousDeviceId: string): Promise<string>;
   // The checking-in user's saved customizer choice (BACKLOG.md Ref 75), if
   // any -- performCheckin resolves it through snapshotMushroomForUser before
   // calling createCheckin, so a stamped "fingerprint" (BACKLOG.md "Mushroom

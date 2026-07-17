@@ -22,6 +22,7 @@ import { NeighborsSection } from "./NeighborsSection";
 import { PlaceListItem } from "../PlaceListItem";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
 import { ProgressBar } from "../ProgressBar";
+import { SignInPrompt } from "../SignInPrompt";
 import { TabNav } from "../TabNav";
 
 type AccountTab = "spores" | "favorites" | "checkins" | "badges" | "challenges" | "neighbors";
@@ -147,12 +148,7 @@ export default function AccountPage() {
       )}
 
       {state.status === "signed_out" && (
-        <p className="text-sm text-muted">
-          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
-            Log in
-          </a>{" "}
-          to see your account details, favorites, and check-in history.
-        </p>
+        <SignInPrompt message="to see your account details, favorites, and check-in history." />
       )}
 
       {state.status === "error" && (

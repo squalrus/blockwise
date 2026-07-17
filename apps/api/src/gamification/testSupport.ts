@@ -50,12 +50,6 @@ export class FakeGamificationRepository implements GamificationRepository {
     return this.locations.get(locationId) ?? null;
   }
 
-  deviceUsers = new Map<string, string>();
-
-  async getUserIdForDevice(anonymousDeviceId: string): Promise<string | null> {
-    return this.deviceUsers.get(anonymousDeviceId) ?? null;
-  }
-
   async awardPoints(input: AwardPointsInput): Promise<boolean> {
     if (input.checkinId && this.pointEvents.some((e) => e.checkinId === input.checkinId)) {
       return false;

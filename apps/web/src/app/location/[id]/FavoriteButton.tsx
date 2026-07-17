@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
-import { getOrCreateDeviceId } from "@/lib/deviceId";
+import { SignInPrompt } from "../../SignInPrompt";
 
 type Status =
   | { state: "loading" }
+  | { state: "signed_out" }
   | { state: "idle"; favorited: boolean }
   | { state: "saving"; favorited: boolean }
   | { state: "error"; message: string };
@@ -15,17 +17,28 @@ export function FavoriteButton({ venueId }: { venueId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    const deviceId = getOrCreateDeviceId();
 
-    fetch(clientApiUrl(`/venues/${venueId}/favorites?anonymous_device_id=${deviceId}`))
-      .then((res) => res.json())
-      .then((body) => {
+    async function load() {
+      const user = await getCurrentUser();
+      if (cancelled) return;
+      if (!user) {
+        setStatus({ state: "signed_out" });
+        return;
+      }
+
+      try {
+        const token = await getAccessToken();
+        const res = await fetch(clientApiUrl(`/venues/${venueId}/favorites`), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await res.json();
         if (!cancelled) setStatus({ state: "idle", favorited: Boolean(body.favorited) });
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setStatus({ state: "error", message: "Couldn't load favorite status" });
-      });
+      }
+    }
 
+    load();
     return () => {
       cancelled = true;
     };
@@ -37,10 +50,10 @@ export function FavoriteButton({ venueId }: { venueId: string }) {
     setStatus({ state: "saving", favorited: wasFavorited });
 
     try {
+      const token = await getAccessToken();
       const res = await fetch(clientApiUrl(`/venues/${venueId}/favorites`), {
         method: wasFavorited ? "DELETE" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ anonymous_device_id: getOrCreateDeviceId() }),
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Request failed");
       setStatus({ state: "idle", favorited: !wasFavorited });
@@ -53,6 +66,7 @@ export function FavoriteButton({ venueId }: { venueId: string }) {
   }
 
   if (status.state === "loading") return null;
+  if (status.state === "signed_out") return <SignInPrompt message="to favorite this place." />;
 
   const favorited = status.state === "error" ? false : status.favorited;
 
