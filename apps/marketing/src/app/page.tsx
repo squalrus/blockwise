@@ -168,7 +168,7 @@ export default function Home() {
           </div>
           <div className="mt-[30px] flex flex-wrap justify-center gap-3.5">
             <PillButton href={`${APP_URL}/signup`} variant="solid">
-              Get the app — it&apos;s free
+              Sign up
             </PillButton>
             <PillButton href={`${APP_URL}/neighborhoods`} variant="outline-dark">
               See your neighborhood
@@ -350,6 +350,58 @@ export default function Home() {
         </div>
       </div>
 
+      {/* EVENTS TEASER */}
+      <div className="px-5 py-14 md:px-6 md:py-[90px]" style={{ background: INK }}>
+        <div className="mx-auto grid max-w-5xl grid-cols-1 items-center gap-12 md:grid-cols-[1.1fr_1fr]">
+          <div>
+            <div
+              className="font-heading text-[28px] leading-[1.15] font-extrabold md:text-[38px]"
+              style={{ color: "#F5E8D3" }}
+            >
+              Know what&apos;s happening, before it happens.
+            </div>
+            <div className="mt-4 max-w-[460px] text-[15px] leading-[1.6]" style={{ color: "#C9B8A0" }}>
+              Block parties, farmers markets, business specials — local events show up right on
+              your neighborhood page, synced straight from organizers&apos; own calendars.
+            </div>
+          </div>
+          <div className="rounded-3xl p-[26px]" style={{ background: "#382A1E" }}>
+            <div className="mb-3.5 font-heading text-[15px] font-extrabold" style={{ color: "#F5E8D3" }}>
+              📅 Upcoming in Phinneywood
+            </div>
+            <div className="flex flex-col gap-2">
+              {[
+                { month: "JUL", day: "18", title: "Greenwood Night Market", meta: "6:00 PM · Greenwood Ave N", color: ORANGE },
+                { month: "JUL", day: "20", title: "Phinney Farmers Market", meta: "9:00 AM · Phinney Ridge", color: GREEN },
+                { month: "JUL", day: "24", title: "Trivia Night @ 74th St Ale House", meta: "7:30 PM · 74th St Ale House", color: PURPLE },
+              ].map((event) => (
+                <div
+                  key={event.title}
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3"
+                  style={{ background: CREAM }}
+                >
+                  <div
+                    className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl"
+                    style={{ background: event.color, color: CREAM }}
+                  >
+                    <div className="text-[9px] font-extrabold leading-none">{event.month}</div>
+                    <div className="font-heading text-sm font-extrabold leading-none">{event.day}</div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-[13.5px] font-extrabold" style={{ color: INK }}>
+                      {event.title}
+                    </div>
+                    <div className="text-[11.5px] font-bold" style={{ color: "#8A7761" }}>
+                      {event.meta}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* NEIGHBORHOOD MAP / COVERAGE */}
       <div id="neighborhoods" className="px-5 py-14 md:px-6 md:py-[90px]" style={{ background: "#DCEBD3" }}>
         <div className="mx-auto max-w-5xl">
@@ -406,7 +458,7 @@ export default function Home() {
               className="rounded-full px-7 py-[15px] text-[15px] font-extrabold"
               style={{ background: INK, color: CREAM }}
             >
-              Browse all 154 neighborhoods
+              Browse all neighborhoods
             </a>
           </div>
         </div>
@@ -502,7 +554,7 @@ export default function Home() {
         </div>
         <div className="mt-[26px] flex flex-wrap justify-center gap-3.5">
           <PillButton href={`${APP_URL}/signup`} variant="solid">
-            Get the app
+            Sign up
           </PillButton>
           <PillButton href={`${APP_URL}/neighborhoods`} variant="outline-light">
             Browse neighborhoods

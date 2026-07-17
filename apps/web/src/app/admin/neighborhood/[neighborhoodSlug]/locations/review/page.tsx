@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   CategoryOption,
   CommitLocationReviewResult,
@@ -52,6 +52,19 @@ export default function LocationReviewPage() {
   // removal, mirroring the "must explicitly accept each removal" ask behind
   // the boundary re-map wizard (BACKLOG.md Ref 54).
   const [approvedRemovals, setApprovedRemovals] = useState<Set<string>>(new Set());
+
+  // Sorted by the same composed label the classification picker below
+  // displays (group, then name) -- the API's own order is by bare leaf name
+  // (BACKLOG.md Ref 57), which doesn't read as alphabetical once categories
+  // from different groups interleave on screen.
+  const sortedCategories = useMemo(
+    () =>
+      [...(categories ?? [])].sort((a, b) => {
+        const groupCompare = (a.group_name ?? "").localeCompare(b.group_name ?? "");
+        return groupCompare !== 0 ? groupCompare : a.name.localeCompare(b.name);
+      }),
+    [categories]
+  );
 
   async function loadCategories() {
     const token = await getAccessToken();
@@ -270,7 +283,7 @@ export default function LocationReviewPage() {
                           <option value="" disabled>
                             Choose a category
                           </option>
-                          {categories?.map((c) => (
+                          {sortedCategories.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.group_name ? `${c.group_name} / ${c.name}` : c.name}
                             </option>

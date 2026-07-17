@@ -29,6 +29,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
+| 84 | [Premium neighborhood tier: events and custom challenges](#premium-neighborhood-tier-events-and-custom-challenges) | feature | L | H | — |
 | 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
@@ -44,6 +45,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 32 | [Business claim requires existing account](#business-claim-requires-existing-account) | improvement | S | H | — |
+| 83 | [Venue coupons replace announcements](#venue-coupons-replace-announcements) | feature | L | H | — |
 | 22 | [Category browsing & filtering](#category-browsing--filtering) | improvement | S | M | — |
 | 3 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | feature | S | M | 20 |
 | 5 | [Business announcements](#business-announcements) | feature | M | M | — |
@@ -67,6 +69,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | — |
+| 86 | [Unauthenticated user flow: browse-only without anonymous accounts](#unauthenticated-user-flow-browse-only-without-anonymous-accounts) | improvement | L | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
@@ -75,20 +78,17 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
-| 26 | [Attribution & compliance checklist](#attribution--compliance-checklist) | improvement | S | L | — |
+| 85 | [Super admin interface for app-level badges, challenges, and config](#super-admin-interface-for-app-level-badges-challenges-and-config) | feature | L | M | — |
 
 ### Marketing
 
-| Ref | Item | Type | Effort | Value | Depends |
-|---|---|---|---|---|---|
-| 65 | [FAQ page](#faq-page) | feature | S | L | — |
-| 66 | [Changelog page](#changelog-page) | feature | S | L | — |
+No open feature items.
 
 ### Known issues
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 57 | [Category dropdowns: dark-mode option contrast and alphabetization](#category-dropdowns-dark-mode-option-contrast-and-alphabetization) | known issue | S | M | — |
+| 82 | [Email/password login fails after email confirmation](#emailpassword-login-fails-after-email-confirmation) | known issue | S | H | — |
 
 ### Limitations
 
@@ -107,6 +107,14 @@ No open limitations.
 **Depends:** —
 **Why** — Today Blockwise is free to set up a neighborhood. Supporting an upfront licensing fee (or tiered options for larger neighborhoods, more venues, higher API quotas per project plan §1.5) makes it viable to cover infrastructure/support costs as the platform scales. Limiting boundary syncs to every 24 hours is the primary cost control.
 **Notes:** Add a `neighborhood.tier` column (free|starter|pro, or similar) and corresponding quota limits (e.g., free = 100 venues, starter = 1000, pro = 10k). Rate-limit boundary re-syncs and Google Places queries per tier. Integrate Stripe for tier upgrades. Open question: launch with free-only, or start with tiers from day one?
+
+#### Premium neighborhood tier: events and custom challenges
+
+**Ref:** 84
+**Type:** feature
+**Depends:** —
+**Why** — Creating a neighborhood should stay free, but interactive features — events, custom challenge authoring, and other more involved functionality — should require a small per-neighborhood paid upgrade, giving the platform a lightweight monetization path on the neighborhood side (distinct from the business/venue side's coupon/credits monetization) without paywalling a neighborhood's basic existence.
+**Notes:** Overlaps with [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) (Ref 39), which already proposes a `neighborhood.tier` column with quota-based limits — this ask is feature-gating (specific functionality locked/unlocked) rather than quota-tiering (more of the same thing, faster), so the same `neighborhood.tier` field could likely drive both, or this becomes the concrete feature-flag half of Ref 39's broader tiering plan. Needs entitlement checks in front of: the Events tab/iCal import (already shipped free as of v0.51.0 — gating this retroactively means either grandfathering existing neighborhoods' access or communicating a feature change) and [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) (Ref 77, not yet built — could ship already gated from day one, avoiding the grandfathering problem entirely). Needs Stripe integration for the upgrade purchase itself. Open question: the exact feature list behind the paywall beyond events/challenges ("other more interactive features" per the request) needs to be nailed down before scoping.
 
 #### Neighborhood photo strip from venues/POIs
 
@@ -189,6 +197,14 @@ No open limitations.
 **Depends:** —
 **Why** — Currently, any visitor can submit a venue claim without being signed in (`business_claim.user_id` is nullable). This creates friction for businesses (a claim submitted anonymously is never tied to a specific account for follow-up) and allows spam/false claims. Requiring sign-up before claiming also gates the flow behind account verification.
 **Notes:** Make `POST /venues/:id/claims` require `requireAuthUser` instead of allowing optional auth. Set `business_claim.user_id` to NOT NULL and backfill existing rows with a special "orphaned" user ID or delete them. Update the claiming form to redirect to sign-up if signed out.
+
+#### Venue coupons replace announcements
+
+**Ref:** 83
+**Type:** feature
+**Depends:** —
+**Why** — A dedicated "coupon" concept is likely sufficient in place of generic venue announcements: limited quantity, a date range (including a future start date for coupons not yet live), unlocked only by checking in at the venue, then redeemed in front of the business with a slide-to-redeem gesture — and if reopened after redemption, it clearly shows it's already been redeemed along with the date/time. Neighborhoods keep the general "announcements" concept; venues get coupons instead.
+**Notes:** Effectively replaces/refines the venue-facing half of [Business announcements](#business-announcements) (Ref 5 — already partially implemented per `apps/web/src/app/location/[id]/page.tsx`'s Announcements section) and supersedes the "attach coupon to Announcement" shape proposed in [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) (Ref 20) — coupons become a first-class venue content type, decoupled from announcements. [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) (Ref 3) stays compatible/relevant. Needs a `Coupon` table (`venue_id`, `quantity`/`quantity_remaining`, `start_date`, `end_date`, description, terms) and a way to track per-user unlock eligibility (a check-in at this venue, likely scoped to the coupon's active window), plus `CouponRedemption` (`user_id`, `coupon_id`, `redeemed_at`) with atomic check-and-increment against `quantity_remaining` and a server-authoritative timestamp. Redemption UI reuses the existing slide-gesture pattern (see `SlideToCheckIn` in `apps/web/src/app/dev/components`) as slide-to-redeem; reopening an already-redeemed coupon shows the stored `redeemed_at` instead of the slide control. Neighborhoods' own Announcements (the [Neighborhood notifications](#neighborhood-notifications) side, Ref 9) are unaffected. **Open question (from the report):** how does a coupon interact with a user already checked in at the venue before the coupon existed/started — does a check-in need to happen after the coupon's `start_date` to count as an unlock, or does any check-in within the coupon's active window count retroactively?
 
 #### Category browsing & filtering
 
@@ -336,6 +352,14 @@ No open limitations.
 **Why** — Lets a user see what people they're connected to (or public profiles) have been checking into recently — the social payoff for connecting at all, and a natural discovery surface ("what's popular right now among people I know").
 **Notes:** Respect the profile visibility flag (shipped v0.20.0). Prerequisite (neighbor connections) shipped in v0.42.0 — open question: is the feed public-profiles-only, connections-only, or both (with connections seeing more)? Resolve before scoping. Reads off the existing `checkin` table (project plan §4/§14.2) — no new check-in schema needed, just a query surface and visibility filtering.
 
+#### Unauthenticated user flow: browse-only without anonymous accounts
+
+**Ref:** 86
+**Type:** improvement
+**Depends:** —
+**Why** — The app currently supports anonymous users with device-scoped storage for favorites, wishlist, and other preferences — but this complexity is unneeded if unauthenticated users can only *browse* (neighborhoods, businesses, events, details) and must authenticate to *interact* (favorite, connect, check in, etc.). A simpler model: remove the anonymous account concept entirely, keep exploration free, and show a clear auth prompt anywhere interactivity would require an account.
+**Notes:** Audit every interactive surface (`POST` endpoints, buttons with side effects) and add `requireAuthUser` gates (or equivalent prompt-on-click) wherever they don't already exist. Remove the `device_id`-scoped rows and logic from the `favorite`, `wishlist` (once Ref 2 ships), and any other anon-first tables. Delete the [Anonymous user quotas](#anonymous-user-quotas) (Ref 40) feature entirely — it becomes obsolete once there are no anonymous accounts to quota. Query: should /neighborhoods and /checkin pages be fully public, or should /checkin redirect to login if signed out (since check-in itself is an action)?
+
 #### Leaderboard aggregation performance
 
 **Ref:** 43
@@ -362,38 +386,24 @@ No open limitations.
 **Why** — project plan §10.4 specifies a CI/CD pipeline (GitHub Actions, lint/typecheck/unit tests on every PR, Playwright E2E for web, Sentry error tracking, feature flags for gradual mobile rollout) as part of the build plan, but the only correctness gate that exists today is a manual `npm run build` (per CONTRIBUTING.md) — no `.github/workflows`, E2E tests, or error tracking exist yet.
 **Notes:** Scope conservatively for current project size — GitHub Actions running lint/typecheck/unit tests plus Netlify preview deploys is the near-term win; Playwright E2E, Sentry, and feature flags can follow once there's more surface area (multiple developers, mobile app) to justify them. Detox/Maestro (mobile E2E) isn't relevant until [Native apps (React Native)](#native-apps-react-native) (Ref 1) exists.
 
-#### Attribution & compliance checklist
+#### Super admin interface for app-level badges, challenges, and config
 
-**Ref:** 26
-**Type:** improvement
+**Ref:** 85
+**Type:** feature
 **Depends:** —
-**Why** — project plan §1.6 lists two required attribution items ("Powered by Google" per Maps Platform terms, ODbL attribution if OpenStreetMap is used) as unchecked checkboxes — neither has shipped, and it's a licensing-compliance requirement rather than optional polish.
-**Notes:** Google attribution needed wherever Places-sourced data or a Google map renders (map view, venue detail pages). OSM attribution only applies once/if the optional OSM backup source (project plan §1.2) is actually used — otherwise that half can be skipped.
+**Why** — Neighborhood-admin and business-admin surfaces manage neighborhood/venue-scoped resources, but there's no dashboard for app-level (global) configuration — badge definitions, challenge templates, and other platform-wide settings that exist independent of any single neighborhood. The super admin role (shipped v0.48.0) currently only gates neighborhood creation (`superAdminGate` on `POST /admin/neighborhoods`) — it has no actual interface of its own yet.
+**Notes:** Likely a new `/admin/super` (or similar) route, gated by the existing `superAdminGate`. Scope: read/manage the global badge rule engine definitions (shipped v0.40.0) and challenge templates (referenced by [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) Ref 77's "launch a template" flow) that today only exist as seeded/backend data with no UI. A natural precursor to Ref 77, which needs admin-authored templates to exist somewhere before a neighborhood admin can "launch" one.
 
 ### Marketing
 
-#### FAQ page
-
-**Ref:** 65
-**Type:** feature
-**Depends:** —
-**Why** — Prospective users/neighborhoods/businesses landing on the marketing site have no self-serve answers today (what is Blockwise, how do neighborhoods sign up, is it free, etc.) — an FAQ reduces support burden as the pilot expands beyond word-of-mouth.
-**Notes:** New `apps/marketing/src/app/faq/page.tsx`, linked from `MarketingFooter.tsx` or main nav (`MarketingNav.tsx`). Static content page to start; could later pull from a CMS if the question list grows large. Update [docs/url-map.md](./docs/url-map.md) with the new route per CLAUDE.md.
-
-#### Changelog page
-
-**Ref:** 66
-**Type:** feature
-**Depends:** —
-**Why** — `CHANGELOG.md` already tracks every shipped version in detail (per the backlog shipping process) but only lives in the repo — a public-facing changelog page would let interested users/neighborhoods see what's new without reading raw markdown in GitHub.
-**Notes:** New `apps/marketing/src/app/changelog/page.tsx`, linked from `MarketingFooter.tsx`. Could render `CHANGELOG.md` directly (parsed at build time) to avoid duplicating content, or hand-curate a user-facing subset/rewrite if the raw changelog is too dev-oriented. Update [docs/url-map.md](./docs/url-map.md) with the new route per CLAUDE.md.
+No open feature items.
 
 ### Known issues
 
-#### Category dropdowns: dark-mode option contrast and alphabetization
+#### Email/password login fails after email confirmation
 
-**Ref:** 57
+**Ref:** 82
 **Type:** known issue
 **Depends:** —
-**Why** — The category `<select>` dropdowns (venue category reassignment in the Locations tab, and the business classification picker in the Locations review wizard, shipped v0.28.0/v0.29.0) use `dark:bg-transparent` on the `<select>` element with plain, unstyled `<option>` children. In dark mode, the browser falls back to OS-native popup styling for the option list instead of inheriting the page's dark background, which on several platforms renders dark text on a dark background — the options are effectively invisible until the user mouses over one. Separately, the dropdown lists categories sorted by the leaf category's bare `name` (`category.supabaseRepository.ts`'s `.order("name")`), but the label actually shown is `"{group_name} / {name}"` — so the on-screen order doesn't read as alphabetical once categories from different groups interleave.
-**Notes:** Contrast fix: give the `<select>` (and/or `<option>` elements) an explicit solid background color for dark mode (e.g. `dark:bg-zinc-900`) instead of `dark:bg-transparent`, so native option-list rendering has a real color to inherit rather than falling back to system defaults. Alphabetization fix: sort client-side (or server-side in `listAssignableCategories`/`toCategoryOption`) by the same composed label the UI displays (`group_name` then `name`), not just the bare leaf `name`. Affects `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx` and `.../locations/review/page.tsx`, both of which build their category `<option>` list from the same `GET /admin/categories` response. **Partially done (v0.44.1):** `locations/page.tsx`'s reassign-category dropdown now sorts client-side by the composed `group_name`/`name` label (`sortedCategories`). Still open: the same sort on `locations/review/page.tsx`'s classification picker, and the dark-mode contrast fix on both.
+**Why** — A user reported signing up with email/password, confirming via the confirmation email, and then getting "No account found for this login -- complete signup first" when trying to log in (screenshot on file) — a hard block on the core email/password auth path for at least this account, not just an edge case.
+**Notes:** Reproduce end-to-end: signup with email/password → Supabase sends confirmation email → click confirm link → attempt log in with the same credentials. The error text ("No account found for this login -- complete signup first") comes from the app-side check for an existing account row, which suggests either `/auth/complete-signup` isn't creating that row before/around the confirmation redirect, or `/auth/complete-login` is checking for it before Supabase's own email-confirmation state has propagated. Check the confirmation callback handling in `apps/web/src/app/auth/callback/page.tsx` and the `apps/api` `/auth/complete-signup`/`/auth/complete-login` handlers for a timing/ordering gap. Worth confirming with the reporting user whether this is reproducible on a fresh signup or specific to their account's history (e.g. a retried signup, an expired confirmation link).

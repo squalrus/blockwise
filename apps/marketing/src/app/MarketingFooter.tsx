@@ -16,6 +16,9 @@ export function MarketingFooter() {
           <a href="/brand" className="text-[12.5px] font-bold" style={{ color: "#8A7761" }}>
             Brand
           </a>
+          <a href="/faq" className="text-[12.5px] font-bold" style={{ color: "#8A7761" }}>
+            FAQ
+          </a>
           <a href="/terms" className="text-[12.5px] font-bold" style={{ color: "#8A7761" }}>
             Terms
           </a>

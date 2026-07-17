@@ -41,6 +41,9 @@ apps/web/src/app/
 │       └── challenges/page.tsx                     /neighborhoods/:slug/challenges — Challenges tab — challenges on top, leaderboard below (merged from two separate tabs)
 ├── location/
 │   └── [id]/page.tsx                              /location/:id — P — merged business/POI detail page (BACKLOG.md "POIs and venues managed almost the same"), branches on `kind`: claim form/favorite/announcements/events for business, description/check-in stat for POI
+├── changelog/
+│   ├── page.tsx                                    /changelog — P — condensed one-line-per-version changelog (not the full CHANGELOG.md bullet detail); linked from AccountMenu ("What's new") and the "Spored v{version}" footer text in Footer.tsx and both admin sidebar layouts
+│   └── entries.ts                                  (shared data, no route — static per-version {version, date, summary} array generated from git history; append one entry per shipped version, see CLAUDE.md's backlog-shipping steps)
 ├── admin/
 │   ├── page.tsx                                    /admin — C — single admin entry point (folds the old /business and /neighborhood-admin list pages together): redirects to the first neighborhood you admin, else the first business you own, else shows a "nothing to admin yet" state (become a business owner / create a neighborhood, as applicable)
 │   ├── category-taxonomy/page.tsx                  /admin/category-taxonomy — S (requireAdmin) — global category CRUD (unrelated role from neighborhood/business admin below)
@@ -73,21 +76,23 @@ Deployed separately at `tryspored.com` (apps/web is `app.tryspored.com`). Fully 
 
 ```text
 apps/marketing/src/app/
-├── page.tsx                                       / — P — marketing homepage (hero, how-it-works, leaderboard teaser, neighborhood map, business pitch, final CTA)
+├── page.tsx                                       / — P — marketing homepage (hero, how-it-works, leaderboard teaser, events teaser, neighborhood map, business pitch, final CTA)
 ├── robots.ts                                       /robots.txt — P — allows all, points at /sitemap.xml
-├── sitemap.ts                                      /sitemap.xml — P — static route list (home, brand, terms, privacy)
+├── sitemap.ts                                      /sitemap.xml — P — static route list (home, brand, faq, terms, privacy)
 ├── MarketingNav.tsx                                (shared component, no route — sticky nav used by every marketing page)
-├── MarketingFooter.tsx                              (shared component, no route — footer used by every marketing page, links to Brand/Terms/Privacy)
-├── LegalLayout.tsx                                  (shared component, no route — nav/footer shell + heading/section styling for Terms/Privacy)
+├── MarketingFooter.tsx                              (shared component, no route — footer used by every marketing page, links to Brand/FAQ/Terms/Privacy)
+├── LegalLayout.tsx                                  (shared component, no route — nav/footer shell + heading/section styling for FAQ/Terms/Privacy)
 ├── brand/
 │   └── page.tsx                                    /brand — P — brand guidelines: logo lockups, four-part mark anatomy, spot pattern library, color palette, favicon/app icon, generated-identity concept, usage do/don't
+├── faq/
+│   └── page.tsx                                    /faq — P — Frequently asked questions (general, check-ins/points, events, businesses, privacy/account)
 ├── terms/
 │   └── page.tsx                                    /terms — P — Terms of Service
 └── privacy/
     └── page.tsx                                    /privacy — P — Privacy Policy
 ```
 
-FAQ and changelog pages are planned but not built yet.
+Changelog page is planned but not built yet.
 
 ## API (`apps/api/src/app.ts`)
 
