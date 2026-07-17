@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { ChallengeProgress } from "@blockwise/types";
+import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
-import { getOrCreateDeviceId } from "@/lib/deviceId";
 import { BadgeIcon } from "../../BadgeIcon";
 import { ProgressBar } from "../../ProgressBar";
 
@@ -14,27 +14,28 @@ type Status =
 
 // BACKLOG.md Ref 6: template-driven challenges with live per-user progress.
 // Client-rendered (rather than fetched server-side like Venues/Events) since
-// progress depends on the anonymous device id, which only exists client-side.
+// whether to include progress depends on the signed-in state, which only
+// resolves client-side. Browsable while signed out (Ref 86); progress just
+// shows zeroed out until the visitor signs in.
 export function ChallengesView({ neighborhoodSlug }: { neighborhoodSlug: string }) {
   const [status, setStatus] = useState<Status>({ state: "loading" });
 
   useEffect(() => {
     let cancelled = false;
-    const deviceId = getOrCreateDeviceId();
 
-    fetch(
-      clientApiUrl(`/neighborhoods/${neighborhoodSlug}/challenges?anonymous_device_id=${deviceId}`)
-    )
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load challenges");
-        return res.json();
-      })
-      .then((body) => {
-        if (!cancelled) setStatus({ state: "idle", challenges: body as ChallengeProgress[] });
-      })
-      .catch(() => {
-        if (!cancelled) setStatus({ state: "error" });
+    async function load() {
+      const token = await getAccessToken();
+      const res = await fetch(clientApiUrl(`/neighborhoods/${neighborhoodSlug}/challenges`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
+      if (!res.ok) throw new Error("Failed to load challenges");
+      const body = await res.json();
+      if (!cancelled) setStatus({ state: "idle", challenges: body as ChallengeProgress[] });
+    }
+
+    load().catch(() => {
+      if (!cancelled) setStatus({ state: "error" });
+    });
 
     return () => {
       cancelled = true;

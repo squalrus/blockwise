@@ -16,12 +16,11 @@ export type AddFavoriteResult =
 
 export async function addFavorite(
   venueId: string,
-  anonymousDeviceId: string,
+  userId: string,
   repository: FavoriteRepository
 ): Promise<AddFavoriteResult> {
   if (!(await repository.venueExists(venueId))) return { status: "not_found" };
 
-  const userId = await repository.getOrCreateAnonymousUser(anonymousDeviceId);
   const existing = await repository.getFavorite(userId, venueId);
   if (existing) return { status: "already_favorited", favorite: toFavorite(existing) };
 
@@ -33,12 +32,11 @@ export type RemoveFavoriteResult = { status: "removed" | "not_found" };
 
 export async function removeFavorite(
   venueId: string,
-  anonymousDeviceId: string,
+  userId: string,
   repository: FavoriteRepository
 ): Promise<RemoveFavoriteResult> {
   if (!(await repository.venueExists(venueId))) return { status: "not_found" };
 
-  const userId = await repository.getOrCreateAnonymousUser(anonymousDeviceId);
   await repository.deleteFavorite(userId, venueId);
   return { status: "removed" };
 }
@@ -49,12 +47,11 @@ export type FavoriteStatusResult =
 
 export async function getFavoriteStatus(
   venueId: string,
-  anonymousDeviceId: string,
+  userId: string,
   repository: FavoriteRepository
 ): Promise<FavoriteStatusResult> {
   if (!(await repository.venueExists(venueId))) return { status: "not_found" };
 
-  const userId = await repository.getOrCreateAnonymousUser(anonymousDeviceId);
   const existing = await repository.getFavorite(userId, venueId);
   return { status: "found", favorited: existing !== null };
 }

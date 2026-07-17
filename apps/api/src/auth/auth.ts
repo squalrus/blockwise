@@ -5,7 +5,6 @@ import type { VerifiedAuthUser } from "./verifyToken";
 export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean, isSuperAdmin: boolean): AppUser {
   return {
     id: record.id,
-    is_anonymous: record.isAnonymous,
     account_type: record.accountType,
     email: record.email,
     phone: record.phone,
@@ -21,13 +20,12 @@ export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean, i
   };
 }
 
-// README §14.2: signing up completes the same app_user row rather than
-// migrating data, so a repeat call for the same auth user (e.g. a retried
-// request) is a no-op that just returns the existing row.
+// A repeat call for the same auth user (e.g. a retried request) is a no-op
+// that just returns the existing row, rather than erroring on the unique
+// auth_user_id constraint.
 export async function completeSignup(
   verified: VerifiedAuthUser,
   accountType: AccountType,
-  anonymousDeviceId: string | null,
   repository: AuthRepository
 ): Promise<AppUserRecord> {
   const existing = await repository.getByAuthUserId(verified.authUserId);
@@ -40,7 +38,6 @@ export async function completeSignup(
     phone: verified.phone,
     avatarUrl: verified.avatarUrl,
     accountType,
-    anonymousDeviceId,
   });
 }
 
@@ -86,37 +83,12 @@ export type CompleteLoginResult =
   | { status: "ok"; user: AppUserRecord }
   | { status: "not_signed_up" };
 
-// README §14.2 edge case: if the device being logged in on already
-// accumulated anonymous check-in/badge history under a *different* app_user
-// row than the account being logged into, fold that history into the
-// authenticated row rather than losing it or leaving it orphaned.
 export async function completeLogin(
   verified: VerifiedAuthUser,
-  anonymousDeviceId: string | null,
   repository: AuthRepository
 ): Promise<CompleteLoginResult> {
   const user = await repository.getByAuthUserId(verified.authUserId);
   if (!user) return { status: "not_signed_up" };
 
-  if (!anonymousDeviceId) return { status: "ok", user };
-
-  const deviceUser = await repository.getByAnonymousDeviceId(anonymousDeviceId);
-  if (deviceUser?.id === user.id) return { status: "ok", user };
-
-  // Device already belongs to a different authenticated account (e.g. a
-  // shared or reset device) -- don't steal it.
-  if (deviceUser && !deviceUser.isAnonymous) return { status: "ok", user };
-
-  if (!deviceUser) {
-    // First time this device has ever been seen -- nothing to merge, but it
-    // still needs to be linked to the account now. Otherwise every check-in
-    // made from it afterward looks up this same (still-unclaimed) device id,
-    // finds no account, and silently creates a brand-new anonymous app_user
-    // instead of attributing to the account just logged into.
-    const linked = await repository.linkDevice(user.id, anonymousDeviceId);
-    return { status: "ok", user: linked };
-  }
-
-  const merged = await repository.mergeAnonymousHistory(user.id, deviceUser.id, anonymousDeviceId);
-  return { status: "ok", user: merged };
+  return { status: "ok", user };
 }

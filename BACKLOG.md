@@ -67,9 +67,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
 | 81 | [Follow events](#follow-events) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
-| 40 | [Anonymous user quotas](#anonymous-user-quotas) | feature | M | M | — |
 | 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | — |
-| 86 | [Unauthenticated user flow: browse-only without anonymous accounts](#unauthenticated-user-flow-browse-only-without-anonymous-accounts) | improvement | L | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
@@ -336,14 +334,6 @@ No open limitations.
 **Why** — Same rationale as Google social sign-in (shipped v0.10.0) — removes a signup step at the moments that flow is meant to make frictionless — but scoped separately since it's a materially bigger lift with its own setup dependencies and timeline.
 **Notes:** Requires Apple Developer Program enrollment, creating a Services ID, and generating a rotating client-secret JWT (Apple secrets expire and must be regenerated, unlike Google's). Same completion flow on the app side as Google once configured — `supabase.auth.signInWithOAuth`, a redirect callback route, then the existing `/auth/complete-signup`/`/auth/complete-login`, since `verifyToken.ts` already reads the provider generically off `app_metadata`.
 
-#### Anonymous user quotas
-
-**Ref:** 40
-**Type:** feature
-**Depends:** —
-**Why** — Anonymous users today can favorite and wishlist unlimited venues, filling the database with noise and potentially being abused (e.g., scripted requests). Limiting anonymous users to 5 favorites and 5 wishlist items protects the system while still giving explorers a meaningful experience.
-**Notes:** Enforce quotas on `POST /venues/:id/favorites` and `POST /venues/:id/wishlist` (backlog Ref 2 covers wishlist) by checking (user_id IS NULL AND SELECT COUNT(*) FROM favorites WHERE user_id IS NULL AND device_id = ?) before allowing the insert. After signup, migrate anonymous favorites/wishlist to the new account.
-
 #### Activity feed of recent check-ins
 
 **Ref:** 15
@@ -351,14 +341,6 @@ No open limitations.
 **Depends:** —
 **Why** — Lets a user see what people they're connected to (or public profiles) have been checking into recently — the social payoff for connecting at all, and a natural discovery surface ("what's popular right now among people I know").
 **Notes:** Respect the profile visibility flag (shipped v0.20.0). Prerequisite (neighbor connections) shipped in v0.42.0 — open question: is the feed public-profiles-only, connections-only, or both (with connections seeing more)? Resolve before scoping. Reads off the existing `checkin` table (project plan §4/§14.2) — no new check-in schema needed, just a query surface and visibility filtering.
-
-#### Unauthenticated user flow: browse-only without anonymous accounts
-
-**Ref:** 86
-**Type:** improvement
-**Depends:** —
-**Why** — The app currently supports anonymous users with device-scoped storage for favorites, wishlist, and other preferences — but this complexity is unneeded if unauthenticated users can only *browse* (neighborhoods, businesses, events, details) and must authenticate to *interact* (favorite, connect, check in, etc.). A simpler model: remove the anonymous account concept entirely, keep exploration free, and show a clear auth prompt anywhere interactivity would require an account.
-**Notes:** Audit every interactive surface (`POST` endpoints, buttons with side effects) and add `requireAuthUser` gates (or equivalent prompt-on-click) wherever they don't already exist. Remove the `device_id`-scoped rows and logic from the `favorite`, `wishlist` (once Ref 2 ships), and any other anon-first tables. Delete the [Anonymous user quotas](#anonymous-user-quotas) (Ref 40) feature entirely — it becomes obsolete once there are no anonymous accounts to quota. Query: should /neighborhoods and /checkin pages be fully public, or should /checkin redirect to login if signed out (since check-in itself is an action)?
 
 #### Leaderboard aggregation performance
 

@@ -140,12 +140,6 @@ export interface LeaderboardRow {
 export interface GamificationRepository {
   getLocationContext(locationId: string): Promise<LocationContext | null>;
 
-  // Read-only lookup (no lazy creation, unlike checkins/favorites'
-  // getOrCreateAnonymousUser) -- a device that's never checked in or
-  // favorited anything has no app_user row yet, so there's simply no
-  // progress to report for it.
-  getUserIdForDevice(anonymousDeviceId: string): Promise<string | null>;
-
   // Returns true if a new point_event row was inserted, false if a
   // uniqueness guard (one per checkin; first-time-only per favorited venue)
   // means the points were already awarded.

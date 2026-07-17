@@ -101,7 +101,6 @@ const STATES: { label: string; status: CheckinStatus }[] = [
 
 function profileUser(overrides: Partial<AppUser> & Pick<AppUser, "id" | "display_name">): AppUser {
   return {
-    is_anonymous: false,
     account_type: "consumer",
     email: null,
     phone: null,

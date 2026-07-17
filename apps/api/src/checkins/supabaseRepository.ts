@@ -46,28 +46,6 @@ export class SupabaseCheckinRepository implements CheckinRepository {
     return data;
   }
 
-  async getOrCreateAnonymousUser(anonymousDeviceId: string): Promise<string> {
-    const { data: existing, error: existingError } = await this.supabase
-      .from("app_user")
-      .select("id")
-      .eq("anonymous_device_id", anonymousDeviceId)
-      .maybeSingle();
-
-    if (existingError)
-      throw new Error(`getOrCreateAnonymousUser (lookup) failed: ${existingError.message}`);
-    if (existing) return existing.id;
-
-    const { data: created, error: createError } = await this.supabase
-      .from("app_user")
-      .insert({ anonymous_device_id: anonymousDeviceId, is_anonymous: true })
-      .select("id")
-      .single();
-
-    if (createError)
-      throw new Error(`getOrCreateAnonymousUser (create) failed: ${createError.message}`);
-    return created.id;
-  }
-
   async getLastCheckinForLocation(userId: string, locationId: string): Promise<CheckinRecord | null> {
     const { data, error } = await this.supabase
       .from("checkin")

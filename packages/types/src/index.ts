@@ -184,7 +184,7 @@ export interface VenueDetail {
   recent_checkin_mushrooms: MushroomSnapshot[];
 }
 
-// Business claiming + GPS check-in (BACKLOG.md, README §4/§5/§14.2).
+// Business claiming + GPS check-in (BACKLOG.md, README §4/§5).
 
 export interface Checkin {
   id: string;
@@ -205,9 +205,6 @@ export interface Checkin {
 }
 
 export interface CreateCheckinRequest {
-  // Identifies the (possibly still-anonymous) app_user row -- see README
-  // §14.2 -- generated client-side on first launch and persisted locally.
-  anonymous_device_id: string;
   lat: number;
   lng: number;
 }
@@ -238,12 +235,6 @@ export interface Favorite {
   user_id: string;
   venue_id: string;
   created_at: string;
-}
-
-export interface CreateFavoriteRequest {
-  // Identifies the (possibly still-anonymous) app_user row -- see README
-  // §14.2 -- generated client-side on first launch and persisted locally.
-  anonymous_device_id: string;
 }
 
 export interface FavoriteStatusResponse {
@@ -317,7 +308,7 @@ export interface UpdateSocialLinksRequest {
   social_links: SocialLinks;
 }
 
-// Real user authentication (BACKLOG.md, README §14.2/§14.3).
+// Real user authentication (BACKLOG.md, project-plan.md §14).
 
 export type AccountType = "consumer" | "business";
 
@@ -355,7 +346,6 @@ export interface MushroomCustomization {
 
 export interface AppUser {
   id: string;
-  is_anonymous: boolean;
   account_type: AccountType;
   email: string | null;
   phone: string | null;
@@ -390,17 +380,7 @@ export interface UpdateProfileRequest {
 }
 
 export interface CompleteSignupRequest {
-  // Present when the device had prior anonymous history to claim (README
-  // §14.2) -- omitted for a signup with no local anonymous identity yet.
-  anonymous_device_id?: string;
   account_type?: AccountType;
-}
-
-export interface CompleteLoginRequest {
-  // README §14.2 edge case: if this device has its own anonymous history
-  // under a different app_user row, it gets merged into the account being
-  // logged into.
-  anonymous_device_id?: string;
 }
 
 export interface ClaimedVenueSummary {

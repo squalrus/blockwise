@@ -23,7 +23,6 @@ import { ProfileDetails } from "./ProfileDetails";
 function toCardUser(profile: PublicUserProfile): AppUser {
   return {
     id: profile.username,
-    is_anonymous: false,
     account_type: "consumer",
     email: null,
     phone: null,

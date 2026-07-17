@@ -1,6 +1,5 @@
 import type { AccountType, AppUser } from "@blockwise/types";
 import { clientApiUrl } from "./clientApi";
-import { getOrCreateDeviceId } from "./deviceId";
 import { getBrowserSupabaseClient } from "./supabaseClient";
 
 async function completeAuth(path: "/auth/complete-signup" | "/auth/complete-login", accessToken: string, body: object): Promise<AppUser> {
@@ -16,15 +15,25 @@ async function completeAuth(path: "/auth/complete-signup" | "/auth/complete-logi
   return res.json();
 }
 
-// README §14.2: the device's existing anonymous check-in history (if any)
-// gets attached by passing its id along -- the same app_user row is
-// completed, not migrated.
+// When "Confirm email" is on (the production setting), signUp() returns no
+// session -- the account_type chosen here has to survive until the user
+// clicks the confirmation link and lands back on /auth/callback, possibly in
+// a new tab, so it's stashed the same way the Google OAuth flow stashes it.
+// Without emailRedirectTo, Supabase's default Site URL points at the app
+// root rather than /auth/callback, so the confirmation link never runs
+// completeSignInRedirect and no app_user row gets created.
 export async function signUp(
   email: string,
   password: string,
   accountType: AccountType
 ): Promise<AppUser> {
-  const { data, error } = await getBrowserSupabaseClient().auth.signUp({ email, password });
+  window.localStorage.setItem(PENDING_ACCOUNT_TYPE_KEY, accountType);
+
+  const { data, error } = await getBrowserSupabaseClient().auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+  });
   if (error) throw new Error(error.message);
   if (!data.session) {
     throw new Error(
@@ -32,57 +41,24 @@ export async function signUp(
     );
   }
 
+  window.localStorage.removeItem(PENDING_ACCOUNT_TYPE_KEY);
   const user = await completeAuth("/auth/complete-signup", data.session.access_token, {
-    anonymous_device_id: getOrCreateDeviceId(),
     account_type: accountType,
   });
   setCachedUser(user);
   return user;
 }
 
-export async function logIn(email: string, password: string): Promise<AppUser> {
-  const { data, error } = await getBrowserSupabaseClient().auth.signInWithPassword({ email, password });
-  if (error) throw new Error(error.message);
-
-  const user = await completeAuth("/auth/complete-login", data.session.access_token, {
-    anonymous_device_id: getOrCreateDeviceId(),
-  });
-  setCachedUser(user);
-  return user;
-}
-
-// The redirect through Google loses whatever account-type choice was made
-// on the signup form, so stash it here and pick it back up in
-// completeOAuthSignIn. Login's Google button doesn't set this -- a repeat
-// login doesn't need an account type, and completeSignup only consults it
-// the first time an auth user is seen.
-const PENDING_ACCOUNT_TYPE_KEY = "blockwise_pending_account_type";
-
-export async function signInWithGoogle(accountType?: AccountType): Promise<void> {
-  if (accountType) window.localStorage.setItem(PENDING_ACCOUNT_TYPE_KEY, accountType);
-
-  const { error } = await getBrowserSupabaseClient().auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: `${window.location.origin}/auth/callback` },
-  });
-  if (error) throw new Error(error.message);
-}
-
-// Google sign-in doesn't tell us up front whether this is a first-time
-// signup or a repeat login (unlike the email/password forms, which know
-// which button was pressed) -- so try login first, since it's the one that
-// also merges this device's anonymous history (see completeLogin's README
-// §14.2 note), and only fall back to signup for a first-time auth user.
-export async function completeOAuthSignIn(): Promise<AppUser> {
-  const { data } = await getBrowserSupabaseClient().auth.getSession();
-  const accessToken = data.session?.access_token;
-  if (!accessToken) throw new Error("No session found after sign-in -- please try again.");
-
-  const anonymousDeviceId = getOrCreateDeviceId();
+// Falls back to signup on a 404/not_signed_up rather than hard-failing --
+// this is what makes the eel-avatar-pumice@duck.com incident (Supabase
+// confirmed the email, but no app_user row existed to log into) self-heal
+// instead of permanently locking the account out. Shared with
+// completeSignInRedirect below, which needs the identical fallback for the
+// OAuth/email-confirmation redirect.
+async function completeLoginOrSignup(accessToken: string): Promise<AppUser> {
   const loginRes = await fetch(clientApiUrl("/auth/complete-login"), {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ anonymous_device_id: anonymousDeviceId }),
   });
   if (loginRes.ok) {
     const user = await loginRes.json();
@@ -98,11 +74,49 @@ export async function completeOAuthSignIn(): Promise<AppUser> {
   window.localStorage.removeItem(PENDING_ACCOUNT_TYPE_KEY);
 
   const user = await completeAuth("/auth/complete-signup", accessToken, {
-    anonymous_device_id: anonymousDeviceId,
     account_type: accountType,
   });
   setCachedUser(user);
   return user;
+}
+
+export async function logIn(email: string, password: string): Promise<AppUser> {
+  const { data, error } = await getBrowserSupabaseClient().auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+
+  return completeLoginOrSignup(data.session.access_token);
+}
+
+// The redirect through Google (or through the email confirmation link) loses
+// whatever account-type choice was made on the signup form, so both signUp
+// and signInWithGoogle stash it here and completeSignInRedirect picks it back
+// up. Login's Google button doesn't set this -- a repeat login doesn't need
+// an account type, and completeSignup only consults it the first time an
+// auth user is seen.
+const PENDING_ACCOUNT_TYPE_KEY = "blockwise_pending_account_type";
+
+export async function signInWithGoogle(accountType?: AccountType): Promise<void> {
+  if (accountType) window.localStorage.setItem(PENDING_ACCOUNT_TYPE_KEY, accountType);
+
+  const { error } = await getBrowserSupabaseClient().auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Shared by /auth/callback for both the Google OAuth redirect and the
+// email-confirmation link (see emailRedirectTo in signUp above). Neither
+// case tells us up front whether this is a first-time signup or a repeat
+// login (unlike the email/password login form, which knows which button was
+// pressed) -- completeLoginOrSignup handles that by trying login first, and
+// only falling back to signup for a first-time auth user.
+export async function completeSignInRedirect(): Promise<AppUser> {
+  const { data } = await getBrowserSupabaseClient().auth.getSession();
+  const accessToken = data.session?.access_token;
+  if (!accessToken) throw new Error("No session found after sign-in -- please try again.");
+
+  return completeLoginOrSignup(accessToken);
 }
 
 export async function logOut(): Promise<void> {

@@ -105,7 +105,7 @@ function toCheckin(record: CheckinRecord): Checkin {
 
 export async function performCheckin(
   locationId: string,
-  anonymousDeviceId: string,
+  userId: string,
   device: { lat: number; lng: number },
   repository: CheckinRepository,
   now: number = Date.now()
@@ -113,7 +113,6 @@ export async function performCheckin(
   const location = await repository.getLocation(locationId);
   if (!location) return { status: "not_found" };
 
-  const userId = await repository.getOrCreateAnonymousUser(anonymousDeviceId);
   const [lastCheckinForTarget, lastCheckinAnywhere] = await Promise.all([
     repository.getLastCheckinForLocation(userId, locationId),
     repository.getLastCheckinAnywhere(userId),

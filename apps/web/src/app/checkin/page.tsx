@@ -5,6 +5,7 @@ import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { SignInPrompt } from "../SignInPrompt";
 import { NearestVenues } from "./NearestVenues";
 import { NeighborhoodSwitcher } from "./NeighborhoodSwitcher";
 
@@ -102,14 +103,7 @@ export default function CheckinPage() {
         </div>
       )}
 
-      {state.status === "signed_out" && (
-        <p className="text-sm text-muted">
-          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
-            Log in
-          </a>{" "}
-          to check in at nearby venues.
-        </p>
-      )}
+      {state.status === "signed_out" && <SignInPrompt message="to check in at nearby venues." />}
 
       {state.status === "error" && (
         <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>

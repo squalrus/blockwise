@@ -127,17 +127,6 @@ export class SupabaseGamificationRepository implements GamificationRepository {
     return { neighborhoodId: data.neighborhood_id, categoryId: data.category_id, kind: data.kind };
   }
 
-  async getUserIdForDevice(anonymousDeviceId: string): Promise<string | null> {
-    const { data, error } = await this.supabase
-      .from("app_user")
-      .select("id")
-      .eq("anonymous_device_id", anonymousDeviceId)
-      .maybeSingle();
-
-    if (error) throw new Error(`getUserIdForDevice failed: ${error.message}`);
-    return data?.id ?? null;
-  }
-
   async awardPoints(input: AwardPointsInput): Promise<boolean> {
     const { error } = await this.supabase.from("point_event").insert({
       user_id: input.userId,

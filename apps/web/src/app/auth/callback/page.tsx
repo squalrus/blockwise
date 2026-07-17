@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { completeOAuthSignIn } from "@/lib/auth";
+import { completeSignInRedirect } from "@/lib/auth";
 
 type Status = { state: "loading" | "error"; message?: string };
 
@@ -11,7 +11,7 @@ export default function AuthCallbackPage() {
   const [status, setStatus] = useState<Status>({ state: "loading" });
 
   useEffect(() => {
-    completeOAuthSignIn()
+    completeSignInRedirect()
       .then(() => {
         router.replace("/account");
       })
