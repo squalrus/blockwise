@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const UPDATED = "July 16, 2026";
+const UPDATED = "July 17, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="2. How we use this information">
         <ul className="list-disc pl-5">
-          <li>To operate core features: check-ins, favorites, badges, challenges, and leaderboards;</li>
+          <li>To operate core features: check-ins, favorites, event follows, badges, challenges, and leaderboards;</li>
           <li>To personalize your experience, like showing nearby businesses and neighborhoods;</li>
           <li>To verify business claims and check-in authenticity;</li>
           <li>To understand aggregate usage so we can improve the Service; and</li>

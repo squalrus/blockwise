@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
-const UPDATED = "July 16, 2026";
+const UPDATED = "July 17, 2026";
 
 function Question({ q, children }: { q: string; children: React.ReactNode }) {
   return (
@@ -59,6 +59,10 @@ export default function FaqPage() {
           Yes. Neighborhoods and businesses publish events — block parties, farmers markets, specials — either
           entered directly or synced from an external calendar feed. Your neighborhood page shows what&apos;s
           happening today and what&apos;s coming up.
+        </Question>
+        <Question q="Can I save an event to find it later?">
+          Yes. Tap &ldquo;Follow&rdquo; on any event to save it to your account&apos;s Favorites tab. Events
+          you&apos;re following that are happening today are also highlighted at the top of your Spore Feed.
         </Question>
       </LegalSection>
 

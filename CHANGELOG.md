@@ -2,6 +2,25 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.53.0] — 2026-07-17
+
+### Added
+
+- **Follow events.** Signed-in users can now follow/bookmark events from any neighborhood's Events tab or Today tab, with a compact "+ Follow" / "✓ Following" toggle. Followed events show up on `/account`'s Favorites tab (a new Events section) and drop off the list once they're over. Completes BACKLOG.md Ref 81. (`supabase/migrations/20260717180000_event_follows.sql`, `apps/api/src/eventFollows`, `apps/web/src/app/FollowEventButton.tsx`, `apps/web/src/app/account/page.tsx`)
+- **Followed events and neighbor connections in activity feeds.** The neighborhood-wide Recent Activity tab and `/account`'s Spore Feed now include "X followed Y event" rows; the Spore Feed also surfaces "X connected with Y" when one of your neighbors connects with someone else, since a connection isn't neighborhood-scoped. (`apps/api/src/activity`, `apps/web/src/app/ActivityFeed.tsx`)
+- **"Event Scout" badge**, a one-off award for a user's first-ever event follow. (`supabase/migrations/20260717190000_event_scout_badge.sql`, `apps/api/src/gamification/eventFollowBadge.ts`)
+- **Today's followed events pinned to the top of the Spore Feed**, as a same-day reminder above the chronological activity log. (`apps/web/src/app/account/page.tsx`)
+
+### Changed
+
+- **`/account`'s Check-ins tab renamed "My Activity"**, moved to the last tab position, and now shows every activity type for your own actions (check-ins, favorites, badges, challenges, event follows, neighbor connections) instead of just check-ins — never masked by visibility, since it's your own data. New `GET /me/activity`. (`apps/api/src/app.ts`, `apps/api/src/activity/activity.ts`, `apps/web/src/app/account/page.tsx`)
+- **Favorites tab reordered**, with followed Events now listed above favorite Venues. (`apps/web/src/app/account/page.tsx`)
+- **Account menu dropdown reordered**: My account, {neighborhood}, Settings, What's new, then (if applicable) Admin, then Log out. (`apps/web/src/app/AccountMenu.tsx`)
+
+### Fixed
+
+- **Check-in slider's grabbable area enlarged on iOS**, without changing its visual size — the tappable/draggable hit target was smaller than iOS's recommended touch target, making the slide-to-check-in gesture harder to grab precisely. (`apps/web/src/app/SlideToCheckIn.tsx`)
+
 ## [0.52.1] — 2026-07-17
 
 ### Changed

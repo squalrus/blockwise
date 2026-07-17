@@ -19,6 +19,7 @@ const ICONS: Record<string, string> = {
   mushroom: "🍄",
   seedling: "🌱",
   handshake: "🤝",
+  calendar: "📅",
 };
 
 const FALLBACK_ICON = "🏅";

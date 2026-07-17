@@ -10,6 +10,10 @@ import { SignInPrompt } from "./SignInPrompt";
 import { useCheckIn, type CheckinStatus } from "./useCheckIn";
 
 const THUMB_SIZE = 40;
+// Apple HIG's minimum recommended touch target (44x44pt) -- the visible
+// thumb stays THUMB_SIZE, but the draggable hit area is padded out to this
+// so the control is easy to grab on iOS without looking any bigger.
+const THUMB_HIT_SIZE = 44;
 const TRACK_INSET = 6;
 const COMPLETE_THRESHOLD = 0.7;
 // The slider face's total height (p-4's 16px top+bottom plus the 52px
@@ -195,29 +199,37 @@ export function SlideToCheckIn({
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
-              className={`absolute left-1.5 flex items-center justify-center rounded-full shadow-none dark:shadow-[0_0_12px_rgba(255,107,61,0.6)] ${
-                mushroom ? "" : "bg-brand-orange"
-              } ${dragging ? "" : "transition-transform duration-300 ease-out"}`}
+              className={`absolute top-1/2 flex items-center justify-center rounded-full ${
+                dragging ? "" : "transition-transform duration-300 ease-out"
+              }`}
               style={{
-                width: THUMB_SIZE,
-                height: THUMB_SIZE,
-                transform: `translateX(${thumbX}px)`,
+                left: TRACK_INSET - (THUMB_HIT_SIZE - THUMB_SIZE) / 2,
+                width: THUMB_HIT_SIZE,
+                height: THUMB_HIT_SIZE,
+                transform: `translate(${thumbX}px, -50%)`,
                 cursor: locked ? "default" : "grab",
               }}
             >
-              {mushroom ? (
-                <MushroomMark
-                  size={THUMB_SIZE}
-                  cap={mushroom.cap}
-                  stalk={mushroom.stalk}
-                  spots={mushroom.spots}
-                  spotCount={mushroom.spotCount}
-                  spotShape={mushroom.spotShape}
-                  bg={mushroom.bg}
-                />
-              ) : (
-                <MushroomLogo size={20} capColor="var(--on-accent)" stemClassName="text-ink" />
-              )}
+              <div
+                className={`pointer-events-none flex items-center justify-center rounded-full shadow-none dark:shadow-[0_0_12px_rgba(255,107,61,0.6)] ${
+                  mushroom ? "" : "bg-brand-orange"
+                }`}
+                style={{ width: THUMB_SIZE, height: THUMB_SIZE }}
+              >
+                {mushroom ? (
+                  <MushroomMark
+                    size={THUMB_SIZE}
+                    cap={mushroom.cap}
+                    stalk={mushroom.stalk}
+                    spots={mushroom.spots}
+                    spotCount={mushroom.spotCount}
+                    spotShape={mushroom.spotShape}
+                    bg={mushroom.bg}
+                  />
+                ) : (
+                  <MushroomLogo size={20} capColor="var(--on-accent)" stemClassName="text-ink" />
+                )}
+              </div>
             </div>
             <div className="flex-1 text-center text-sm font-extrabold text-nav-muted">{label}</div>
           </div>

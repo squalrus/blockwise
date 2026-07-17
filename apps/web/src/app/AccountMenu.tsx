@@ -73,6 +73,9 @@ export function AccountMenu({
 
       {isOpen && (
         <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-border bg-card py-2 text-foreground shadow-lg">
+          <a href="/account" onClick={() => setIsOpen(false)} className="block px-4 py-2 text-sm hover:bg-card-alt">
+            My account
+          </a>
           {homeNeighborhood && (
             <a
               href={`/neighborhoods/${homeNeighborhood.slug}`}
@@ -82,9 +85,6 @@ export function AccountMenu({
               {homeNeighborhood.name}
             </a>
           )}
-          <a href="/account" onClick={() => setIsOpen(false)} className="block px-4 py-2 text-sm hover:bg-card-alt">
-            My account
-          </a>
           <a
             href="/account/settings"
             onClick={() => setIsOpen(false)}
@@ -92,11 +92,6 @@ export function AccountMenu({
           >
             Settings
           </a>
-          {showAdminLink && (
-            <a href="/admin" onClick={() => setIsOpen(false)} className="block px-4 py-2 text-sm hover:bg-card-alt">
-              Admin
-            </a>
-          )}
           <a
             href="/changelog"
             onClick={() => setIsOpen(false)}
@@ -104,6 +99,19 @@ export function AccountMenu({
           >
             What&apos;s new
           </a>
+
+          {showAdminLink && (
+            <>
+              <div className="my-2 border-t border-border" />
+              <a
+                href="/admin"
+                onClick={() => setIsOpen(false)}
+                className="block px-4 py-2 text-sm hover:bg-card-alt"
+              >
+                Admin
+              </a>
+            </>
+          )}
 
           <div className="my-2 border-t border-border" />
           <button

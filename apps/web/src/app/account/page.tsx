@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type {
+  ActivityItem,
   AppUser,
   Badge,
   CheckinHistoryItem,
   ConnectionSummary,
   FavoriteVenueSummary,
+  FollowedEventSummary,
   NeighborhoodMembership,
   UserBadge,
   UserChallenge,
@@ -16,8 +18,10 @@ import type {
 import { MushroomLoader, MushroomLogo } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { ActivityFeed } from "../ActivityFeed";
 import { BadgeIcon } from "../BadgeIcon";
-import { CheckinTimeline } from "../CheckinTimeline";
+import { EventListItem } from "../EventListItem";
+import { FollowEventButton } from "../FollowEventButton";
 import { NeighborsSection } from "./NeighborsSection";
 import { PlaceListItem } from "../PlaceListItem";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
@@ -25,15 +29,15 @@ import { ProgressBar } from "../ProgressBar";
 import { SignInPrompt } from "../SignInPrompt";
 import { TabNav } from "../TabNav";
 
-type AccountTab = "spores" | "favorites" | "checkins" | "badges" | "challenges" | "neighbors";
+type AccountTab = "spores" | "favorites" | "badges" | "challenges" | "neighbors" | "activity";
 
 const ACCOUNT_TABS: { key: AccountTab; label: string }[] = [
   { key: "spores", label: "Spore Feed" },
   { key: "favorites", label: "Favorites" },
-  { key: "checkins", label: "Check-ins" },
   { key: "badges", label: "Badges" },
   { key: "challenges", label: "Challenges" },
   { key: "neighbors", label: "Neighbors" },
+  { key: "activity", label: "My Activity" },
 ];
 
 type State =
@@ -44,6 +48,13 @@ type State =
       status: "ready";
       user: AppUser;
       favorites: FavoriteVenueSummary[];
+      followedEvents: FollowedEventSummary[];
+      feed: ActivityItem[];
+      // My Activity tab (BACKLOG.md Ref 81 follow-up) -- every activity type
+      // for this account's own actions (GET /me/activity), unmasked.
+      myActivity: ActivityItem[];
+      // Still fetched for ProfileSummaryCard's check-in count stat tile even
+      // though the My Activity tab no longer renders this list directly.
       checkins: CheckinHistoryItem[];
       pointsSummary: UserPointsSummary;
       badges: UserBadge[];
@@ -60,6 +71,21 @@ type State =
       // it at /neighborhoods.
       neighborhoods: NeighborhoodMembership[];
     };
+
+// An event counts as "today" if its start/end range overlaps today's local
+// calendar day, mirroring apps/api/src/locations/happeningNow.ts's isToday
+// (same overlap definition, kept in sync manually since this is a client
+// component and that helper lives server-side). GET /me/events already
+// excludes events whose end_time has passed, so this only ever needs to
+// exclude events that haven't started yet.
+function isEventToday(event: FollowedEventSummary): boolean {
+  const start = new Date(event.start_time).getTime();
+  const end = new Date(event.end_time).getTime();
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+  return start < todayEnd && end >= todayStart;
+}
 
 // Activity/action hub (BACKLOG.md "My account page"): identity from GET
 // /auth/me, favorites from GET /me/favorites, check-in history from GET
@@ -78,6 +104,9 @@ async function loadAccount(setState: (state: State) => void) {
   const headers = { Authorization: `Bearer ${token}` };
   const [
     favoritesRes,
+    followedEventsRes,
+    feedRes,
+    myActivityRes,
     checkinsRes,
     pointsRes,
     badgesRes,
@@ -88,6 +117,9 @@ async function loadAccount(setState: (state: State) => void) {
     neighborhoodsRes,
   ] = await Promise.all([
     fetch(clientApiUrl("/me/favorites"), { headers }),
+    fetch(clientApiUrl("/me/events"), { headers }),
+    fetch(clientApiUrl("/me/feed"), { headers }),
+    fetch(clientApiUrl("/me/activity"), { headers }),
     fetch(clientApiUrl("/me/checkins"), { headers }),
     fetch(clientApiUrl("/me/points"), { headers }),
     fetch(clientApiUrl("/me/badges"), { headers }),
@@ -99,6 +131,9 @@ async function loadAccount(setState: (state: State) => void) {
   ]);
   if (
     !favoritesRes.ok ||
+    !followedEventsRes.ok ||
+    !feedRes.ok ||
+    !myActivityRes.ok ||
     !checkinsRes.ok ||
     !pointsRes.ok ||
     !badgesRes.ok ||
@@ -116,6 +151,9 @@ async function loadAccount(setState: (state: State) => void) {
     status: "ready",
     user,
     favorites: await favoritesRes.json(),
+    followedEvents: await followedEventsRes.json(),
+    feed: await feedRes.json(),
+    myActivity: await myActivityRes.json(),
     checkins: await checkinsRes.json(),
     pointsSummary: await pointsRes.json(),
     badges: await badgesRes.json(),
@@ -207,12 +245,39 @@ export default function AccountPage() {
           />
 
           {activeTab === "spores" && (
-            // Stub (BACKLOG.md): a future feed of neighbor/neighborhood
-            // activity -- check-ins, favorites, badge unlocks -- once the
-            // underlying data's shaped. Default tab since it's meant to be
-            // the first thing you see landing on your account.
-            <section className="flex flex-col gap-2.5">
-              <p className="text-sm text-muted">Coming soon -- a feed of what your neighbors are up to.</p>
+            // BACKLOG.md Ref 81: check-ins, favorites, badge unlocks,
+            // challenge completions, and followed events from accepted
+            // neighbor connections (GET /me/feed) -- not neighborhood-wide,
+            // unlike /neighborhoods/:slug/activity's Recent activity tab.
+            // Default tab since it's meant to be the first thing you see
+            // landing on your account. Any of your own followed events
+            // happening today are pinned above the chronological activity
+            // log as a same-day reminder, mirroring the neighborhood
+            // profile's Today tab.
+            <section className="flex flex-col gap-5">
+              {(() => {
+                const todaysEvents = state.followedEvents.filter(isEventToday);
+                if (todaysEvents.length === 0) return null;
+                return (
+                  <div className="flex flex-col gap-2.5">
+                    <h2 className="text-xs font-extrabold text-muted">Today</h2>
+                    <ul className="flex flex-col gap-2.5">
+                      {todaysEvents.map((event) => (
+                        <EventListItem
+                          key={event.id}
+                          event={event}
+                          showSource={false}
+                          actions={<FollowEventButton eventId={event.id} />}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+              <ActivityFeed
+                items={state.feed}
+                emptyMessage="No activity yet -- connect with a neighbor to see what they're up to."
+              />
             </section>
           )}
 
@@ -359,33 +424,61 @@ export default function AccountPage() {
           )}
 
           {activeTab === "favorites" && (
-            <section className="flex flex-col gap-2.5">
-              {state.favorites.length === 0 ? (
-                <p className="text-sm text-muted">
-                  No favorites yet -- tap the favorite button on a venue page to save it here.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {state.favorites.map((venue) => (
-                    <li key={venue.venue_id}>
-                      <PlaceListItem
-                        href={`/location/${venue.venue_id}`}
-                        id={venue.venue_id}
-                        name={venue.name}
-                        subtitle={venue.address}
+            <section className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2.5">
+                <h2 className="text-xs font-extrabold text-muted">Events</h2>
+                {state.followedEvents.length === 0 ? (
+                  <p className="text-sm text-muted">
+                    No followed events yet -- follow one from a neighborhood&apos;s Events tab to see it here.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2.5">
+                    {state.followedEvents.map((event) => (
+                      <EventListItem
+                        key={event.id}
+                        event={event}
+                        showSource={false}
+                        actions={<FollowEventButton eventId={event.id} />}
                       />
-                    </li>
-                  ))}
-                </ul>
-              )}
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                <h2 className="text-xs font-extrabold text-muted">Venues</h2>
+                {state.favorites.length === 0 ? (
+                  <p className="text-sm text-muted">
+                    No favorites yet -- tap the favorite button on a venue page to save it here.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {state.favorites.map((venue) => (
+                      <li key={venue.venue_id}>
+                        <PlaceListItem
+                          href={`/location/${venue.venue_id}`}
+                          id={venue.venue_id}
+                          name={venue.name}
+                          subtitle={venue.address}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
           )}
 
-          {activeTab === "checkins" && (
+          {activeTab === "activity" && (
+            // BACKLOG.md Ref 81 follow-up: renamed from the old check-ins-
+            // only tab -- every activity type for this account's own
+            // actions (GET /me/activity), not masked by visibility the way
+            // the Spore Feed's neighbor activity is, since it's your own
+            // data. Moved last since it's the least "front page" tab.
             <section className="flex flex-col gap-2.5">
-              <CheckinTimeline
-                checkins={state.checkins}
-                emptyMessage="No check-ins yet -- check in from a venue page when you're there."
+              <ActivityFeed
+                items={state.myActivity}
+                emptyMessage="No activity yet -- check in from a venue page when you're there."
               />
             </section>
           )}

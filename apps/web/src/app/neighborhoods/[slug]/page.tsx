@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { HappeningNow, NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { EventListItem } from "../../EventListItem";
+import { FollowEventButton } from "../../FollowEventButton";
 import { PlaceListItem } from "../../PlaceListItem";
 
 export async function generateMetadata({
@@ -54,7 +55,7 @@ export default async function NeighborhoodTodayPage({
         ) : (
           <ul className="flex flex-col gap-2.5">
             {happeningNow.today_events.map((e) => (
-              <EventListItem key={e.id} event={e} showSource={false} />
+              <EventListItem key={e.id} event={e} showSource={false} actions={<FollowEventButton eventId={e.id} />} />
             ))}
           </ul>
         )}
