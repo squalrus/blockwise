@@ -123,8 +123,7 @@ export default function NeighborhoodAdminClaimsPage() {
         )}
 
         {activeClaims?.map((claim) => {
-          const seed = claim.claimed_by_user_id ?? claim.id;
-          const mushroom = mushroomConfigForUser(seed);
+          const mushroom = mushroomConfigForUser(claim.claimed_by_user_id);
           return (
             <div key={claim.id} className="flex items-start gap-4 rounded-2xl border border-border bg-card px-5 py-4.5">
               <MushroomMark
@@ -146,6 +145,14 @@ export default function NeighborhoodAdminClaimsPage() {
                 <div className="mt-1.5 text-[13.5px]">
                   wants to claim <span className="font-extrabold">{claim.venue_name}</span>{" "}
                   <span className="text-muted">· {claim.venue_address}</span>
+                </div>
+                <div className="mt-1 text-[12.5px] text-muted">
+                  account:{" "}
+                  <span className="font-bold text-muted-strong">
+                    {claim.claimant_display_name ?? claim.claimant_username ?? "unnamed"}
+                  </span>
+                  {claim.claimant_username && ` (@${claim.claimant_username})`}
+                  {claim.claimant_email && ` · ${claim.claimant_email}`}
                 </div>
                 {claim.note && <p className="mt-1 text-[13.5px] text-muted">{claim.note}</p>}
                 <div className="mt-1.5 font-mono text-[11px] text-muted">

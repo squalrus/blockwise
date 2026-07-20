@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.53.1] — 2026-07-20
+
+### Changed
+
+- **Business claims now require a signed-in account, and drop the "business domain" contact method.** `POST /venues/:id/claims` requires auth (`business_claim.claimed_by_user_id` is now `NOT NULL`) so a claim is always tied to a specific account instead of allowing anonymous, hard-to-follow-up submissions. The claim form now tells the signer which account will be linked to their submission, and shows a sign-in prompt instead of the form when signed out. Also drops "business domain" as a contact method (phone/email remain) since a bare domain doesn't actually help an admin verify ownership. Completes BACKLOG.md Ref 32. (`apps/api/src/app.ts`, `apps/api/src/claims/`, `apps/web/src/app/location/[id]/ClaimBusinessForm.tsx`, `supabase/migrations/20260720010000_business_claim_requires_account.sql`, `supabase/migrations/20260720020000_business_claim_drop_domain_contact_method.sql`)
+- **Neighborhood-admin claims list now shows the linked account.** Each claim card in `/admin/neighborhood/:slug/claims` displays the submitter's display name, `@username`, and email (joined from the account behind the claim), alongside the contact info they typed in, so an admin can cross-check the two. (`apps/api/src/claims/`, `packages/types/src/index.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/claims/page.tsx`)
+
+### Fixed
+
+- **`dark:` utility classes now respect an explicit "Light" theme selection.** Error-text/border accents styled with Tailwind's `dark:` variant (e.g. form error messages) previously followed the OS's raw `prefers-color-scheme` regardless of the app's own Light/Dark/System toggle, so choosing "Light" while the OS was in dark mode left those accents in their dark-mode color. A `@custom-variant dark` now ties `dark:` to the same forced-theme logic the rest of the app's theming already uses. (`apps/web/src/app/globals.css`)
+- **Neighborhood activity feed showed timestamps in the wrong timezone.** The shared `Timeline` component (used by the neighborhood-wide Recent activity tab and `/account`'s activity feeds) formatted timestamps using `toLocaleString()` without forcing client-side rendering; since the neighborhood activity page renders server-side, that produced the *server's* local time there instead of the visitor's, while the same timestamp on `/account` (a client-rendered page) showed correctly. `Timeline` is now a client component, matching the same fix already in place for `EventListItem`. (`apps/web/src/app/Timeline.tsx`)
+
 ## [0.53.0] — 2026-07-17
 
 ### Added

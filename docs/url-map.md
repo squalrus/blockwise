@@ -135,7 +135,7 @@ Auth gates:
 /venues/:id
 ├── announcements                                       GET — public — business-kind only (empty for a POI id)
 ├── events                                              GET — public — business-kind only
-├── claims                                              POST — public (optional auth attaches claimed_by_user_id) — business-kind only, rejected by claim ownership gating for a POI id
+├── claims                                              POST — auth — business-kind only, rejected by claim ownership gating for a POI id; ties every claim to an account (BACKLOG.md Ref 32), also drops the "domain" contact method
 └── favorites                                            GET, POST, DELETE — auth — POST awards first-time favorite points, business-kind only (BACKLOG.md Ref 86: no more anonymous favorites)
 
 /events/:id
