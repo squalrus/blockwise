@@ -23,8 +23,6 @@ import { requireSuperAdmin } from "./admin/requireSuperAdmin";
 import { SupabaseNeighborhoodAdminRepository, SupabaseSuperAdminRepository } from "./admin/supabaseRepository";
 import { listActivityForUsers, listMyActivity, listRecentActivity } from "./activity/activity";
 import { SupabaseActivityRepository } from "./activity/supabaseRepository";
-import { createAnnouncement, listAnnouncementsForVenue } from "./announcements/announcements";
-import { SupabaseAnnouncementRepository } from "./announcements/supabaseRepository";
 import { completeLogin, completeSignup, promoteToBusiness, toAppUser, updateProfile } from "./auth/auth";
 import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from "./auth/requireAuthUser";
 import { UsernameTakenError } from "./auth/repository";
@@ -32,6 +30,15 @@ import { SupabaseAuthRepository } from "./auth/supabaseRepository";
 import { verifyAccessToken } from "./auth/verifyToken";
 import { performCheckin } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
+import {
+  claimCoupon,
+  createCoupon,
+  listActiveCouponsForVenues,
+  listCouponsForVenue,
+  listVenueCouponsForViewer,
+  redeemCouponClaim,
+} from "./coupons/coupons";
+import { SupabaseCouponRepository } from "./coupons/supabaseRepository";
 import {
   getVenueIcalFeed,
   getVenueSocialLinks,
@@ -340,10 +347,10 @@ function getSuperAdminRepository(): SupabaseSuperAdminRepository {
   return superAdminRepository;
 }
 
-let announcementRepository: SupabaseAnnouncementRepository | undefined;
-function getAnnouncementRepository(): SupabaseAnnouncementRepository {
-  announcementRepository ??= new SupabaseAnnouncementRepository(getSupabaseClient());
-  return announcementRepository;
+let couponRepository: SupabaseCouponRepository | undefined;
+function getCouponRepository(): SupabaseCouponRepository {
+  couponRepository ??= new SupabaseCouponRepository(getSupabaseClient());
+  return couponRepository;
 }
 
 let activityRepository: SupabaseActivityRepository | undefined;
@@ -455,18 +462,85 @@ export function createApp() {
   });
 
   // Business owner venue dashboard (BACKLOG.md): read-only, public listing of
-  // a venue's own announcements/events, shown on the venue detail page.
-  // Authoring is gated (see POST /business/venues/:id/announcements|events
-  // below) -- these two routes are read-only for any visitor.
-  app.get("/venues/:id/announcements", async (req, res) => {
+  // a venue's own coupons/events, shown on the venue detail page. Authoring
+  // is gated (see POST /business/venues/:id/coupons|events below) -- these
+  // two routes are read-only for any visitor. Auth is optional (mirrors GET
+  // /neighborhoods) so a signed-in visitor's own claim/eligibility state
+  // (BACKLOG.md Ref 83) comes back with each coupon; a signed-out visitor
+  // just sees the plain listing with every claim null.
+  app.get(
+    "/venues/:id/coupons",
+    attachOptionalAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const coupons = await listVenueCouponsForViewer(req.params.id, req.appUser?.id ?? null, {
+          coupon: getCouponRepository(),
+          checkin: getCheckinRepository(),
+        });
+        res.json(coupons);
+      } catch (err) {
+        console.error(`GET /venues/${req.params.id}/coupons failed:`, err);
+        res.status(500).json({ error: "Failed to list coupons" });
+      }
+    }
+  );
+
+  app.post("/coupons/:id/claim", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
     try {
-      const announcements = await listAnnouncementsForVenue(req.params.id, getAnnouncementRepository());
-      res.json(announcements);
+      const result = await claimCoupon(req.params.id, req.appUser!.id, {
+        coupon: getCouponRepository(),
+        checkin: getCheckinRepository(),
+      });
+      switch (result.status) {
+        case "not_found":
+          res.status(404).json({ error: "Coupon not found" });
+          return;
+        case "not_active":
+          res.status(400).json({ error: "This coupon isn't currently active" });
+          return;
+        case "not_checked_in":
+          res.status(403).json({ error: "Check in at this venue to unlock this coupon" });
+          return;
+        case "unavailable":
+          res.status(409).json({ error: "This coupon is sold out" });
+          return;
+        case "claimed":
+          res.status(201).json(result.claim);
+          return;
+        case "already_claimed":
+          res.status(200).json(result.claim);
+          return;
+      }
     } catch (err) {
-      console.error(`GET /venues/${req.params.id}/announcements failed:`, err);
-      res.status(500).json({ error: "Failed to list announcements" });
+      console.error(`POST /coupons/${req.params.id}/claim failed:`, err);
+      res.status(500).json({ error: "Failed to claim coupon" });
     }
   });
+
+  // Slide-to-redeem (BACKLOG.md Ref 83/20): the in-person, staff-witnessed
+  // counterpart to claiming. Also writes a checkin for the claim's venue
+  // when the target-venue cooldown has elapsed since the viewer's last one
+  // (Ref 3) -- see redeemCouponClaim's comment.
+  app.post(
+    "/coupons/claims/:claimId/redeem",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const result = await redeemCouponClaim(req.params.claimId, req.appUser!.id, {
+          coupon: getCouponRepository(),
+          checkin: getCheckinRepository(),
+        });
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Claim not found" });
+          return;
+        }
+        res.json(result.claim);
+      } catch (err) {
+        console.error(`POST /coupons/claims/${req.params.claimId}/redeem failed:`, err);
+        res.status(500).json({ error: "Failed to redeem coupon" });
+      }
+    }
+  );
 
   app.get("/venues/:id/events", async (req, res) => {
     try {
@@ -913,6 +987,25 @@ export function createApp() {
     } catch (err) {
       console.error("GET /me/favorites failed:", err);
       res.status(500).json({ error: "Failed to list favorite venues" });
+    }
+  });
+
+  // Spore Feed pin (BACKLOG.md Ref 83): active coupons at every venue the
+  // signed-in user favorites (favoriting is the follow relationship, per
+  // VenueDashboardSummary's follower_count), mirroring GET /me/events'
+  // followed-events listing that powers the "Today" pin.
+  app.get("/me/coupons", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const favorites = await getFavoriteRepository().listFavoriteVenuesForUser(req.appUser!.id);
+      const coupons = await listActiveCouponsForVenues(
+        favorites.map((f) => f.venueId),
+        req.appUser!.id,
+        { coupon: getCouponRepository(), checkin: getCheckinRepository() }
+      );
+      res.json(coupons);
+    } catch (err) {
+      console.error("GET /me/coupons failed:", err);
+      res.status(500).json({ error: "Failed to list coupons" });
     }
   });
 
@@ -1823,9 +1916,9 @@ export function createApp() {
   );
 
   // Business-account-gated placeholder for the business portal's authoring
-  // tools (BACKLOG "Business announcements" etc., which depend on this item
-  // for the business-side login) -- proves the account_type gate end-to-end
-  // by listing the venues this business account has an approved claim on.
+  // tools (BACKLOG "Venue coupons" etc., which depend on this item for the
+  // business-side login) -- proves the account_type gate end-to-end by
+  // listing the venues this business account has an approved claim on.
   app.get(
     "/business/venues",
     requireBusinessAccount(getSupabaseClient, getAuthRepository),
@@ -1843,9 +1936,9 @@ export function createApp() {
   );
 
   // Business owner venue dashboard (BACKLOG.md): follower/check-in stats plus
-  // this venue's own announcements/events, for the specific venue this
-  // business account holds an approved claim on (enforced by venueOwnerGate,
-  // not just "is a business account" like GET /business/venues above).
+  // this venue's own coupons/events, for the specific venue this business
+  // account holds an approved claim on (enforced by venueOwnerGate, not just
+  // "is a business account" like GET /business/venues above).
   app.get("/business/venues/:id/dashboard", venueOwnerGate, async (req, res) => {
     try {
       const venue = await getLocationRepository().getLocationById(req.params.id);
@@ -1854,10 +1947,10 @@ export function createApp() {
         return;
       }
 
-      const [followerCount, checkinCount, announcements, events, socialLinks, icalFeed] = await Promise.all([
+      const [followerCount, checkinCount, coupons, events, socialLinks, icalFeed] = await Promise.all([
         getFavoriteRepository().countFavoritesForVenue(req.params.id),
         getCheckinRepository().countCheckinsForLocation(req.params.id),
-        listAnnouncementsForVenue(req.params.id, getAnnouncementRepository()),
+        listCouponsForVenue(req.params.id, getCouponRepository()),
         listEventsForVenue(req.params.id, getEventRepository(), true),
         getVenueSocialLinks(req.params.id, getClaimRepository()),
         getVenueIcalFeed(req.params.id, getClaimRepository()),
@@ -1869,7 +1962,7 @@ export function createApp() {
         address: venue.address ?? "",
         follower_count: followerCount,
         checkin_count: checkinCount,
-        announcements,
+        coupons,
         events,
         social_links: socialLinks,
         ical_feed_url: icalFeed.icalFeedUrl,
@@ -1949,23 +2042,42 @@ export function createApp() {
     }
   });
 
-  app.post("/business/venues/:id/announcements", venueOwnerGate, async (req, res) => {
-    const { title, body } = req.body ?? {};
-    if (typeof title !== "string" || !title || typeof body !== "string" || !body) {
-      res.status(400).json({ error: "title and body are required" });
+  app.post("/business/venues/:id/coupons", venueOwnerGate, async (req, res) => {
+    const { title, description, terms, quantity, start_at, end_at } = req.body ?? {};
+    if (typeof title !== "string" || !title || typeof description !== "string" || !description) {
+      res.status(400).json({ error: "title and description are required" });
+      return;
+    }
+    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity <= 0) {
+      res.status(400).json({ error: "quantity must be a positive integer" });
+      return;
+    }
+    if (typeof start_at !== "string" || typeof end_at !== "string") {
+      res.status(400).json({ error: "start_at and end_at are required" });
       return;
     }
 
     try {
-      const announcement = await createAnnouncement(
+      const result = await createCoupon(
         req.params.id,
-        { title, body },
-        getAnnouncementRepository()
+        {
+          title,
+          description,
+          terms: typeof terms === "string" && terms ? terms : null,
+          quantity,
+          startAt: start_at,
+          endAt: end_at,
+        },
+        getCouponRepository()
       );
-      res.status(201).json(announcement);
+      if (result.status === "invalid_time_range") {
+        res.status(400).json({ error: "end_at must be after start_at" });
+        return;
+      }
+      res.status(201).json(result.coupon);
     } catch (err) {
-      console.error(`POST /business/venues/${req.params.id}/announcements failed:`, err);
-      res.status(500).json({ error: "Failed to create announcement" });
+      console.error(`POST /business/venues/${req.params.id}/coupons failed:`, err);
+      res.status(500).json({ error: "Failed to create coupon" });
     }
   });
 

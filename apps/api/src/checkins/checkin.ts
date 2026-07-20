@@ -7,7 +7,7 @@ import type { CheckinRecord, CheckinRepository } from "./repository";
 // dependency on the SpotShape union it validates against server-side, per
 // isValidMushroomCustomization) -- narrow it for snapshotMushroomForUser,
 // mirroring apps/web's Avatar.tsx.
-function toMushroomConfig(customization: MushroomCustomization | null): MushroomConfig | null {
+export function toMushroomConfig(customization: MushroomCustomization | null): MushroomConfig | null {
   return customization ? { ...customization, spotShape: customization.spotShape as SpotShape } : null;
 }
 

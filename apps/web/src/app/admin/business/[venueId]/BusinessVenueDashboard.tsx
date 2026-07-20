@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Announcement, Event, SocialLinks, VenueDashboardSummary } from "@blockwise/types";
+import type { SocialLinks, VenueDashboardSummary } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { StatTile, MushroomIcon } from "../../../StatTile";
 import { useBusinessAdmin } from "./BusinessAdminContext";
-import { AnnouncementForm } from "./AnnouncementForm";
-import { EventForm } from "./EventForm";
-import { IcalFeedForm } from "./IcalFeedForm";
 import { SocialLinksForm } from "./SocialLinksForm";
 
 type State =
@@ -20,7 +17,10 @@ type State =
 // Overview tab of the business admin shell (BACKLOG.md), restyled to match
 // admin/neighborhood/[neighborhoodSlug]/page.tsx's Overview tab. Account-type
 // and claim-ownership gating live in layout.tsx now, so this only tracks the
-// dashboard-data fetch itself.
+// dashboard-data fetch itself. Coupons and Events split out into their own
+// tabs (events/page.tsx, coupons/page.tsx), mirroring the neighborhood-admin
+// Events-tab split (BACKLOG.md Ref 78) -- this now only carries stat tiles
+// and social links.
 export function BusinessVenueDashboard() {
   const { venueId } = useBusinessAdmin();
   const [state, setState] = useState<State>({ status: "loading" });
@@ -47,72 +47,6 @@ export function BusinessVenueDashboard() {
       cancelled = true;
     };
   }, [venueId]);
-
-  // Reloads the whole dashboard after a calendar sync -- simpler than
-  // reconciling imported/updated events one by one into local state.
-  async function reload() {
-    const token = await getAccessToken();
-    const res = await fetch(clientApiUrl(`/business/venues/${venueId}/dashboard`), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) setState({ status: "ready", summary: await res.json() });
-  }
-
-  function handleAnnouncementCreated(announcement: Announcement) {
-    setState((prev) =>
-      prev.status === "ready"
-        ? { ...prev, summary: { ...prev.summary, announcements: [announcement, ...prev.summary.announcements] } }
-        : prev
-    );
-  }
-
-  function handleEventCreated(event: Event) {
-    setState((prev) =>
-      prev.status === "ready"
-        ? { ...prev, summary: { ...prev.summary, events: [...prev.summary.events, event] } }
-        : prev
-    );
-  }
-
-  async function handleDeleteEvent(eventId: string) {
-    const token = await getAccessToken();
-    const res = await fetch(clientApiUrl(`/business/venues/${venueId}/events/${eventId}`), {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return;
-    setState((prev) =>
-      prev.status === "ready"
-        ? { ...prev, summary: { ...prev.summary, events: prev.summary.events.filter((e) => e.id !== eventId) } }
-        : prev
-    );
-  }
-
-  // Hide survives a future iCal re-sync (unlike delete, which a re-sync
-  // would just undo for an imported event), so it's the way to suppress one
-  // specific event -- imported or manual -- without excluding it forever.
-  async function handleToggleEventStatus(eventId: string, currentStatus: Event["status"]) {
-    const nextStatus = currentStatus === "hidden" ? "active" : "hidden";
-    const token = await getAccessToken();
-    const res = await fetch(clientApiUrl(`/business/venues/${venueId}/events/${eventId}/status`), {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status: nextStatus }),
-    });
-    if (!res.ok) return;
-    const updated = (await res.json()) as Event;
-    setState((prev) =>
-      prev.status === "ready"
-        ? {
-            ...prev,
-            summary: {
-              ...prev.summary,
-              events: prev.summary.events.map((e) => (e.id === eventId ? updated : e)),
-            },
-          }
-        : prev
-    );
-  }
 
   function handleSocialLinksSaved(socialLinks: SocialLinks) {
     setState((prev) =>
@@ -153,101 +87,14 @@ export function BusinessVenueDashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <div className="flex flex-col gap-5">
-          <section className="rounded-3xl border border-border bg-card p-6">
-            <h2 className="mb-4 font-heading text-lg font-extrabold">Social links</h2>
-            <SocialLinksForm
-              venueId={venueId}
-              initialSocialLinks={state.summary.social_links}
-              onSaved={handleSocialLinksSaved}
-            />
-          </section>
-
-          <section className="rounded-3xl border border-border bg-card p-6">
-            <div className="mb-3.5 flex items-baseline gap-2.5">
-              <h2 className="font-heading text-lg font-extrabold">Announcements</h2>
-              <span className="font-mono text-[11px] text-muted">{state.summary.announcements.length} posted</span>
-            </div>
-            <AnnouncementForm venueId={venueId} onCreated={handleAnnouncementCreated} />
-            {state.summary.announcements.length === 0 ? (
-              <p className="mt-3 text-sm text-muted">No announcements yet.</p>
-            ) : (
-              <ul className="mt-3 flex flex-col gap-2">
-                {state.summary.announcements.map((a) => (
-                  <li key={a.id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
-                    <p className="font-extrabold text-foreground">{a.title}</p>
-                    <p className="text-muted">{a.body}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-
-        <div className="flex flex-col gap-5">
-          <section className="rounded-3xl border border-border bg-card p-6">
-            <div className="mb-3.5 flex items-baseline gap-2.5">
-              <h2 className="font-heading text-lg font-extrabold">Events</h2>
-              <span className="font-mono text-[11px] text-muted">{state.summary.events.length} upcoming</span>
-            </div>
-            <IcalFeedForm
-              venueId={venueId}
-              initialFeedUrl={state.summary.ical_feed_url}
-              initialSyncedAt={state.summary.ical_synced_at}
-              onSynced={reload}
-            />
-            <div className="my-3.5 border-t border-border" />
-            <EventForm venueId={venueId} onCreated={handleEventCreated} />
-            {state.summary.events.length === 0 ? (
-              <p className="mt-3 text-sm text-muted">No events yet.</p>
-            ) : (
-              <ul className="mt-3 flex flex-col gap-2">
-                {state.summary.events.map((e) => (
-                  <li
-                    key={e.id}
-                    className={`flex items-start justify-between gap-3 rounded-2xl bg-card-alt px-4 py-3 text-sm ${
-                      e.status === "hidden" ? "opacity-60" : ""
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-extrabold text-foreground">{e.title}</p>
-                        {e.status === "hidden" && (
-                          <span className="rounded-full bg-card px-2 py-0.5 font-mono text-[10px] font-bold text-muted">
-                            Hidden
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-muted">{e.description}</p>
-                      <p className="mt-1 font-mono text-xs text-muted">
-                        {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
-                      </p>
-                      {e.location && <p className="mt-0.5 text-xs text-muted">{e.location}</p>}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleEventStatus(e.id, e.status)}
-                        className="text-xs font-bold text-foreground hover:underline"
-                      >
-                        {e.status === "hidden" ? "Unhide" : "Hide"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteEvent(e.id)}
-                        className="text-xs font-bold text-red-600 hover:underline dark:text-red-400"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-      </div>
+      <section className="max-w-xl rounded-3xl border border-border bg-card p-6">
+        <h2 className="mb-4 font-heading text-lg font-extrabold">Social links</h2>
+        <SocialLinksForm
+          venueId={venueId}
+          initialSocialLinks={state.summary.social_links}
+          onSaved={handleSocialLinksSaved}
+        />
+      </section>
     </div>
   );
 }

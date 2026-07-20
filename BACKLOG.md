@@ -34,6 +34,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
 | 80 | [Missing location suggestion UI](#missing-location-suggestion-ui) | feature | S | M | — |
+| 88 | [Hide past events in the admin Events tabs](#hide-past-events-in-the-admin-events-tabs) | improvement | S | M | — |
 | 76 | [Self-serve neighborhood-admin invite/remove UI](#self-serve-neighborhood-admin-inviteremove-ui) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 77 | [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) | feature | L | M | — |
@@ -44,18 +45,14 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 83 | [Venue coupons replace announcements](#venue-coupons-replace-announcements) | feature | L | H | — |
 | 22 | [Category browsing & filtering](#category-browsing--filtering) | improvement | S | M | — |
-| 3 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | feature | S | M | 20 |
-| 5 | [Business announcements](#business-announcements) | feature | M | M | — |
 | 7 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | feature | M | M | — |
 | 18 | [Business-editable venue basic data](#business-editable-venue-basic-data) | feature | M | M | — |
 | 38 | [Map on business page](#map-on-business-page) | feature | M | M | — |
-| 12 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | feature | M | M | 20 |
+| 12 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | feature | M | M | — |
 | 16 | [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect) | feature | M | M | — |
 | 19 | [Monetization: credits & entitlements](#monetization-credits--entitlements) | feature | L | M | — |
 | 21 | [Yelp Fusion enrichment (future)](#yelp-fusion-enrichment-future) | feature | M | L | — |
-| 20 | [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) | feature | M | L | 5 |
 
 ### User
 
@@ -64,6 +61,8 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
+| 86 | [Follow events that are currently in progress](#follow-events-that-are-currently-in-progress) | improvement | S | M | — |
+| 87 | [Show events from followed businesses in the Spore feed](#show-events-from-followed-businesses-in-the-spore-feed) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
@@ -121,9 +120,9 @@ No open limitations.
 
 **Ref:** 9
 **Type:** feature
-**Depends:** [5](#business-announcements)
-**Why** — Business announcements are per-venue and reach only that business's followers; there's no way for neighborhood-level staff (neighborhood admin roles shipped v0.12.0) to broadcast something to everyone in a neighborhood at once (e.g. an event, a service outage, a safety notice).
-**Notes:** Likely a `NeighborhoodNotification` (or reuse `Announcement` with a nullable `venue_id` for neighborhood-wide scope) authored via an admin tool gated the same way as other admin surfaces (`requireAdmin`, v0.12.0); delivery channel (push vs. in-app feed) probably follows whatever [Business announcements](#business-announcements) settles on.
+**Depends:** —
+**Why** — Venue-level content (business events, coupons) reaches only that business's own followers; there's no way for neighborhood-level staff (neighborhood admin roles shipped v0.12.0) to broadcast something to everyone in a neighborhood at once (e.g. an event, a service outage, a safety notice).
+**Notes:** Business announcements (the venue-scoped precedent this item's original design leaned on for a reusable shape) were replaced by venue coupons (shipped v0.54.0, see CHANGELOG.md) and no longer exist as a table, so this needs a fresh `NeighborhoodNotification` table (`neighborhood_id`, message, timestamps) rather than reusing anything — authored via an admin tool gated the same way as other admin surfaces (`requireAdmin`, v0.12.0). Delivery channel (push vs. in-app feed) still open.
 
 #### Bulk removals: check all / uncheck all toggle
 
@@ -181,15 +180,15 @@ No open limitations.
 **Why** — Users checking in via /checkin may spot a nearby venue the app doesn't yet have in the neighborhood's database, with no way to report it except leaving the app. A suggestion form at the bottom of the check-in page captures venue name/category/address and sends it to neighborhood admins, turning a friction point into a database contribution and improving discovery for future users without requiring the user to file a GitHub issue or email support.
 **Notes:** Add a "Missing a venue?" section at the bottom of NearestVenues with a compact form collecting venue name (required) and optional category/address/notes fields. POST to a new `/me/venue-suggestions` endpoint (or `/neighborhoods/:id/venue-suggestions`) writing to a new `venue_suggestion` table (`user_id`, `neighborhood_id`, `name`, `category`, `address`, `notes`, `created_at`, `status`). Neighborhood admins see incoming suggestions in an admin surface (separate backlog item covering the review/action UI and triage workflow); initial spec can be "email admins on new suggestion" or a simple unreviewed list. Open questions: should photos be attachable? Should this live on other pages (just /checkin, or also /neighborhoods/:slug/venues)? Should the form geo-locate and prepopulate address? Should users get notified if their suggestion becomes a real venue?
 
-### Business & Venue
+#### Hide past events in the admin Events tabs
 
-#### Venue coupons replace announcements
-
-**Ref:** 83
-**Type:** feature
+**Ref:** 88
+**Type:** improvement
 **Depends:** —
-**Why** — A dedicated "coupon" concept is likely sufficient in place of generic venue announcements: limited quantity, a date range (including a future start date for coupons not yet live), unlocked only by checking in at the venue, then redeemed in front of the business with a slide-to-redeem gesture — and if reopened after redemption, it clearly shows it's already been redeemed along with the date/time. Neighborhoods keep the general "announcements" concept; venues get coupons instead.
-**Notes:** Effectively replaces/refines the venue-facing half of [Business announcements](#business-announcements) (Ref 5 — already partially implemented per `apps/web/src/app/location/[id]/page.tsx`'s Announcements section) and supersedes the "attach coupon to Announcement" shape proposed in [Business coupons + slide-to-redeem](#business-coupons--slide-to-redeem) (Ref 20) — coupons become a first-class venue content type, decoupled from announcements. [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) (Ref 3) stays compatible/relevant. Needs a `Coupon` table (`venue_id`, `quantity`/`quantity_remaining`, `start_date`, `end_date`, description, terms) and a way to track per-user unlock eligibility (a check-in at this venue, likely scoped to the coupon's active window), plus `CouponRedemption` (`user_id`, `coupon_id`, `redeemed_at`) with atomic check-and-increment against `quantity_remaining` and a server-authoritative timestamp. Redemption UI reuses the existing slide-gesture pattern (see `SlideToCheckIn` in `apps/web/src/app/dev/components`) as slide-to-redeem; reopening an already-redeemed coupon shows the stored `redeemed_at` instead of the slide control. Neighborhoods' own Announcements (the [Neighborhood notifications](#neighborhood-notifications) side, Ref 9) are unaffected. **Open question (from the report):** how does a coupon interact with a user already checked in at the venue before the coupon existed/started — does a check-in need to happen after the coupon's `start_date` to count as an unlock, or does any check-in within the coupon's active window count retroactively?
+**Why** — Both the neighborhood-admin and business-admin Events tabs (`admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `admin/business/[venueId]/events/page.tsx`) list every event from the dashboard summary with no date filtering — unlike the public Upcoming/Today tabs, which already exclude events whose `end_time` has passed. Over time the admin "Upcoming" list fills up with events that already happened, making it harder to scan for what's actually coming up and to manage the calendar-feed-synced set.
+**Notes:** Both admin pages already need to see hidden events (there's something to Unhide), which is why their dashboard fetch passes `includeHidden = true` — the same reasoning applies here: keep past events fetched (a manual delete/audit trail use case might still want them), but hide them from the default view behind a "Show past" toggle, mirroring the Locations tab's existing "Show hidden" toggle pattern (`admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`). Simplest cut: a client-side filter on `event.end_time < now` in both pages' render, no API changes needed. Applies identically to both admin shells since they share the same `EventListItem`-based Upcoming list layout.
+
+### Business & Venue
 
 #### Category browsing & filtering
 
@@ -198,22 +197,6 @@ No open limitations.
 **Depends:** —
 **Why** — The 39-category taxonomy (project plan §2, shipped v0.4.0) exists server-side, but the venue list only shows category as plain text next to the address — there's no way to filter or browse by category today.
 **Notes:** Filter chips or a category picker on the venues list and map view (map view shipped v0.7.0, already color-codes markers by category group per project plan §1.7). Reuses the existing `Category`/`source_mapping_json` data, no new schema needed.
-
-#### Coupon redemption also checks you in
-
-**Ref:** 3
-**Type:** feature
-**Depends:** [20](#business-coupons--slide-to-redeem)
-**Why** — Redeeming a coupon already proves the user is physically at the venue (project plan §13.3's whole rationale for the slide gesture is in-person, witnessed confirmation) — that's strictly stronger evidence of presence than a GPS geofence, so it should count as a check-in too rather than requiring a separate, redundant action from the user.
-**Notes:** On `CouponRedemption` write, also write a `Checkin` row for that `venue_id`/`user_id` (server-side, same transaction) — subject to the existing cooldown logic so it doesn't create a duplicate/conflicting check-in if the user already checked in recently.
-
-#### Business announcements
-
-**Ref:** 5
-**Type:** feature
-**Depends:** —
-**Why** — First monetizable content type and the reason business claiming exists; also the base that coupons (§13) later attach to.
-**Notes:** Claimed-business authoring tool + follower feed, with a basic moderation queue per project plan §5. Both prerequisites have now shipped — business claiming + GPS check-in (v0.6.0) and real user authentication (v0.8.0) — so this item is fully unblocked.
 
 #### QR check-in + POI curation + leaderboards
 
@@ -243,9 +226,9 @@ No open limitations.
 
 **Ref:** 12
 **Type:** feature
-**Depends:** [20](#business-coupons--slide-to-redeem)
+**Depends:** —
 **Why** — project plan §13.3 already floats "requiring the business to tap a confirm button on their own device... a true two-sided confirmation" for high-value coupons; scanning the user's QR code is a concrete version of that, and gives businesses a way to check a customer in or redeem a coupon on their behalf as an alternative to the user's own GPS check-in or slide gesture — useful when a user's phone/GPS is having trouble, or simply as a faster front-counter flow.
-**Notes:** Business portal (§10.1) gets camera-based QR scanning (`getUserMedia`, same technique as the mobile QR check-in webcam approach in §10.2) reading a per-user, per-session QR code (analogous to the signed-URL scheme already planned for venue/POI QR check-in — project plan §4 Phase 2 — but keyed to the user instead of the venue). Additive to, not a replacement for, the user-initiated slide/GPS flows. The check-in half can reuse existing check-in logic without waiting on the redemption dependency.
+**Notes:** Business portal (§10.1) gets camera-based QR scanning (`getUserMedia`, same technique as the mobile QR check-in webcam approach in §10.2) reading a per-user, per-session QR code (analogous to the signed-URL scheme already planned for venue/POI QR check-in — project plan §4 Phase 2 — but keyed to the user instead of the venue). Additive to, not a replacement for, the user-initiated slide/GPS flows and the venue coupon claim/redeem flow (shipped v0.54.0, see CHANGELOG.md) it can now build on top of.
 
 #### Business visitor history and in-person connect
 
@@ -261,7 +244,7 @@ No open limitations.
 **Type:** feature
 **Depends:** —
 **Why** — Revenue model for the business side; deliberately built after business claiming is proven out, not before, per project plan §11.4.
-**Notes:** `BusinessPlan`, `Entitlement`, `CreditBalance`, `CreditTransaction`, `CreditPack` schema (project plan §1.8, §11.3) plus Stripe billing integration for credit-pack purchases. Free-sample entitlement (1 POI, 1 Event, 1 Announcement) ships first; paid credits follow.
+**Notes:** `BusinessPlan`, `Entitlement`, `CreditBalance`, `CreditTransaction`, `CreditPack` schema (project plan §1.8, §11.3) plus Stripe billing integration for credit-pack purchases. Free-sample entitlement (1 POI, 1 Event, 1 Coupon) ships first; paid credits follow.
 
 #### Yelp Fusion enrichment (future)
 
@@ -270,14 +253,6 @@ No open limitations.
 **Depends:** —
 **Why** — Dropped from the initial plan (project plan §1.1) to avoid Yelp's stricter 24-hour content TTL and licensing overhead before the core Google-sourced data layer even ships. Revisit only if ratings/reviews/photos become a clear user ask that Google's own fields don't already cover.
 **Notes:** Would add a `yelp_business_id` column to `Venue` and a `'yelp'` entry to `VenueEnrichmentCache.source` (project plan §1.3), fetched on-demand and never persisted past 24 hours per Yelp's ToS — including the Yelp attribution/compliance checklist items that were removed from project plan §1.6. Not currently planned; no other backlog item depends on it.
-
-#### Business coupons + slide-to-redeem
-
-**Ref:** 20
-**Type:** feature
-**Depends:** [5](#business-announcements)
-**Why** — Extends announcements into a concrete redemption/revenue mechanic for businesses, using physical friction (not cryptography) to discourage reuse.
-**Notes:** `Coupon` as an attachment to `Announcement`, `CouponRedemption` with server-authoritative timestamps and atomic check-and-increment against redemption caps, per project plan §13. Real user authentication (project plan §14.3), needed for redemption itself, has already shipped (v0.8.0); the remaining blocker is Business announcements.
 
 ### User
 
@@ -312,6 +287,22 @@ No open limitations.
 **Depends:** —
 **Why** — Same rationale as Google social sign-in (shipped v0.10.0) — removes a signup step at the moments that flow is meant to make frictionless — but scoped separately since it's a materially bigger lift with its own setup dependencies and timeline.
 **Notes:** Requires Apple Developer Program enrollment, creating a Services ID, and generating a rotating client-secret JWT (Apple secrets expire and must be regenerated, unlike Google's). Same completion flow on the app side as Google once configured — `supabase.auth.signInWithOAuth`, a redirect callback route, then the existing `/auth/complete-signup`/`/auth/complete-login`, since `verifyToken.ts` already reads the provider generically off `app_metadata`.
+
+#### Follow events that are currently in progress
+
+**Ref:** 86
+**Type:** improvement
+**Depends:** —
+**Why** — Following an event (BACKLOG.md Ref 81, shipped v0.42.0) already works for an event that has started but not yet ended wherever `FollowEventButton` is rendered — the neighborhood Today and Upcoming events tabs don't filter it out. But the business/POI detail page's own Events section (`apps/web/src/app/location/[id]/page.tsx`) renders events as plain list items with no follow control at all, so an event you're looking at directly on the venue page — including one happening right now — can't be followed from there.
+**Notes:** Add `FollowEventButton` to the venue page's Events list, matching the pattern already used on the neighborhood Today/Upcoming tabs (`<EventListItem event={e} showSource={false} actions={<FollowEventButton eventId={e.id} />} />`) — that page currently renders its own plain `<li>` markup instead of `EventListItem`, so this is also an opportunity to switch it to the shared component for consistency. Open question: confirm there's no other surface where an in-progress event is excluded before/after this fix — `listEventsForNeighborhoodAndVenues` only filters out events whose `end_time` has passed, not ones whose `start_time` has, so no server-side change should be needed.
+
+#### Show events from followed businesses in the Spore feed
+
+**Ref:** 87
+**Type:** feature
+**Depends:** —
+**Why** — The Spore Feed's "Today" pin currently only surfaces events the user has explicitly followed one-by-one (`GET /me/events`) — it doesn't surface new events from a business the user already favorites, unlike venue coupons (shipped v0.54.0, see CHANGELOG.md), which pin every active coupon at a favorited venue automatically with no per-coupon follow step required. Events from a business you already care about should show up the same way, instead of requiring the extra step of following each one individually.
+**Notes:** Direct mirror of the just-shipped coupon pin: add a `listActiveEventsForVenues(venueIds, ...)`-style function (parallel to `coupons.ts`'s `listActiveCouponsForVenues`) and a new `GET /me/events-from-favorites` (or fold into the existing `GET /me/events`) that joins today's/upcoming events across every venue in `FavoriteRepository.listFavoriteVenuesForUser`, then pin those in `account/page.tsx` alongside the existing followed-events and coupon pins. Open question: should this replace or sit alongside the existing explicit per-event follow pin — a user could already follow one of these venue events individually, so de-dupe against the existing `todaysEvents` list rather than showing the same event twice.
 
 #### Leaderboard aggregation performance
 

@@ -1,8 +1,8 @@
 # Blockwise
 
-A hyperlocal neighborhood discovery app: browse local venues on a map, check in, follow business announcements and events, join challenges, and earn badges — launching with **Phinneywood, Seattle**, built to onboard additional neighborhoods without a code change.
+A hyperlocal neighborhood discovery app: browse local venues on a map, check in, claim and redeem business coupons, follow events, join challenges, and earn badges — launching with **Phinneywood, Seattle**, built to onboard additional neighborhoods without a code change.
 
-The app is always free for end users; monetization is entirely on the business side (claimed listings, credits for POIs/events/announcements/coupons). See [docs/project-plan.md](./docs/project-plan.md) for the full rationale.
+The app is always free for end users; monetization is entirely on the business side (claimed listings, credits for POIs/events/coupons). See [docs/project-plan.md](./docs/project-plan.md) for the full rationale.
 
 ## Status
 

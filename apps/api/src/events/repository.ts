@@ -66,7 +66,7 @@ export interface IcalSyncResult {
 }
 
 // Abstracts persistence so createEvent/listEventsForVenue (events.ts) can be
-// tested against an in-memory fake, mirroring announcements/repository.ts.
+// tested against an in-memory fake, mirroring coupons/repository.ts.
 export interface EventRepository {
   createEvent(input: CreateEventInput): Promise<EventRecord>;
   // GET /venues/:id/events (public) calls this with includeHidden left

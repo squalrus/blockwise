@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import type { AppUser, ClaimedVenueSummary } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
@@ -19,16 +19,53 @@ type State =
   | { status: "ready"; venue: ClaimedVenueSummary; user: AppUser }
   | { status: "error"; message: string };
 
-function OverviewIcon({ className }: { className?: string }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
-      <rect x="2" y="2" width="7" height="7" rx="2" fill="currentColor" />
-      <rect x="11" y="2" width="7" height="7" rx="2" fill="currentColor" opacity="0.55" />
-      <rect x="2" y="11" width="7" height="7" rx="2" fill="currentColor" opacity="0.55" />
-      <rect x="11" y="11" width="7" height="7" rx="2" fill="currentColor" />
-    </svg>
-  );
-}
+type TabKey = "overview" | "events" | "coupons";
+
+const TABS: { key: TabKey; href: string; label: string; icon: (props: { className?: string }) => React.ReactNode }[] = [
+  {
+    key: "overview",
+    href: "",
+    label: "Overview",
+    icon: ({ className }) => (
+      <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
+        <rect x="2" y="2" width="7" height="7" rx="2" fill="currentColor" />
+        <rect x="11" y="2" width="7" height="7" rx="2" fill="currentColor" opacity="0.55" />
+        <rect x="2" y="11" width="7" height="7" rx="2" fill="currentColor" opacity="0.55" />
+        <rect x="11" y="11" width="7" height="7" rx="2" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: "events",
+    href: "/events",
+    label: "Events",
+    icon: ({ className }) => (
+      <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
+        <rect x="2" y="4" width="16" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
+        <path d="M2 8.5 L18 8.5" stroke="currentColor" strokeWidth="2" />
+        <rect x="6" y="1.5" width="2" height="4" rx="1" fill="currentColor" />
+        <rect x="12" y="1.5" width="2" height="4" rx="1" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: "coupons",
+    href: "/coupons",
+    label: "Coupons",
+    icon: ({ className }) => (
+      <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
+        <path
+          d="M3 8 L9 3 L17 3 L17 11 L11 17 Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        <circle cx="13.5" cy="6.5" r="1.5" fill="currentColor" />
+      </svg>
+    ),
+  },
+];
 
 // Business owner venue dashboard (BACKLOG.md), restyled into the same
 // standalone sidebar shell as admin/neighborhood/[neighborhoodSlug]/layout.tsx
@@ -41,6 +78,7 @@ function OverviewIcon({ className }: { className?: string }) {
 // account that navigates to a venue it doesn't hold an approved claim on.
 export default function BusinessAdminLayout({ children }: { children: React.ReactNode }) {
   const { venueId } = useParams<{ venueId: string }>();
+  const pathname = usePathname();
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
@@ -152,13 +190,25 @@ export default function BusinessAdminLayout({ children }: { children: React.Reac
         <div className="px-2.5 pb-2 font-mono text-[10px] tracking-wide text-nav-muted/80 uppercase">Manage</div>
 
         <nav className="flex flex-col gap-0.5">
-          <a
-            href={`/admin/business/${venueId}`}
-            className="flex items-center gap-2.5 rounded-xl bg-card px-3 py-2.5 text-sm font-extrabold text-foreground"
-          >
-            <OverviewIcon className="shrink-0" />
-            <span>Overview</span>
-          </a>
+          {TABS.map((tab) => {
+            const href = `/admin/business/${venueId}${tab.href}`;
+            // Sub-routes should keep their parent tab highlighted -- exact-
+            // match only for Overview, whose own href is a strict prefix of
+            // every other tab's (mirrors admin/neighborhood/[neighborhoodSlug]/layout.tsx).
+            const isActive = tab.href === "" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+            return (
+              <a
+                key={tab.key}
+                href={href}
+                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-extrabold ${
+                  isActive ? "bg-card text-foreground" : "text-nav-muted hover:bg-nav-foreground/8"
+                }`}
+              >
+                <tab.icon className="shrink-0" />
+                <span>{tab.label}</span>
+              </a>
+            );
+          })}
         </nav>
 
         <div className="flex-1" />

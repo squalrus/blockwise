@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
-const UPDATED = "July 17, 2026";
+const UPDATED = "July 20, 2026";
 
 function Question({ q, children }: { q: string; children: React.ReactNode }) {
   return (
@@ -73,6 +73,11 @@ export default function FaqPage() {
         </Question>
         <Question q="Is claiming a listing free?">
           Yes, claiming and managing your basic listing on Spored is free.
+        </Question>
+        <Question q="Can businesses post coupons?">
+          Yes. A claimed business can post a limited-quantity coupon with a start and end date. Followers unlock
+          a copy by checking in at the venue, then redeem it in person by showing staff their phone and sliding
+          to confirm — no scanning required. Once redeemed, a coupon can&apos;t be reused.
         </Question>
       </LegalSection>
 
