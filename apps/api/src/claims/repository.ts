@@ -16,7 +16,7 @@ export interface ClaimRecord {
   createdAt: string;
   reviewedAt: string | null;
   reviewedNote: string | null;
-  claimedByUserId: string | null;
+  claimedByUserId: string;
   socialLinks: SocialLinks;
 }
 
@@ -26,10 +26,10 @@ export interface CreateClaimInput {
   contactMethod: BusinessClaimContactMethod;
   contactValue: string;
   note: string | null;
-  // Set when the submitter was authenticated as a business account at claim
-  // time (see auth/requireAuthUser.ts's attachOptionalAuthUser) -- null for
-  // the still-supported anonymous submission path.
-  claimedByUserId: string | null;
+  // The signed-in submitter's user id (see auth/requireAuthUser.ts's
+  // requireAuthUser, which POST /venues/:id/claims is gated by --
+  // BACKLOG.md Ref 32).
+  claimedByUserId: string;
 }
 
 export interface ClaimedVenue {
@@ -41,6 +41,12 @@ export interface ClaimedVenue {
 export interface ClaimWithVenueRecord extends ClaimRecord {
   venueName: string;
   venueAddress: string;
+  // Joined from the claimant's app_user row (BACKLOG.md Ref 32) -- lets an
+  // admin cross-check the submitted contact info against the actual
+  // account behind the claim.
+  claimantDisplayName: string | null;
+  claimantUsername: string | null;
+  claimantEmail: string | null;
 }
 
 // Abstracts persistence so the review/approval logic (claims.ts) can be

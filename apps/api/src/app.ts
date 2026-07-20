@@ -132,7 +132,7 @@ import {
 import { SupabaseLocationRepository } from "./locations/supabaseRepository";
 import { getSupabaseClient } from "./supabase";
 
-const CONTACT_METHODS: BusinessClaimContactMethod[] = ["phone", "email", "domain"];
+const CONTACT_METHODS: BusinessClaimContactMethod[] = ["phone", "email"];
 const EVENT_STATUSES: EventStatus[] = ["active", "hidden"];
 const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"];
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
@@ -1449,19 +1449,19 @@ export function createApp() {
     }
   });
 
-  // README §5: claim submission is public; verification is manual/admin
-  // reviewed (no SMS/email provider wired in yet) via the /admin/claims
-  // routes below. Authentication is optional here (attachOptionalAuthUser)
-  // rather than required -- any signed-in account (consumer or business, see
-  // claimed_by_user_id / GET /business/venues below) gets its claim
-  // auto-linked, since account_type can still be promoted to business later
-  // via /auth/promote-to-business -- gating this on already being a business
+  // README §5: claim submission requires a signed-in account (BACKLOG.md
+  // Ref 32) -- ties every claim to a specific account for follow-up and
+  // cuts down on anonymous spam/false claims. Verification itself stays
+  // manual/admin reviewed (no SMS/email provider wired in yet) via the
+  // /admin/claims routes below. Any signed-in account (consumer or
+  // business, see claimed_by_user_id / GET /business/venues below) can
+  // claim, since account_type can still be promoted to business later via
+  // /auth/promote-to-business -- gating this on already being a business
   // account at submission time would silently drop the link for the common
-  // "submit a claim, then promote" order. The anonymous contact-info-only
-  // path still works unchanged.
+  // "submit a claim, then promote" order.
   app.post(
     "/venues/:id/claims",
-    attachOptionalAuthUser(getSupabaseClient, getAuthRepository),
+    requireAuthUser(getSupabaseClient, getAuthRepository),
     async (req, res) => {
       const { contact_name, contact_method, contact_value, note } = req.body ?? {};
       if (
@@ -1489,7 +1489,7 @@ export function createApp() {
             contactMethod: contact_method,
             contactValue: contact_value,
             note,
-            claimedByUserId: req.appUser?.id ?? null,
+            claimedByUserId: req.appUser!.id,
           },
           getClaimRepository()
         );

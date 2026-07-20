@@ -20,7 +20,7 @@ function toRecord(row: {
   created_at: string;
   reviewed_at: string | null;
   reviewed_note: string | null;
-  claimed_by_user_id: string | null;
+  claimed_by_user_id: string;
   social_links: SocialLinks | null;
 }): ClaimRecord {
   return {
@@ -80,7 +80,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
   ): Promise<ClaimWithVenueRecord[]> {
     let query = this.supabase
       .from("business_claim")
-      .select(`${CLAIM_COLUMNS}, venue:venue_id!inner(neighborhood_id, name, address)`)
+      .select(
+        `${CLAIM_COLUMNS}, venue:venue_id!inner(neighborhood_id, name, address), claimant:claimed_by_user_id(display_name, username, email)`
+      )
       .eq("venue.neighborhood_id", neighborhoodId)
       .order("created_at", { ascending: false });
     if (status) query = query.eq("status", status);
@@ -92,7 +94,19 @@ export class SupabaseClaimRepository implements ClaimRepository {
         name: string;
         address: string;
       };
-      return { ...toRecord(row), venueName: venue.name, venueAddress: venue.address };
+      const claimant = (Array.isArray(row.claimant) ? row.claimant[0] : row.claimant) as {
+        display_name: string | null;
+        username: string | null;
+        email: string | null;
+      } | null;
+      return {
+        ...toRecord(row),
+        venueName: venue.name,
+        venueAddress: venue.address,
+        claimantDisplayName: claimant?.display_name ?? null,
+        claimantUsername: claimant?.username ?? null,
+        claimantEmail: claimant?.email ?? null,
+      };
     });
   }
 

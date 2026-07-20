@@ -44,7 +44,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 32 | [Business claim requires existing account](#business-claim-requires-existing-account) | improvement | S | H | — |
 | 83 | [Venue coupons replace announcements](#venue-coupons-replace-announcements) | feature | L | H | — |
 | 22 | [Category browsing & filtering](#category-browsing--filtering) | improvement | S | M | — |
 | 3 | [Coupon redemption also checks you in](#coupon-redemption-also-checks-you-in) | feature | S | M | 20 |
@@ -66,7 +65,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
-| 15 | [Activity feed of recent check-ins](#activity-feed-of-recent-check-ins) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
@@ -83,9 +81,7 @@ No open feature items.
 
 ### Known issues
 
-| Ref | Item | Type | Effort | Value | Depends |
-|---|---|---|---|---|---|
-| 82 | [Email/password login fails after email confirmation](#emailpassword-login-fails-after-email-confirmation) | known issue | S | H | — |
+No open known issues.
 
 ### Limitations
 
@@ -186,14 +182,6 @@ No open limitations.
 **Notes:** Add a "Missing a venue?" section at the bottom of NearestVenues with a compact form collecting venue name (required) and optional category/address/notes fields. POST to a new `/me/venue-suggestions` endpoint (or `/neighborhoods/:id/venue-suggestions`) writing to a new `venue_suggestion` table (`user_id`, `neighborhood_id`, `name`, `category`, `address`, `notes`, `created_at`, `status`). Neighborhood admins see incoming suggestions in an admin surface (separate backlog item covering the review/action UI and triage workflow); initial spec can be "email admins on new suggestion" or a simple unreviewed list. Open questions: should photos be attachable? Should this live on other pages (just /checkin, or also /neighborhoods/:slug/venues)? Should the form geo-locate and prepopulate address? Should users get notified if their suggestion becomes a real venue?
 
 ### Business & Venue
-
-#### Business claim requires existing account
-
-**Ref:** 32
-**Type:** improvement
-**Depends:** —
-**Why** — Currently, any visitor can submit a venue claim without being signed in (`business_claim.user_id` is nullable). This creates friction for businesses (a claim submitted anonymously is never tied to a specific account for follow-up) and allows spam/false claims. Requiring sign-up before claiming also gates the flow behind account verification.
-**Notes:** Make `POST /venues/:id/claims` require `requireAuthUser` instead of allowing optional auth. Set `business_claim.user_id` to NOT NULL and backfill existing rows with a special "orphaned" user ID or delete them. Update the claiming form to redirect to sign-up if signed out.
 
 #### Venue coupons replace announcements
 
@@ -325,14 +313,6 @@ No open limitations.
 **Why** — Same rationale as Google social sign-in (shipped v0.10.0) — removes a signup step at the moments that flow is meant to make frictionless — but scoped separately since it's a materially bigger lift with its own setup dependencies and timeline.
 **Notes:** Requires Apple Developer Program enrollment, creating a Services ID, and generating a rotating client-secret JWT (Apple secrets expire and must be regenerated, unlike Google's). Same completion flow on the app side as Google once configured — `supabase.auth.signInWithOAuth`, a redirect callback route, then the existing `/auth/complete-signup`/`/auth/complete-login`, since `verifyToken.ts` already reads the provider generically off `app_metadata`.
 
-#### Activity feed of recent check-ins
-
-**Ref:** 15
-**Type:** feature
-**Depends:** —
-**Why** — Lets a user see what people they're connected to (or public profiles) have been checking into recently — the social payoff for connecting at all, and a natural discovery surface ("what's popular right now among people I know").
-**Notes:** Respect the profile visibility flag (shipped v0.20.0). Prerequisite (neighbor connections) shipped in v0.42.0 — open question: is the feed public-profiles-only, connections-only, or both (with connections seeing more)? Resolve before scoping. Reads off the existing `checkin` table (project plan §4/§14.2) — no new check-in schema needed, just a query surface and visibility filtering.
-
 #### Leaderboard aggregation performance
 
 **Ref:** 43
@@ -373,10 +353,4 @@ No open feature items.
 
 ### Known issues
 
-#### Email/password login fails after email confirmation
-
-**Ref:** 82
-**Type:** known issue
-**Depends:** —
-**Why** — A user reported signing up with email/password, confirming via the confirmation email, and then getting "No account found for this login -- complete signup first" when trying to log in (screenshot on file) — a hard block on the core email/password auth path for at least this account, not just an edge case.
-**Notes:** Reproduce end-to-end: signup with email/password → Supabase sends confirmation email → click confirm link → attempt log in with the same credentials. The error text ("No account found for this login -- complete signup first") comes from the app-side check for an existing account row, which suggests either `/auth/complete-signup` isn't creating that row before/around the confirmation redirect, or `/auth/complete-login` is checking for it before Supabase's own email-confirmation state has propagated. Check the confirmation callback handling in `apps/web/src/app/auth/callback/page.tsx` and the `apps/api` `/auth/complete-signup`/`/auth/complete-login` handlers for a timing/ordering gap. Worth confirming with the reporting user whether this is reproducible on a fresh signup or specific to their account's history (e.g. a retried signup, an expired confirmation link).
+No open known issues.

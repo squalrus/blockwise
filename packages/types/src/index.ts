@@ -259,7 +259,7 @@ export interface CheckinHistoryItem {
   checked_in_at: string;
 }
 
-export type BusinessClaimContactMethod = "phone" | "email" | "domain";
+export type BusinessClaimContactMethod = "phone" | "email";
 export type BusinessClaimStatus = "pending" | "approved" | "rejected";
 
 export interface BusinessClaim {
@@ -273,10 +273,9 @@ export interface BusinessClaim {
   created_at: string;
   reviewed_at: string | null;
   reviewed_note: string | null;
-  // Populated when the submitter was signed into a business account at
-  // claim time (see CreateBusinessClaimRequest) -- null for the
-  // still-supported anonymous submission path.
-  claimed_by_user_id: string | null;
+  // The signed-in account that submitted the claim -- claiming requires an
+  // account (BACKLOG.md Ref 32), so this is always populated.
+  claimed_by_user_id: string;
   social_links: SocialLinks;
 }
 
@@ -286,6 +285,14 @@ export interface BusinessClaim {
 export interface BusinessClaimWithVenue extends BusinessClaim {
   venue_name: string;
   venue_address: string;
+  // The linked account's own profile info, joined from claimed_by_user_id --
+  // lets an admin cross-check the submitted contact info against the actual
+  // signed-in account behind the claim (BACKLOG.md Ref 32). Not masked by
+  // the account's profile visibility setting; claim review is an
+  // administrative function, not a public-facing one.
+  claimant_display_name: string | null;
+  claimant_username: string | null;
+  claimant_email: string | null;
 }
 
 export interface CreateBusinessClaimRequest {

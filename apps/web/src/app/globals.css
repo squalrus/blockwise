@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* Ties Tailwind's dark: variant to the same forced-theme/system-fallback
+   logic the CSS custom properties below use (lib/theme.ts, data-theme
+   attribute set by the pre-hydration script in layout.tsx and the account
+   settings theme toggle) -- without this, dark: utilities fall back to
+   Tailwind's default `@media (prefers-color-scheme: dark)` and ignore an
+   explicit "Light" selection. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
 :root {
   --background: #ede0c8;
   --foreground: #2b1b12;

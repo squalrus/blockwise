@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.53.1", date: "2026-07-20", summary: "Business claims require an account, admin claims show the linked account, theme and activity-feed timestamp fixes" },
   { version: "0.53.0", date: "2026-07-17", summary: "Follow events, event/neighbor-connection activity feeds, Event Scout badge, My Activity tab" },
   { version: "0.52.1", date: "2026-07-17", summary: "Browse-only signed-out flow (no more anonymous accounts), email-confirmation login fix" },
   { version: "0.52.0", date: "2026-07-16", summary: "FAQ page, in-app changelog, Google Places attribution, category dropdown sort fix" },

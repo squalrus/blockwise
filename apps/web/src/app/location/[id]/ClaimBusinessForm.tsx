@@ -1,18 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import type { BusinessClaimContactMethod } from "@blockwise/types";
-import { getAccessToken } from "@/lib/auth";
+import { useEffect, useState } from "react";
+import type { AppUser, BusinessClaimContactMethod } from "@blockwise/types";
+import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { SignInPrompt } from "../../SignInPrompt";
 
 type Status = { state: "idle" | "submitting" | "submitted" | "error"; message?: string };
 
-// README §5: claim submission is public; verification is manual/admin
-// review (see /admin/claims) rather than an automated phone/email OTP flow,
-// since no SMS/email provider is wired into this project yet.
+// README §5: claim submission requires a signed-in account (BACKLOG.md
+// Ref 32); verification itself stays manual/admin review (see
+// /admin/claims) rather than an automated phone/email OTP flow, since no
+// SMS/email provider is wired into this project yet.
 export function ClaimBusinessForm({ venueId }: { venueId: string }) {
+  // undefined = still checking; null = signed out.
+  const [user, setUser] = useState<AppUser | null | undefined>(undefined);
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const [contactMethod, setContactMethod] = useState<BusinessClaimContactMethod>("email");
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser().then((loaded) => {
+      if (!cancelled) setUser(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -27,17 +41,16 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
     };
 
     try {
-      // If signed in (as any account type), attach it -- the API auto-links
-      // claimed_by_user_id to whichever account submitted the claim, even if
-      // it's still a consumer account at this point (see app.ts), so it
-      // shows up in /business once both the claim is approved and the
-      // account is promoted to business, in either order.
+      // Auto-links claimed_by_user_id to whichever account submitted the
+      // claim, even if it's still a consumer account at this point (see
+      // app.ts), so it shows up in /business once both the claim is
+      // approved and the account is promoted to business, in either order.
       const token = await getAccessToken();
       const res = await fetch(clientApiUrl(`/venues/${venueId}/claims`), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(body),
       });
@@ -52,6 +65,9 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
       setStatus({ state: "error", message: "Failed to submit claim" });
     }
   }
+
+  if (user === undefined) return null;
+  if (user === null) return <SignInPrompt message="to claim this business." />;
 
   if (status.state === "submitted") {
     return (
@@ -80,18 +96,11 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
         >
           <option value="email">Email</option>
           <option value="phone">Phone</option>
-          <option value="domain">Business domain</option>
         </select>
         <input
           name="contact_value"
           required
-          placeholder={
-            contactMethod === "email"
-              ? "you@business.com"
-              : contactMethod === "phone"
-                ? "(555) 555-5555"
-                : "yourbusiness.com"
-          }
+          placeholder={contactMethod === "email" ? "you@business.com" : "(555) 555-5555"}
           className={`flex-1 ${fieldClass}`}
         />
       </div>
@@ -102,6 +111,11 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
         rows={2}
         className={fieldClass}
       />
+
+      <p className="text-[12.5px] text-muted">
+        Submitting as <span className="font-bold">{user.display_name ?? user.email ?? "your account"}</span> —
+        we&apos;ll link this claim to your account so we can follow up.
+      </p>
 
       <button
         type="submit"

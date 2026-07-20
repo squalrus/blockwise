@@ -87,7 +87,14 @@ class FakeClaimRepository implements ClaimRepository {
       .filter((c) => (status ? c.status === status : true))
       .map((c) => {
         const v = this.venues.get(c.venueId)!;
-        return { ...c, venueName: v.name, venueAddress: v.address };
+        return {
+          ...c,
+          venueName: v.name,
+          venueAddress: v.address,
+          claimantDisplayName: null,
+          claimantUsername: null,
+          claimantEmail: null,
+        };
       });
   }
 
@@ -161,7 +168,12 @@ class FakeClaimRepository implements ClaimRepository {
   }
 }
 
-const CONTACT = { contactName: "Jane Doe", contactMethod: "email" as const, contactValue: "jane@example.com" };
+const CONTACT = {
+  contactName: "Jane Doe",
+  contactMethod: "email" as const,
+  contactValue: "jane@example.com",
+  claimedByUserId: "user-1",
+};
 
 describe("submitClaim", () => {
   it("returns not_found for an unknown venue", async () => {
