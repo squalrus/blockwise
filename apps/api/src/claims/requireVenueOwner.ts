@@ -8,7 +8,7 @@ import type { ClaimRepository } from "./repository";
 // which only proves "a business account" -- this additionally checks that
 // the signed-in account holds an approved claim on req.params.id
 // specifically, gating the business owner venue dashboard (BACKLOG.md) and
-// its announcement/event authoring routes to that venue's actual owner.
+// its coupon/event authoring routes to that venue's actual owner.
 export function requireVenueOwner(
   getSupabase: () => SupabaseClient,
   getAuthRepository: () => AuthRepository,

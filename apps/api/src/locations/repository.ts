@@ -138,7 +138,7 @@ export interface LocationRepository {
   listCategories(): Promise<CategoryRecord[]>;
   getLeafCategory(categoryId: string): Promise<{ id: string } | null>;
   // True if this location has any check-in, point, claim, favorite,
-  // announcement, event, or challenge history -- all cascade-delete on the
+  // coupon, event, or challenge history -- all cascade-delete on the
   // location row, so a hard delete would silently wipe that history rather
   // than fail. Callers must check this before deleteLocation and hide
   // instead when true.

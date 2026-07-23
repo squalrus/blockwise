@@ -19,7 +19,7 @@ import type {
   ImportedEventInput,
 } from "./repository";
 
-// In-memory fake, mirroring the pattern used for AnnouncementRepository tests.
+// In-memory fake, mirroring the pattern used for CouponRepository tests.
 class FakeEventRepository implements EventRepository {
   events: EventRecord[] = [];
   // venueId -> { neighborhoodId, name }, so listEventsForNeighborhoodAndVenues

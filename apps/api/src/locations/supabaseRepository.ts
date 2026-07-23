@@ -363,13 +363,13 @@ export class SupabaseLocationRepository implements LocationRepository {
   }
 
   async hasDependentActivity(locationId: string): Promise<boolean> {
-    const [checkin, pointEvent, challenge, favorite, claim, announcement, event] = await Promise.all([
+    const [checkin, pointEvent, challenge, favorite, claim, coupon, event] = await Promise.all([
       this.supabase.from("checkin").select("id").eq("venue_id", locationId).limit(1),
       this.supabase.from("point_event").select("id").eq("venue_id", locationId).limit(1),
       this.supabase.from("challenge").select("id").eq("venue_id", locationId).limit(1),
       this.supabase.from("favorite").select("id").eq("venue_id", locationId).limit(1),
       this.supabase.from("business_claim").select("id").eq("venue_id", locationId).limit(1),
-      this.supabase.from("announcement").select("id").eq("venue_id", locationId).limit(1),
+      this.supabase.from("coupon").select("id").eq("venue_id", locationId).limit(1),
       this.supabase.from("event").select("id").eq("venue_id", locationId).limit(1),
     ]);
     for (const [name, result] of [
@@ -378,7 +378,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       ["challenge", challenge],
       ["favorite", favorite],
       ["business_claim", claim],
-      ["announcement", announcement],
+      ["coupon", coupon],
       ["event", event],
     ] as const) {
       if (result.error) throw new Error(`hasDependentActivity (${name}) failed: ${result.error.message}`);
@@ -390,7 +390,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       (challenge.data?.length ?? 0) > 0 ||
       (favorite.data?.length ?? 0) > 0 ||
       (claim.data?.length ?? 0) > 0 ||
-      (announcement.data?.length ?? 0) > 0 ||
+      (coupon.data?.length ?? 0) > 0 ||
       (event.data?.length ?? 0) > 0
     );
   }

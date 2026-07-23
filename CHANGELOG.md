@@ -2,6 +2,21 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.54.0] — 2026-07-20
+
+### Added
+
+- **Venue coupons.** A claimed business can post a limited-quantity, date-ranged coupon (title, description, optional terms). Followers unlock one of the N copies by checking in at the venue — or automatically, with a one-tap yes/no confirm, if they already checked in within the existing 4-hour cooldown window — then redeem it in person with a slide-to-redeem gesture shown to staff. Redeeming also counts as a check-in if the caller's cooldown has elapsed. Active coupons at a favorited venue are pinned to the top of the Spore Feed alongside today's followed events, and show on the venue's own page. The business-admin dashboard gained separate Events and Coupons tabs (split out of Overview, mirroring the neighborhood-admin Events tab) for posting and tracking claimed/redeemed counts. Completes BACKLOG.md Ref 83 (also resolves the venue-facing half of Ref 5, supersedes Ref 20's "attach coupon to Announcement" shape, and folds in Ref 3's "redemption also checks you in"). (`supabase/migrations/20260720030000_venue_coupons.sql`, `supabase/migrations/20260720040000_fix_claim_coupon_ambiguous_column.sql`, `apps/api/src/coupons/`, `apps/api/src/app.ts`, `apps/web/src/app/location/[id]/CouponsSection.tsx`, `apps/web/src/app/location/[id]/CouponCard.tsx`, `apps/web/src/app/SlideToRedeem.tsx`, `apps/web/src/app/useRedeemCoupon.ts`, `apps/web/src/app/admin/business/[venueId]/CouponForm.tsx`, `apps/web/src/app/admin/business/[venueId]/coupons/page.tsx`, `apps/web/src/app/admin/business/[venueId]/events/page.tsx`, `apps/web/src/app/account/page.tsx`)
+
+### Changed
+
+- **SlideToCheckIn and SlideToRedeem now share one drag control.** Both slide-to-confirm gestures use a new shared `SlideTrack` component: the same slim pill styling, drag mechanics, and a personalized mushroom-avatar thumb (replacing SlideToRedeem's static ticket emoji) instead of two near-duplicate implementations. Check-in keeps its 3D flip into a result card revealing badges/challenges earned; redeem stays flatter since it has no reward payload. (`apps/web/src/app/SlideTrack.tsx`, `apps/web/src/app/SlideToCheckIn.tsx`, `apps/web/src/app/SlideToRedeem.tsx`)
+- **Business admin dashboard split into Overview / Events / Coupons tabs**, matching the neighborhood-admin sidebar's tab pattern; Overview now only carries stat tiles and social links. (`apps/web/src/app/admin/business/[venueId]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/BusinessVenueDashboard.tsx`)
+
+### Removed
+
+- **Business announcements.** The `announcement` table, its API module, and the owner-authoring form are gone, replaced by venue coupons above. (`apps/api/src/announcements/`, `apps/web/src/app/admin/business/[venueId]/AnnouncementForm.tsx`)
+
 ## [0.53.1] — 2026-07-20
 
 ### Changed

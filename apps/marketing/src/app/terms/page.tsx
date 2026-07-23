@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms" },
 };
 
-const UPDATED = "July 13, 2026";
+const UPDATED = "July 20, 2026";
 
 export default function TermsPage() {
   return (
@@ -52,7 +52,7 @@ export default function TermsPage() {
 
       <LegalSection title="5. Content you submit">
         <p>
-          You retain ownership of any content you submit to Spored (profile information, business announcements and
+          You retain ownership of any content you submit to Spored (profile information, business coupons and
           events, and similar). By submitting content, you grant Spored a worldwide, non-exclusive, royalty-free
           license to host, display, and distribute it as part of operating the Service. You're responsible for
           content you submit and confirm you have the right to share it.

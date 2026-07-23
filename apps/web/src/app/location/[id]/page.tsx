@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import type { Announcement, Event, VenueDetail } from "@blockwise/types";
+import type { Event, VenueDetail } from "@blockwise/types";
 import { PoweredByGoogle } from "@blockwise/ui";
 import { apiUrl } from "@/lib/api";
 import { SITE_URL } from "@/lib/siteUrl";
 import { EnrichmentAbout, EnrichmentPhotos, EnrichmentReviews } from "../../EnrichmentSection";
 import { ClaimBusinessForm } from "./ClaimBusinessForm";
+import { CouponsSection } from "./CouponsSection";
 import { FavoriteButton } from "./FavoriteButton";
 import { LocationSummaryCard } from "./LocationSummaryCard";
 
@@ -61,15 +62,10 @@ function locationJsonLd(location: VenueDetail): Record<string, unknown> | null {
 }
 
 // Business owner venue dashboard (BACKLOG.md): read-only display of a
-// claimed business's own announcements/events, authored from the owner-side
-// dashboard (/business/[venueId]). Business-kind only -- a POI can never be
-// claimed, so it never has announcements/events.
-async function getAnnouncements(id: string): Promise<Announcement[]> {
-  const res = await fetch(apiUrl(`/venues/${id}/announcements`), { cache: "no-store" });
-  if (!res.ok) throw new Error(`Failed to load announcements for venue ${id}: ${res.status}`);
-  return (await res.json()) as Announcement[];
-}
-
+// claimed business's own events, authored from the owner-side dashboard
+// (/business/[venueId]). Business-kind only -- a POI can never be claimed,
+// so it never has events (or coupons, fetched client-side by
+// CouponsSection since claim/eligibility state is per-viewer).
 async function getEvents(id: string): Promise<Event[]> {
   const res = await fetch(apiUrl(`/venues/${id}/events`), { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load events for venue ${id}: ${res.status}`);
@@ -80,7 +76,7 @@ async function getEvents(id: string): Promise<Event[]> {
 // almost the same") -- replaces the old separate /venues/:id and /pois/:id
 // routes now that both kinds live in one table, branching rendering on
 // `location.kind` where the two differ (category vs. type/description,
-// claim/favorite/announcements/events are business-only).
+// claim/favorite/coupons/events are business-only).
 export default async function LocationDetailPage({
   params,
 }: {
@@ -92,9 +88,7 @@ export default async function LocationDetailPage({
   if (!location) notFound();
 
   const isBusiness = location.kind === "business";
-  const [announcements, events] = isBusiness
-    ? await Promise.all([getAnnouncements(id), getEvents(id)])
-    : [[], []];
+  const events = isBusiness ? await getEvents(id) : [];
   const jsonLd = locationJsonLd(location);
 
   return (
@@ -137,19 +131,7 @@ export default async function LocationDetailPage({
 
       {location.enrichment && <PoweredByGoogle />}
 
-      {isBusiness && announcements.length > 0 && (
-        <div>
-          <p className="mb-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">Announcements</p>
-          <ul className="flex flex-col gap-2">
-            {announcements.map((a) => (
-              <li key={a.id} className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
-                <span className="font-extrabold text-foreground">{a.title}</span>
-                <p className="mt-1 text-body-text">{a.body}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {isBusiness && <CouponsSection venueId={location.id} />}
 
       {isBusiness && events.length > 0 && (
         <div>

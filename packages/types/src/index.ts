@@ -396,22 +396,60 @@ export interface ClaimedVenueSummary {
   address: string;
 }
 
-// Business owner venue dashboard (BACKLOG.md) -- Announcement/Event content
-// types an approved claimed-business owner can author for their venue, plus
-// the read-only stats the dashboard shows alongside them (README §1.8/§5).
+// Business owner venue dashboard (BACKLOG.md) -- Coupon/Event content types
+// an approved claimed-business owner can author for their venue, plus the
+// read-only stats the dashboard shows alongside them (README §1.8/§5).
 
-export interface Announcement {
+// Venue coupons (BACKLOG.md Ref 83, replacing the old Announcement content
+// type outright -- neighborhoods keep their own separate announcements
+// concept, Ref 9, not yet built). quantity_remaining is decremented at claim
+// time (one of N copies reserved), not at redemption.
+export interface Coupon {
   id: string;
   venue_id: string;
   title: string;
-  body: string;
-  published: boolean;
+  description: string;
+  terms: string | null;
+  quantity: number;
+  quantity_remaining: number;
+  start_at: string;
+  end_at: string;
   created_at: string;
 }
 
-export interface CreateAnnouncementRequest {
+export interface CreateCouponRequest {
   title: string;
-  body: string;
+  description: string;
+  terms?: string;
+  quantity: number;
+  start_at: string;
+  end_at: string;
+}
+
+export type CouponStatus = "upcoming" | "active" | "ended";
+
+// A user's reservation of one of a coupon's N copies -- unlocked by a
+// checkin at the venue (or an existing checkin within the checkin cooldown
+// window), then redeemed in person via slide-to-redeem. redeemed_at is
+// permanent once set: reopening a redeemed coupon shows this timestamp
+// instead of the slide control.
+export interface CouponClaim {
+  id: string;
+  coupon_id: string;
+  user_id: string;
+  claimed_at: string;
+  redeemed_at: string | null;
+}
+
+// GET /venues/:id/coupons and GET /me/coupons -- a coupon plus the viewer's
+// own claim state against it. claim is null when signed out or not yet
+// claimed. eligible_to_claim is true only when signed in, unclaimed, active,
+// and the viewer has a checkin at this venue within the cooldown window --
+// the "already at the venue" auto-grant case from BACKLOG.md Ref 83.
+export interface CouponWithClaim extends Coupon {
+  status: CouponStatus;
+  claim: CouponClaim | null;
+  eligible_to_claim: boolean;
 }
 
 // "manual" is the existing EventForm authoring path; "ical" is a row
@@ -763,7 +801,7 @@ export interface VenueDashboardSummary {
   address: string;
   follower_count: number;
   checkin_count: number;
-  announcements: Announcement[];
+  coupons: Coupon[];
   events: Event[];
   social_links: SocialLinks;
   ical_feed_url: string | null;

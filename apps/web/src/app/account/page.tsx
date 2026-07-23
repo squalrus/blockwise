@@ -7,6 +7,7 @@ import type {
   Badge,
   CheckinHistoryItem,
   ConnectionSummary,
+  CouponWithClaim,
   FavoriteVenueSummary,
   FollowedEventSummary,
   NeighborhoodMembership,
@@ -22,6 +23,7 @@ import { ActivityFeed } from "../ActivityFeed";
 import { BadgeIcon } from "../BadgeIcon";
 import { EventListItem } from "../EventListItem";
 import { FollowEventButton } from "../FollowEventButton";
+import { CouponCard } from "../location/[id]/CouponCard";
 import { NeighborsSection } from "./NeighborsSection";
 import { PlaceListItem } from "../PlaceListItem";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
@@ -49,6 +51,9 @@ type State =
       user: AppUser;
       favorites: FavoriteVenueSummary[];
       followedEvents: FollowedEventSummary[];
+      // Spore Feed pin (BACKLOG.md Ref 83): active coupons at every venue
+      // this account favorites, mirroring followedEvents' "Today" pin.
+      coupons: CouponWithClaim[];
       feed: ActivityItem[];
       // My Activity tab (BACKLOG.md Ref 81 follow-up) -- every activity type
       // for this account's own actions (GET /me/activity), unmasked.
@@ -105,6 +110,7 @@ async function loadAccount(setState: (state: State) => void) {
   const [
     favoritesRes,
     followedEventsRes,
+    couponsRes,
     feedRes,
     myActivityRes,
     checkinsRes,
@@ -118,6 +124,7 @@ async function loadAccount(setState: (state: State) => void) {
   ] = await Promise.all([
     fetch(clientApiUrl("/me/favorites"), { headers }),
     fetch(clientApiUrl("/me/events"), { headers }),
+    fetch(clientApiUrl("/me/coupons"), { headers }),
     fetch(clientApiUrl("/me/feed"), { headers }),
     fetch(clientApiUrl("/me/activity"), { headers }),
     fetch(clientApiUrl("/me/checkins"), { headers }),
@@ -132,6 +139,7 @@ async function loadAccount(setState: (state: State) => void) {
   if (
     !favoritesRes.ok ||
     !followedEventsRes.ok ||
+    !couponsRes.ok ||
     !feedRes.ok ||
     !myActivityRes.ok ||
     !checkinsRes.ok ||
@@ -152,6 +160,7 @@ async function loadAccount(setState: (state: State) => void) {
     user,
     favorites: await favoritesRes.json(),
     followedEvents: await followedEventsRes.json(),
+    coupons: await couponsRes.json(),
     feed: await feedRes.json(),
     myActivity: await myActivityRes.json(),
     checkins: await checkinsRes.json(),
@@ -251,26 +260,36 @@ export default function AccountPage() {
             // unlike /neighborhoods/:slug/activity's Recent activity tab.
             // Default tab since it's meant to be the first thing you see
             // landing on your account. Any of your own followed events
-            // happening today are pinned above the chronological activity
-            // log as a same-day reminder, mirroring the neighborhood
-            // profile's Today tab.
+            // happening today, plus active coupons at venues you favorite
+            // (BACKLOG.md Ref 83), are pinned above the chronological
+            // activity log the same way the neighborhood profile's Today tab
+            // pins events.
             <section className="flex flex-col gap-5">
               {(() => {
                 const todaysEvents = state.followedEvents.filter(isEventToday);
-                if (todaysEvents.length === 0) return null;
+                if (todaysEvents.length === 0 && state.coupons.length === 0) return null;
                 return (
                   <div className="flex flex-col gap-2.5">
                     <h2 className="text-xs font-extrabold text-muted">Today</h2>
-                    <ul className="flex flex-col gap-2.5">
-                      {todaysEvents.map((event) => (
-                        <EventListItem
-                          key={event.id}
-                          event={event}
-                          showSource={false}
-                          actions={<FollowEventButton eventId={event.id} />}
-                        />
-                      ))}
-                    </ul>
+                    {state.coupons.length > 0 && (
+                      <ul className="flex flex-col gap-2.5">
+                        {state.coupons.map((coupon) => (
+                          <CouponCard key={coupon.id} coupon={coupon} signedIn />
+                        ))}
+                      </ul>
+                    )}
+                    {todaysEvents.length > 0 && (
+                      <ul className="flex flex-col gap-2.5">
+                        {todaysEvents.map((event) => (
+                          <EventListItem
+                            key={event.id}
+                            event={event}
+                            showSource={false}
+                            actions={<FollowEventButton eventId={event.id} />}
+                          />
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 );
               })()}
@@ -490,7 +509,11 @@ export default function AccountPage() {
             </section>
             <section className="flex-1 rounded-2xl bg-card-alt px-3.5 py-3.5 text-center">
               <h2 className="text-xs font-extrabold text-foreground">Coupons</h2>
-              <p className="mt-1 text-[11px] font-bold text-muted">Coming soon</p>
+              <p className="mt-1 text-[11px] font-bold text-muted">
+                {state.coupons.length === 0
+                  ? "None active"
+                  : `${state.coupons.filter((c) => c.claim && !c.claim.redeemed_at).length} to redeem`}
+              </p>
             </section>
           </div>
         </>
