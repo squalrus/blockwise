@@ -2,6 +2,16 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.55.2] — 2026-07-29
+
+### Changed
+
+- **Username field now accepts uppercase letters while editing.** The account settings form's HTML `pattern` validation was lowercase-only (`[a-z0-9_-]`), which blocked submission the moment a user typed a capital letter — even though the API already lowercases and validates the trimmed value server-side (`app.ts`), and the database stores it lowercase too. Relaxed the client-side pattern to `[A-Za-z0-9_-]` so typing `ChadS` no longer fails before the request is even sent; it still saves and routes as `chads`. (`apps/web/src/app/account/ProfileForm.tsx`)
+
+### Removed
+
+- **`app_user.phone` column.** SMS/phone signup is disabled (`enable_signup = false` in `supabase/config.toml`) and the only signup paths are email/password and Google OAuth, so this column was always null in practice — plumbed through from Supabase Auth's user object shape but never actually populated. Dropped the column and all associated type/repository plumbing. (`supabase/migrations/20260729030000_drop_app_user_phone.sql`, `apps/api/src/auth/`, `packages/types/src/index.ts`)
+
 ## [0.55.1] — 2026-07-29
 
 ### Changed

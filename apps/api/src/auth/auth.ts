@@ -7,7 +7,6 @@ export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean, i
     id: record.id,
     account_type: record.accountType,
     email: record.email,
-    phone: record.phone,
     display_name: record.displayName,
     avatar_url: record.avatarUrl,
     avatar_style: record.avatarStyle,
@@ -35,7 +34,6 @@ export async function completeSignup(
     authUserId: verified.authUserId,
     authProvider: verified.authProvider,
     email: verified.email,
-    phone: verified.phone,
     avatarUrl: verified.avatarUrl,
     accountType,
   });

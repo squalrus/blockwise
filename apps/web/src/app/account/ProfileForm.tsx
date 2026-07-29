@@ -146,8 +146,8 @@ export function ProfileForm({
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="lowercase letters, numbers, _ or -"
-          pattern="[a-z0-9_-]{3,30}"
+          placeholder="letters, numbers, _ or -"
+          pattern="[A-Za-z0-9_-]{3,30}"
           className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
         />
         <span className="text-xs text-muted">

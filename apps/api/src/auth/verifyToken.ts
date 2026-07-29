@@ -4,11 +4,9 @@ export interface VerifiedAuthUser {
   authUserId: string;
   authProvider: string;
   email: string | null;
-  phone: string | null;
   // BACKLOG.md "Show profile picture from Google" -- Supabase mirrors the
   // OAuth provider's picture into user_metadata under both keys depending on
-  // provider, so either may be populated; null for non-OAuth (email/phone)
-  // signups.
+  // provider, so either may be populated; null for non-OAuth signups.
   avatarUrl: string | null;
 }
 
@@ -28,7 +26,6 @@ export async function verifyAccessToken(
     authUserId: data.user.id,
     authProvider: data.user.app_metadata?.provider ?? "email",
     email: data.user.email ?? null,
-    phone: data.user.phone ?? null,
     avatarUrl: (metadata.avatar_url as string | undefined) ?? (metadata.picture as string | undefined) ?? null,
   };
 }

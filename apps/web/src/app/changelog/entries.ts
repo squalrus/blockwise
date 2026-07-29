@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.55.2", date: "2026-07-29", summary: "Username field accepts uppercase while typing, dropped unused phone column from user accounts" },
   { version: "0.55.1", date: "2026-07-29", summary: "Marketing homepage polish: real Phinneywood data, honest single-neighborhood pilot messaging, accurate business pitch" },
   { version: "0.55.0", date: "2026-07-29", summary: "Feedback submissions with badges, BETA label, level threshold raised to 100, /account tabs get dedicated URLs" },
   { version: "0.54.0", date: "2026-07-20", summary: "Venue coupons with check-in-gated claiming and slide-to-redeem, replacing business announcements" },

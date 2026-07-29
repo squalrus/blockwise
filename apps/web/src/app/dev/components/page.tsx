@@ -103,7 +103,6 @@ function profileUser(overrides: Partial<AppUser> & Pick<AppUser, "id" | "display
   return {
     account_type: "consumer",
     email: null,
-    phone: null,
     avatar_url: null,
     avatar_style: "mushroom",
     mushroom_customization: null,

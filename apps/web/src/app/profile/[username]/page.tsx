@@ -25,7 +25,6 @@ function toCardUser(profile: PublicUserProfile): AppUser {
     id: profile.username,
     account_type: "consumer",
     email: null,
-    phone: null,
     display_name: profile.display_name,
     avatar_url: profile.avatar_url,
     avatar_style: profile.avatar_style,
