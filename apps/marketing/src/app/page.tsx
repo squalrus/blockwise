@@ -43,6 +43,7 @@ function Spore({
   color,
   spotCount,
   spotShape,
+  stalk = CREAM,
   className,
   style,
 }: {
@@ -50,12 +51,13 @@ function Spore({
   color: string;
   spotCount: number;
   spotShape: SpotShape;
+  stalk?: string;
   className?: string;
   style?: React.CSSProperties;
 }) {
   return (
     <div className={className} style={style}>
-      <MushroomMark size={size} cap={color} stalk={CREAM} spots={CREAM} spotCount={spotCount} spotShape={spotShape} />
+      <MushroomMark size={size} cap={color} stalk={stalk} spots={stalk} spotCount={spotCount} spotShape={spotShape} />
     </div>
   );
 }
@@ -67,7 +69,7 @@ function PillButton({
 }: {
   href: string;
   children: React.ReactNode;
-  variant: "solid" | "outline-dark" | "outline-light";
+  variant: "solid" | "solid-ink" | "outline-dark" | "outline-light";
 }) {
   const base = "inline-block rounded-full px-7 py-4 text-base font-extrabold whitespace-nowrap";
   // Colors are set via inline style, not Tailwind classes: globals.css's
@@ -75,6 +77,7 @@ function PillButton({
   // an <a>, regardless of specificity, but inline styles always win.
   const variants: Record<typeof variant, { className: string; style: React.CSSProperties }> = {
     solid: { className: "bg-[#E8542A]", style: { color: CREAM } },
+    "solid-ink": { className: "bg-[#2B1B12]", style: { color: CREAM } },
     "outline-dark": { className: "border-2 border-[#2B1B12]", style: { color: INK } },
     "outline-light": { className: "border-2 border-[#F5E8D3]", style: { color: "#F5E8D3" } },
   };
@@ -138,16 +141,21 @@ export default function Home() {
           />
         </svg>
 
-        <Spore size={30} color={PURPLE} spotCount={2} spotShape="ring" className="absolute left-[8%] top-[22%]" style={{ animation: "float-spore 5s ease-in-out infinite" }} />
-        <Spore size={22} color={AMBER} spotCount={4} spotShape="star" className="absolute right-[12%] top-[16%]" style={{ animation: "float-spore 4.5s ease-in-out infinite 0.6s" }} />
-        <Spore size={20} color={GREEN} spotCount={3} spotShape="circle" className="absolute right-[6%] top-[52%]" style={{ animation: "float-spore 6s ease-in-out infinite 1.2s" }} />
+        <Spore size={30} color={PURPLE} spotCount={2} spotShape="ring" stalk={INK} className="absolute left-[8%] top-[22%]" style={{ animation: "float-spore 5s ease-in-out infinite" }} />
+        <Spore size={22} color={AMBER} spotCount={4} spotShape="star" stalk={INK} className="absolute right-[12%] top-[16%]" style={{ animation: "float-spore 4.5s ease-in-out infinite 0.6s" }} />
+        <Spore size={20} color={GREEN} spotCount={3} spotShape="circle" stalk={INK} className="absolute right-[6%] top-[52%]" style={{ animation: "float-spore 6s ease-in-out infinite 1.2s" }} />
+        <Spore size={14} color={ORANGE} spotCount={1} spotShape="sparks" stalk={INK} className="absolute left-[20%] top-[8%]" style={{ animation: "float-spore 4.2s ease-in-out infinite 0.3s" }} />
+        <Spore size={38} color={GREEN} spotCount={5} spotShape="triangle" stalk={INK} className="absolute left-[3%] top-[68%]" style={{ animation: "float-spore 6.5s ease-in-out infinite 0.9s" }} />
+        <Spore size={17} color={PURPLE} spotCount={3} spotShape="cross" stalk={INK} className="absolute right-[22%] top-[6%]" style={{ animation: "float-spore 5.3s ease-in-out infinite 1.5s" }} />
+        <Spore size={26} color={AMBER} spotCount={2} spotShape="circle" stalk={INK} className="absolute right-[28%] top-[62%]" style={{ animation: "float-spore 4.8s ease-in-out infinite 0.4s" }} />
+        <Spore size={12} color={ORANGE} spotCount={6} spotShape="star" stalk={INK} className="absolute left-[15%] top-[78%]" style={{ animation: "float-spore 5.8s ease-in-out infinite 1.1s" }} />
 
         <div className="relative mx-auto max-w-6xl text-center">
           <div
             className="inline-flex items-center gap-2 rounded-full px-[18px] py-2 text-[13px] font-extrabold"
             style={{ background: "#F5E8D3", color: "#8A7761" }}
           >
-            🍄 Now sporing in Seattle
+            🍄 Now piloting in Phinneywood, Seattle
           </div>
           <div
             className="mt-[22px] font-heading text-[38px] leading-[1.05] font-extrabold md:text-[58px]"
@@ -198,9 +206,9 @@ export default function Home() {
                     <path d="M0 30 Q70 0 140 22 Q200 42 260 15 L260 0 L0 0 Z" fill="#F2D9A8" />
                     <path d="M0 130 Q60 82 130 112 Q200 140 260 90 L260 130 Z" fill="#C9B3E0" />
                   </svg>
-                  <Spore size={14} color={ORANGE} spotCount={1} spotShape="circle" className="absolute left-10 top-[58px]" />
-                  <Spore size={12} color={GREEN} spotCount={3} spotShape="triangle" className="absolute left-[110px] top-[38px]" />
-                  <Spore size={14} color={PURPLE} spotCount={2} spotShape="sparks" className="absolute left-[170px] top-[62px]" />
+                  <Spore size={14} color={ORANGE} spotCount={1} spotShape="circle" stalk={INK} className="absolute left-10 top-[58px]" />
+                  <Spore size={12} color={GREEN} spotCount={3} spotShape="triangle" stalk={INK} className="absolute left-[110px] top-[38px]" />
+                  <Spore size={14} color={PURPLE} spotCount={2} spotShape="sparks" stalk={INK} className="absolute left-[170px] top-[62px]" />
                 </div>
                 <div className="mt-3 font-heading text-xl font-extrabold" style={{ color: INK }}>
                   Phinneywood
@@ -236,7 +244,7 @@ export default function Home() {
               How Spored works
             </div>
             <div className="mt-2.5 text-[15px]" style={{ color: "#C9B8A0" }}>
-              Three steps, and your neighborhood becomes a game.
+              Three steps, and exploring your neighborhood becomes a game.
             </div>
           </div>
 
@@ -245,26 +253,27 @@ export default function Home() {
               {
                 color: ORANGE,
                 title: "1. Check in",
-                body: "Walk into a local shop, café, or park and tap to check in — no scanning, no fuss.",
+                body: "Walk into a local shop, café, park, or other spot and tap to check in — no scanning, no fuss.",
+                spotCount: 2,
+                spotShape: "circle" as SpotShape,
               },
               {
                 color: AMBER,
-                title: "2. Earn & unlock",
-                body: "Rack up points, complete neighborhood challenges, and unlock badges as you explore.",
+                title: "2. Earn & discover",
+                body: "Every check-in earns points and badges, and surfaces what else is nearby — new spots, events, and neighbors.",
+                spotCount: 5,
+                spotShape: "star" as SpotShape,
               },
               {
                 color: PURPLE,
-                title: "3. Climb the board",
-                body: "Compete with neighbors for the top spot on your neighborhood's leaderboard.",
+                title: "3. Connect & compete",
+                body: "Follow neighbors and events, and climb your neighborhood's leaderboard as you explore.",
+                spotCount: 4,
+                spotShape: "ring" as SpotShape,
               },
             ].map((step) => (
               <div key={step.title} className="rounded-[22px] p-7" style={{ background: "#382A1E" }}>
-                <div
-                  className="flex h-14 w-14 items-center justify-center rounded-full"
-                  style={{ background: step.color }}
-                >
-                  <MushroomLogo size={26} capColor={INK} stemClassName={step.color === AMBER ? "text-[#2B1B12]" : "text-[#FBF2E4]"} />
-                </div>
+                <MushroomMark size={56} cap={INK} stalk={CREAM} spots={CREAM} spotCount={step.spotCount} spotShape={step.spotShape} bg={step.color} />
                 <div className="mt-[18px] font-heading text-[19px] font-extrabold" style={{ color: "#F5E8D3" }}>
                   {step.title}
                 </div>
@@ -292,9 +301,9 @@ export default function Home() {
             </div>
             <div className="mt-[26px] flex flex-wrap gap-7">
               {[
-                { value: "154", label: "Businesses in Phinneywood", color: ORANGE },
-                { value: "11", label: "Check-ins this week", color: GREEN },
-                { value: "4", label: "Active challenges", color: PURPLE },
+                { value: "146", label: "Businesses in Phinneywood", color: ORANGE },
+                { value: "8", label: "Neighbors on Spored", color: PURPLE },
+                { value: "44", label: "Check-ins so far", color: GREEN },
               ].map((stat) => (
                 <div key={stat.label}>
                   <div className="font-heading text-[30px] font-extrabold" style={{ color: stat.color }}>
@@ -371,9 +380,15 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-2">
               {[
-                { month: "JUL", day: "18", title: "Greenwood Night Market", meta: "6:00 PM · Greenwood Ave N", color: ORANGE },
-                { month: "JUL", day: "20", title: "Phinney Farmers Market", meta: "9:00 AM · Phinney Ridge", color: GREEN },
-                { month: "JUL", day: "24", title: "Trivia Night @ 74th St Ale House", meta: "7:30 PM · 74th St Ale House", color: PURPLE },
+                {
+                  month: "JUL",
+                  day: "29",
+                  title: "Responding to a Cardiac Arrest: Hands-Only CPR for Seniors",
+                  meta: "1:00 PM · Greenwood Senior Center",
+                  color: ORANGE,
+                },
+                { month: "JUL", day: "31", title: "Summer Blood Drives", meta: "9:00 AM · Greenwood Senior Center", color: PURPLE },
+                { month: "JUL", day: "31", title: "Farmers Market", meta: "3:00 PM · WA", color: GREEN },
               ].map((event) => (
                 <div
                   key={event.title}
@@ -407,11 +422,11 @@ export default function Home() {
         <div className="mx-auto max-w-5xl">
           <div className="text-center">
             <div className="font-heading text-[28px] font-extrabold md:text-[38px]" style={{ color: INK }}>
-              Find your patch of the network
+              Now piloting in Phinneywood
             </div>
             <div className="mx-auto mt-2.5 max-w-[560px] text-[15px]" style={{ color: "#4A3B2C" }}>
-              Every neighborhood is its own mycelial cluster — join yours, or start one for a block that
-              hasn&apos;t sporad yet.
+              Spored is live in one neighborhood so far — Phinneywood, in Seattle. Want it growing on your
+              block too? Reach out and let&apos;s start one.
             </div>
           </div>
 
@@ -440,26 +455,19 @@ export default function Home() {
 
             <div
               className="absolute translate-x-[-50%] translate-y-[26px] rounded-full px-3 py-1.5 text-xs font-extrabold whitespace-nowrap"
-              style={{ left: "14%", top: "38%", background: INK, color: CREAM }}
+              style={{ left: "48%", top: "48%", background: INK, color: CREAM }}
             >
-              Phinneywood
-            </div>
-            <div
-              className="absolute translate-x-[-50%] translate-y-[26px] rounded-full px-3 py-1.5 text-xs font-extrabold whitespace-nowrap"
-              style={{ left: "64%", top: "28%", background: INK, color: CREAM }}
-            >
-              Capitol Hill
+              📍 Phinneywood
             </div>
           </div>
 
-          <div className="mt-7 flex justify-center">
-            <a
-              href={`${APP_URL}/neighborhoods`}
-              className="rounded-full px-7 py-[15px] text-[15px] font-extrabold"
-              style={{ background: INK, color: CREAM }}
-            >
-              Browse all neighborhoods
-            </a>
+          <div className="mt-7 flex flex-wrap justify-center gap-3.5">
+            <PillButton href={`${APP_URL}/neighborhoods`} variant="solid-ink">
+              See Phinneywood
+            </PillButton>
+            <PillButton href="mailto:hello@tryspored.com" variant="outline-dark">
+              Start your own neighborhood
+            </PillButton>
           </div>
         </div>
       </div>
@@ -492,21 +500,16 @@ export default function Home() {
               <div className="text-[13px] font-extrabold" style={{ color: INK }}>
                 Own this business?
               </div>
-              <div className="mt-2.5 flex flex-col gap-2">
-                <div
-                  className="rounded-[10px] border-2 px-3 py-2.5 text-[12.5px] font-bold"
-                  style={{ background: "#F5E8D3", borderColor: "#E4D3B8", color: "#8A7761" }}
-                >
-                  Your name
-                </div>
-                <a
-                  href={`${APP_URL}/admin`}
-                  className="rounded-[10px] py-2.5 text-center text-[13px] font-extrabold"
-                  style={{ background: PURPLE, color: CREAM }}
-                >
-                  Submit claim
-                </a>
+              <div className="mt-1.5 text-[12.5px] font-bold" style={{ color: "#8A7761" }}>
+                Sign in and submit a claim — we&apos;ll verify it&apos;s yours.
               </div>
+              <a
+                href={`${APP_URL}/admin`}
+                className="mt-2.5 block rounded-[10px] py-2.5 text-center text-[13px] font-extrabold"
+                style={{ background: PURPLE, color: CREAM }}
+              >
+                Claim this business
+              </a>
             </div>
           </div>
           <div>
@@ -515,13 +518,13 @@ export default function Home() {
             </div>
             <div className="mt-4 max-w-[460px] text-[15px] leading-[1.6]" style={{ color: "#6B5744" }}>
               Claim your listing and turn every regular into a repeat visitor. See who&apos;s checking in,
-              run neighborhood challenges, and show up where locals are already looking.
+              post coupons and events, and show up where locals are already looking.
             </div>
             <div className="mt-[22px] flex flex-col gap-3.5">
               {[
-                { icon: "📍", text: "Show up in neighborhood check-in lists" },
-                { icon: "🎯", text: "Run challenges that reward customer visits" },
-                { icon: "⭐", text: "Collect reviews from real, checked-in neighbors" },
+                { icon: "📍", text: "Show up in neighborhood check-in lists and leaderboards" },
+                { icon: "🎟️", text: "Post coupons neighbors unlock by checking in — no scanning, just a slide to redeem" },
+                { icon: "📅", text: "List events that show up on your neighborhood's calendar" },
               ].map((item) => (
                 <div key={item.text} className="flex items-start gap-3">
                   <span className="text-lg">{item.icon}</span>
@@ -532,7 +535,7 @@ export default function Home() {
               ))}
             </div>
             <a
-              href={`${APP_URL}/business`}
+              href={`${APP_URL}/admin`}
               className="mt-[26px] inline-block rounded-full px-7 py-[15px] text-[15px] font-extrabold"
               style={{ background: INK, color: CREAM }}
             >
@@ -546,18 +549,22 @@ export default function Home() {
       <div className="relative overflow-hidden px-5 py-14 text-center md:px-6 md:py-[90px]" style={{ background: INK }}>
         <Spore size={26} color={AMBER} spotCount={3} spotShape="sparks" className="absolute left-[10%] top-[24%]" style={{ animation: "float-spore 5.5s ease-in-out infinite" }} />
         <Spore size={22} color={PURPLE} spotCount={2} spotShape="triangle" className="absolute right-[12%] top-[60%]" style={{ animation: "float-spore 4.8s ease-in-out infinite 0.8s" }} />
+        <Spore size={13} color={ORANGE} spotCount={2} spotShape="circle" className="absolute left-[22%] top-[68%]" style={{ animation: "float-spore 4.3s ease-in-out infinite 0.2s" }} />
+        <Spore size={34} color={GREEN} spotCount={5} spotShape="star" className="absolute left-[4%] top-[62%]" style={{ animation: "float-spore 6.2s ease-in-out infinite 1.4s" }} />
+        <Spore size={16} color={PURPLE} spotCount={1} spotShape="ring" className="absolute right-[26%] top-[20%]" style={{ animation: "float-spore 5s ease-in-out infinite 0.6s" }} />
+        <Spore size={20} color={AMBER} spotCount={4} spotShape="cross" className="absolute right-[6%] top-[30%]" style={{ animation: "float-spore 6.8s ease-in-out infinite 1.1s" }} />
         <div className="font-heading text-[28px] font-extrabold md:text-[38px]" style={{ color: "#F5E8D3" }}>
           Ready to spore up your block?
         </div>
         <div className="mt-3 text-[15px]" style={{ color: "#C9B8A0" }}>
-          Free to join. Your neighborhood is waiting.
+          Free to join. Now piloting in Phinneywood, Seattle.
         </div>
         <div className="mt-[26px] flex flex-wrap justify-center gap-3.5">
           <PillButton href={`${APP_URL}/signup`} variant="solid">
             Sign up
           </PillButton>
-          <PillButton href={`${APP_URL}/neighborhoods`} variant="outline-light">
-            Browse neighborhoods
+          <PillButton href="mailto:hello@tryspored.com" variant="outline-light">
+            Start your own neighborhood
           </PillButton>
         </div>
       </div>
