@@ -56,7 +56,7 @@ export function VenuesView({ venues }: { venues: VenueListItem[] }) {
               key={v}
               onClick={() => setView(v)}
               className={`rounded-full px-3 py-1.5 font-extrabold capitalize ${
-                view === v ? "bg-foreground text-ink" : "bg-card-alt text-muted"
+                view === v ? "bg-foreground text-on-accent" : "bg-card-alt text-muted"
               }`}
             >
               {v}
@@ -68,7 +68,7 @@ export function VenuesView({ venues }: { venues: VenueListItem[] }) {
           <button
             onClick={() => setSort("alpha")}
             className={`rounded-full px-3 py-1.5 font-extrabold ${
-              sort === "alpha" ? "bg-foreground text-ink" : "bg-card-alt text-muted"
+              sort === "alpha" ? "bg-foreground text-on-accent" : "bg-card-alt text-muted"
             }`}
           >
             A-Z
@@ -77,7 +77,7 @@ export function VenuesView({ venues }: { venues: VenueListItem[] }) {
             onClick={handleSortNearest}
             disabled={location.status === "loading"}
             className={`rounded-full px-3 py-1.5 font-extrabold disabled:opacity-50 ${
-              sort === "nearest" ? "bg-foreground text-ink" : "bg-card-alt text-muted"
+              sort === "nearest" ? "bg-foreground text-on-accent" : "bg-card-alt text-muted"
             }`}
           >
             {location.status === "loading" ? "Locating…" : "Nearest"}

@@ -13,7 +13,7 @@ export const NEIGHBOR_CONNECTION_POINTS = 5;
 // moved here so the badge rule engine's "level_reached" rule (badges.ts) and
 // the account page compute the same level from the same total, rather than
 // duplicating the formula on both sides of the API boundary.
-export const POINTS_PER_LEVEL = 50;
+export const POINTS_PER_LEVEL = 100;
 
 export function computeLevel(points: number): {
   level: number;

@@ -78,6 +78,8 @@ import { syncNeighborhoodIcalFeed, syncVenueIcalFeed } from "./events/icalSync";
 import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { followEvent, getEventFollowStatus, unfollowEvent } from "./eventFollows/eventFollow";
 import { SupabaseEventFollowRepository } from "./eventFollows/supabaseRepository";
+import { listFeedbackForAdmin, submitFeedback, updateFeedbackState } from "./feedback/feedback";
+import { SupabaseFeedbackRepository } from "./feedback/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
 import {
@@ -87,6 +89,7 @@ import {
   listChallengesWithProgress,
 } from "./gamification/challenges";
 import { awardEventFollowBadge } from "./gamification/eventFollowBadge";
+import { awardContributorBadge, awardFeedbackGiverBadge } from "./gamification/feedbackBadges";
 import { awardFounderBadge } from "./gamification/founderBadge";
 import { awardFavoritePoints, getLeaderboard, getUserBadges, getUserPoints } from "./gamification/points";
 import { awardCheckinRewards, awardNeighborConnectionRewards } from "./gamification/rewards";
@@ -369,6 +372,12 @@ let eventFollowRepository: SupabaseEventFollowRepository | undefined;
 function getEventFollowRepository(): SupabaseEventFollowRepository {
   eventFollowRepository ??= new SupabaseEventFollowRepository(getSupabaseClient());
   return eventFollowRepository;
+}
+
+let feedbackRepository: SupabaseFeedbackRepository | undefined;
+function getFeedbackRepository(): SupabaseFeedbackRepository {
+  feedbackRepository ??= new SupabaseFeedbackRepository(getSupabaseClient());
+  return feedbackRepository;
 }
 
 let neighborhoodRepository: SupabaseNeighborhoodRepository | undefined;
@@ -1410,6 +1419,92 @@ export function createApp() {
     } catch (err) {
       console.error("GET /me/activity failed:", err);
       res.status(500).json({ error: "Failed to load activity" });
+    }
+  });
+
+  // BETA-prep: signed-in-only bug report/feature request submission, tracked
+  // through a triage lifecycle (feedback/repository.ts's FeedbackState) --
+  // no admin UI yet, see GET/PATCH /admin/feedback below. Awards the
+  // "Feedback Giver" badge on every call; awardBadgeByCode's unique-
+  // violation swallow makes it safe to call unconditionally rather than
+  // separately tracking whether this is the user's first submission.
+  app.post("/me/feedback", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    const { type, comment } = req.body ?? {};
+    if (typeof type !== "string" || typeof comment !== "string") {
+      res.status(400).json({ error: "type and comment are required" });
+      return;
+    }
+
+    try {
+      const result = await submitFeedback({ userId: req.appUser!.id, type, comment }, getFeedbackRepository());
+      if (result.status === "invalid") {
+        res.status(400).json({ error: result.message });
+        return;
+      }
+
+      try {
+        await awardFeedbackGiverBadge(req.appUser!.id, getGamificationRepository());
+      } catch (err) {
+        console.error(`awardFeedbackGiverBadge (user ${req.appUser!.id}) failed:`, err);
+      }
+
+      res.status(201).json(result.submission);
+    } catch (err) {
+      console.error("POST /me/feedback failed:", err);
+      res.status(500).json({ error: "Failed to submit feedback" });
+    }
+  });
+
+  // Admin triage list (BETA-prep) -- no dedicated admin UI yet, but the list
+  // and state-transition routes exist so submissions are reachable via a
+  // direct API call in the meantime. Gated by adminGate (global admin role,
+  // same as /admin/category-taxonomy) since feedback isn't scoped to any one
+  // neighborhood or business.
+  app.get("/admin/feedback", adminGate, async (_req, res) => {
+    try {
+      const submissions = await listFeedbackForAdmin(getFeedbackRepository());
+      res.json(submissions);
+    } catch (err) {
+      console.error("GET /admin/feedback failed:", err);
+      res.status(500).json({ error: "Failed to list feedback" });
+    }
+  });
+
+  // Awards the "Contributor" badge when a submission is marked "done" --
+  // the only state transition that awards anything, so it's checked here
+  // rather than inside updateFeedbackState itself (mirrors where
+  // awardEventFollowBadge is called, at the route layer rather than inside
+  // the domain function).
+  app.patch("/admin/feedback/:id", adminGate, async (req, res) => {
+    const { state } = req.body ?? {};
+    if (typeof state !== "string") {
+      res.status(400).json({ error: "state is required" });
+      return;
+    }
+
+    try {
+      const result = await updateFeedbackState(req.params.id, state, getFeedbackRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Submission not found" });
+        return;
+      }
+      if (result.status === "invalid") {
+        res.status(400).json({ error: result.message });
+        return;
+      }
+
+      if (result.submission.state === "done") {
+        try {
+          await awardContributorBadge(result.submission.user_id, getGamificationRepository());
+        } catch (err) {
+          console.error(`awardContributorBadge (user ${result.submission.user_id}) failed:`, err);
+        }
+      }
+
+      res.json(result.submission);
+    } catch (err) {
+      console.error(`PATCH /admin/feedback/${req.params.id} failed:`, err);
+      res.status(500).json({ error: "Failed to update feedback" });
     }
   });
 

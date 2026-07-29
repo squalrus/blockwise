@@ -166,13 +166,13 @@ describe("evaluateBadgesAfterCheckin", () => {
       makeBadgeRule({ id: "rule-level-2", badgeId: badge.id, badge, ruleType: "level_reached", threshold: 2 })
     );
     repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: null, kind: "business" });
-    // POINTS_PER_LEVEL is 50 -- 60 points puts the user at level 2.
+    // POINTS_PER_LEVEL is 100 -- 110 points puts the user at level 2.
     repo.pointEvents.push({
       id: "p1",
       userId: "user-1",
       neighborhoodId: "n1",
       eventType: "checkin",
-      points: 60,
+      points: 110,
     });
 
     repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: NOON_JULY_15 });

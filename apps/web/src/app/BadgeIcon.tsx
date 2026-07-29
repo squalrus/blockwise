@@ -20,6 +20,8 @@ const ICONS: Record<string, string> = {
   seedling: "🌱",
   handshake: "🤝",
   calendar: "📅",
+  megaphone: "📣",
+  wrench: "🔧",
 };
 
 const FALLBACK_ICON = "🏅";

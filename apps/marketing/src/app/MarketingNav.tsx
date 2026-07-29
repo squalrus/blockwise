@@ -15,6 +15,14 @@ export function MarketingNav() {
           <span className="font-heading text-xl font-extrabold" style={{ color: CREAM }}>
             Spored
           </span>
+          {/* BETA tag: remove this (and the matching ones in Footer.tsx and
+              both admin sidebar layouts) once v1.0.0 ships. */}
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-extrabold tracking-wide"
+            style={{ background: "rgba(232,84,42,0.18)", color: ORANGE }}
+          >
+            BETA
+          </span>
         </a>
         <div className="hidden items-center gap-7 md:flex">
           <a href="/#how" className="text-sm font-bold" style={{ color: "#E4D3B8" }}>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { Avatar } from "./Avatar";
+import { FeedbackModal } from "./FeedbackModal";
 
 // Shared account pill + dropdown: the pill itself is the menu trigger (no
 // separate hamburger button) -- clicking it opens the same account/settings/
@@ -28,6 +29,7 @@ export function AccountMenu({
   onLogOut: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -99,6 +101,16 @@ export function AccountMenu({
           >
             What&apos;s new
           </a>
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              setShowFeedback(true);
+            }}
+            className="block w-full px-4 py-2 text-left text-sm hover:bg-card-alt"
+          >
+            Send feedback
+          </button>
 
           {showAdminLink && (
             <>
@@ -126,6 +138,8 @@ export function AccountMenu({
           </button>
         </div>
       )}
+
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </div>
   );
 }
