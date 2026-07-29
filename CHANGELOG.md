@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.55.1] — 2026-07-29
+
+### Changed
+
+- **Marketing homepage polish.** "How Spored works" now blends gamification with neighborhood exploration (its three step icons switched from the static nav mark to the same generative mushroom-avatar builder used elsewhere on the app), the stats/leaderboard teaser and events teaser now show real Phinneywood numbers and upcoming events instead of placeholder data, and the neighborhood-coverage and final-CTA sections now honestly frame Spored as piloting in one neighborhood (Phinneywood) with a "reach out to start your own" mailto CTA in place of the old "browse all neighborhoods" framing. The business pitch section's feature list was corrected to match what businesses can actually do (check-in lists/leaderboards, coupons, events — not challenges or reviews, neither of which exists on the business side), its dead `/business` link now points at the real `/admin` entry point, and the "Own this business?" teaser dropped its non-functional "Your name" input. The hero section also gained several more floating decorative mushrooms of varied sizes. (`apps/marketing/src/app/page.tsx`)
+
 ## [0.55.0] — 2026-07-29
 
 ### Added
