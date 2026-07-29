@@ -85,7 +85,7 @@ describe("getUserPoints", () => {
       points: 15,
       level: 1,
       points_into_level: 15,
-      points_to_next_level: 35,
+      points_to_next_level: 85,
     });
   });
 
@@ -95,7 +95,7 @@ describe("getUserPoints", () => {
       points: 0,
       level: 1,
       points_into_level: 0,
-      points_to_next_level: 50,
+      points_to_next_level: 100,
     });
   });
 });

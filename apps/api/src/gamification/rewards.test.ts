@@ -65,14 +65,14 @@ describe("awardCheckinRewards", () => {
     repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: "cat-coffee", kind: "business" });
     repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: NOW });
 
-    // Pre-existing 35 points (level 1). The flat +10 check-in alone only
-    // reaches 45 (still level 1) -- only the challenge's own +10 bonus, on
-    // top of that, crosses the level-2 threshold at 50.
+    // Pre-existing 85 points (level 1). The flat +10 check-in alone only
+    // reaches 95 (still level 1) -- only the challenge's own +10 bonus, on
+    // top of that, crosses the level-2 threshold at 100.
     await repo.awardPoints({
       userId: "user-1",
       neighborhoodId: "n1",
       eventType: "checkin",
-      points: 35,
+      points: 85,
       venueId: "venue-0",
       checkinId: "prior-checkin",
     });

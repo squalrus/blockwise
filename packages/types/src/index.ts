@@ -517,6 +517,39 @@ export interface CreateEventRequest {
   end_time: string;
 }
 
+// User-submitted bug reports/feature requests (BETA-prep): a signed-in-only
+// freeform comment tied to the account, POST /me/feedback. Triaged through
+// `state` -- awards the "Feedback Giver" badge on first submission and the
+// "Contributor" badge when a submission is later marked "done" (no admin UI
+// yet; state moves via PATCH /admin/feedback/:id in the meantime).
+export type FeedbackType = "bug" | "feature";
+export type FeedbackState = "new" | "in_progress" | "done" | "removed";
+
+export interface FeedbackSubmission {
+  id: string;
+  user_id: string;
+  type: FeedbackType;
+  comment: string;
+  state: FeedbackState;
+  created_at: string;
+}
+
+export interface CreateFeedbackRequest {
+  type: FeedbackType;
+  comment: string;
+}
+
+// GET /admin/feedback -- joined with basic submitter identity for triage,
+// since a bare user_id isn't useful without an admin UI to look it up.
+export interface FeedbackSubmissionAdminView extends FeedbackSubmission {
+  user_display_name: string | null;
+  user_email: string | null;
+}
+
+export interface UpdateFeedbackStateRequest {
+  state: FeedbackState;
+}
+
 // PATCH .../ical-feed request/response (BACKLOG.md Ref 30) -- shared shape
 // for both the neighborhood-admin and business-owner feed URL settings form.
 export interface UpdateIcalFeedUrlRequest {

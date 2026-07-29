@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
-const UPDATED = "July 20, 2026";
+const UPDATED = "July 29, 2026";
 
 function Question({ q, children }: { q: string; children: React.ReactNode }) {
   return (
@@ -40,6 +40,11 @@ export default function FaqPage() {
             all neighborhoods
           </a>{" "}
           to see what&apos;s live near you, or reach out if you&apos;d like to start one for your own block.
+        </Question>
+        <Question q="How do I report a bug or request a feature?">
+          Open your account menu (tap your avatar) and choose &ldquo;Send feedback.&rdquo; Pick Bug report or
+          Feature idea and describe it in a few sentences — we read every submission. Submitting one earns a
+          Feedback Giver badge, and if it&apos;s implemented you&apos;ll earn a Contributor badge too.
         </Question>
       </LegalSection>
 

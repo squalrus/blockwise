@@ -298,7 +298,7 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
           View public page
         </a>
         <a href="/changelog" className="block px-3 pt-2 font-mono text-[10px] text-nav-muted/60 hover:text-nav-muted">
-          Spored v{packageJson.version}
+          Spored v{packageJson.version} · BETA
         </a>
       </div>
 

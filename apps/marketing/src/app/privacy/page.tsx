@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const UPDATED = "July 20, 2026";
+const UPDATED = "July 29, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -36,8 +36,9 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong>Content you provide.</strong> Anything you add directly — profile details, business
-          coupons/events (if you manage a claimed business), coupon claims and redemptions, and connections with
-          other users.
+          coupons/events (if you manage a claimed business), coupon claims and redemptions, connections with
+          other users, and any bug report or feature request you submit through the app (tied to your account so
+          we can follow up if needed).
         </p>
       </LegalSection>
 

@@ -2,6 +2,27 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.55.0] — 2026-07-29
+
+### Added
+
+- **Feedback submissions.** Signed-in users can submit a bug report or feature request from a new "Send feedback" item in the account menu (reachable from the main nav and both admin sidebar shells, no dedicated page needed) — pick Bug report or Feature idea and describe it in a few sentences. Submitting awards a one-off "Feedback Giver" badge. No admin triage UI yet, but `GET /admin/feedback` (list, joined with submitter name/email) and `PATCH /admin/feedback/:id` (state transition) exist so submissions are reachable via a direct API call in the meantime; marking one "done" awards a one-off "Contributor" badge to the submitter. (`supabase/migrations/20260729010000_feedback_submissions.sql`, `supabase/migrations/20260729020000_feedback_badges.sql`, `apps/api/src/feedback/`, `apps/api/src/gamification/feedbackBadges.ts`, `apps/web/src/app/FeedbackModal.tsx`, `apps/web/src/app/AccountMenu.tsx`)
+
+### Changed
+
+- **"BETA" label added ahead of the v1.0.0 launch.** Shows next to the version string in the app footer and both admin sidebar shells, plus a pill next to the wordmark on the marketing site's nav — all meant to be removed once v1.0.0 ships. (`apps/web/src/app/Footer.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`, `apps/marketing/src/app/MarketingNav.tsx`)
+- **Points needed per level raised from 50 to 100.** Level is always computed live from a user's total points rather than stored, so every account's displayed level recalculates under the new threshold automatically — no migration needed. (`apps/api/src/gamification/points.ts`)
+- **`/account`'s tabs are now dedicated URLs.** Spore Feed, Favorites, Badges, Challenges, Neighbors, and My Activity each have their own route (`/account`, `/account/favorites`, `/account/badges`, `/account/challenges`, `/account/neighbors`, `/account/activity`) instead of client-side tab state on one page, mirroring `/neighborhoods/:slug`'s layout+subnav pattern — each tab now fetches only its own data. `/account/settings` is unaffected. (`apps/web/src/app/account/(tabs)/`, `apps/web/src/app/account/AccountContext.tsx`, `apps/web/src/app/account/AccountTabs.tsx`)
+- **FAQ and Privacy Policy updated** for the new feedback feature (a new question, and a new data-collection bullet). (`apps/marketing/src/app/faq/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`)
+
+### Fixed
+
+- **Invisible active-toggle text on the neighborhood Locations tab.** The List/Map and A-Z/Nearest toggle pills paired a dark background with dark text in light mode (`bg-foreground text-ink` — those two colors are identical in light mode), making the active option's label disappear. Swapped to `text-on-accent`, matching the pattern already used elsewhere (`TabNav.tsx`). (`apps/web/src/app/neighborhoods/[slug]/VenuesView.tsx`)
+
+### Removed
+
+- **`/account`'s "Wishlist" and "Coupons" placeholder tiles.** Replaced by the more actionable feedback entry point above; also dropped the `GET /me/coupons` fetch that only backed the Coupons tile's count. (`apps/web/src/app/account/(tabs)/layout.tsx`)
+
 ## [0.54.0] — 2026-07-20
 
 ### Added
