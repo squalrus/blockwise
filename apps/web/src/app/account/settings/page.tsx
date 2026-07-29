@@ -109,7 +109,7 @@ export default function AccountSettingsPage() {
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Account details</h2>
             <div className="rounded-xl bg-card-alt px-4 py-3 text-sm">
               <p className="font-extrabold text-foreground">
-                {state.user.email ?? state.user.phone ?? "Anonymous account"}
+                {state.user.email ?? "Anonymous account"}
               </p>
               <p className="text-muted">
                 {state.user.account_type === "business" ? "Business account" : "Consumer account"}

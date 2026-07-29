@@ -25,7 +25,6 @@ class FakeAuthRepository implements AuthRepository {
       authUserId: input.authUserId,
       authProvider: input.authProvider,
       email: input.email,
-      phone: input.phone,
       displayName: null,
       avatarUrl: input.avatarUrl,
       avatarStyle: "mushroom",
@@ -62,7 +61,6 @@ const VERIFIED: VerifiedAuthUser = {
   authUserId: "auth-1",
   authProvider: "email",
   email: "jane@example.com",
-  phone: null,
   avatarUrl: null,
 };
 

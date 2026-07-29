@@ -6,7 +6,6 @@ export interface AppUserRecord {
   authUserId: string | null;
   authProvider: string | null;
   email: string | null;
-  phone: string | null;
   displayName: string | null;
   avatarUrl: string | null;
   avatarStyle: AvatarStyle;
@@ -37,7 +36,6 @@ export interface CompleteSignupInput {
   authUserId: string;
   authProvider: string;
   email: string | null;
-  phone: string | null;
   // Google's OAuth profile picture (BACKLOG.md "Show profile picture from
   // Google") -- seeds avatar_url on a fresh signup only; never touched again
   // afterward, so a later manual edit (or manual clear) via PATCH /me/profile

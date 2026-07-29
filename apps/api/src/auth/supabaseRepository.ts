@@ -4,7 +4,7 @@ import type { AppUserRecord, AuthRepository, CompleteSignupInput, UpdateProfileI
 import { UsernameTakenError } from "./repository";
 
 const USER_COLUMNS =
-  "id, account_type, auth_user_id, auth_provider, email, phone, display_name, avatar_url, avatar_style, mushroom_customization, username, visibility, created_at";
+  "id, account_type, auth_user_id, auth_provider, email, display_name, avatar_url, avatar_style, mushroom_customization, username, visibility, created_at";
 
 // Postgres unique_violation.
 const UNIQUE_VIOLATION = "23505";
@@ -15,7 +15,6 @@ function toRecord(row: {
   auth_user_id: string | null;
   auth_provider: string | null;
   email: string | null;
-  phone: string | null;
   display_name: string | null;
   avatar_url: string | null;
   avatar_style: AvatarStyle;
@@ -30,7 +29,6 @@ function toRecord(row: {
     authUserId: row.auth_user_id,
     authProvider: row.auth_provider,
     email: row.email,
-    phone: row.phone,
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
     avatarStyle: row.avatar_style,
@@ -74,7 +72,6 @@ export class SupabaseAuthRepository implements AuthRepository {
         auth_user_id: input.authUserId,
         auth_provider: input.authProvider,
         email: input.email,
-        phone: input.phone,
         avatar_url: input.avatarUrl,
       })
       .select(USER_COLUMNS)

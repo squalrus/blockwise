@@ -10,7 +10,6 @@ function fakeUser(overrides: Partial<AppUserRecord>): AppUserRecord {
     authUserId: null,
     authProvider: null,
     email: null,
-    phone: null,
     displayName: null,
     avatarUrl: null,
     avatarStyle: "social",
