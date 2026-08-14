@@ -8,7 +8,7 @@ import { useNeighborhoodAdmin } from "../NeighborhoodAdminContext";
 import { PoiForm } from "../PoiForm";
 import { formatCooldownRemaining, useLocationsReviewCooldown } from "../useLocationsReviewCooldown";
 
-type Filter = "all" | "business" | "poi";
+type Filter = "business" | "poi";
 
 const GROUP_COLORS: Record<string, string> = {
   "Food & Drink": "var(--brand-orange)",
@@ -31,21 +31,21 @@ const FALLBACK_GROUP_COLOR = "var(--muted)";
 // also folds in Ref 56's category filter chips -- a small, purely
 // client-side addition once this tab's markup was being touched anyway. The
 // category filter is business-only (POIs carry no classification of their
-// own) per Ref 56's open question. Selecting a group chip
-// reveals an optional second-level row of that group's leaf categories
+// own) per Ref 56's open question, so the chips only render on the
+// Businesses tab and are cleared on switching to POIs. Selecting a group
+// chip reveals an optional second-level row of that group's leaf categories
 // (subcategoryId) for finer-grained filtering -- reset whenever the group
 // selection changes so a stale subcategory can't silently filter out
 // everything in a newly-selected group.
 //
-// Kind (All/Businesses/POIs) and hidden-visibility are two independent
-// axes, not one 4-way segmented control -- "show hidden" is a toggle that
-// combines with whichever kind is selected, rather than a mutually
-// exclusive 4th option, so hiding a row from e.g. the Businesses view
-// doesn't force a tab switch just to keep seeing it.
+// Kind is a forced Businesses/POIs toggle (no "All") and hidden-visibility
+// is an independent axis, not part of the toggle -- "show hidden" combines
+// with whichever kind is selected, so hiding a row from e.g. the Businesses
+// view doesn't force a tab switch just to keep seeing it.
 export default function NeighborhoodAdminLocationsPage() {
   const { neighborhoodId, slug } = useNeighborhoodAdmin();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("business");
   const [showHidden, setShowHidden] = useState(true);
   const [categoryGroup, setCategoryGroup] = useState<string | null>(null);
   const [subcategoryId, setSubcategoryId] = useState<string | null>(null);
@@ -251,35 +251,48 @@ export default function NeighborhoodAdminLocationsPage() {
     setSubcategoryId(null);
   }
 
-  // Counts are of every row for that kind regardless of hidden status --
-  // they label the kind toggle, which is independent of the "Show hidden"
-  // toggle below, so they shouldn't shift when that toggle flips.
+  // Category chips are business-only and hidden on the POIs tab -- clear
+  // them on switching there so a category picked earlier can't silently
+  // zero out the POI list (categoryFiltered excludes non-business rows
+  // whenever a group is set).
+  function selectFilter(next: Filter) {
+    setFilter(next);
+    if (next === "poi") {
+      setCategoryGroup(null);
+      setSubcategoryId(null);
+    }
+  }
+
+  // Category filter applied first, since it's the one axis the counts below
+  // must reflect -- an admin who picks a category chip expects the kind and
+  // hidden counts to describe that narrowed set, not the whole neighborhood.
+  const categoryFiltered =
+    locations?.filter((loc) => {
+      if (!categoryGroup) return true;
+      if (loc.kind !== "business") return false;
+      if (categoryGroupById.get(loc.category_id ?? "") !== categoryGroup) return false;
+      if (subcategoryId && loc.category_id !== subcategoryId) return false;
+      return true;
+    }) ?? null;
+
+  // "Show hidden" is applied next, before the kind counts, so All/
+  // Businesses/POIs reflect whatever this toggle currently includes --
+  // hidden rows stay visible in place (dimmed, with a "Hidden" badge, in
+  // the row rendering below) when the toggle is on, rather than vanishing
+  // the moment an admin hides one, and the counts track that.
+  const visibleFiltered = categoryFiltered?.filter((loc) => showHidden || loc.status !== "hidden") ?? null;
+
   const counts = {
-    all: locations?.length ?? 0,
-    business: locations?.filter((l) => l.kind === "business").length ?? 0,
-    poi: locations?.filter((l) => l.kind === "poi").length ?? 0,
-    hidden: locations?.filter((l) => l.status === "hidden").length ?? 0,
+    business: visibleFiltered?.filter((l) => l.kind === "business").length ?? 0,
+    poi: visibleFiltered?.filter((l) => l.kind === "poi").length ?? 0,
   };
 
   const filtered =
-    locations
-      ?.filter((loc) => {
-        if (filter === "business") return loc.kind === "business";
-        if (filter === "poi") return loc.kind === "poi";
-        return true;
-      })
-      // Hidden rows stay visible in place (dimmed, with a "Hidden" badge, in
-      // the row rendering below) when the toggle is on, rather than
-      // vanishing the moment an admin hides one -- the toggle just lets it
-      // be turned off for a decluttered view.
-      .filter((loc) => showHidden || loc.status !== "hidden")
-      .filter((loc) => {
-        if (!categoryGroup) return true;
-        if (loc.kind !== "business") return false;
-        if (categoryGroupById.get(loc.category_id ?? "") !== categoryGroup) return false;
-        if (subcategoryId && loc.category_id !== subcategoryId) return false;
-        return true;
-      }) ?? null;
+    visibleFiltered?.filter((loc) => {
+      if (filter === "business") return loc.kind === "business";
+      if (filter === "poi") return loc.kind === "poi";
+      return true;
+    }) ?? null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -334,16 +347,16 @@ export default function NeighborhoodAdminLocationsPage() {
         </form>
 
         <div className="flex gap-0.5 rounded-xl bg-card-alt p-0.75">
-          {(["all", "business", "poi"] as Filter[]).map((f) => (
+          {(["business", "poi"] as Filter[]).map((f) => (
             <button
               key={f}
               type="button"
-              onClick={() => setFilter(f)}
+              onClick={() => selectFilter(f)}
               className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.75 text-[13px] font-extrabold ${
                 filter === f ? "bg-foreground text-background" : "text-muted-strong"
               }`}
             >
-              <span>{f === "all" ? "All" : f === "business" ? "Businesses" : "POIs"}</span>
+              <span>{f === "business" ? "Businesses" : "POIs"}</span>
               <span className="font-mono text-[10px] opacity-65">{counts[f]}</span>
             </button>
           ))}
@@ -358,48 +371,51 @@ export default function NeighborhoodAdminLocationsPage() {
           }`}
         >
           <span>Show hidden</span>
-          <span className="font-mono text-[10px] opacity-65">{counts.hidden}</span>
         </button>
 
         <div className="flex-1" />
 
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => selectCategoryGroup(null)}
-            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
-              !categoryGroup ? "bg-foreground text-background" : "border-1.5 border-border bg-card text-muted-strong"
-            }`}
-          >
-            <span className="h-2 w-2 rounded-full bg-muted" />
-            All categories
-          </button>
-          {categoryGroups.map((group) => {
-            const active = categoryGroup === group;
-            const color = GROUP_COLORS[group] ?? FALLBACK_GROUP_COLOR;
-            return (
-              <button
-                key={group}
-                type="button"
-                onClick={() => selectCategoryGroup(active ? null : group)}
-                className="flex items-center gap-1.5 rounded-full px-3.5 py-1.75 text-xs font-extrabold"
-                style={
-                  active
-                    ? { background: color, color: "var(--on-accent)" }
-                    : { border: "1.5px solid var(--border)", background: "var(--card)", color: "var(--muted-strong)" }
-                }
-              >
-                <span className="h-2 w-2 rounded-full" style={{ background: active ? "var(--on-accent)" : color }} />
-                {group}
-              </button>
-            );
-          })}
-        </div>
+        {/* Category chips are business-only (POIs carry no classification
+            of their own), so they only render on the Businesses tab. */}
+        {filter === "business" && (
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => selectCategoryGroup(null)}
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                !categoryGroup ? "bg-foreground text-background" : "border-1.5 border-border bg-card text-muted-strong"
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-muted" />
+              All categories
+            </button>
+            {categoryGroups.map((group) => {
+              const active = categoryGroup === group;
+              const color = GROUP_COLORS[group] ?? FALLBACK_GROUP_COLOR;
+              return (
+                <button
+                  key={group}
+                  type="button"
+                  onClick={() => selectCategoryGroup(active ? null : group)}
+                  className="flex items-center gap-1.5 rounded-full px-3.5 py-1.75 text-xs font-extrabold"
+                  style={
+                    active
+                      ? { background: color, color: "var(--on-accent)" }
+                      : { border: "1.5px solid var(--border)", background: "var(--card)", color: "var(--muted-strong)" }
+                  }
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ background: active ? "var(--on-accent)" : color }} />
+                  {group}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Subcategory refinement (optional second level within the selected
           group) -- only appears once a category-group chip is active. */}
-      {categoryGroup && subcategories.length > 0 && (
+      {filter === "business" && categoryGroup && subcategories.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-mono text-[11px] text-muted">{categoryGroup} ›</span>
           <button

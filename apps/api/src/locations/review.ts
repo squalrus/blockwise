@@ -75,11 +75,12 @@ export interface LocationReviewReport {
 // from a prior sync/review run), then by the same name+location heuristic
 // the real sync uses against venues (places/dedup.ts's findDuplicate) so a
 // near-duplicate isn't re-surfaced just because it lacks a matching place
-// id. What's left is genuinely new. Separately, every *active* location
-// still on record is checked against the same (current, saved) boundary --
-// anything now outside it is a proposed removal, surfaced for explicit
-// admin approval rather than silently staying attached (today's behavior)
-// or silently auto-hiding.
+// id. What's left is genuinely new. Separately, every non-removed location
+// still on record (active or hidden -- hidden is a manual curation choice,
+// not a geography one) is checked against the same (current, saved)
+// boundary -- anything now outside it is a proposed removal, surfaced for
+// explicit admin approval rather than silently staying attached (today's
+// behavior) or silently auto-hiding.
 export async function reviewNeighborhoodLocations(
   neighborhoodId: string,
   polygon: GeoJsonPolygon,
@@ -96,7 +97,12 @@ export async function reviewNeighborhoodLocations(
 
   const proposedRemovals: ProposedRemoval[] = [];
   for (const location of existingLocations) {
-    if (location.status !== "active") continue;
+    // Hidden locations are still boundary-checked -- an admin's manual
+    // hide is a separate axis from geography (BACKLOG.md Ref 11/29), so a
+    // hidden row can still be flagged once it's outside the neighborhood.
+    // Already-removed rows are skipped since they've already gone through
+    // this decision.
+    if (location.status === "removed") continue;
     // Legacy rows that predate lat/lng (BACKLOG.md Ref 51) can't be tested
     // against the polygon -- left alone rather than guessed at.
     if (location.lat === null || location.lng === null) continue;

@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.56.0", date: "2026-08-14", summary: "Super admin interface with a platform user list and category taxonomy, Google Places now scoped per neighborhood, hidden locations included in boundary review" },
   { version: "0.55.2", date: "2026-07-29", summary: "Username field accepts uppercase while typing, dropped unused phone column from user accounts" },
   { version: "0.55.1", date: "2026-07-29", summary: "Marketing homepage polish: real Phinneywood data, honest single-neighborhood pilot messaging, accurate business pitch" },
   { version: "0.55.0", date: "2026-07-29", summary: "Feedback submissions with badges, BETA label, level threshold raised to 100, /account tabs get dedicated URLs" },

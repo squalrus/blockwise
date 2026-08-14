@@ -351,7 +351,7 @@ describe("reviewNeighborhoodLocations", () => {
     });
   });
 
-  it("does not flag an already-hidden business outside the boundary", async () => {
+  it("flags an already-hidden business outside the boundary too -- hidden is a curation choice, not a geography one", async () => {
     locationRepository.locations = [
       makeBusinessLocation({
         id: "venue-outside-hidden",
@@ -371,7 +371,34 @@ describe("reviewNeighborhoodLocations", () => {
       locationRepository
     );
 
-    expect(report.proposedRemovals.some((r) => r.id === "venue-outside-hidden")).toBe(false);
+    expect(report.proposedRemovals).toContainEqual({
+      id: "venue-outside-hidden",
+      name: "Already Hidden Cafe",
+      address: "Capitol Hill, Seattle, WA",
+    });
+  });
+
+  it("does not flag an already-removed business outside the boundary again", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
+        id: "venue-outside-removed",
+        name: "Already Removed Cafe",
+        address: "Capitol Hill, Seattle, WA",
+        status: "removed",
+        lat: 47.6,
+        lng: -122.3,
+      }),
+    ];
+
+    const report = await reviewNeighborhoodLocations(
+      "phinneywood-id",
+      PHINNEYWOOD_BOUNDARY!,
+      new MockPlacesClient(),
+      placesRepository,
+      locationRepository
+    );
+
+    expect(report.proposedRemovals.some((r) => r.id === "venue-outside-removed")).toBe(false);
   });
 
   it("does not flag an active business still inside the boundary", async () => {
