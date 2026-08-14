@@ -23,3 +23,11 @@
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
+
+# BACKLOG.md Ref 89: public/ is served with default (long-lived) caching --
+# without this, an already-installed client's browser could keep running a
+# stale service-worker.js indefinitely instead of picking up updates.
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Cache-Control = "no-cache"

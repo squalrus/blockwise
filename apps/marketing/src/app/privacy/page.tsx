@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const UPDATED = "July 29, 2026";
+const UPDATED = "August 14, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -40,6 +40,11 @@ export default function PrivacyPage() {
           other users, and any bug report or feature request you submit through the app (tied to your account so
           we can follow up if needed).
         </p>
+        <p>
+          <strong>Push notification subscriptions.</strong> If you enable notifications, your browser generates a
+          push subscription (an endpoint URL and encryption keys) for your device, which we store so we can send
+          you notifications. Disabling notifications or clearing your browsing data removes it.
+        </p>
       </LegalSection>
 
       <LegalSection title="2. How we use this information">
@@ -56,7 +61,10 @@ export default function PrivacyPage() {
         <p>
           We don't sell your personal information. We share data with service providers who help us run Spored,
           under obligations to protect it — including Supabase (authentication and database hosting), Google
-          (sign-in and Analytics), and Netlify (hosting). Other users can see information tied to your profile
+          (sign-in, Analytics, and delivering push notifications to Chrome/Android devices via Firebase Cloud
+          Messaging), Apple (delivering push notifications to Safari/iOS devices), and Netlify (hosting). These
+          push delivery services see the encrypted notification envelope and your device's push endpoint, not
+          your account details. Other users can see information tied to your profile
           according to your visibility setting (public or private) — for example, a public profile's badges,
           check-in count, and neighbor count are visible to others; private profiles are not. New accounts default
           to public; you can switch to private at any time from Account settings.
@@ -82,7 +90,8 @@ export default function PrivacyPage() {
       <LegalSection title="6. Your choices">
         <ul className="list-disc pl-5">
           <li>Edit your profile information or change your visibility setting at any time from Account settings;</li>
-          <li>Delete your account, which removes your personal information as described above; and</li>
+          <li>Delete your account, which removes your personal information as described above;</li>
+          <li>Disable push notifications at any time from Account settings, which removes your subscription; and</li>
           <li>Decline location permission, though this means you won't be able to check in.</li>
         </ul>
       </LegalSection>

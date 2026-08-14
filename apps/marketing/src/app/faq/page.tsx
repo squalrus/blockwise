@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
-const UPDATED = "July 29, 2026";
+const UPDATED = "August 14, 2026";
 
 function Question({ q, children }: { q: string; children: React.ReactNode }) {
   return (
@@ -45,6 +45,13 @@ export default function FaqPage() {
           Open your account menu (tap your avatar) and choose &ldquo;Send feedback.&rdquo; Pick Bug report or
           Feature idea and describe it in a few sentences — we read every submission. Submitting one earns a
           Feedback Giver badge, and if it&apos;s implemented you&apos;ll earn a Contributor badge too.
+        </Question>
+        <Question q="Can I install Spored on my phone?">
+          Yes. On Android/Chrome, an &ldquo;Install&rdquo; banner appears — tap it to add Spored to your home
+          screen. On iPhone, tap the Share button in Safari, then &ldquo;Add to Home Screen&rdquo; (iOS
+          doesn&apos;t offer an automatic install prompt). Either way, Spored opens full-screen like a regular
+          app. You can also turn on push notifications from Account settings; on iPhone, notifications only work
+          once Spored is installed to your home screen.
         </Question>
       </LegalSection>
 

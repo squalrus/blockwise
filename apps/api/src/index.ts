@@ -1,12 +1,13 @@
 import { createApp } from "./app";
 
 // Local-only entrypoint (unlike apps/api/netlify/functions, where Netlify
-// injects environment variables directly) so it loads apps/api/.env itself --
-// nothing else in the process does that automatically. See scripts/syncPlaces.ts.
+// injects environment variables directly) so it loads apps/api/.env.local
+// itself -- nothing else in the process does that automatically. See
+// scripts/syncPlaces.ts.
 try {
-  process.loadEnvFile();
+  process.loadEnvFile(".env.local");
 } catch {
-  // No .env file present -- fine if the environment was set some other way.
+  // No .env.local file present -- fine if the environment was set some other way.
 }
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;

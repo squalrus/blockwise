@@ -58,6 +58,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
+| 91 | [Neighbor check-in push notifications](#neighbor-check-in-push-notifications) | feature | M | H | — |
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
@@ -71,6 +72,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
+| 90 | [Super admin feedback viewing UI](#super-admin-feedback-viewing-ui) | feature | S | M | — |
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
 
 ### Marketing
@@ -255,6 +257,14 @@ No open limitations.
 
 ### User
 
+#### Neighbor check-in push notifications
+
+**Ref:** 91
+**Type:** feature
+**Depends:** — (prerequisite shipped: PWA install prompt and push notifications, v0.57.0)
+**Why** — v0.57.0 shipped the full push delivery pipeline (subscribe/unsubscribe, `push_subscription` storage, VAPID-signed sending via `sendPushToUsers`), but nothing in the app calls it automatically yet — the only sender is an admin-only test button. Notifying a user's neighbors (accepted connections, per the "Connect with other users" feature) when someone they're connected with checks in is a concrete, low-scope first real trigger: it proves out `sendPushToUsers` with a genuine audience-selection path, and re-engagement ("someone you know is out and about") is a natural first use of push.
+**Notes:** Hook into `performCheckin` (`apps/api/src/checkins/checkin.ts`) after a successful check-in — look up the checking-in user's accepted connections via `ConnectionRepository.listConnectionsForUser(userId, "accepted")`, then call the existing `sendPushToUsers(neighborUserIds, payload)` (`apps/api/src/pushSubscriptions/pushSubscriptions.ts`) with a payload like "{display_name} checked in at {venue_name}". Should be fire-and-forget (best-effort, logged on failure) rather than blocking the check-in response, mirroring how badge-award calls elsewhere in `app.ts` don't block their parent route. Open questions: should a private-visibility profile's check-in skip notifying neighbors too (private profiles already hide check-ins from the general public elsewhere in the app — is a direct connection different)? Does repeated same-day check-in activity need any de-duplication/cooldown so neighbors aren't spammed? Does this need its own opt-out separate from the single blanket push toggle shipped in v0.57.0, or is "push is on or off" enough for a first cut?
+
 #### Venue wishlist
 
 **Ref:** 2
@@ -320,6 +330,14 @@ No open limitations.
 **Depends:** —
 **Why** — Mobile is the primary long-term surface (free/unlimited Google Maps SDK, push notifications, in-person coupon redemption) but follows the web app so the API/data model is proven out first, per the user's direction to prioritize web for rapid dev.
 **Notes:** `apps/mobile` in the same monorepo, consuming the same `packages/api-client` and `packages/types` as web (project plan §10.3). Target feature parity with the web consumer experience (map, check-ins, announcements, challenges) once those web milestones land — this is a parity build, not a redesign.
+
+#### Super admin feedback viewing UI
+
+**Ref:** 90
+**Type:** feature
+**Depends:** —
+**Why** — Feedback submissions (shipped v0.55.0, badges + BETA label) are collected via `FeedbackModal` and reachable server-side (`GET /admin/feedback`, `PATCH /admin/feedback/:id` — both `adminGate`-protected, state-transition-to-"done" already awards the "Contributor" badge), but there's no admin UI page to actually view them — the routes exist "so submissions are reachable via a direct API call in the meantime" per the code comment at `apps/api/src/app.ts:1466`. Admins currently have no way to triage feedback without hitting the API directly.
+**Notes:** No API or schema changes needed — this is purely a new `/admin/feedback` page in `apps/web/src/app/admin/` (parallel to the existing super-admin users/category-taxonomy interfaces, shipped v0.56.0), listing `GET /admin/feedback` results with filter/search by `type` (bug|feature) and `state` (new|in_progress|done|removed), and a state-transition control per row wired to the existing `PATCH /admin/feedback/:id`.
 
 #### CI/CD pipeline
 

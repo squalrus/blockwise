@@ -2,6 +2,16 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.57.0] — 2026-08-14
+
+### Added
+
+- **PWA install prompt and web push notifications.** Spored can now be installed to a home screen and send push notifications. Installability: a typed `apps/web/src/app/manifest.ts` (name/icons/start_url/standalone display/theme color) plus `appleWebApp` metadata, new 192×192/512×512 app icons, a custom "Install" banner that captures Chrome/Android's `beforeinstallprompt` (Chrome no longer auto-banners), and a "tap Share → Add to Home Screen" banner for iOS Safari, which has no install-prompt API at all. A hand-written `apps/web/public/service-worker.js` (fetch passthrough, `push`/`notificationclick` handlers) is registered site-wide and gets a `no-cache` header in `netlify.toml` so already-installed clients pick up updates. Push delivery: a new `push_subscription` table and `apps/api/src/pushSubscriptions/` module wrap the `web-push` npm package and a VAPID keypair; `POST`/`DELETE /me/push-subscriptions` back a new Notifications toggle on `/account/settings`. Sending isn't wired to any real app event yet — the only sender today is a super-admin-only "Send test push" action (targetable at any user) on `/admin/super/users`, backed by `POST /admin/push-subscriptions/test-send`. The first real trigger (neighbor check-in notifications) is a separate follow-up. Updated the Privacy Policy (push subscription data, Google/Apple as delivery processors) and FAQ (installing + enabling notifications) to match. (BACKLOG.md Ref 89; `apps/web/src/app/manifest.ts`, `apps/web/src/app/InstallPrompt.tsx`, `apps/web/src/app/NotificationToggle.tsx`, `apps/web/src/app/ServiceWorkerRegistration.tsx`, `apps/web/public/service-worker.js`, `apps/api/src/pushSubscriptions/`, `supabase/migrations/20260814010000_push_subscriptions.sql`, `apps/web/src/app/admin/super/users/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `apps/marketing/src/app/faq/page.tsx`)
+
+### Fixed
+
+- **Local API dev server silently loaded no environment variables after `apps/api/.env` was renamed to `.env.local`.** `process.loadEnvFile()` (used by the local entrypoint and three CLI scripts) only looks for a file literally named `.env`; the rename made every call fail and get silently swallowed, breaking Supabase/Google Places/VAPID config with no visible error. Now explicitly loads `.env.local`, matching `apps/web`/`apps/marketing`'s existing convention. (`apps/api/src/index.ts`, `apps/api/src/scripts/syncPlaces.ts`, `apps/api/src/scripts/grantSuperAdmin.ts`, `apps/api/src/scripts/grantNeighborhoodAdmin.ts`, `README.md`)
+
 ## [0.56.0] — 2026-08-14
 
 ### Added

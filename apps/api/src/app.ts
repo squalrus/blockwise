@@ -140,6 +140,9 @@ import {
   type LocationClassification,
 } from "./locations/review";
 import { SupabaseLocationRepository } from "./locations/supabaseRepository";
+import { sendPushToUsers, subscribeToPush, unsubscribeFromPush } from "./pushSubscriptions/pushSubscriptions";
+import { SupabasePushSubscriptionRepository } from "./pushSubscriptions/supabaseRepository";
+import { WebPushSender } from "./pushSubscriptions/webPushSender";
 import { getSupabaseClient } from "./supabase";
 import { listUsersForAdmin } from "./users/users";
 import { SupabaseUserRepository } from "./users/supabaseRepository";
@@ -380,6 +383,23 @@ let feedbackRepository: SupabaseFeedbackRepository | undefined;
 function getFeedbackRepository(): SupabaseFeedbackRepository {
   feedbackRepository ??= new SupabaseFeedbackRepository(getSupabaseClient());
   return feedbackRepository;
+}
+
+let pushSubscriptionRepository: SupabasePushSubscriptionRepository | undefined;
+function getPushSubscriptionRepository(): SupabasePushSubscriptionRepository {
+  pushSubscriptionRepository ??= new SupabasePushSubscriptionRepository(getSupabaseClient());
+  return pushSubscriptionRepository;
+}
+
+// Constructed lazily on first send, not at createApp() time -- the
+// WebPushSender constructor throws if VAPID_* isn't configured, and building
+// it eagerly would crash every route including /health the moment the
+// function cold-starts with a misconfigured environment (mirrors
+// getCachedPlacesClient() above).
+let webPushSender: WebPushSender | undefined;
+function getWebPushSender(): WebPushSender {
+  webPushSender ??= new WebPushSender();
+  return webPushSender;
 }
 
 let userRepository: SupabaseUserRepository | undefined;
@@ -1513,6 +1533,82 @@ export function createApp() {
     } catch (err) {
       console.error(`PATCH /admin/feedback/${req.params.id} failed:`, err);
       res.status(500).json({ error: "Failed to update feedback" });
+    }
+  });
+
+  // BACKLOG.md Ref 89: registers a browser/device's web push subscription
+  // (the client already called pushManager.subscribe() with the VAPID public
+  // key -- this just persists the resulting endpoint/keys). Upserts on
+  // endpoint, so re-subscribing the same browser replaces the stale row.
+  app.post("/me/push-subscriptions", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    const { endpoint, keys } = req.body ?? {};
+
+    try {
+      const result = await subscribeToPush(req.appUser!.id, { endpoint, keys }, getPushSubscriptionRepository());
+      if (result.status === "invalid") {
+        res.status(400).json({ error: result.message });
+        return;
+      }
+      res.status(201).json(result.subscription);
+    } catch (err) {
+      console.error("POST /me/push-subscriptions failed:", err);
+      res.status(500).json({ error: "Failed to register push subscription" });
+    }
+  });
+
+  app.delete(
+    "/me/push-subscriptions/:id",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const result = await unsubscribeFromPush(req.appUser!.id, req.params.id, getPushSubscriptionRepository());
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Subscription not found" });
+          return;
+        }
+        if (result.status === "forbidden") {
+          res.status(403).json({ error: "Not your subscription to remove" });
+          return;
+        }
+        res.status(204).end();
+      } catch (err) {
+        console.error(`DELETE /me/push-subscriptions/${req.params.id} failed:`, err);
+        res.status(500).json({ error: "Failed to remove push subscription" });
+      }
+    }
+  );
+
+  // Manual/test trigger only (BACKLOG.md Ref 89 open question) -- sends a
+  // push to the calling admin's own subscriptions by default, or to a chosen
+  // user_id (Users tab "Send test push" action) so the install+push path can
+  // be verified against any account, not just the admin's own. Gated to
+  // superAdminGate rather than adminGate, matching GET /admin/users, since
+  // targeting an arbitrary user_id is a stronger power than the self-only
+  // version this started as. Wiring a real trigger (e.g. Ref 9 neighborhood
+  // notifications) into sendPushToUsers is a separate future change; this
+  // route exists so that function has a first caller today.
+  app.post("/admin/push-subscriptions/test-send", superAdminGate, async (req, res) => {
+    const { title, body, userId } = req.body ?? {};
+    if (typeof title !== "string" || !title.trim() || typeof body !== "string" || !body.trim()) {
+      res.status(400).json({ error: "title and body are required" });
+      return;
+    }
+    if (userId !== undefined && typeof userId !== "string") {
+      res.status(400).json({ error: "userId must be a string" });
+      return;
+    }
+
+    try {
+      const summary = await sendPushToUsers(
+        [userId ?? req.appUser!.id],
+        { title, body },
+        getPushSubscriptionRepository(),
+        getWebPushSender()
+      );
+      res.json(summary);
+    } catch (err) {
+      console.error("POST /admin/push-subscriptions/test-send failed:", err);
+      res.status(500).json({ error: "Failed to send test push" });
     }
   });
 

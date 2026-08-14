@@ -566,6 +566,28 @@ export interface UpdateFeedbackStateRequest {
   state: FeedbackState;
 }
 
+// Web push subscriptions (BACKLOG.md Ref 89) -- one row per browser/device,
+// POST /me/push-subscriptions to register, DELETE /me/push-subscriptions/:id
+// to unregister. `keys` mirrors the PushSubscriptionJSON shape the browser's
+// pushManager.subscribe() returns.
+export interface PushSubscriptionKeys {
+  p256dh: string;
+  auth: string;
+}
+
+export interface PushSubscriptionRecord {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  keys: PushSubscriptionKeys;
+  created_at: string;
+}
+
+export interface CreatePushSubscriptionRequest {
+  endpoint: string;
+  keys: PushSubscriptionKeys;
+}
+
 // PATCH .../ical-feed request/response (BACKLOG.md Ref 30) -- shared shape
 // for both the neighborhood-admin and business-owner feed URL settings form.
 export interface UpdateIcalFeedUrlRequest {
