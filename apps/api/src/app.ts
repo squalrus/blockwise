@@ -141,6 +141,8 @@ import {
 } from "./locations/review";
 import { SupabaseLocationRepository } from "./locations/supabaseRepository";
 import { getSupabaseClient } from "./supabase";
+import { listUsersForAdmin } from "./users/users";
+import { SupabaseUserRepository } from "./users/supabaseRepository";
 
 const CONTACT_METHODS: BusinessClaimContactMethod[] = ["phone", "email"];
 const EVENT_STATUSES: EventStatus[] = ["active", "hidden"];
@@ -378,6 +380,12 @@ let feedbackRepository: SupabaseFeedbackRepository | undefined;
 function getFeedbackRepository(): SupabaseFeedbackRepository {
   feedbackRepository ??= new SupabaseFeedbackRepository(getSupabaseClient());
   return feedbackRepository;
+}
+
+let userRepository: SupabaseUserRepository | undefined;
+function getUserRepository(): SupabaseUserRepository {
+  userRepository ??= new SupabaseUserRepository(getSupabaseClient());
+  return userRepository;
 }
 
 let neighborhoodRepository: SupabaseNeighborhoodRepository | undefined;
@@ -1799,6 +1807,20 @@ export function createApp() {
     }
   });
 
+  // Super admin UI (BACKLOG.md), starting with a platform-wide user list --
+  // gated to superAdminGate rather than adminGate since it isn't scoped to
+  // any one neighborhood or business and exposes every account, not just
+  // ones an admin happens to be able to reach otherwise.
+  app.get("/admin/users", superAdminGate, async (_req, res) => {
+    try {
+      const users = await listUsersForAdmin(getUserRepository());
+      res.json(users);
+    } catch (err) {
+      console.error("GET /admin/users failed:", err);
+      res.status(500).json({ error: "Failed to list users" });
+    }
+  });
+
   app.get("/admin/categories", adminGate, async (_req, res) => {
     try {
       const categories = await listAssignableCategories(getLocationRepository());
@@ -1812,7 +1834,11 @@ export function createApp() {
   // Category taxonomy management (BACKLOG.md Ref 4): create/rename/archive
   // actions on the category table itself -- distinct from the mapping tool
   // above, which only reassigns which existing category a venue points to.
-  app.get("/admin/category-taxonomy", adminGate, async (_req, res) => {
+  // Gated to superAdminGate (moved from adminGate along with the web UI's
+  // move from the old standalone /admin/category-taxonomy into the super
+  // admin shell) since it's a platform-wide taxonomy edit, not scoped to
+  // any one neighborhood.
+  app.get("/admin/category-taxonomy", superAdminGate, async (_req, res) => {
     try {
       const categories = await listCategoriesForAdmin(getCategoryAdminRepository());
       res.json(categories);
@@ -1822,7 +1848,7 @@ export function createApp() {
     }
   });
 
-  app.post("/admin/category-taxonomy", adminGate, async (req, res) => {
+  app.post("/admin/category-taxonomy", superAdminGate, async (req, res) => {
     const { name, parent_category_id, google_types } = req.body ?? {};
     if (typeof name !== "string") {
       res.status(400).json({ error: "name is required" });
@@ -1865,7 +1891,7 @@ export function createApp() {
     }
   });
 
-  app.patch("/admin/category-taxonomy/:id", adminGate, async (req, res) => {
+  app.patch("/admin/category-taxonomy/:id", superAdminGate, async (req, res) => {
     const { name } = req.body ?? {};
     if (typeof name !== "string") {
       res.status(400).json({ error: "name is required" });
@@ -1892,7 +1918,7 @@ export function createApp() {
     }
   });
 
-  app.post("/admin/category-taxonomy/:id/archive", adminGate, async (req, res) => {
+  app.post("/admin/category-taxonomy/:id/archive", superAdminGate, async (req, res) => {
     try {
       const result = await archiveCategory(req.params.id, getCategoryAdminRepository());
 

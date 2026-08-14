@@ -2,6 +2,21 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.56.0] — 2026-08-14
+
+### Added
+
+- **Super admin interface, starting with a platform user list and the category taxonomy.** New `/admin/super` sidebar shell (Overview stat tiles, Users tab, Category taxonomy tab) reachable from AdminSwitcher's new "Platform" group ("Super admin mode") — a third standalone admin shell alongside the neighborhood and business ones. New `GET /admin/users` (superAdminGate) backs the Users tab: a searchable, sortable (newest/oldest/name/email) list of every account on the platform. Category taxonomy management (create/rename/archive) moved here from the old standalone `/admin/category-taxonomy`, which had no nav entry point at all — its API gate also tightened from `adminGate` to `superAdminGate` in the move, and the old unlinked page was deleted. First cut of BACKLOG.md Ref 85 ("Super admin interface for app-level badges, challenges, and config"). (`apps/api/src/users/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/super/`, `apps/web/src/app/AdminSwitcher.tsx`, `apps/web/src/app/SiteChrome.tsx`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **A hidden location can now be flagged for boundary removal, not just an active one.** The Locations review wizard's boundary check previously only reconsidered active venues/POIs against a redrawn boundary — a hidden row silently stayed attached even if it fell outside. Hidden is a manual curation choice, a separate axis from geography, so it's now checked too; already-removed rows are still skipped. (`apps/api/src/locations/review.ts`)
+- **Neighborhood-admin Locations tab: dropped the "All" filter and scoped category chips to Businesses.** The kind toggle is now a forced Businesses/POIs choice (no "All"), and the category-group filter chips — always business-only, since POIs carry no classification of their own — now only render on the Businesses tab instead of showing (and doing nothing) on POIs too. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`)
+
+### Fixed
+
+- **A Google Place removed from one neighborhood could never be claimed by another.** `venue.google_place_id` was globally unique, so a place dropped from one neighborhood (kept as a `"removed"` row for check-in/favorite/point-event history) permanently blocked every other neighborhood from ever claiming that same place — a border business, or a place one neighborhood dropped that another later covers, would silently reassign the old removed row instead of getting its own. Uniqueness is now scoped to `(google_place_id, neighborhood_id)`, so each neighborhood can claim the same place independently. (`supabase/migrations/20260729040000_venue_google_place_id_per_neighborhood.sql`, `apps/api/src/places/supabaseRepository.ts`)
+
 ## [0.55.2] — 2026-07-29
 
 ### Changed

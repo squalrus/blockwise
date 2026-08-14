@@ -2,21 +2,28 @@
 
 import { useEffect, useState } from "react";
 import type { CategoryAdminItem } from "@blockwise/types";
+import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
-type TokenState = { status: "loading" } | { status: "signed_out" } | { status: "ready"; token: string };
+type State =
+  | { status: "loading" }
+  | { status: "ready"; categories: CategoryAdminItem[] }
+  | { status: "error"; message: string };
 
-// Internal-only page (BACKLOG.md Ref 4) for maintaining the category
-// taxonomy itself -- create/rename/archive -- distinct from
-// admin/venues/page.tsx, which only reassigns which existing category a
-// venue points to. Gated by the same requireAdmin middleware/session token
-// as every other admin page (see admin/venues/page.tsx for the pattern this
-// mirrors).
-export default function AdminCategoryTaxonomyPage() {
-  const [tokenState, setTokenState] = useState<TokenState>({ status: "loading" });
-  const [categories, setCategories] = useState<CategoryAdminItem[] | null>(null);
-  const [error, setError] = useState<"unauthorized" | "forbidden" | "failed" | null>(null);
+// Category taxonomy tab of the super admin shell (BACKLOG.md Ref 4) --
+// create/rename/archive on the category table itself, distinct from
+// admin/neighborhood/[neighborhoodSlug]/locations/page.tsx, which only
+// reassigns which existing category a venue points to. Moved here (and its
+// API gate tightened from adminGate to superAdminGate) from the old
+// standalone /admin/category-taxonomy, which had no nav entry point at all
+// -- folding it into the super admin shell as a third tab alongside
+// Overview/Users so every platform-wide (not neighborhood- or venue-scoped)
+// admin concern lives in one place. Signed-in/forbidden handling lives in
+// layout.tsx, mirroring the shell's other tabs, which is why this only
+// tracks loading/ready/error.
+export default function SuperAdminCategoryTaxonomyPage() {
+  const [state, setState] = useState<State>({ status: "loading" });
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -29,51 +36,44 @@ export default function AdminCategoryTaxonomyPage() {
   const [editingName, setEditingName] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const token = await getAccessToken();
+      const res = await fetch(clientApiUrl("/admin/category-taxonomy"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (cancelled) return;
+      if (!res.ok) {
+        setState({ status: "error", message: "Failed to load categories" });
+        return;
+      }
+      setState({ status: "ready", categories: await res.json() });
+    }
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    getAccessToken().then((token) => setTokenState(token ? { status: "ready", token } : { status: "signed_out" }));
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  async function loadCategories(activeToken: string) {
-    setError(null);
-    const res = await fetch(clientApiUrl("/admin/category-taxonomy"), {
-      headers: { Authorization: `Bearer ${activeToken}` },
-    });
-    if (res.status === 401) {
-      setError("unauthorized");
-      setCategories(null);
-      return;
-    }
-    if (res.status === 403) {
-      setError("forbidden");
-      setCategories(null);
-      return;
-    }
-    if (!res.ok) {
-      setError("failed");
-      return;
-    }
-    setCategories(await res.json());
+  function setCategories(update: (prev: CategoryAdminItem[]) => CategoryAdminItem[]) {
+    setState((prev) => (prev.status === "ready" ? { ...prev, categories: update(prev.categories) } : prev));
   }
-
-  useEffect(() => {
-    // No data-fetching library in this app yet -- mirrors admin/venues/page.tsx.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (tokenState.status === "ready") loadCategories(tokenState.token);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tokenState]);
 
   async function handleCreateSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (tokenState.status !== "ready") return;
     setCreating(true);
     setActionError(null);
+    const token = await getAccessToken();
     const googleTypes = newGoogleTypes
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
     const res = await fetch(clientApiUrl("/admin/category-taxonomy"), {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenState.token}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         name: newName,
         parent_category_id: newParentId || null,
@@ -87,18 +87,18 @@ export default function AdminCategoryTaxonomyPage() {
       return;
     }
     const created: CategoryAdminItem = await res.json();
-    setCategories((prev) => (prev ? [...prev, created] : [created]));
+    setCategories((prev) => [...prev, created]);
     setNewName("");
     setNewGoogleTypes("");
   }
 
   async function handleRenameSubmit(id: string) {
-    if (tokenState.status !== "ready") return;
     setBusyId(id);
     setActionError(null);
+    const token = await getAccessToken();
     const res = await fetch(clientApiUrl(`/admin/category-taxonomy/${id}`), {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenState.token}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ name: editingName }),
     });
     setBusyId(null);
@@ -108,17 +108,17 @@ export default function AdminCategoryTaxonomyPage() {
       return;
     }
     const updated: CategoryAdminItem = await res.json();
-    setCategories((prev) => prev?.map((c) => (c.id === id ? updated : c)) ?? null);
+    setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
     setEditingId(null);
   }
 
   async function handleArchive(id: string) {
-    if (tokenState.status !== "ready") return;
     setBusyId(id);
     setActionError(null);
+    const token = await getAccessToken();
     const res = await fetch(clientApiUrl(`/admin/category-taxonomy/${id}/archive`), {
       method: "POST",
-      headers: { Authorization: `Bearer ${tokenState.token}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     setBusyId(null);
     if (!res.ok) {
@@ -127,55 +127,25 @@ export default function AdminCategoryTaxonomyPage() {
       return;
     }
     const updated: CategoryAdminItem = await res.json();
-    setCategories((prev) => prev?.map((c) => (c.id === id ? updated : c)) ?? null);
+    setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
   }
 
-  if (tokenState.status === "loading") return null;
-
-  if (tokenState.status === "signed_out") {
+  if (state.status === "loading") {
     return (
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
-        <h1 className="font-heading text-xl font-extrabold text-foreground">Admin: category taxonomy</h1>
-        <p className="text-sm text-muted">
-          You need to be signed in to view this page.{" "}
-          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
-            Log in
-          </a>
-        </p>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <MushroomLoader size={72} />
       </div>
     );
   }
-
-  if (error === "forbidden") {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
-        <h1 className="font-heading text-xl font-extrabold text-foreground">Admin: category taxonomy</h1>
-        <p className="text-sm text-muted">
-          You&apos;re signed in, but your account isn&apos;t a neighborhood admin.
-        </p>
-      </div>
-    );
+  if (state.status === "error") {
+    return <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>;
   }
 
-  if (error === "unauthorized") {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 font-sans sm:p-16">
-        <h1 className="font-heading text-xl font-extrabold text-foreground">Admin: category taxonomy</h1>
-        <p className="text-sm text-muted">
-          Your session expired.{" "}
-          <a href="/login" className="font-bold text-brand-purple hover:text-brand-orange">
-            Log in
-          </a>{" "}
-          again.
-        </p>
-      </div>
-    );
-  }
-
-  const groups = (categories ?? []).filter((c) => c.parent_category_id === null);
+  const categories = state.categories;
+  const groups = categories.filter((c) => c.parent_category_id === null);
   const activeGroups = groups.filter((g) => g.status === "active");
   const leavesByGroup = new Map<string, CategoryAdminItem[]>();
-  for (const category of categories ?? []) {
+  for (const category of categories) {
     if (category.parent_category_id === null) continue;
     const leaves = leavesByGroup.get(category.parent_category_id) ?? [];
     leaves.push(category);
@@ -256,25 +226,27 @@ export default function AdminCategoryTaxonomyPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 font-sans sm:p-16">
-      <h1 className="font-heading text-xl font-extrabold text-foreground">Admin: category taxonomy</h1>
+    <div className="flex flex-col gap-5.5">
+      <div>
+        <h1 className="font-heading text-4xl font-extrabold">Category taxonomy</h1>
+        <p className="mt-1 text-[15px] text-body-text">Create, rename, or archive the categories every neighborhood shares.</p>
+      </div>
 
-      {error === "failed" && <p className="text-sm text-red-600 dark:text-red-400">Something went wrong.</p>}
       {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
 
-      <form onSubmit={handleCreateSubmit} className="flex flex-col gap-2 rounded-xl bg-card-alt p-4 text-sm">
+      <form onSubmit={handleCreateSubmit} className="flex flex-col gap-2 rounded-3xl border border-border bg-card p-6 text-sm">
         <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Add category</h2>
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="Name"
           required
-          className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
+          className="rounded-md border border-border bg-card-alt px-3 py-2 text-foreground"
         />
         <select
           value={newParentId}
           onChange={(e) => setNewParentId(e.target.value)}
-          className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
+          className="rounded-md border border-border bg-card-alt px-3 py-2 text-foreground"
         >
           <option value="">— New top-level group —</option>
           {activeGroups.map((g) => (
@@ -288,7 +260,7 @@ export default function AdminCategoryTaxonomyPage() {
             value={newGoogleTypes}
             onChange={(e) => setNewGoogleTypes(e.target.value)}
             placeholder="Google Places types, comma-separated (e.g. cafe, coffee_shop)"
-            className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
+            className="rounded-md border border-border bg-card-alt px-3 py-2 text-foreground"
           />
         )}
         <button

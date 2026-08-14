@@ -389,6 +389,23 @@ export interface CompleteSignupRequest {
   account_type?: AccountType;
 }
 
+// GET /admin/users (superAdminGate) -- every account on the platform, for
+// the super admin UI's user list (BACKLOG.md). Deliberately not the same
+// shape as AppUser: no mushroom_customization/avatar_url (not useful in a
+// tabular list) and role flags are the two grants a super admin actually
+// cares about when scanning accounts, not the full self-view.
+export interface AppUserAdminView {
+  id: string;
+  email: string | null;
+  display_name: string | null;
+  username: string | null;
+  account_type: AccountType;
+  visibility: ProfileVisibility;
+  created_at: string;
+  is_neighborhood_admin: boolean;
+  is_super_admin: boolean;
+}
+
 export interface ClaimedVenueSummary {
   venue_id: string;
   name: string;

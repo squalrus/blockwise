@@ -56,6 +56,9 @@ export class SupabasePlacesRepository implements PlacesRepository {
   }
 
   async upsertVenue(venue: UpsertVenueInput): Promise<void> {
+    // Conflict target matches venue_google_place_id_neighborhood_id_key --
+    // uniqueness is per neighborhood, not global, so the same Google Place
+    // can be claimed independently by more than one neighborhood.
     const { error } = await this.supabase.from("venue").upsert(
       {
         google_place_id: venue.googlePlaceId,
@@ -66,7 +69,7 @@ export class SupabasePlacesRepository implements PlacesRepository {
         address: venue.address,
         neighborhood_id: venue.neighborhoodId,
       },
-      { onConflict: "google_place_id" }
+      { onConflict: "google_place_id,neighborhood_id" }
     );
 
     if (error) throw new Error(`upsertVenue failed: ${error.message}`);

@@ -72,7 +72,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
-| 85 | [Super admin interface for app-level badges, challenges, and config](#super-admin-interface-for-app-level-badges-challenges-and-config) | feature | L | M | — |
 
 ### Marketing
 
@@ -329,14 +328,6 @@ No open limitations.
 **Depends:** —
 **Why** — project plan §10.4 specifies a CI/CD pipeline (GitHub Actions, lint/typecheck/unit tests on every PR, Playwright E2E for web, Sentry error tracking, feature flags for gradual mobile rollout) as part of the build plan, but the only correctness gate that exists today is a manual `npm run build` (per CONTRIBUTING.md) — no `.github/workflows`, E2E tests, or error tracking exist yet.
 **Notes:** Scope conservatively for current project size — GitHub Actions running lint/typecheck/unit tests plus Netlify preview deploys is the near-term win; Playwright E2E, Sentry, and feature flags can follow once there's more surface area (multiple developers, mobile app) to justify them. Detox/Maestro (mobile E2E) isn't relevant until [Native apps (React Native)](#native-apps-react-native) (Ref 1) exists.
-
-#### Super admin interface for app-level badges, challenges, and config
-
-**Ref:** 85
-**Type:** feature
-**Depends:** —
-**Why** — Neighborhood-admin and business-admin surfaces manage neighborhood/venue-scoped resources, but there's no dashboard for app-level (global) configuration — badge definitions, challenge templates, and other platform-wide settings that exist independent of any single neighborhood. The super admin role (shipped v0.48.0) currently only gates neighborhood creation (`superAdminGate` on `POST /admin/neighborhoods`) — it has no actual interface of its own yet.
-**Notes:** Likely a new `/admin/super` (or similar) route, gated by the existing `superAdminGate`. Scope: read/manage the global badge rule engine definitions (shipped v0.40.0) and challenge templates (referenced by [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) Ref 77's "launch a template" flow) that today only exist as seeded/backend data with no UI. A natural precursor to Ref 77, which needs admin-authored templates to exist somewhere before a neighborhood admin can "launch" one.
 
 ### Marketing
 

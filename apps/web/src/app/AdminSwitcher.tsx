@@ -6,7 +6,9 @@ import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
 export interface AdminSwitcherCurrent {
-  kind: "neighborhood" | "business";
+  kind: "neighborhood" | "business" | "super";
+  // Unused for kind "super" -- there's only one super-admin-mode entry, so
+  // nothing to disambiguate by id the way neighborhoods/venues are.
   id: string;
   label: string;
   sublabel?: string;
@@ -69,7 +71,8 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
 
   const showNeighborhoodsGroup = neighborhoods.length > 0 || user.is_neighborhood_admin || user.is_super_admin;
   const showBusinessesGroup = venues.length > 0;
-  const showEmptyState = !showNeighborhoodsGroup && !showBusinessesGroup;
+  const showSuperAdminGroup = user.is_super_admin;
+  const showEmptyState = !showNeighborhoodsGroup && !showBusinessesGroup && !showSuperAdminGroup;
 
   return (
     <div className="relative mb-4" ref={menuRef}>
@@ -140,6 +143,23 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
                   {v.name}
                 </a>
               ))}
+            </div>
+          )}
+
+          {showSuperAdminGroup && (
+            <div className="px-1.5 pb-1">
+              {(showNeighborhoodsGroup || showBusinessesGroup) && <div className="my-1 border-t border-border" />}
+              <div className="px-2.5 pt-1.5 pb-1 font-mono text-[10px] tracking-wide text-muted uppercase">
+                Platform
+              </div>
+              <a
+                href="/admin/super"
+                className={`block truncate rounded-lg px-2.5 py-1.5 text-[13px] font-bold ${
+                  current.kind === "super" ? "text-brand-purple" : "text-foreground hover:bg-card-alt"
+                }`}
+              >
+                Super admin mode
+              </a>
             </div>
           )}
 
