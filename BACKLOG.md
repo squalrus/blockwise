@@ -71,6 +71,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
+| 89 | [PWA install prompt and push notifications](#pwa-install-prompt-and-push-notifications) | feature | L | H | — |
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
 
 ### Marketing
@@ -320,6 +321,19 @@ No open limitations.
 **Depends:** —
 **Why** — Mobile is the primary long-term surface (free/unlimited Google Maps SDK, push notifications, in-person coupon redemption) but follows the web app so the API/data model is proven out first, per the user's direction to prioritize web for rapid dev.
 **Notes:** `apps/mobile` in the same monorepo, consuming the same `packages/api-client` and `packages/types` as web (project plan §10.3). Target feature parity with the web consumer experience (map, check-ins, announcements, challenges) once those web milestones land — this is a parity build, not a redesign.
+
+#### PWA install prompt and push notifications
+
+**Ref:** 89
+**Type:** feature
+**Depends:** —
+**Why** — The web app has zero installability or engagement-push capability today — no manifest, no service worker, no `Notification`/`serviceWorker`/`VAPID` code anywhere in the repo, confirmed by search. Every return visit is pull-only. [Native apps (React Native)](#native-apps-react-native) (Ref 1) explicitly calls out push notifications as a reason mobile is the long-term target surface, but that's a multi-session future build; a PWA install prompt + web push gets a real slice of that re-engagement value (home-screen icon, standalone app-like window, push-driven return visits) on the existing Next.js web app now, no App Store or React Native rewrite required. It's also the concrete "push" half of [Neighborhood notifications](#neighborhood-notifications) (Ref 9)'s still-open delivery-channel question.
+**Notes:** Three layers, all greenfield:
+1. **Installability** — add `apps/web/src/app/manifest.ts` (Next's typed manifest route) with name/icons (need real 192×192 and 512×512 PNGs — today there's only `icon.svg` and a 180×180 `apple-icon.png`)/`start_url`/`display: "standalone"`/`theme_color` (reuse `#2B1B12` already set in `layout.tsx`'s `viewport`)/`background_color`. Android/Chrome: listen for `beforeinstallprompt`, stash the event, show a custom "Install" CTA (Chrome doesn't auto-banner anymore). iOS Safari: **no `beforeinstallprompt` API exists there at all** — needs a hand-built "tap Share → Add to Home Screen" banner, gated by detecting iOS Safari and checking `navigator.standalone` / `matchMedia('(display-mode: standalone)')` so it doesn't nag once already installed, plus `appleWebApp` metadata tags.
+2. **Service worker** — Next 16's App Router has no built-in SW tooling; hand-write `apps/web/public/service-worker.js` (a `fetch` listener plus `push`/`notificationclick` listeners) and register it from a small client component, or adopt Serwist later if offline asset caching becomes a separate goal (not needed just for push). Netlify serves `public/` with default caching, so `service-worker.js` needs an explicit no-cache header rule in `netlify.toml` or updates won't reach already-installed clients.
+3. **Push delivery** — client: `Notification.requestPermission()` (must be user-gesture-triggered) → `registration.pushManager.subscribe()` with a VAPID public key → POST the subscription to a new `apps/api` endpoint. Server: new push-subscription table (`user_id`, `endpoint`, `keys`, timestamps), `POST /me/push-subscriptions` + `DELETE /me/push-subscriptions/:id` (new routes — update `docs/url-map.md` per CLAUDE.md), the `web-push` npm package plus VAPID keys as env vars, and something to trigger sends (Ref 9's neighborhood-notification authoring is the obvious first caller). iOS-specific catch: Web Push there only works once the site is already installed to the home screen and running in standalone mode — Safari refuses permission from a regular browser tab — so the opt-in UI needs to detect that and steer iOS users to install first.
+
+Also touches `apps/marketing/src/app/privacy/page.tsx` (new data collection: push subscription endpoint/keys; new third-party processors — Google's FCM for Chrome/Android push, Apple's push service for iOS) and `faq/page.tsx` if this ships as a user-facing "enable notifications" toggle, per CLAUDE.md. Open questions: ship install-prompt-only first with push as a fast-follow, or both together? And does the first real push send wire straight into Ref 9, or does the subscribe/unsubscribe plumbing ship with just a manual/test trigger first?
 
 #### CI/CD pipeline
 
