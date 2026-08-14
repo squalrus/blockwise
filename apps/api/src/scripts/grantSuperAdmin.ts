@@ -1,12 +1,13 @@
 import { getSupabaseClient } from "../supabase";
 
 // This is a local-only entrypoint (unlike apps/api/netlify/functions, where
-// Netlify injects environment variables directly) so it loads apps/api/.env
-// itself -- nothing else in the process does that automatically.
+// Netlify injects environment variables directly) so it loads
+// apps/api/.env.local itself -- nothing else in the process does that
+// automatically.
 try {
-  process.loadEnvFile();
+  process.loadEnvFile(".env.local");
 } catch {
-  // No .env file present -- fine if the environment was set some other way.
+  // No .env.local file present -- fine if the environment was set some other way.
 }
 
 // Grants an account super admin access (BACKLOG.md) -- the CLI-only

@@ -37,13 +37,13 @@ npm install
 **Environment variables** — copy each app's `.env.example` and fill in real values:
 
 ```bash
-cp apps/api/.env.example apps/api/.env
+cp apps/api/.env.example apps/api/.env.local
 cp apps/web/.env.example apps/web/.env.local
 cp apps/marketing/.env.example apps/marketing/.env.local
 ```
 
-- `apps/api/.env` needs a Supabase project's URL + service-role key, and (optionally) a Google Places API key — see [docs/google-places-setup.md](./docs/google-places-setup.md) if you don't have one yet.
-- `apps/web/.env.local` needs the same Supabase project's URL + anon key (browser-side auth only), plus a Google Maps JavaScript API key for the map view.
+- `apps/api/.env.local` needs a Supabase project's URL + service-role key, and (optionally) a Google Places API key — see [docs/google-places-setup.md](./docs/google-places-setup.md) if you don't have one yet. It also takes a VAPID keypair for web push (`npx web-push generate-vapid-keys` to generate one) — the public half must match `apps/web/.env.local`'s `NEXT_PUBLIC_VAPID_PUBLIC_KEY`.
+- `apps/web/.env.local` needs the same Supabase project's URL + anon key (browser-side auth only), plus a Google Maps JavaScript API key for the map view, and the VAPID public key above.
 - `apps/marketing/.env.local` — default (`http://localhost:3000`) already points at a locally running `apps/web`, no changes needed for local dev.
 - See [supabase/README.md](./supabase/README.md) for linking to the hosted project or running a local Postgres/Auth/Storage stack instead.
 

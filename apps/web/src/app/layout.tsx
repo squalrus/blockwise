@@ -3,6 +3,7 @@ import Script from "next/script";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { baloo2, jetbrainsMono, nunito } from "@blockwise/ui";
 import { SITE_URL } from "@/lib/siteUrl";
+import { ServiceWorkerRegistration } from "./ServiceWorkerRegistration";
 import { SiteChrome } from "./SiteChrome";
 import "./globals.css";
 
@@ -40,6 +41,14 @@ export const metadata: Metadata = {
     title,
     description,
   },
+  // iOS has no beforeinstallprompt/manifest install path of its own -- these
+  // are what make "Add to Home Screen" launch standalone (no Safari chrome)
+  // with the right title, instead of falling back to a plain bookmarked tab.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title,
+  },
 };
 
 // Matches --nav's cocoa in both themes, so the browser/OS chrome (mobile
@@ -62,6 +71,7 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
         </Script>
+        <ServiceWorkerRegistration />
         <SiteChrome>{children}</SiteChrome>
       </body>
       {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (

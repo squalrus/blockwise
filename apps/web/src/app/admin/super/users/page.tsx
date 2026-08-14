@@ -13,6 +13,21 @@ type State =
 
 type SortOption = "newest" | "oldest" | "name" | "email";
 
+// Local to this page -- mirrors apps/api/src/pushSubscriptions's
+// SendPushSummary shape, not worth sharing via @blockwise/types for one
+// admin-only fetch response.
+interface SendPushSummary {
+  sent: number;
+  pruned: number;
+  failed: number;
+}
+
+type TestPushState =
+  | { status: "idle" }
+  | { status: "sending" }
+  | { status: "done"; summary: SendPushSummary }
+  | { status: "error"; message: string };
+
 const SORT_LABELS: Record<SortOption, string> = {
   newest: "Newest first",
   oldest: "Oldest first",
@@ -31,6 +46,43 @@ export default function SuperAdminUsersPage() {
   const [state, setState] = useState<State>({ status: "loading" });
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("newest");
+  // Only one row's test-push form open at a time, keyed by user id --
+  // BACKLOG.md Ref 89's manual/test trigger, exposed here so it can target
+  // any account rather than only the calling admin's own subscriptions.
+  const [openTestPushUserId, setOpenTestPushUserId] = useState<string | null>(null);
+  const [testPushTitle, setTestPushTitle] = useState("");
+  const [testPushBody, setTestPushBody] = useState("");
+  const [testPushState, setTestPushState] = useState<TestPushState>({ status: "idle" });
+
+  function toggleTestPush(userId: string) {
+    if (openTestPushUserId === userId) {
+      setOpenTestPushUserId(null);
+      return;
+    }
+    setOpenTestPushUserId(userId);
+    setTestPushTitle("");
+    setTestPushBody("");
+    setTestPushState({ status: "idle" });
+  }
+
+  async function sendTestPush(userId: string) {
+    if (!testPushTitle.trim() || !testPushBody.trim()) return;
+    setTestPushState({ status: "sending" });
+
+    const token = await getAccessToken();
+    const res = await fetch(clientApiUrl("/admin/push-subscriptions/test-send"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ userId, title: testPushTitle.trim(), body: testPushBody.trim() }),
+    });
+
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      setTestPushState({ status: "error", message: payload?.error ?? "Failed to send" });
+      return;
+    }
+    setTestPushState({ status: "done", summary: await res.json() });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -131,33 +183,82 @@ export default function SuperAdminUsersPage() {
         {filtered?.map((user) => (
           <li
             key={user.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border-2 border-border/60 bg-card px-4 py-3.5"
+            className="flex flex-col gap-2.5 rounded-2xl border-2 border-border/60 bg-card px-4 py-3.5"
           >
-            <div className="flex flex-col">
-              <span className="font-heading text-[15px] font-bold">
-                {user.display_name ?? user.username ?? user.email ?? "Unnamed account"}
-              </span>
-              <span className="font-mono text-[11px] text-muted">
-                {user.email ?? "no email"}
-                {user.username && ` · @${user.username}`}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="rounded-full border border-border bg-card-alt px-2.25 py-0.5 text-[10px] font-extrabold text-muted-strong">
-                {user.account_type}
-              </span>
-              {user.is_neighborhood_admin && (
-                <span className="rounded-full bg-brand-purple/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-purple">
-                  Neighborhood admin
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-col">
+                <span className="font-heading text-[15px] font-bold">
+                  {user.display_name ?? user.username ?? user.email ?? "Unnamed account"}
                 </span>
-              )}
-              {user.is_super_admin && (
-                <span className="rounded-full bg-brand-orange/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-orange">
-                  Super admin
+                <span className="font-mono text-[11px] text-muted">
+                  {user.email ?? "no email"}
+                  {user.username && ` · @${user.username}`}
                 </span>
-              )}
-              <span className="font-mono text-[11px] text-muted">{new Date(user.created_at).toLocaleDateString()}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="rounded-full border border-border bg-card-alt px-2.25 py-0.5 text-[10px] font-extrabold text-muted-strong">
+                  {user.account_type}
+                </span>
+                {user.is_neighborhood_admin && (
+                  <span className="rounded-full bg-brand-purple/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-purple">
+                    Neighborhood admin
+                  </span>
+                )}
+                {user.is_super_admin && (
+                  <span className="rounded-full bg-brand-orange/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-orange">
+                    Super admin
+                  </span>
+                )}
+                <span className="font-mono text-[11px] text-muted">
+                  {new Date(user.created_at).toLocaleDateString()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleTestPush(user.id)}
+                  className="rounded-full border border-border px-2.25 py-0.5 text-[10px] font-extrabold text-foreground hover:bg-card-alt"
+                >
+                  Send test push
+                </button>
+              </div>
             </div>
+
+            {openTestPushUserId === user.id && (
+              <div className="flex flex-col gap-2 rounded-xl bg-card-alt px-3 py-3">
+                <input
+                  value={testPushTitle}
+                  onChange={(e) => setTestPushTitle(e.target.value)}
+                  placeholder="Notification title"
+                  className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground"
+                />
+                <input
+                  value={testPushBody}
+                  onChange={(e) => setTestPushBody(e.target.value)}
+                  placeholder="Notification body"
+                  className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={testPushState.status === "sending" || !testPushTitle.trim() || !testPushBody.trim()}
+                    onClick={() => sendTestPush(user.id)}
+                    className="rounded-full bg-brand-purple px-3 py-1 text-xs font-bold text-on-accent disabled:opacity-60"
+                  >
+                    {testPushState.status === "sending" ? "Sending…" : "Send"}
+                  </button>
+                  {testPushState.status === "done" && (
+                    <span className="text-xs text-muted">
+                      {testPushState.summary.sent > 0
+                        ? `Sent to ${testPushState.summary.sent} device${testPushState.summary.sent === 1 ? "" : "s"}.`
+                        : "This user has no active push subscriptions."}
+                      {testPushState.summary.pruned > 0 && ` (${testPushState.summary.pruned} stale, removed)`}
+                    </span>
+                  )}
+                  {testPushState.status === "error" && (
+                    <span className="text-xs text-red-600 dark:text-red-400">{testPushState.message}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </li>
         ))}
       </ul>
