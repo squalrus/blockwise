@@ -52,6 +52,7 @@ export default async function NeighborhoodLocationsPage({
       category_name: "Point of interest",
       category_group: null,
     }));
+  const merged = [...venues, ...pois].sort((a, b) => a.name.localeCompare(b.name));
 
-  return <VenuesView venues={[...venues, ...pois]} />;
+  return <VenuesView venues={merged} />;
 }

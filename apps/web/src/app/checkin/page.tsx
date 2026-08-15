@@ -26,6 +26,7 @@ export default function CheckinPage() {
   // new active neighborhood server-side (setActiveNeighborhood below), same
   // endpoint /account/settings uses.
   const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState<string | null>(null);
+  const [selectedNeighborhoodSlug, setSelectedNeighborhoodSlug] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,9 +51,9 @@ export default function CheckinPage() {
 
       const neighborhoods: NeighborhoodMembership[] = await res.json();
       setState({ status: "ready", neighborhoods });
-      setSelectedNeighborhoodId(
-        neighborhoods.find((n) => n.is_primary)?.neighborhood_id ?? neighborhoods[0]?.neighborhood_id ?? null,
-      );
+      const active = neighborhoods.find((n) => n.is_primary) ?? neighborhoods[0] ?? null;
+      setSelectedNeighborhoodId(active?.neighborhood_id ?? null);
+      setSelectedNeighborhoodSlug(active?.slug ?? null);
     }
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -65,6 +66,9 @@ export default function CheckinPage() {
   async function setActiveNeighborhood(neighborhoodId: string) {
     if (state.status !== "ready") return;
     setSelectedNeighborhoodId(neighborhoodId);
+    setSelectedNeighborhoodSlug(
+      state.neighborhoods.find((n) => n.neighborhood_id === neighborhoodId)?.slug ?? null,
+    );
 
     const token = await getAccessToken();
     const res = await fetch(clientApiUrl(`/neighborhoods/${neighborhoodId}/home`), {
@@ -110,7 +114,11 @@ export default function CheckinPage() {
       )}
 
       {state.status === "ready" && (
-        <NearestVenues key={selectedNeighborhoodId} neighborhoodId={selectedNeighborhoodId} />
+        <NearestVenues
+          key={selectedNeighborhoodId}
+          neighborhoodId={selectedNeighborhoodId}
+          neighborhoodSlug={selectedNeighborhoodSlug}
+        />
       )}
     </div>
   );
