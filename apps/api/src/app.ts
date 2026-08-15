@@ -142,6 +142,7 @@ import {
 import { SupabaseLocationRepository } from "./locations/supabaseRepository";
 import {
   notifyConnectionsOfCheckin,
+  notifySuperAdminsOfFeedback,
   notifySuperAdminsOfSignup,
   notifyUserOfConnectionAccepted,
   notifyUserOfConnectionRequest,
@@ -1507,10 +1508,11 @@ export function createApp() {
 
   // BETA-prep: signed-in-only bug report/feature request submission, tracked
   // through a triage lifecycle (feedback/repository.ts's FeedbackState) --
-  // no admin UI yet, see GET/PATCH /admin/feedback below. Awards the
-  // "Feedback Giver" badge on every call; awardBadgeByCode's unique-
-  // violation swallow makes it safe to call unconditionally rather than
-  // separately tracking whether this is the user's first submission.
+  // triaged in the super admin shell's Feedback tab, see GET/PATCH
+  // /admin/feedback below. Awards the "Feedback Giver" badge on every call;
+  // awardBadgeByCode's unique-violation swallow makes it safe to call
+  // unconditionally rather than separately tracking whether this is the
+  // user's first submission.
   app.post("/me/feedback", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
     const { type, comment } = req.body ?? {};
     if (typeof type !== "string" || typeof comment !== "string") {
@@ -1531,6 +1533,17 @@ export function createApp() {
         console.error(`awardFeedbackGiverBadge (user ${req.appUser!.id}) failed:`, err);
       }
 
+      try {
+        await notifySuperAdminsOfFeedback(
+          { displayName: req.appUser!.displayName, type: result.submission.type },
+          getSuperAdminRepository(),
+          getPushSubscriptionRepository(),
+          getWebPushSender()
+        );
+      } catch (err) {
+        console.error("notifySuperAdminsOfFeedback failed:", err);
+      }
+
       res.status(201).json(result.submission);
     } catch (err) {
       console.error("POST /me/feedback failed:", err);
@@ -1538,12 +1551,11 @@ export function createApp() {
     }
   });
 
-  // Admin triage list (BETA-prep) -- no dedicated admin UI yet, but the list
-  // and state-transition routes exist so submissions are reachable via a
-  // direct API call in the meantime. Gated by adminGate (global admin role,
-  // same as /admin/category-taxonomy) since feedback isn't scoped to any one
-  // neighborhood or business.
-  app.get("/admin/feedback", adminGate, async (_req, res) => {
+  // Admin triage list -- surfaced in the super admin shell's Feedback tab.
+  // Gated to superAdminGate (moved from adminGate along with the web UI,
+  // mirroring /admin/category-taxonomy's move) since feedback isn't scoped
+  // to any one neighborhood or business.
+  app.get("/admin/feedback", superAdminGate, async (_req, res) => {
     try {
       const submissions = await listFeedbackForAdmin(getFeedbackRepository());
       res.json(submissions);
@@ -1558,7 +1570,7 @@ export function createApp() {
   // rather than inside updateFeedbackState itself (mirrors where
   // awardEventFollowBadge is called, at the route layer rather than inside
   // the domain function).
-  app.patch("/admin/feedback/:id", adminGate, async (req, res) => {
+  app.patch("/admin/feedback/:id", superAdminGate, async (req, res) => {
     const { state } = req.body ?? {};
     if (typeof state !== "string") {
       res.status(400).json({ error: "state is required" });

@@ -1,6 +1,6 @@
 {
   "name": "@blockwise/web",
-  "version": "0.58.0",
+  "version": "0.59.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -24,7 +24,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@netlify/plugin-nextjs": "^5.7.4",
+    "@netlify/plugin-nextjs": "^5.15.13",
     "@tailwindcss/postcss": "^4",
     "@types/google.maps": "^3.65.2",
     "@types/node": "^20",

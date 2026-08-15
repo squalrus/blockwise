@@ -2,6 +2,20 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.59.0] — 2026-08-14
+
+### Added
+
+- **Super admin Feedback tab, plus a "someone submitted feedback" push notification.** `GET /admin/feedback`/`PATCH /admin/feedback/:id` (shipped v0.55.0 with no UI to use them) are now surfaced at `/admin/super/feedback`: a searchable, type-filterable triage list with a multiselect state dropdown (defaults to hiding Done/Removed, all four states still reachable) and a per-row inline state control. Both routes' gate tightened from `adminGate` to `superAdminGate`, mirroring the Category taxonomy tab's earlier move, since feedback isn't scoped to any one neighborhood or business. The Overview tab gained "Feedback submissions"/"Needs triage" stat tiles and a "Recent feedback" preview (latest 5 non-resolved submissions, linking to the full tab). Submitting feedback (`POST /me/feedback`) now also pushes every super admin ("{name} submitted a bug report/feature request"), reusing the `sendPushToUsers` fan-out v0.58.0's notification triggers introduced. (BACKLOG.md Ref 90; `apps/web/src/app/admin/super/feedback/`, `apps/web/src/app/admin/super/page.tsx`, `apps/web/src/app/admin/super/layout.tsx`, `apps/api/src/app.ts`, `apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Dependency bump: Netlify's Next.js plugin and Turborepo.** `@netlify/plugin-nextjs` `^5.7.4` → `^5.15.13` (both `apps/web` and `apps/marketing`, per Netlify's "outdated plugin" build notice); `turbo` `^2.1.3` → `^2.10.10` at the root, plus a new `npm run clean` script (clears every workspace's `.turbo` cache directory via plain Node `fs.rmSync` rather than `rm -rf`, so it works on Windows too). (`apps/web/package.json`, `apps/marketing/package.json`, `package.json`, `turbo.json`, `package-lock.json`)
+
+### Fixed
+
+- **"Send feedback" in the account menu didn't match the color of the menu items around it.** My account/Settings/What's new are `<a>` tags, which inherit the app-wide purple link color from a global base rule; "Send feedback" is a `<button>` (it opens a modal rather than navigating), so it fell back to plain foreground text instead. Colored it to match. (BACKLOG.md Ref 92; `apps/web/src/app/AccountMenu.tsx`)
+
 ## [0.58.0] — 2026-08-14
 
 ### Added

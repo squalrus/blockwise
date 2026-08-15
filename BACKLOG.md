@@ -35,6 +35,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
 | 80 | [Missing location suggestion UI](#missing-location-suggestion-ui) | feature | S | M | — |
 | 88 | [Hide past events in the admin Events tabs](#hide-past-events-in-the-admin-events-tabs) | improvement | S | M | — |
+| 93 | [POIs missing from the check-in page](#pois-missing-from-the-check-in-page) | known issue | S | M | — |
 | 76 | [Self-serve neighborhood-admin invite/remove UI](#self-serve-neighborhood-admin-inviteremove-ui) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 77 | [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) | feature | L | M | — |
@@ -64,6 +65,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 86 | [Follow events that are currently in progress](#follow-events-that-are-currently-in-progress) | improvement | S | M | — |
 | 87 | [Show events from followed businesses in the Spore feed](#show-events-from-followed-businesses-in-the-spore-feed) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
+| 94 | [Mushroom size reflects recent check-in activity](#mushroom-size-reflects-recent-check-in-activity) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
@@ -71,8 +73,8 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
-| 90 | [Super admin feedback viewing UI](#super-admin-feedback-viewing-ui) | feature | S | M | — |
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
+| 91 | [Custom 404 page](#custom-404-page) | feature | S | L | — |
 
 ### Marketing
 
@@ -187,6 +189,14 @@ No open limitations.
 **Depends:** —
 **Why** — Both the neighborhood-admin and business-admin Events tabs (`admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `admin/business/[venueId]/events/page.tsx`) list every event from the dashboard summary with no date filtering — unlike the public Upcoming/Today tabs, which already exclude events whose `end_time` has passed. Over time the admin "Upcoming" list fills up with events that already happened, making it harder to scan for what's actually coming up and to manage the calendar-feed-synced set.
 **Notes:** Both admin pages already need to see hidden events (there's something to Unhide), which is why their dashboard fetch passes `includeHidden = true` — the same reasoning applies here: keep past events fetched (a manual delete/audit trail use case might still want them), but hide them from the default view behind a "Show past" toggle, mirroring the Locations tab's existing "Show hidden" toggle pattern (`admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`). Simplest cut: a client-side filter on `event.end_time < now` in both pages' render, no API changes needed. Applies identically to both admin shells since they share the same `EventListItem`-based Upcoming list layout.
+
+#### POIs missing from the check-in page
+
+**Ref:** 93
+**Type:** known issue
+**Depends:** —
+**Why** — The check-in page's nearby-venues list should surface both regular venues and POIs (multi-POI venues like markets/food halls got curated POI support per project plan §3), but POIs currently don't show up there — users at a POI-only location have nothing to check into.
+**Notes:** Needs investigation into `NearestVenues`/the check-in page's data source (`apps/web/src/app/checkin/`) to confirm whether the underlying query excludes POIs, or the query is right but rendering/filtering drops them. Check whether the same gap affects other venue-listing surfaces (neighborhood Locations tab, venue search) or is isolated to check-in.
 
 ### Business & Venue
 
@@ -312,6 +322,14 @@ No open limitations.
 **Why** — `GET /neighborhoods/:slug/leaderboard` (`apps/api/src/gamification/supabaseRepository.ts`) computes each user's total by fetching every `point_event` row for the neighborhood and summing in JS, rather than a DB-side aggregation. Fine at pilot scale (one small neighborhood), but this will slow down and burn memory as a neighborhood's check-in/favorite history grows.
 **Notes:** Replace the client-side sum with a DB-side `GROUP BY`/`SUM` (a Postgres view, materialized view, or RPC function) so aggregation scales with the database rather than with rows pulled over the wire. Revisit once a neighborhood's `point_event` row count becomes large enough to notice — not urgent today.
 
+#### Mushroom size reflects recent check-in activity
+
+**Ref:** 94
+**Type:** feature
+**Depends:** —
+**Why** — Badge/profile cards currently show a static mushroom regardless of how active someone actually is. Scoping "recent" to a rolling 60-day window and scaling mushroom size with check-in count within that window turns the mushroom into a living activity indicator — more engaging than a flat badge, and gives frequent visitors visible recognition on neighborhood/location badge cards and on their own profile, alongside showing neighbors' and other users' check-in mushrooms for social comparison.
+**Notes:** Needs a check-in count aggregated over a rolling 60-day window per (user, neighborhood) or (user, location) pair, likely a query alongside the existing badge-award logic rather than a new table. "Always show latest checkins" suggests the card should also surface the most recent check-in timestamp, not just a size-scaled mushroom. Open questions: exact size-scaling curve (linear vs. stepped tiers), where the neighbor/other-users' mushrooms render on a personal profile (a strip/grid alongside the user's own large mushroom), and whether this replaces or supplements the existing badge iconography.
+
 ### Infrastructure & Design
 
 #### Native apps (React Native)
@@ -322,14 +340,6 @@ No open limitations.
 **Why** — Mobile is the primary long-term surface (free/unlimited Google Maps SDK, push notifications, in-person coupon redemption) but follows the web app so the API/data model is proven out first, per the user's direction to prioritize web for rapid dev.
 **Notes:** `apps/mobile` in the same monorepo, consuming the same `packages/api-client` and `packages/types` as web (project plan §10.3). Target feature parity with the web consumer experience (map, check-ins, announcements, challenges) once those web milestones land — this is a parity build, not a redesign.
 
-#### Super admin feedback viewing UI
-
-**Ref:** 90
-**Type:** feature
-**Depends:** —
-**Why** — Feedback submissions (shipped v0.55.0, badges + BETA label) are collected via `FeedbackModal` and reachable server-side (`GET /admin/feedback`, `PATCH /admin/feedback/:id` — both `adminGate`-protected, state-transition-to-"done" already awards the "Contributor" badge), but there's no admin UI page to actually view them — the routes exist "so submissions are reachable via a direct API call in the meantime" per the code comment at `apps/api/src/app.ts:1466`. Admins currently have no way to triage feedback without hitting the API directly.
-**Notes:** No API or schema changes needed — this is purely a new `/admin/feedback` page in `apps/web/src/app/admin/` (parallel to the existing super-admin users/category-taxonomy interfaces, shipped v0.56.0), listing `GET /admin/feedback` results with filter/search by `type` (bug|feature) and `state` (new|in_progress|done|removed), and a state-transition control per row wired to the existing `PATCH /admin/feedback/:id`.
-
 #### CI/CD pipeline
 
 **Ref:** 25
@@ -337,6 +347,14 @@ No open limitations.
 **Depends:** —
 **Why** — project plan §10.4 specifies a CI/CD pipeline (GitHub Actions, lint/typecheck/unit tests on every PR, Playwright E2E for web, Sentry error tracking, feature flags for gradual mobile rollout) as part of the build plan, but the only correctness gate that exists today is a manual `npm run build` (per CONTRIBUTING.md) — no `.github/workflows`, E2E tests, or error tracking exist yet.
 **Notes:** Scope conservatively for current project size — GitHub Actions running lint/typecheck/unit tests plus Netlify preview deploys is the near-term win; Playwright E2E, Sentry, and feature flags can follow once there's more surface area (multiple developers, mobile app) to justify them. Detox/Maestro (mobile E2E) isn't relevant until [Native apps (React Native)](#native-apps-react-native) (Ref 1) exists.
+
+#### Custom 404 page
+
+**Ref:** 91
+**Type:** feature
+**Depends:** —
+**Why** — Next.js's default not-found page is generic and off-brand; every other page in the app follows Spored's mushroom/nav visual language, so a mismatched 404 breaks that consistency at exactly the moment a user is already lost.
+**Notes:** Add `apps/web/src/app/not-found.tsx`, styled to match the rest of the site (MushroomLogo, nav-consistent typography), with a link back to `/`. Small, self-contained — no API/schema changes.
 
 ### Marketing
 

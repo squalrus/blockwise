@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   notifyConnectionsOfCheckin,
+  notifySuperAdminsOfFeedback,
   notifySuperAdminsOfSignup,
   notifyUserOfConnectionAccepted,
   notifyUserOfConnectionRequest,
@@ -344,6 +345,46 @@ describe("notifySuperAdminsOfSignup", () => {
       pushRepo,
       sender
     );
+
+    expect(summary).toEqual({ sent: 0, pruned: 0, failed: 0 });
+    expect(sender.sent).toHaveLength(0);
+  });
+});
+
+describe("notifySuperAdminsOfFeedback", () => {
+  it("sends a push to every super admin, wording bug vs. feature differently", async () => {
+    const superAdminRepo = new FakeSuperAdminRepository(["admin-1", "admin-2"]);
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "admin-1", endpoint: "https://push.example/a", keys: KEYS });
+    await pushRepo.upsertSubscription({ userId: "admin-2", endpoint: "https://push.example/b", keys: KEYS });
+    const sender = new FakePushSender([{ status: "sent" }, { status: "sent" }]);
+
+    const summary = await notifySuperAdminsOfFeedback({ displayName: "Jane", type: "bug" }, superAdminRepo, pushRepo, sender);
+
+    expect(summary).toEqual({ sent: 2, pruned: 0, failed: 0 });
+    expect(sender.sent).toEqual([
+      { title: "New feedback", body: "Jane submitted a bug report" },
+      { title: "New feedback", body: "Jane submitted a bug report" },
+    ]);
+  });
+
+  it("falls back to a generic name when display name is missing, and words feature requests differently", async () => {
+    const superAdminRepo = new FakeSuperAdminRepository(["admin-1"]);
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "admin-1", endpoint: "https://push.example/a", keys: KEYS });
+    const sender = new FakePushSender();
+
+    await notifySuperAdminsOfFeedback({ displayName: null, type: "feature" }, superAdminRepo, pushRepo, sender);
+
+    expect(sender.sent).toEqual([{ title: "New feedback", body: "Someone submitted a feature request" }]);
+  });
+
+  it("does nothing when there are no super admins", async () => {
+    const superAdminRepo = new FakeSuperAdminRepository();
+    const pushRepo = new FakePushSubscriptionRepository();
+    const sender = new FakePushSender();
+
+    const summary = await notifySuperAdminsOfFeedback({ displayName: "Jane", type: "bug" }, superAdminRepo, pushRepo, sender);
 
     expect(summary).toEqual({ sent: 0, pruned: 0, failed: 0 });
     expect(sender.sent).toHaveLength(0);

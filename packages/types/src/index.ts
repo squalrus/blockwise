@@ -535,9 +535,9 @@ export interface CreateEventRequest {
 
 // User-submitted bug reports/feature requests (BETA-prep): a signed-in-only
 // freeform comment tied to the account, POST /me/feedback. Triaged through
-// `state` -- awards the "Feedback Giver" badge on first submission and the
-// "Contributor" badge when a submission is later marked "done" (no admin UI
-// yet; state moves via PATCH /admin/feedback/:id in the meantime).
+// `state` in the super admin shell's Feedback tab -- awards the "Feedback
+// Giver" badge on first submission and the "Contributor" badge when a
+// submission is later marked "done" via PATCH /admin/feedback/:id.
 export type FeedbackType = "bug" | "feature";
 export type FeedbackState = "new" | "in_progress" | "done" | "removed";
 
@@ -556,7 +556,7 @@ export interface CreateFeedbackRequest {
 }
 
 // GET /admin/feedback -- joined with basic submitter identity for triage,
-// since a bare user_id isn't useful without an admin UI to look it up.
+// since a bare user_id isn't useful in the admin UI without it.
 export interface FeedbackSubmissionAdminView extends FeedbackSubmission {
   user_display_name: string | null;
   user_email: string | null;
