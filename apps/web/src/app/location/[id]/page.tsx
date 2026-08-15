@@ -111,10 +111,7 @@ export default async function LocationDetailPage({
         />
       )}
 
-      <LocationSummaryCard
-        location={location}
-        favoriteAction={isBusiness ? <FavoriteButton venueId={location.id} /> : undefined}
-      />
+      <LocationSummaryCard location={location} favoriteAction={<FavoriteButton venueId={location.id} />} />
 
       {(isBusiness || location.enrichment) && (
         <EnrichmentAbout

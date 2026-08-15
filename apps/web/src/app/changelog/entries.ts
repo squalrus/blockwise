@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.59.2", date: "2026-08-15", summary: "Feedback tab badge, consistent Join/Favorite/Connect button styling, review dates and a latest-3 cap on venue reviews, dev component library split into linkable per-section URLs" },
   { version: "0.59.1", date: "2026-08-15", summary: "Fixed POIs missing from the check-in page, and made the Locations tab's merged list truly alphabetical" },
   { version: "0.59.0", date: "2026-08-14", summary: "Super admin Feedback tab with push notifications on new submissions, feedback menu color fix" },
   { version: "0.58.0", date: "2026-08-14", summary: "Push notifications for neighbor check-ins, connection requests, and new signups" },

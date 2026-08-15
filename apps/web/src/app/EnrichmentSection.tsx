@@ -126,35 +126,57 @@ export function EnrichmentAbout({
   );
 }
 
+// Aggregate rating (Google's overall place rating, distinct from each
+// individual review's own star count below) used to live in
+// LocationSummaryCard's header -- moved here so both it and the sampled
+// reviews it summarizes live in one place, and shown even when Google
+// returned a rating but no individual reviews to list.
 export function EnrichmentReviews({ enrichment }: { enrichment: VenueEnrichmentCache | null }) {
-  if (!enrichment || enrichment.reviews.length === 0) return null;
+  if (!enrichment || (enrichment.rating == null && enrichment.reviews.length === 0)) return null;
 
   return (
     <div>
-      <p className="mb-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">Reviews</p>
-      <ul className="flex flex-col gap-2">
-        {enrichment.reviews.map((review, index) => {
-          const author = review.author_name ?? "Neighbor";
-          const accent = avatarAccentFor(author);
-          return (
-            <li key={index} className="rounded-2xl bg-card-alt px-4 py-3.5">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`flex h-6.5 w-6.5 items-center justify-center rounded-full text-xs font-extrabold ${accent.text}`}
-                  style={{ backgroundColor: accent.bg }}
-                >
-                  {author.charAt(0).toUpperCase()}
+      <div className="mb-2.5 flex items-center gap-2">
+        <p className="text-xs font-extrabold tracking-wide text-muted uppercase">Reviews</p>
+        {enrichment.rating != null && (
+          <span className="flex items-center gap-1 text-sm font-extrabold text-foreground">
+            ★ {enrichment.rating}
+          </span>
+        )}
+      </div>
+      {enrichment.reviews.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {/* Latest 3 -- reviewsSort=newest at fetch time (places/client.ts)
+              means this slice really is the most recent, not just the first
+              3 of whatever order Google returned. */}
+          {enrichment.reviews.slice(0, 3).map((review, index) => {
+            const author = review.author_name ?? "Neighbor";
+            const accent = avatarAccentFor(author);
+            return (
+              <li key={index} className="rounded-2xl bg-card-alt px-4 py-3.5">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`flex h-6.5 w-6.5 items-center justify-center rounded-full text-xs font-extrabold ${accent.text}`}
+                    style={{ backgroundColor: accent.bg }}
+                  >
+                    {author.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-[12.5px] font-extrabold text-foreground">
+                    {author}
+                    {review.rating != null ? ` ${"★".repeat(review.rating)}` : ""}
+                  </span>
+                  {review.published_at && (
+                    <span className="ml-auto text-[11px] font-bold text-muted">
+                      {new Date(review.published_at).toLocaleDateString()}
+                    </span>
+                  )}
                 </div>
-                <span className="text-[12.5px] font-extrabold text-foreground">
-                  {author}
-                  {review.rating != null ? ` ${"★".repeat(review.rating)}` : ""}
-                </span>
-              </div>
-              {review.text && <p className="mt-2 text-[12.5px] text-body-text">{review.text}</p>}
-            </li>
-          );
-        })}
-      </ul>
+                {review.text && <p className="mt-2 text-[12.5px] text-body-text">{review.text}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

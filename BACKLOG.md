@@ -46,6 +46,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 22 | [Category browsing & filtering](#category-browsing--filtering) | improvement | S | M | — |
+| 96 | [Investigate missing locations from Google Places API](#investigate-missing-locations-from-google-places-api) | known issue | S | M | — |
 | 7 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | feature | M | M | — |
 | 18 | [Business-editable venue basic data](#business-editable-venue-basic-data) | feature | M | M | — |
 | 38 | [Map on business page](#map-on-business-page) | feature | M | M | — |
@@ -71,6 +72,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
+| 95 | [Dev instance of the app (Netlify and Supabase)](#dev-instance-of-the-app-netlify-and-supabase) | improvement | L | H | — |
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
 | 91 | [Custom 404 page](#custom-404-page) | feature | S | L | — |
 
@@ -197,6 +199,14 @@ No open limitations.
 **Depends:** —
 **Why** — The 39-category taxonomy (project plan §2, shipped v0.4.0) exists server-side, but the venue list only shows category as plain text next to the address — there's no way to filter or browse by category today.
 **Notes:** Filter chips or a category picker on the venues list and map view (map view shipped v0.7.0, already color-codes markers by category group per project plan §1.7). Reuses the existing `Category`/`source_mapping_json` data, no new schema needed.
+
+#### Investigate missing locations from Google Places API
+
+**Ref:** 96
+**Type:** known issue
+**Depends:** —
+**Why** — Some venues that users or admins report as missing are not found in Google Places API results, making them impossible to add to the neighborhood's database through the normal sync/discovery flow. Understanding why (API limitation, search index lag, business not yet claimed on Maps, location archived, etc.) and documenting how to debug these cases helps admins triage missing-venue reports and identify where to take action (e.g. claiming on Google, opening a support ticket with Google, manually adding the location).
+**Notes:** Build or document a debugging toolkit for admins investigating missing venues: given a venue name and approximate location (lat/long, address, neighborhood), show what the Google Places API returns for that query, what fields are indexed, and why it might not match. Consider creating an admin tool (e.g. a page under `/neighborhood-admin/[slug]/places-debug` or similar) that lets an admin paste a venue name/address and see the raw API response, nearby results ranked by relevance, and any geocoding issues. Document common reasons a venue might be missing (new business not yet indexed, archived by user, misspelled/transliterated name variants, location on the margin of a neighborhood boundary) and workarounds (manual venue creation, re-syncing after a delay, trying alternate search terms). Open questions: should missing-venue reports from the /checkin page (Ref 80) integrate with this debugging surface, or remain separate? Should admins be able to suggest/veto specific Places results when a match is found?
 
 #### QR check-in + POI curation + leaderboards
 
@@ -337,6 +347,14 @@ No open limitations.
 **Depends:** —
 **Why** — Next.js's default not-found page is generic and off-brand; every other page in the app follows Spored's mushroom/nav visual language, so a mismatched 404 breaks that consistency at exactly the moment a user is already lost.
 **Notes:** Add `apps/web/src/app/not-found.tsx`, styled to match the rest of the site (MushroomLogo, nav-consistent typography), with a link back to `/`. Small, self-contained — no API/schema changes.
+
+#### Dev instance of the app (Netlify and Supabase)
+
+**Ref:** 95
+**Type:** improvement
+**Depends:** —
+**Why** — A persistent staging environment enables safe testing and debugging of changes before they reach production users, and a formal approval/promotion workflow prevents accidental releases and gives visibility into what's going live.
+**Notes:** Set up parallel Netlify and Supabase instances (or use Supabase preview branches) mirroring the production setup. Hide the dev site from users and search engines via `robots.txt` disallow, meta tags, and/or a basic auth gate. Configure Netlify to auto-deploy commits to a dev branch (e.g. `main-dev` or `staging`) or trigger via GitHub Actions. Create a promotion mechanism — either a manual Netlify deployment trigger (promoting a dev build to prod) or a GitHub Actions workflow requiring explicit approval (via `workflow_dispatch` or a review/check) before promoting. Open questions: should this coexist with Netlify's per-PR preview deploys (different purposes — per-branch preview for each PR, vs. persistent shared dev for manual testing), or replace them? Should dev share a Supabase project/database or use a completely separate one for true isolation?
 
 ### Marketing
 

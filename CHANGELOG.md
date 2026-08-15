@@ -2,6 +2,23 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.59.2] — 2026-08-15
+
+### Added
+
+- **New-feedback count badge on the super admin Feedback tab.** The nav sidebar now shows how many feedback submissions are still in the "new" state directly on the tab itself (an orange pill next to the label), instead of requiring a click into the tab to find out anything needs triage. (`apps/web/src/app/admin/super/layout.tsx`)
+- **Review dates on venue/POI pages, and requesting Google's newest reviews first.** `GET /locations/:id`'s enrichment now carries each review's `published_at` (Google's `publishTime`), and the Places Details fetch now requests `reviewsSort=newest` so "latest reviews" means newest-first rather than Google's default "most relevant" ordering. The Reviews section shows each review's date when Google provided one, and now caps the list at the latest 3 reviews (down from effectively however many Google returned, ~5). (`packages/types/src/index.ts`, `apps/api/src/places/client.ts`, `apps/api/src/enrichment/refresh.ts`, `apps/web/src/app/EnrichmentSection.tsx`)
+
+### Changed
+
+- **Super admin overview page now uses a 2-column layout**, matching the neighborhood admin dashboard's pattern: "Recent feedback" on the left half, "More on the way" on the right half, instead of stacked full-width sections. (`apps/web/src/app/admin/super/page.tsx`)
+- **Consistent sizing and placement for the Join/Favorite/Connect action buttons** on neighborhood, location, and profile summary cards. All three now share the same compact size (previously the neighborhood and location buttons were larger than the profile one), and the location page's Favorite button moved from the card's info row up into the header's upper-right corner, matching where the neighborhood and profile cards already place their action. The star-rating badge that used to sit in that same header spot moved down into the Reviews section, next to the "Reviews" heading, so it doesn't collide with the relocated Favorite button — and now also renders there for POIs and businesses with only an aggregate rating and no individual written reviews. A favorited location's button now fills green (`bg-brand-green`), matching the already-green "Joined"/"Connected" states on the other two cards. (`apps/web/src/app/location/[id]/FavoriteButton.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/location/[id]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/JoinNeighborhoodButton.tsx`, `apps/web/src/app/EnrichmentSection.tsx`)
+- **`/dev/components` split into one URL per section** (`/dev/components`, `/neighborhood-card`, `/location-card`, `/place-list-item`) instead of one page with in-page tab state, so a specific component's demo states are directly linkable and shareable rather than requiring a manual tab click after page load. Each route now also demonstrates both the "on" and "off" states of its action button (joined/not-joined, favorited/not-favorited) side by side via new `mockJoined`/`mockFavorited`/`mockNeighborState` preview props on `JoinNeighborhoodButton`, `FavoriteButton`, and `NeighborRequestButton` — none passed in real usage, where those components still fetch live status as before. Demo fixture data centralized into a new `demoData.ts` shared by all four routes. (`apps/web/src/app/dev/components/`)
+
+### Removed
+
+- **The neighborhood profile page's "Manage" shortcut button**, in favor of a single consistent action slot (Join/Joined) matching the profile and location cards' one-button layout. Neighborhood admins can still reach the admin dashboard via the account menu / admin switcher. (`apps/web/src/app/neighborhoods/[slug]/ManageNeighborhoodButton.tsx`, `apps/web/src/app/neighborhoods/[slug]/layout.tsx`)
+
 ## [0.59.1] — 2026-08-15
 
 ### Fixed

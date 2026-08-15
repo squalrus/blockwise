@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 import type { NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { JoinNeighborhoodButton } from "./JoinNeighborhoodButton";
-import { ManageNeighborhoodButton } from "./ManageNeighborhoodButton";
 import { NeighborhoodSummaryCard } from "./NeighborhoodSummaryCard";
 import { NeighborhoodTabs } from "./NeighborhoodTabs";
 
@@ -68,12 +67,7 @@ export default async function NeighborhoodLayout({
 
       <NeighborhoodSummaryCard
         neighborhood={neighborhood}
-        actions={
-          <>
-            <JoinNeighborhoodButton neighborhoodId={neighborhood.id} />
-            <ManageNeighborhoodButton neighborhoodSlug={neighborhood.slug} />
-          </>
-        }
+        actions={<JoinNeighborhoodButton neighborhoodId={neighborhood.id} />}
       />
 
       <NeighborhoodTabs slug={neighborhood.slug} />

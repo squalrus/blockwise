@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import type { AppUser } from "@blockwise/types";
-import { getCurrentUser, logOut } from "@/lib/auth";
+import type { AppUser, FeedbackSubmissionAdminView } from "@blockwise/types";
+import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
+import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomLoader, MushroomLogo } from "@blockwise/ui";
 import { AccountMenu } from "../../AccountMenu";
 import { AdminSwitcher } from "../../AdminSwitcher";
@@ -102,6 +103,7 @@ const TABS: { key: TabKey; href: string; label: string; icon: (props: { classNam
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [state, setState] = useState<State>({ status: "loading" });
+  const [newFeedbackCount, setNewFeedbackCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +120,15 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         return;
       }
       setState({ status: "ready", user });
+
+      const token = await getAccessToken();
+      fetch(clientApiUrl("/admin/feedback"), { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((submissions: FeedbackSubmissionAdminView[] | null) => {
+          if (!cancelled && submissions) {
+            setNewFeedbackCount(submissions.filter((s) => s.state === "new").length);
+          }
+        });
     }
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -196,6 +207,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               >
                 <tab.icon className="shrink-0" />
                 <span>{tab.label}</span>
+                {tab.key === "feedback" && !!newFeedbackCount && (
+                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
+                    {newFeedbackCount}
+                  </span>
+                )}
               </a>
             );
           })}
