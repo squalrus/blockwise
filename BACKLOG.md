@@ -64,6 +64,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 87 | [Show events from followed businesses in the Spore feed](#show-events-from-followed-businesses-in-the-spore-feed) | feature | S | M | — |
 | 97 | [Proactive push notification opt-in prompt](#proactive-push-notification-opt-in-prompt) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
+| 98 | [Event detail pages with check-in](#event-detail-pages-with-check-in) | feature | M | M | — |
 | 94 | [Mushroom size reflects recent check-in activity](#mushroom-size-reflects-recent-check-in-activity) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
@@ -282,6 +283,14 @@ No open limitations.
 **Depends:** —
 **Why** — Web push (Ref 89, shipped) is only discoverable today via a manual toggle buried on `/account/settings` (`NotificationToggle.tsx`) — nothing surfaces the option proactively. `InstallPrompt.tsx` already shows a dismissible top banner nudging users to install the PWA; a parallel banner nudging eligible users to enable push notifications would drive opt-in the same way, instead of relying on someone finding the settings toggle on their own.
 **Notes:** Mirror `InstallPrompt.tsx`'s shape: a dismissible banner (own `localStorage` dismissed-key, same pattern as `blockwise_install_dismissed`) shown to users who are eligible but not yet subscribed and haven't dismissed it, reusing `NotificationToggle.tsx`'s existing eligibility checks (`serviceWorker`/`PushManager` support, iOS standalone requirement, `Notification.permission` state) and its `subscribe()` flow rather than duplicating the VAPID subscribe logic. Open questions: trigger timing (immediately, like the install prompt, or after some engagement signal like a first check-in) and whether it should defer to the install prompt on iOS (where push requires standalone mode first) rather than showing both banners at once.
+
+#### Event detail pages with check-in
+
+**Ref:** 98
+**Type:** feature
+**Depends:** —
+**Why** — Events have no dedicated page today — `EventListItem` only expands its description inline wherever it's rendered (neighborhood Today/Upcoming tabs, venue page, account Events tab), and there's no `GET /events/:id` endpoint to fetch a single event by ID. That means events have no shareable/linkable URL, and unlike venues (GPS geofence check-in via `POST /locations/:id/checkins`, shipped README §4 Phase 1), there's no way to check in at an event specifically — attending an event isn't tracked or rewarded any differently than an ordinary venue visit.
+**Notes:** Needs a new `GET /events/:id` route (`events/events.ts`/`supabaseRepository.ts` have no single-event lookup yet) and a new `apps/web/src/app/events/[id]/page.tsx`, mirroring `location/[id]/page.tsx`'s SSR + `generateMetadata` + JSON-LD pattern; `EventListItem`'s title would link to it instead of (or in addition to) the inline expand. Check-in reuses the existing GPS-geofence + cooldown flow (`checkins/checkin.ts`, `CHECKIN_RADIUS_METERS`/`CHECKIN_COOLDOWN_MS`) straightforwardly for venue-scoped events (`Event.venue_id` set — the venue's own lat/lng is already the geofence target). Open questions: (1) neighborhood-scoped events (`venue_id` null — a block party or feed import with only a free-text `location` string) have no coordinates to geofence against at all, so either need a lat/lng added at authoring time or must fall back to a non-GPS "I'm here" confirmation; (2) whether an event check-in should write a distinct `event_id`-tagged record (for event-specific attendance stats/history and badge rules) rather than just reusing a plain venue `checkin` row, and whether it's restricted to the event's `start_time`/`end_time` window rather than available any time the venue itself is checkinable.
 
 #### Apple social sign-in (Sign in with Apple)
 
