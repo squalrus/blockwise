@@ -96,6 +96,10 @@ export interface EnrichmentReview {
   rating: number | null;
   text: string | null;
   author_name: string | null;
+  // Google's own publishTime for the review (RFC3339) -- null when Google
+  // didn't return one (older/edge-case reviews), in which case the review
+  // renders without a date rather than a fabricated one.
+  published_at: string | null;
 }
 
 export interface EnrichmentAtmosphere {

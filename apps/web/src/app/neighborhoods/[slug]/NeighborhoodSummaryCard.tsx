@@ -14,9 +14,8 @@ const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
 // can be rendered standalone in /dev/components alongside the location and
 // person profile summary cards, self-contained in its own card background
 // like ProfileSummaryCard rather than sitting bare on the page. `actions`
-// holds the page-level Join/Manage buttons -- omitted here means no action
-// row, matching how those buttons depend on auth state fetched by the
-// caller.
+// holds the page-level Join button -- omitted here means no action row,
+// matching how that button depends on auth state fetched by the caller.
 export function NeighborhoodSummaryCard({
   neighborhood,
   actions,

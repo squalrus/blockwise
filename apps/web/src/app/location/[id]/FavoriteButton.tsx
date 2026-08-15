@@ -12,10 +12,25 @@ type Status =
   | { state: "saving"; favorited: boolean }
   | { state: "error"; message: string };
 
-export function FavoriteButton({ venueId }: { venueId: string }) {
-  const [status, setStatus] = useState<Status>({ state: "loading" });
+export function FavoriteButton({
+  venueId,
+  // Component-library preview only (apps/web/src/app/dev/components) -- skips
+  // the live favorite-status fetch and starts idle in this state instead, so
+  // both states can be reviewed side by side rather than depending on the
+  // signed-in viewer's real favorites. Toggling still works locally (no
+  // network call), mirroring JoinNeighborhoodButton's mockJoined pattern.
+  // Never passed in real usage.
+  mockFavorited,
+}: {
+  venueId: string;
+  mockFavorited?: boolean;
+}) {
+  const [status, setStatus] = useState<Status>(
+    mockFavorited === undefined ? { state: "loading" } : { state: "idle", favorited: mockFavorited }
+  );
 
   useEffect(() => {
+    if (mockFavorited !== undefined) return;
     let cancelled = false;
 
     async function load() {
@@ -42,11 +57,17 @@ export function FavoriteButton({ venueId }: { venueId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [venueId]);
+  }, [venueId, mockFavorited]);
 
   async function toggleFavorite() {
     if (status.state !== "idle") return;
     const wasFavorited = status.favorited;
+
+    if (mockFavorited !== undefined) {
+      setStatus({ state: "idle", favorited: !wasFavorited });
+      return;
+    }
+
     setStatus({ state: "saving", favorited: wasFavorited });
 
     try {
@@ -76,7 +97,9 @@ export function FavoriteButton({ venueId }: { venueId: string }) {
         onClick={toggleFavorite}
         disabled={status.state === "saving"}
         aria-pressed={favorited}
-        className="rounded-full border-2 border-foreground px-4 py-2 text-sm font-extrabold text-foreground disabled:opacity-50"
+        className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-extrabold whitespace-nowrap disabled:opacity-50 ${
+          favorited ? "bg-brand-green text-on-accent" : "border-2 border-foreground text-foreground"
+        }`}
       >
         {favorited ? "★ Favorited" : "☆ Favorite"}
       </button>

@@ -17,6 +17,7 @@ function mapPlaceDetails(details: RawPlaceDetails) {
       rating: review.rating ?? null,
       text: review.text?.text ?? null,
       author_name: review.authorAttribution?.displayName ?? null,
+      published_at: review.publishTime ?? null,
     })),
     priceTier: details.priceLevel ?? null,
     photoRefs: (details.photos ?? []).map((photo) => photo.name),

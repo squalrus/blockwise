@@ -5,7 +5,7 @@ import type { ConnectionSummary } from "@blockwise/types";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
-type NeighborState = "none" | "outgoing" | "incoming" | "accepted";
+export type NeighborState = "none" | "outgoing" | "incoming" | "accepted";
 
 type Status =
   | { state: "loading" }
@@ -22,10 +22,27 @@ type Status =
 // request -- sendConnectionRequest (apps/api's connections.ts) auto-accepts
 // when the other side already has a pending request out to us, so no
 // separate accept action is needed here.
-export function NeighborRequestButton({ username }: { username: string }) {
-  const [status, setStatus] = useState<Status>({ state: "loading" });
+export function NeighborRequestButton({
+  username,
+  // Component-library preview only (apps/web/src/app/dev/components) -- skips
+  // the live connections fetch and starts idle in this state instead, so
+  // every state can be reviewed side by side rather than depending on the
+  // signed-in viewer's real connections. Toggling still works locally (no
+  // network call), mirroring JoinNeighborhoodButton's mockJoined pattern.
+  // Never passed in real usage.
+  mockNeighborState,
+}: {
+  username: string;
+  mockNeighborState?: NeighborState;
+}) {
+  const [status, setStatus] = useState<Status>(
+    mockNeighborState === undefined
+      ? { state: "loading" }
+      : { state: "idle", neighborState: mockNeighborState, connectionId: null }
+  );
 
   useEffect(() => {
+    if (mockNeighborState !== undefined) return;
     let cancelled = false;
 
     async function load() {
@@ -59,11 +76,19 @@ export function NeighborRequestButton({ username }: { username: string }) {
     return () => {
       cancelled = true;
     };
-  }, [username]);
+  }, [username, mockNeighborState]);
 
   async function toggle() {
     if (status.state !== "idle") return;
     const { neighborState, connectionId } = status;
+
+    if (mockNeighborState !== undefined) {
+      const next: NeighborState =
+        neighborState === "accepted" || neighborState === "incoming" ? "none" : "accepted";
+      setStatus({ state: "idle", neighborState: next, connectionId: null });
+      return;
+    }
+
     setStatus({ state: "saving", neighborState, connectionId });
 
     try {

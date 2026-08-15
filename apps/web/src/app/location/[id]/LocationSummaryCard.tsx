@@ -17,10 +17,12 @@ const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
 // cards, branching on `location.kind` the same way the page does and
 // self-contained in its own card background like ProfileSummaryCard rather
 // than sitting bare on the page. Check-ins and favorites are shown for both
-// kinds now that both stats are meaningful either way. `favoriteAction` holds
-// the page-level FavoriteButton for business kind -- omitted here means no
-// action row, matching how it depends on device-scoped favorite state
-// fetched by the caller.
+// kinds now that both stats are meaningful either way, and `favoriteAction`
+// (the page-level FavoriteButton) follows the same rule -- favoriting isn't
+// business-only, so this renders for a POI too. Sits in the header's upper
+// right next to the name, mirroring NeighborhoodSummaryCard's `actions` and
+// ProfileSummaryCard's `action` placement. Omitted here means no action,
+// matching how it depends on auth state fetched by the caller.
 export function LocationSummaryCard({
   location,
   favoriteAction,
@@ -32,6 +34,16 @@ export function LocationSummaryCard({
 
   return (
     <div className="flex flex-col gap-2.5 overflow-hidden rounded-2xl bg-card-alt px-5 pt-4 pb-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
+            {location.name}
+          </h1>
+          <p className="mt-1 text-[12.5px] font-bold text-muted">{location.address}</p>
+        </div>
+        {favoriteAction && <div className="flex shrink-0 items-center gap-2">{favoriteAction}</div>}
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         {isBusiness ? (
           location.category_name && (
@@ -44,18 +56,6 @@ export function LocationSummaryCard({
             Point of interest
           </span>
         )}
-        {location.enrichment?.rating != null && (
-          <span className="ml-auto flex items-center gap-1 text-sm font-extrabold text-foreground">
-            ★ {location.enrichment.rating}
-          </span>
-        )}
-      </div>
-
-      <div>
-        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
-          {location.name}
-        </h1>
-        <p className="mt-1 text-[12.5px] font-bold text-muted">{location.address}</p>
       </div>
 
       {!isBusiness && location.description && (
@@ -82,8 +82,6 @@ export function LocationSummaryCard({
         <StatCard value={location.checkin_count} label="Check-ins" accent="green" />
         <StatCard value={location.favorite_count} label="Favorites" accent="orange" />
       </div>
-
-      {isBusiness && favoriteAction && <div className="flex gap-2.5">{favoriteAction}</div>}
 
       <SlideToCheckIn locationId={location.id} />
 

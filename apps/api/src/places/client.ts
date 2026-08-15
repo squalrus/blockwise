@@ -70,6 +70,7 @@ export interface RawPlaceDetails {
     rating?: number;
     text?: { text: string };
     authorAttribution?: { displayName?: string };
+    publishTime?: string;
   }[];
   photos?: { name: string }[];
   nationalPhoneNumber?: string;
@@ -109,12 +110,18 @@ export class LivePlacesClient implements GooglePlacesClient, PlaceDetailsClient 
   constructor(private readonly apiKey: string) {}
 
   async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
-    const response = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
-      headers: {
-        "X-Goog-Api-Key": this.apiKey,
-        "X-Goog-FieldMask": DETAIL_FIELD_MASK,
-      },
-    });
+    // reviewsSort=newest -- the venue page shows only the latest few reviews
+    // (EnrichmentReviews.tsx), so "latest" should mean newest-first rather
+    // than Google's default "most relevant" ordering.
+    const response = await fetch(
+      `https://places.googleapis.com/v1/places/${placeId}?reviewsSort=newest`,
+      {
+        headers: {
+          "X-Goog-Api-Key": this.apiKey,
+          "X-Goog-FieldMask": DETAIL_FIELD_MASK,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(

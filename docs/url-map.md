@@ -80,7 +80,13 @@ apps/web/src/app/
 │           ├── CouponForm.tsx, EventForm.tsx, SocialLinksForm.tsx    (per-domain authoring forms, parallel to the neighborhood versions under admin/neighborhood/[neighborhoodSlug]/)
 │           └── BusinessAdminContext.tsx                (shared component, no route — venueId/name/address context set by layout.tsx)
 └── dev/
-    └── components/page.tsx                          /dev/components — P (not linked from any nav) — internal component library, pins components (e.g. SlideToCheckIn via previewStatus) to specific states for review without a live backend
+    └── components/                                  P (not linked from any nav) — internal component library, pins components to specific states for review without a live backend; one route per section (mirrors neighborhoods/:slug's layout+subnav split) instead of in-page tab state, so a specific section is directly linkable
+        ├── layout.tsx                                  shared header + route-driven tab bar (DevComponentsTabs.tsx)
+        ├── demoData.ts                                  (shared fixture data, no route — badge/rewards/profile/neighborhood/venue builders and the per-section demo arrays, one array per tab below)
+        ├── page.tsx                                    /dev/components — Profile card tab (default) — ProfileSummaryCard states, NeighborRequestButton via mockNeighborState
+        ├── neighborhood-card/page.tsx                  /dev/components/neighborhood-card — NeighborhoodSummaryCard states, JoinNeighborhoodButton via mockJoined
+        ├── location-card/page.tsx                      /dev/components/location-card — LocationSummaryCard states (business + POI), FavoriteButton via mockFavorited
+        └── place-list-item/page.tsx                    /dev/components/place-list-item — PlaceListItem + SlideToCheckIn states via mockResolution
 ```
 
 Identifier note: neighborhoods are addressed by **slug** everywhere in the web app now (`/neighborhoods/:slug`, `/admin/neighborhood/:slug`); locations (business or POI) are addressed by **id** (UUID) everywhere (`/location/:id`, `/admin/business/:venueId`).

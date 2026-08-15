@@ -15,10 +15,25 @@ type Status =
 // Neighborhood profile page (BACKLOG.md "Neighborhoods on landing page and
 // user profile"): join/leave in place, mirroring FavoriteButton's shape but
 // sign-in required (see neighborhoodMembers.ts) rather than device-scoped.
-export function JoinNeighborhoodButton({ neighborhoodId }: { neighborhoodId: string }) {
-  const [status, setStatus] = useState<Status>({ state: "loading" });
+export function JoinNeighborhoodButton({
+  neighborhoodId,
+  // Component-library preview only (apps/web/src/app/dev/components) -- skips
+  // the live membership fetch and starts idle in this joined state instead,
+  // so both states can be reviewed side by side rather than depending on the
+  // signed-in viewer's real membership. Toggling still works locally (no
+  // network call), mirroring SlideToCheckIn's mockResolution pattern. Never
+  // passed in real usage.
+  mockJoined,
+}: {
+  neighborhoodId: string;
+  mockJoined?: boolean;
+}) {
+  const [status, setStatus] = useState<Status>(
+    mockJoined === undefined ? { state: "loading" } : { state: "idle", joined: mockJoined }
+  );
 
   useEffect(() => {
+    if (mockJoined !== undefined) return;
     let cancelled = false;
 
     async function load() {
@@ -51,11 +66,17 @@ export function JoinNeighborhoodButton({ neighborhoodId }: { neighborhoodId: str
     return () => {
       cancelled = true;
     };
-  }, [neighborhoodId]);
+  }, [neighborhoodId, mockJoined]);
 
   async function toggleJoined() {
     if (status.state !== "idle") return;
     const wasJoined = status.joined;
+
+    if (mockJoined !== undefined) {
+      setStatus({ state: "idle", joined: !wasJoined });
+      return;
+    }
+
     setStatus({ state: "saving", joined: wasJoined });
 
     try {
@@ -80,7 +101,7 @@ export function JoinNeighborhoodButton({ neighborhoodId }: { neighborhoodId: str
     return (
       <a
         href="/login"
-        className="shrink-0 rounded-full border-2 border-foreground px-4 py-2 text-sm font-extrabold whitespace-nowrap text-foreground"
+        className="shrink-0 rounded-full border-2 border-foreground px-3.5 py-2 text-xs font-extrabold whitespace-nowrap text-foreground"
       >
         Log in to join
       </a>
@@ -95,7 +116,7 @@ export function JoinNeighborhoodButton({ neighborhoodId }: { neighborhoodId: str
         onClick={toggleJoined}
         disabled={status.state === "saving"}
         aria-pressed={joined}
-        className={`shrink-0 rounded-full px-4 py-2 text-sm font-extrabold whitespace-nowrap disabled:opacity-50 ${
+        className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-extrabold whitespace-nowrap disabled:opacity-50 ${
           joined ? "bg-brand-green text-on-accent" : "border-2 border-foreground text-foreground"
         }`}
       >
