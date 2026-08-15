@@ -80,13 +80,18 @@ apps/web/src/app/
 │           ├── CouponForm.tsx, EventForm.tsx, SocialLinksForm.tsx    (per-domain authoring forms, parallel to the neighborhood versions under admin/neighborhood/[neighborhoodSlug]/)
 │           └── BusinessAdminContext.tsx                (shared component, no route — venueId/name/address context set by layout.tsx)
 └── dev/
-    └── components/                                  P (not linked from any nav) — internal component library, pins components to specific states for review without a live backend; one route per section (mirrors neighborhoods/:slug's layout+subnav split) instead of in-page tab state, so a specific section is directly linkable
-        ├── layout.tsx                                  shared header + route-driven tab bar (DevComponentsTabs.tsx)
-        ├── demoData.ts                                  (shared fixture data, no route — badge/rewards/profile/neighborhood/venue builders and the per-section demo arrays, one array per tab below)
-        ├── page.tsx                                    /dev/components — Profile card tab (default) — ProfileSummaryCard states, NeighborRequestButton via mockNeighborState
+    └── components/                                  P (not linked from any nav) — internal component library, pins components/pages to specific states for review without a live backend; one route per section (mirrors neighborhoods/:slug's layout+subnav split) instead of in-page tab state, so a specific section is directly linkable; left-sidebar nav (DevComponentsTabs.tsx) matches the admin area's style, grouped into Components (one reusable card/row, every state) vs. Sample pages (a full page composed of those components, one realistic state)
+        ├── layout.tsx                                  shared sidebar shell (DevComponentsTabs.tsx) + content area
+        ├── demoData.ts                                  (shared fixture data, no route — badge/rewards/profile/neighborhood/venue builders, per-component demo arrays, and SAMPLE_* single-record fixtures for the sample pages below)
+        ├── page.tsx                                    /dev/components — Overview tab (default, root) — links into every Components/Sample pages route below
+        ├── profile-card/page.tsx                       /dev/components/profile-card — ProfileSummaryCard states, NeighborRequestButton via mockNeighborState
         ├── neighborhood-card/page.tsx                  /dev/components/neighborhood-card — NeighborhoodSummaryCard states, JoinNeighborhoodButton via mockJoined
         ├── location-card/page.tsx                      /dev/components/location-card — LocationSummaryCard states (business + POI), FavoriteButton via mockFavorited
-        └── place-list-item/page.tsx                    /dev/components/place-list-item — PlaceListItem + SlideToCheckIn states via mockResolution
+        ├── place-list-item/page.tsx                    /dev/components/place-list-item — PlaceListItem + SlideToCheckIn states via mockResolution
+        ├── location-page/page.tsx                      /dev/components/location-page — one full sample business location page, mirroring location/[id]/page.tsx's composition
+        ├── poi-page/page.tsx                            /dev/components/poi-page — one full sample POI page, mirroring location/[id]/page.tsx's POI-kind branch
+        ├── neighborhood-page/page.tsx                   /dev/components/neighborhood-page — one full sample neighborhood profile page (summary card + tabs + Today content), mirroring neighborhoods/[slug]/layout.tsx + page.tsx
+        └── profile-page/page.tsx                        /dev/components/profile-page — one full sample public profile page, mirroring profile/[username]/page.tsx (ProfileDetails' live neighbor-connection gate is skipped so the gated sections are always visible here)
 ```
 
 Identifier note: neighborhoods are addressed by **slug** everywhere in the web app now (`/neighborhoods/:slug`, `/admin/neighborhood/:slug`); locations (business or POI) are addressed by **id** (UUID) everywhere (`/location/:id`, `/admin/business/:venueId`).

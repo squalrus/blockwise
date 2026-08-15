@@ -5,9 +5,10 @@ import { CHECKIN_STATES } from "../demoData";
 export default function PlaceListItemDemoPage() {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
-        Venue row + check-in slider (PlaceListItem, as rendered on /checkin)
-      </h2>
+      <div>
+        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">Venue row</h1>
+        <p className="mt-1 text-sm text-muted">PlaceListItem + check-in slider, as rendered on /checkin.</p>
+      </div>
 
       {/* One PlaceListItem per state -- the exact same row/action-slot
           component NearestVenues renders, at its real full width, rather

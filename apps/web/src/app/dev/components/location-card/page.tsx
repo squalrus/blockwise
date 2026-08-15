@@ -5,9 +5,10 @@ import { LOCATION_CARDS } from "../demoData";
 export default function LocationCardDemoPage() {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
-        Location summary card (LocationSummaryCard, as rendered on /location/[id])
-      </h2>
+      <div>
+        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">Location card</h1>
+        <p className="mt-1 text-sm text-muted">LocationSummaryCard (business + POI), as rendered on /location/[id].</p>
+      </div>
 
       <div className="flex flex-col gap-6">
         {LOCATION_CARDS.map(({ label, location, favorited }) => (

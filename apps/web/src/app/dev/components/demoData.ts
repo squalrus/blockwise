@@ -3,7 +3,10 @@ import type {
   Badge,
   CheckinRewardsSummary,
   CompletedChallengeSummary,
+  Event,
   NeighborhoodProfile,
+  OpenNowLocation,
+  PublicUserProfile,
   UserPointsSummary,
   VenueDetail,
 } from "@blockwise/types";
@@ -281,3 +284,202 @@ export const LOCATION_CARDS: { label: string; location: VenueDetail; favorited: 
     favorited: true,
   },
 ];
+
+// Sample full location page (business kind, as rendered on /location/[id])
+export const SAMPLE_BUSINESS_LOCATION: VenueDetail = venueDetail({
+  id: "demo-sample-location",
+  name: "Diesel Fuel Coffee",
+  kind: "business",
+  category_name: "Coffee & Tea",
+  claimed_by_business: true,
+  checkin_count: 341,
+  favorite_count: 58,
+  social_links: {
+    instagram: "https://instagram.com/dieselfuelcoffee",
+    website: "https://dieselfuelcoffee.example.com",
+  },
+  enrichment: {
+    venue_id: "demo-sample-location",
+    source: "google",
+    rating: 4.6,
+    reviews: [
+      {
+        rating: 5,
+        text: "Great espresso and a cozy spot to work.",
+        author_name: "Ava P",
+        published_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+      },
+      {
+        rating: 4,
+        text: "Friendly staff, gets crowded on weekends.",
+        author_name: "Marcus T",
+        published_at: new Date(Date.now() - 14 * 86400000).toISOString(),
+      },
+      {
+        rating: 5,
+        text: "Best oat milk latte in Greenwood.",
+        author_name: "Sam K",
+        published_at: new Date(Date.now() - 40 * 86400000).toISOString(),
+      },
+    ],
+    price_tier: "PRICE_LEVEL_MODERATE",
+    photo_refs: [],
+    phone: "(206) 555-0100",
+    website: "https://dieselfuelcoffee.example.com",
+    hours: [
+      "Monday: 6:00 AM – 6:00 PM",
+      "Tuesday: 6:00 AM – 6:00 PM",
+      "Wednesday: 6:00 AM – 6:00 PM",
+      "Thursday: 6:00 AM – 6:00 PM",
+      "Friday: 6:00 AM – 7:00 PM",
+      "Saturday: 7:00 AM – 7:00 PM",
+      "Sunday: 7:00 AM – 5:00 PM",
+    ],
+    editorial_summary: "Neighborhood coffee shop known for single-origin pour-overs and a laptop-friendly back room.",
+    atmosphere: {
+      delivery: false,
+      dine_in: true,
+      takeout: true,
+      outdoor_seating: true,
+      good_for_children: true,
+      reservable: false,
+    },
+    fetched_at: NOW,
+  },
+});
+
+export const SAMPLE_LOCATION_EVENTS: Event[] = [
+  {
+    id: "demo-location-event-1",
+    venue_id: "demo-sample-location",
+    neighborhood_id: null,
+    venue_name: null,
+    title: "Latte Art Throwdown",
+    description: "Local baristas compete for bragging rights -- free samples all night.",
+    start_time: new Date(Date.now() + 3 * 86400000).toISOString(),
+    end_time: new Date(Date.now() + 3 * 86400000 + 3 * 3600000).toISOString(),
+    created_at: NOW,
+    source: "manual",
+    location: null,
+    status: "active",
+  },
+];
+
+// Sample full POI page (as rendered on /location/[id])
+export const SAMPLE_POI_LOCATION: VenueDetail = venueDetail({
+  id: "demo-sample-poi",
+  name: "Greenwood Water Tower",
+  kind: "poi",
+  description:
+    "A century-old water tower turned neighborhood landmark, with a small viewing plaza and historical plaque at its base.",
+  checkin_count: 96,
+  favorite_count: 21,
+  enrichment: {
+    venue_id: "demo-sample-poi",
+    source: "google",
+    rating: 4.4,
+    reviews: [
+      {
+        rating: 5,
+        text: "Great little photo spot, especially at sunset.",
+        author_name: "Priya N",
+        published_at: new Date(Date.now() - 9 * 86400000).toISOString(),
+      },
+      {
+        rating: 4,
+        text: "Small but worth the stop if you're in the area.",
+        author_name: "Owen D",
+        published_at: null,
+      },
+    ],
+    price_tier: null,
+    photo_refs: [],
+    phone: null,
+    website: null,
+    hours: null,
+    editorial_summary: null,
+    atmosphere: null,
+    fetched_at: NOW,
+  },
+});
+
+// Sample full neighborhood page (as rendered on /neighborhoods/[slug])
+export const SAMPLE_NEIGHBORHOOD: NeighborhoodProfile = neighborhood({
+  id: "demo-sample-neighborhood",
+  name: "Greenwood",
+  slug: "greenwood-sample",
+  description: "A walkable pocket of North Seattle known for antique shops, brewpubs, and a lively weekend market.",
+  venue_count: 42,
+  poi_count: 11,
+  member_count: 318,
+  checkin_count: 1204,
+  social_links: { instagram: "https://instagram.com/greenwoodseattle", website: "https://greenwoodseattle.example.com" },
+});
+
+export const SAMPLE_NEIGHBORHOOD_EVENTS: Event[] = [
+  {
+    id: "demo-neighborhood-event-1",
+    venue_id: null,
+    neighborhood_id: "demo-sample-neighborhood",
+    venue_name: null,
+    title: "Greenwood Night Market",
+    description: "Local vendors, live music, and food trucks along Greenwood Ave.",
+    start_time: new Date(Date.now() + 2 * 3600000).toISOString(),
+    end_time: new Date(Date.now() + 6 * 3600000).toISOString(),
+    created_at: NOW,
+    source: "manual",
+    location: null,
+    status: "active",
+  },
+];
+
+export const SAMPLE_OPEN_NOW: OpenNowLocation[] = [
+  { id: "demo-open-1", name: "Diesel Fuel Coffee", kind: "business", category_name: "Coffee & Tea" },
+  { id: "demo-open-2", name: "Original Bakery", kind: "business", category_name: "Bakery" },
+  { id: "demo-open-3", name: "Greenwood Water Tower", kind: "poi", category_name: null },
+];
+
+// Sample full user profile page (as rendered on /profile/[username])
+export const SAMPLE_PROFILE: PublicUserProfile = {
+  username: "morganlee",
+  display_name: "Morgan Lee",
+  avatar_url: null,
+  avatar_style: "mushroom",
+  mushroom_customization: null,
+  joined_at: new Date(Date.now() - 200 * 86400000).toISOString(),
+  neighborhoods: [
+    { neighborhood_id: "demo-sample-neighborhood", name: "Greenwood", slug: "greenwood-sample", city: "Seattle", state: "WA", is_primary: true },
+  ],
+  recent_checkins: [
+    {
+      venue_id: "demo-sample-location",
+      name: "Diesel Fuel Coffee",
+      address: "5629 University Way NE, Seattle, WA",
+      checked_in_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+    },
+    {
+      venue_id: "demo-sample-poi",
+      name: "Greenwood Water Tower",
+      address: "N 85th St, Seattle, WA",
+      checked_in_at: new Date(Date.now() - 26 * 3600000).toISOString(),
+    },
+  ],
+  badges: [{ badge: BADGE_LEVEL_2, awarded_at: new Date(Date.now() - 5 * 86400000).toISOString() }],
+  challenges: [
+    {
+      id: "challenge-coffee-crawl",
+      title: "Coffee Crawl",
+      description: "Check in to 5 different coffee shops.",
+      neighborhood_id: "demo-sample-neighborhood",
+      neighborhood_name: "Greenwood",
+      points_reward: 50,
+      badge: badge({ id: "badge-coffee-crawler-2", code: "coffee_crawler", name: "Coffee Crawler", icon: "coffee" }),
+      completed_at: new Date(Date.now() - 12 * 86400000).toISOString(),
+    },
+  ],
+  checkin_count: 87,
+  favorite_count: 22,
+  points_summary: { points: 940, level: 9, points_into_level: 90, points_to_next_level: 10 },
+  neighbor_count: 19,
+  neighbor_mushrooms: [],
+};

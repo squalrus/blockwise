@@ -5,9 +5,10 @@ import { NEIGHBORHOOD_CARDS } from "../demoData";
 export default function NeighborhoodCardDemoPage() {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
-        Neighborhood summary card (NeighborhoodSummaryCard, as rendered on /neighborhoods/[slug])
-      </h2>
+      <div>
+        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">Neighborhood card</h1>
+        <p className="mt-1 text-sm text-muted">NeighborhoodSummaryCard, as rendered on /neighborhoods/[slug].</p>
+      </div>
 
       <div className="flex flex-col gap-6">
         {NEIGHBORHOOD_CARDS.map(({ label, neighborhood: n, joined }) => (
