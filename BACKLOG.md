@@ -66,6 +66,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 98 | [Event detail pages with check-in](#event-detail-pages-with-check-in) | feature | M | M | — |
 | 99 | [Shareable badges with OG image previews](#shareable-badges-with-og-image-previews) | feature | M | M | — |
+| 100 | [Push notification when a followed event starts](#push-notification-when-a-followed-event-starts) | feature | M | M | — |
 | 94 | [Mushroom size reflects recent check-in activity](#mushroom-size-reflects-recent-check-in-activity) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
@@ -300,6 +301,14 @@ No open limitations.
 **Depends:** —
 **Why** — Badges have no shareable presence today: `/account/(tabs)/badges` (self-only) and the "Latest badge" section on `/profile/[username]` both just render a `Badge.icon` code through `BadgeIcon.tsx`'s emoji lookup table inline on the page — there's no per-badge URL, and `profile/[username]/page.tsx`'s `generateMetadata` sets no `openGraph.images` at all (unlike `location/[id]/page.tsx`, which already points its OG image at `/api/locations/:id/photo?index=0`). A link to a friend showing off a badge currently previews as a generic/blank card instead of the badge itself.
 **Notes:** Preferred approach: a dynamic OG image (Next.js `ImageResponse`/`next/og`, `opengraph-image.tsx` convention) that server-renders the badge — icon glyph, name, Spored branding — since badges have no static image asset today, only the plain-text `icon` code `BadgeIcon.tsx` maps to an emoji client-side; that mapping table would need a server-side (non-DOM) equivalent for the image-generation route. Needs a shareable badge URL first, which doesn't exist yet — likely `/profile/[username]/badges/[badgeId]` as a proper sub-route (cleaner OG metadata scoping) rather than a query param on the existing profile page. **Fallback if the rendered-image route proves too costly:** skip the custom OG image and instead add a "Share" button (Web Share API `navigator.share`, with a copy-link fallback for unsupported browsers — no existing share pattern in the codebase to reuse) next to each earned badge on both pages, sharing a link + text (e.g. "I just earned the {name} badge on Spored 🍄") even without a rendered preview image.
+
+#### Push notification when a followed event starts
+
+**Ref:** 100
+**Type:** feature
+**Depends:** —
+**Why** — Following an event (Ref 81, shipped v0.42.0) is currently just a bookmark shown on the account Events tab — nothing actually reminds a follower when the event they followed is about to start, which is presumably the whole point of following one rather than just noting it down.
+**Notes:** Every push trigger that exists today (`notifyConnectionsOfCheckin`, `notifyUserOfConnectionRequest`/`notifyUserOfConnectionAccepted`, `notifySuperAdminsOfSignup`/`notifySuperAdminsOfFeedback` in `apps/api/src/pushSubscriptions/pushSubscriptions.ts`) fires synchronously from an HTTP request handler in `app.ts` — this would be the first *time-based* trigger, needing an actual scheduled job rather than a request-driven one. The API already deploys as a Netlify Function (`apps/api/netlify/functions/api.ts`, per `apps/web/netlify.toml`); a separate Netlify *scheduled* function (different convention/config from the co-located Express function) running every few minutes is the natural fit, querying for events whose `start_time` falls in the next window and fanning out through the existing `sendPushToUsers`. Needs a new `EventFollowRepository` method to list followers *of* an event (only the reverse direction, `listFollowedEventsForUser`, exists today) and a de-dupe mechanism so a follower isn't notified on every sweep before the event starts — e.g. a `notified_at` column on `event_follow`, checked before sending. Open question: how far ahead of `start_time` to fire (at the moment it starts vs. a few minutes' heads-up).
 
 #### Apple social sign-in (Sign in with Apple)
 
