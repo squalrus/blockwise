@@ -107,7 +107,7 @@ export function AccountMenu({
               setIsOpen(false);
               setShowFeedback(true);
             }}
-            className="block w-full px-4 py-2 text-left text-sm hover:bg-card-alt"
+            className="block w-full px-4 py-2 text-left text-sm text-brand-purple hover:bg-card-alt"
           >
             Send feedback
           </button>

@@ -150,6 +150,31 @@ export async function notifySuperAdminsOfSignup(
   );
 }
 
+// notifySuperAdminsOfSignup's sibling -- alerts every super admin when a new
+// bug report or feature request comes in (POST /me/feedback), so triage
+// (the super admin shell's Feedback tab) doesn't rely on an admin manually
+// checking back.
+export async function notifySuperAdminsOfFeedback(
+  submission: { displayName: string | null; type: "bug" | "feature" },
+  superAdminRepository: SuperAdminRepository,
+  subscriptionRepository: PushSubscriptionRepository,
+  sender: PushSender
+): Promise<SendPushSummary> {
+  const superAdminUserIds = await superAdminRepository.listSuperAdminUserIds();
+  if (superAdminUserIds.length === 0) {
+    return { sent: 0, pruned: 0, failed: 0 };
+  }
+
+  const name = submission.displayName ?? "Someone";
+  const kind = submission.type === "bug" ? "bug report" : "feature request";
+  return sendPushToUsers(
+    superAdminUserIds,
+    { title: "New feedback", body: `${name} submitted a ${kind}` },
+    subscriptionRepository,
+    sender
+  );
+}
+
 // Fired when POST /me/connections creates a fresh pending request (not the
 // mutual-interest auto-accept branch, which is already an acceptance --
 // see notifyUserOfConnectionAccepted below).
