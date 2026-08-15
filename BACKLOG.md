@@ -75,10 +75,11 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
-| 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
 | 96 | [Make admin surfaces mobile friendly](#make-admin-surfaces-mobile-friendly) | improvement | M | M | — |
-| 95 | [Additional app themes within brand guidelines](#additional-app-themes-within-brand-guidelines) | feature | M | L | — |
+| 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
+| 101 | [Monitoring and error tracking](#monitoring-and-error-tracking) | improvement | L | M | — |
 | 91 | [Custom 404 page](#custom-404-page) | feature | S | L | — |
+| 95 | [Additional app themes within brand guidelines](#additional-app-themes-within-brand-guidelines) | feature | M | L | — |
 
 ### Marketing
 
@@ -367,6 +368,14 @@ No open limitations.
 **Depends:** —
 **Why** — project plan §10.4 specifies a CI/CD pipeline (GitHub Actions, lint/typecheck/unit tests on every PR, Playwright E2E for web, Sentry error tracking, feature flags for gradual mobile rollout) as part of the build plan, but the only correctness gate that exists today is a manual `npm run build` (per CONTRIBUTING.md) — no `.github/workflows`, E2E tests, or error tracking exist yet.
 **Notes:** Scope conservatively for current project size — GitHub Actions running lint/typecheck/unit tests plus Netlify preview deploys is the near-term win; Playwright E2E, Sentry, and feature flags can follow once there's more surface area (multiple developers, mobile app) to justify them. Detox/Maestro (mobile E2E) isn't relevant until [Native apps (React Native)](#native-apps-react-native) (Ref 1) exists.
+
+#### Monitoring and error tracking
+
+**Ref:** 101
+**Type:** improvement
+**Depends:** —
+**Why** — Today the only visibility into a production failure is whatever the handler happened to `console.error` (123 call sites in `apps/api/src/app.ts` alone, one ad hoc try/catch per route with no shared error middleware or `process.on("unhandledRejection"/"uncaughtException")` handler) landing in Netlify's own function logs — not searchable, not alertable, and gone once Netlify's retention window passes. The web app has no client-side error capture at all: a React render crash or an uncaught exception in the browser is invisible unless a user happens to report it. [CI/CD pipeline](#cicd-pipeline) (Ref 25) already earmarks Sentry as a "can follow" item once there's more surface area to justify it — this is that piece, split out on its own since it's valuable independent of the CI/CD work itself and project-plan.md §10.4's Observability section calls it out as its own concern (shared error tracking across web/backend/future mobile, API-level request volume and cache-hit-rate metrics).
+**Notes:** Two paths, per the request: (1) a third-party service — Sentry is what the project plan already assumes, and covers web + Express API + a future React Native app ([Ref 1](#native-apps-react-native)) in one project with source-mapped stack traces and alerting essentially out of the box; free tier is likely sufficient at current scale. (2) Roll-your-own — a Postgres error/log table plus a Slack or push-notification alert reusing the existing super-admin alert pattern (`notifySuperAdminsOfSignup`/`notifySuperAdminsOfFeedback` in `pushSubscriptions.ts`) avoids a new vendor dependency but means building search, retention, and alerting from scratch. Recommend starting with Sentry given the effort gap, unless cost or vendor lock-in is a specific concern — revisit rolling a custom solution only if that changes. Either path needs: a shared Express error-handling middleware plus top-level `unhandledRejection`/`uncaughtException` handlers in `apps/api` (neither exists today), a Next.js error boundary + client-side capture in `apps/web`, and basic API request/latency logging (project plan's "request volume, cache hit rate on `VenueEnrichmentCache`").
 
 #### Make admin surfaces mobile friendly
 
