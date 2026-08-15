@@ -62,6 +62,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
 | 86 | [Follow events that are currently in progress](#follow-events-that-are-currently-in-progress) | improvement | S | M | — |
 | 87 | [Show events from followed businesses in the Spore feed](#show-events-from-followed-businesses-in-the-spore-feed) | feature | S | M | — |
+| 97 | [Proactive push notification opt-in prompt](#proactive-push-notification-opt-in-prompt) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 94 | [Mushroom size reflects recent check-in activity](#mushroom-size-reflects-recent-check-in-activity) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
@@ -72,6 +73,8 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
+| 96 | [Make admin surfaces mobile friendly](#make-admin-surfaces-mobile-friendly) | improvement | M | M | — |
+| 95 | [Additional app themes within brand guidelines](#additional-app-themes-within-brand-guidelines) | feature | M | L | — |
 | 91 | [Custom 404 page](#custom-404-page) | feature | S | L | — |
 
 ### Marketing
@@ -272,6 +275,14 @@ No open limitations.
 **Why** — Beyond Google (shipped v0.10.0) and Apple ([Apple social sign-in](#apple-social-sign-in-sign-in-with-apple), Ref 17, deliberately scoped separately for its heavier Apple Developer Program/rotating-secret overhead), other OAuth providers Supabase supports out of the box (e.g. Microsoft, GitHub, Facebook, Discord) would add sign-in options with setup comparable to Google's — no rotating secrets or paid developer program required — before taking on Apple's bigger lift.
 **Notes:** `verifyToken.ts` already reads the provider generically off `app_metadata` (per Ref 17's notes), so the server-side path likely needs no changes — this is mostly `supabase.auth.signInWithOAuth` provider registration plus a button on the sign-in page. Open question: which provider(s) actually match Blockwise's user base — worth picking one (e.g. Microsoft, given broad consumer email adoption) rather than adding all of them speculatively.
 
+#### Proactive push notification opt-in prompt
+
+**Ref:** 97
+**Type:** feature
+**Depends:** —
+**Why** — Web push (Ref 89, shipped) is only discoverable today via a manual toggle buried on `/account/settings` (`NotificationToggle.tsx`) — nothing surfaces the option proactively. `InstallPrompt.tsx` already shows a dismissible top banner nudging users to install the PWA; a parallel banner nudging eligible users to enable push notifications would drive opt-in the same way, instead of relying on someone finding the settings toggle on their own.
+**Notes:** Mirror `InstallPrompt.tsx`'s shape: a dismissible banner (own `localStorage` dismissed-key, same pattern as `blockwise_install_dismissed`) shown to users who are eligible but not yet subscribed and haven't dismissed it, reusing `NotificationToggle.tsx`'s existing eligibility checks (`serviceWorker`/`PushManager` support, iOS standalone requirement, `Notification.permission` state) and its `subscribe()` flow rather than duplicating the VAPID subscribe logic. Open questions: trigger timing (immediately, like the install prompt, or after some engagement signal like a first check-in) and whether it should defer to the install prompt on iOS (where push requires standalone mode first) rather than showing both banners at once.
+
 #### Apple social sign-in (Sign in with Apple)
 
 **Ref:** 17
@@ -329,6 +340,22 @@ No open limitations.
 **Depends:** —
 **Why** — project plan §10.4 specifies a CI/CD pipeline (GitHub Actions, lint/typecheck/unit tests on every PR, Playwright E2E for web, Sentry error tracking, feature flags for gradual mobile rollout) as part of the build plan, but the only correctness gate that exists today is a manual `npm run build` (per CONTRIBUTING.md) — no `.github/workflows`, E2E tests, or error tracking exist yet.
 **Notes:** Scope conservatively for current project size — GitHub Actions running lint/typecheck/unit tests plus Netlify preview deploys is the near-term win; Playwright E2E, Sentry, and feature flags can follow once there's more surface area (multiple developers, mobile app) to justify them. Detox/Maestro (mobile E2E) isn't relevant until [Native apps (React Native)](#native-apps-react-native) (Ref 1) exists.
+
+#### Make admin surfaces mobile friendly
+
+**Ref:** 96
+**Type:** improvement
+**Depends:** —
+**Why** — Both admin shells (`admin/neighborhood/[neighborhoodSlug]/layout.tsx` and `admin/business/[venueId]/layout.tsx`) render a fixed `w-64` sidebar plus `h-screen overflow-hidden` two-pane layout with no responsive breakpoints or collapse behavior — on a phone-width viewport the sidebar and workspace both get squeezed rather than adapting, making it hard for a neighborhood admin or business owner to manage anything from a phone.
+**Notes:** Needs a small-viewport treatment for the shared sidebar shell — likely a collapsible/off-canvas sidebar behind a hamburger toggle below a `sm`/`md` breakpoint, matching the pattern most dashboard UIs use, plus auditing the tab content itself (tables/forms in `locations/page.tsx`, `BoundaryMap.tsx`, `EventForm.tsx`, etc.) for horizontal overflow at narrow widths. Since both admin layouts duplicate the same sidebar structure, consider extracting a shared responsive shell component as part of this work rather than fixing each independently. Scope to the sidebar shell + highest-traffic tabs (Overview, Locations, Events) first; less-used tabs can follow if the pattern proves out.
+
+#### Additional app themes within brand guidelines
+
+**Ref:** 95
+**Type:** feature
+**Depends:** —
+**Why** — Today `ThemeToggle`/`theme.ts` only offer light/dark/system, each a fixed palette (`--brand-purple`, `--brand-orange`, etc. in `globals.css`). Additional theme options — e.g. alternate accent palettes that stay within Spored's brand guidelines rather than full custom theming — would give users a personalization option similar to what many consumer apps offer, without opening the door to arbitrary user-chosen colors that could clash with the brand.
+**Notes:** `ThemePreference` (`apps/web/src/lib/theme.ts`) is currently a light/dark/system union stored under `data-theme` on `<html>`; extending this to a small fixed set of named themes (each its own CSS custom-property block, analogous to the existing light/dark blocks in `globals.css`) is additive rather than a rework. The inline pre-hydration script in `layout.tsx` (kept in sync with `theme.ts` to avoid a flash of the wrong theme) needs the same extension. Open questions: how many theme variants to ship at launch, and whether theme choice is local-only (localStorage, matching today's light/dark behavior) or synced to the account like other profile preferences.
 
 #### Custom 404 page
 
