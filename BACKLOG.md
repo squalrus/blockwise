@@ -58,7 +58,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
-| 91 | [Neighbor check-in push notifications](#neighbor-check-in-push-notifications) | feature | M | H | — |
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
@@ -256,14 +255,6 @@ No open limitations.
 **Notes:** Would add a `yelp_business_id` column to `Venue` and a `'yelp'` entry to `VenueEnrichmentCache.source` (project plan §1.3), fetched on-demand and never persisted past 24 hours per Yelp's ToS — including the Yelp attribution/compliance checklist items that were removed from project plan §1.6. Not currently planned; no other backlog item depends on it.
 
 ### User
-
-#### Neighbor check-in push notifications
-
-**Ref:** 91
-**Type:** feature
-**Depends:** — (prerequisite shipped: PWA install prompt and push notifications, v0.57.0)
-**Why** — v0.57.0 shipped the full push delivery pipeline (subscribe/unsubscribe, `push_subscription` storage, VAPID-signed sending via `sendPushToUsers`), but nothing in the app calls it automatically yet — the only sender is an admin-only test button. Notifying a user's neighbors (accepted connections, per the "Connect with other users" feature) when someone they're connected with checks in is a concrete, low-scope first real trigger: it proves out `sendPushToUsers` with a genuine audience-selection path, and re-engagement ("someone you know is out and about") is a natural first use of push.
-**Notes:** Hook into `performCheckin` (`apps/api/src/checkins/checkin.ts`) after a successful check-in — look up the checking-in user's accepted connections via `ConnectionRepository.listConnectionsForUser(userId, "accepted")`, then call the existing `sendPushToUsers(neighborUserIds, payload)` (`apps/api/src/pushSubscriptions/pushSubscriptions.ts`) with a payload like "{display_name} checked in at {venue_name}". Should be fire-and-forget (best-effort, logged on failure) rather than blocking the check-in response, mirroring how badge-award calls elsewhere in `app.ts` don't block their parent route. Open questions: should a private-visibility profile's check-in skip notifying neighbors too (private profiles already hide check-ins from the general public elsewhere in the app — is a direct connection different)? Does repeated same-day check-in activity need any de-duplication/cooldown so neighbors aren't spammed? Does this need its own opt-out separate from the single blanket push toggle shipped in v0.57.0, or is "push is on or off" enough for a first cut?
 
 #### Venue wishlist
 

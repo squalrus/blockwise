@@ -29,4 +29,8 @@ export interface NeighborhoodAdminRepository {
 // neighborhood-scoped, grant.
 export interface SuperAdminRepository {
   isSuperAdmin(userId: string): Promise<boolean>;
+  // Every super admin's user id, for fanning a notification out to all of
+  // them (BACKLOG.md Ref 91's sibling: new-signup push alert) rather than
+  // one at a time.
+  listSuperAdminUserIds(): Promise<string[]>;
 }

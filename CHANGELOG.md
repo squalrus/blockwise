@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.58.0] — 2026-08-14
+
+### Added
+
+- **Push notifications now fire on real app events.** v0.57.0 shipped the delivery pipeline but wired it to nothing beyond an admin test-send button; this fills in the first four real triggers. Checking in at a venue notifies every one of your accepted connections ("{name} checked in at {venue}"), regardless of your profile's public/private visibility setting — a direct connection is treated as a closer relationship than the general public. Sending or receiving a neighbor connection request notifies the other party ("{name} wants to connect", then "You and {name} are now connected" once accepted, from either the explicit-accept flow or the mutual-interest auto-accept path). And a brand-new signup now pings every super admin ("{name} just joined Spored") rather than requiring a manual check of the Users tab. All four are best-effort — a failed send is logged and swallowed rather than failing the triggering action — and reuse the single push toggle from v0.57.0 rather than adding per-notification opt-outs. (BACKLOG.md Ref 91; `apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `apps/api/src/admin/repository.ts`, `apps/api/src/admin/supabaseRepository.ts`, `apps/api/src/app.ts`)
+
 ## [0.57.0] — 2026-08-14
 
 ### Added

@@ -75,4 +75,11 @@ export class SupabaseSuperAdminRepository implements SuperAdminRepository {
     if (error) throw new Error(`isSuperAdmin failed: ${error.message}`);
     return data !== null;
   }
+
+  async listSuperAdminUserIds(): Promise<string[]> {
+    const { data, error } = await this.supabase.from("super_admin").select("user_id");
+
+    if (error) throw new Error(`listSuperAdminUserIds failed: ${error.message}`);
+    return (data ?? []).map((row) => row.user_id as string);
+  }
 }

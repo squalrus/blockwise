@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.58.0", date: "2026-08-14", summary: "Push notifications for neighbor check-ins, connection requests, and new signups" },
   { version: "0.57.0", date: "2026-08-14", summary: "PWA install prompt and web push notifications, plus a super-admin test-send tool" },
   { version: "0.56.0", date: "2026-08-14", summary: "Super admin interface with a platform user list and category taxonomy, Google Places now scoped per neighborhood, hidden locations included in boundary review" },
   { version: "0.55.2", date: "2026-07-29", summary: "Username field accepts uppercase while typing, dropped unused phone column from user accounts" },
