@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { TabNav } from "../../TabNav";
 
 const TABS = [
   { key: "", label: "Profile card" },
@@ -10,12 +9,29 @@ const TABS = [
   { key: "/place-list-item", label: "Venue row" },
 ];
 
-// Mirrors NeighborhoodTabs.tsx -- each component section is its own route
-// (dedicated URL, linkable/bookmarkable e.g. when asking someone to review a
-// specific section) rather than in-page tab state.
+// Left sidebar nav matching the admin area layout style -- each component
+// section is its own route (dedicated URL, linkable/bookmarkable) rather than
+// in-page tab state.
 export function DevComponentsTabs() {
   const pathname = usePathname();
-  const activeKey = TABS.find((tab) => pathname === `/dev/components${tab.key}`)?.key ?? "";
 
-  return <TabNav items={TABS} activeKey={activeKey} getHref={(key) => `/dev/components${key}`} />;
+  return (
+    <nav className="flex flex-col gap-0.5">
+      {TABS.map((tab) => {
+        const href = `/dev/components${tab.key}`;
+        const isActive = pathname === href;
+        return (
+          <a
+            key={tab.key}
+            href={href}
+            className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-extrabold ${
+              isActive ? "bg-card text-foreground" : "text-nav-muted hover:bg-nav-foreground/8"
+            }`}
+          >
+            <span>{tab.label}</span>
+          </a>
+        );
+      })}
+    </nav>
+  );
 }

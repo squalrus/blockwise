@@ -14,17 +14,25 @@ import { DevComponentsTabs } from "./DevComponentsTabs";
 // state worth reviewing in isolation.
 export default function DevComponentsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4 font-sans sm:p-16">
-      <div>
-        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">Component library</h1>
-        <p className="mt-1 text-sm text-muted">
-          Internal reference only -- not linked from any nav. Pins components to specific states for review.
-        </p>
+    <div className="flex h-screen overflow-hidden bg-background font-sans text-foreground">
+      {/* ================= SIDEBAR ================= */}
+      <div className="flex w-64 shrink-0 flex-col bg-nav px-3.5 pt-4.5 pb-4 text-nav-foreground">
+        <div className="px-2 pb-6">
+          <h2 className="font-heading text-sm font-extrabold tracking-tight text-nav-foreground">Component library</h2>
+          <p className="mt-1 text-[12px] text-nav-muted">
+            Internal reference only.
+          </p>
+        </div>
+
+        <DevComponentsTabs />
       </div>
 
-      <DevComponentsTabs />
-
-      {children}
+      {/* ================= CONTENT ================= */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto flex max-w-2xl flex-col gap-8 p-4 font-sans sm:p-16">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
