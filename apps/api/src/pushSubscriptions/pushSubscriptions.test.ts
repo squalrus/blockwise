@@ -1,8 +1,82 @@
 import { describe, expect, it } from "vitest";
-import { sendPushToUsers, subscribeToPush, unsubscribeFromPush } from "./pushSubscriptions";
+import {
+  notifyConnectionsOfCheckin,
+  notifySuperAdminsOfSignup,
+  notifyUserOfConnectionAccepted,
+  notifyUserOfConnectionRequest,
+  sendPushToUsers,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "./pushSubscriptions";
 import type { PushSubscriptionRecord, PushSubscriptionRepository } from "./repository";
 import type { PushPayload, PushSender, SendResult } from "./webPushSender";
 import type { PushSubscriptionKeys } from "@blockwise/types";
+import type { ConnectionListItem, ConnectionRepository, ConnectionStatus, UserConnectionRecord } from "../connections/repository";
+import type { SuperAdminRepository } from "../admin/repository";
+
+// In-memory fake, mirroring FakeConnectionRepository below.
+class FakeSuperAdminRepository implements SuperAdminRepository {
+  constructor(private readonly userIds: string[] = []) {}
+
+  async isSuperAdmin(userId: string): Promise<boolean> {
+    return this.userIds.includes(userId);
+  }
+
+  async listSuperAdminUserIds(): Promise<string[]> {
+    return this.userIds;
+  }
+}
+
+// In-memory fake, mirroring FakePushSubscriptionRepository above -- only the
+// methods notifyConnectionsOfCheckin actually calls are implemented for real.
+class FakeConnectionRepository implements ConnectionRepository {
+  constructor(private readonly accepted: Record<string, ConnectionListItem[]> = {}) {}
+
+  async listConnectionsForUser(userId: string, status?: ConnectionStatus): Promise<ConnectionListItem[]> {
+    if (status !== "accepted") return [];
+    return this.accepted[userId] ?? [];
+  }
+
+  async getUserIdByUsername(): Promise<string | null> {
+    throw new Error("not implemented");
+  }
+  async findConnectionBetween(): Promise<UserConnectionRecord | null> {
+    throw new Error("not implemented");
+  }
+  async getConnectionById(): Promise<UserConnectionRecord | null> {
+    throw new Error("not implemented");
+  }
+  async createConnectionRequest(): Promise<UserConnectionRecord> {
+    throw new Error("not implemented");
+  }
+  async acceptConnectionRequest(): Promise<UserConnectionRecord> {
+    throw new Error("not implemented");
+  }
+  async deleteConnection(): Promise<void> {
+    throw new Error("not implemented");
+  }
+  async countAcceptedConnectionsForUser(): Promise<number> {
+    throw new Error("not implemented");
+  }
+}
+
+function connectionTo(userId: string): ConnectionListItem {
+  return {
+    id: `conn-${userId}`,
+    status: "accepted",
+    direction: "outgoing",
+    createdAt: new Date().toISOString(),
+    user: {
+      id: userId,
+      username: null,
+      displayName: null,
+      avatarUrl: null,
+      avatarStyle: "mushroom",
+      mushroomCustomization: null,
+      mushroomSnapshot: null,
+    },
+  };
+}
 
 // In-memory fake, mirroring FakeFeedbackRepository in feedback/feedback.test.ts.
 class FakePushSubscriptionRepository implements PushSubscriptionRepository {
@@ -155,5 +229,169 @@ describe("sendPushToUsers", () => {
 
     expect(summary).toEqual({ sent: 0, pruned: 0, failed: 1 });
     expect(await repo.getSubscription(created.id)).not.toBeNull();
+  });
+});
+
+describe("notifyConnectionsOfCheckin", () => {
+  it("sends a push to every accepted connection", async () => {
+    const connectionRepo = new FakeConnectionRepository({
+      "user-1": [connectionTo("neighbor-1"), connectionTo("neighbor-2")],
+    });
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "neighbor-1", endpoint: "https://push.example/a", keys: KEYS });
+    await pushRepo.upsertSubscription({ userId: "neighbor-2", endpoint: "https://push.example/b", keys: KEYS });
+    const sender = new FakePushSender([{ status: "sent" }, { status: "sent" }]);
+
+    const summary = await notifyConnectionsOfCheckin(
+      "user-1",
+      { displayName: "Alex", venueName: "Diesel Fuel Coffee" },
+      connectionRepo,
+      pushRepo,
+      sender
+    );
+
+    expect(summary).toEqual({ sent: 2, pruned: 0, failed: 0 });
+    expect(sender.sent).toEqual([
+      { title: "Neighbor check-in", body: "Alex checked in at Diesel Fuel Coffee" },
+      { title: "Neighbor check-in", body: "Alex checked in at Diesel Fuel Coffee" },
+    ]);
+  });
+
+  it("falls back to a generic name when the checking-in user has no display name", async () => {
+    const connectionRepo = new FakeConnectionRepository({ "user-1": [connectionTo("neighbor-1")] });
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "neighbor-1", endpoint: "https://push.example/a", keys: KEYS });
+    const sender = new FakePushSender();
+
+    await notifyConnectionsOfCheckin(
+      "user-1",
+      { displayName: null, venueName: "Herkimer Coffee" },
+      connectionRepo,
+      pushRepo,
+      sender
+    );
+
+    expect(sender.sent).toEqual([{ title: "Neighbor check-in", body: "A neighbor checked in at Herkimer Coffee" }]);
+  });
+
+  it("does nothing when the checking-in user has no accepted connections", async () => {
+    const connectionRepo = new FakeConnectionRepository();
+    const pushRepo = new FakePushSubscriptionRepository();
+    const sender = new FakePushSender();
+
+    const summary = await notifyConnectionsOfCheckin(
+      "user-1",
+      { displayName: "Alex", venueName: "Herkimer Coffee" },
+      connectionRepo,
+      pushRepo,
+      sender
+    );
+
+    expect(summary).toEqual({ sent: 0, pruned: 0, failed: 0 });
+    expect(sender.sent).toHaveLength(0);
+  });
+});
+
+describe("notifySuperAdminsOfSignup", () => {
+  it("sends a push to every super admin", async () => {
+    const superAdminRepo = new FakeSuperAdminRepository(["admin-1", "admin-2"]);
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "admin-1", endpoint: "https://push.example/a", keys: KEYS });
+    await pushRepo.upsertSubscription({ userId: "admin-2", endpoint: "https://push.example/b", keys: KEYS });
+    const sender = new FakePushSender([{ status: "sent" }, { status: "sent" }]);
+
+    const summary = await notifySuperAdminsOfSignup(
+      { displayName: "Jane", email: "jane@example.com" },
+      superAdminRepo,
+      pushRepo,
+      sender
+    );
+
+    expect(summary).toEqual({ sent: 2, pruned: 0, failed: 0 });
+    expect(sender.sent).toEqual([
+      { title: "New signup", body: "Jane just joined Spored" },
+      { title: "New signup", body: "Jane just joined Spored" },
+    ]);
+  });
+
+  it("falls back to email, then a generic name, when display name is missing", async () => {
+    const superAdminRepo = new FakeSuperAdminRepository(["admin-1"]);
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "admin-1", endpoint: "https://push.example/a", keys: KEYS });
+
+    const withEmailSender = new FakePushSender();
+    await notifySuperAdminsOfSignup(
+      { displayName: null, email: "jane@example.com" },
+      superAdminRepo,
+      pushRepo,
+      withEmailSender
+    );
+    expect(withEmailSender.sent).toEqual([{ title: "New signup", body: "jane@example.com just joined Spored" }]);
+
+    const noEmailSender = new FakePushSender();
+    await notifySuperAdminsOfSignup({ displayName: null, email: null }, superAdminRepo, pushRepo, noEmailSender);
+    expect(noEmailSender.sent).toEqual([{ title: "New signup", body: "Someone just joined Spored" }]);
+  });
+
+  it("does nothing when there are no super admins", async () => {
+    const superAdminRepo = new FakeSuperAdminRepository();
+    const pushRepo = new FakePushSubscriptionRepository();
+    const sender = new FakePushSender();
+
+    const summary = await notifySuperAdminsOfSignup(
+      { displayName: "Jane", email: "jane@example.com" },
+      superAdminRepo,
+      pushRepo,
+      sender
+    );
+
+    expect(summary).toEqual({ sent: 0, pruned: 0, failed: 0 });
+    expect(sender.sent).toHaveLength(0);
+  });
+});
+
+describe("notifyUserOfConnectionRequest", () => {
+  it("sends a push to the recipient naming the requester", async () => {
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "recipient-1", endpoint: "https://push.example/a", keys: KEYS });
+    const sender = new FakePushSender();
+
+    const summary = await notifyUserOfConnectionRequest("recipient-1", "Alex", pushRepo, sender);
+
+    expect(summary).toEqual({ sent: 1, pruned: 0, failed: 0 });
+    expect(sender.sent).toEqual([{ title: "New neighbor request", body: "Alex wants to connect" }]);
+  });
+
+  it("falls back to a generic name when the requester has no display name", async () => {
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "recipient-1", endpoint: "https://push.example/a", keys: KEYS });
+    const sender = new FakePushSender();
+
+    await notifyUserOfConnectionRequest("recipient-1", null, pushRepo, sender);
+
+    expect(sender.sent).toEqual([{ title: "New neighbor request", body: "A neighbor wants to connect" }]);
+  });
+});
+
+describe("notifyUserOfConnectionAccepted", () => {
+  it("sends a push to the target user naming the other party", async () => {
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "requester-1", endpoint: "https://push.example/a", keys: KEYS });
+    const sender = new FakePushSender();
+
+    const summary = await notifyUserOfConnectionAccepted("requester-1", "Alex", pushRepo, sender);
+
+    expect(summary).toEqual({ sent: 1, pruned: 0, failed: 0 });
+    expect(sender.sent).toEqual([{ title: "New neighbor connection", body: "You and Alex are now connected" }]);
+  });
+
+  it("falls back to a generic name when the other party has no display name", async () => {
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "requester-1", endpoint: "https://push.example/a", keys: KEYS });
+    const sender = new FakePushSender();
+
+    await notifyUserOfConnectionAccepted("requester-1", null, pushRepo, sender);
+
+    expect(sender.sent).toEqual([{ title: "New neighbor connection", body: "You and A neighbor are now connected" }]);
   });
 });

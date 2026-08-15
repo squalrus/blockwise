@@ -1,4 +1,6 @@
 import type { CreatePushSubscriptionRequest, PushSubscriptionKeys, PushSubscriptionRecord as PushSubscriptionDto } from "@blockwise/types";
+import type { SuperAdminRepository } from "../admin/repository";
+import type { ConnectionRepository } from "../connections/repository";
 import type { PushSubscriptionRecord, PushSubscriptionRepository } from "./repository";
 import type { PushPayload, PushSender } from "./webPushSender";
 
@@ -91,4 +93,97 @@ export async function sendPushToUsers(
   }
 
   return summary;
+}
+
+// BACKLOG.md Ref 91: the first real trigger into sendPushToUsers above,
+// fired after a successful check-in. Notifies every one of the
+// checking-in user's *accepted* connections -- not filtered by the
+// checking-in user's profile visibility, since a direct connection is
+// already a stronger relationship than the general public the visibility
+// flag gates elsewhere in the app. No de-dupe/cooldown for repeat same-day
+// check-ins in this first cut.
+export async function notifyConnectionsOfCheckin(
+  checkinUserId: string,
+  checkin: { displayName: string | null; venueName: string },
+  connectionRepository: ConnectionRepository,
+  subscriptionRepository: PushSubscriptionRepository,
+  sender: PushSender
+): Promise<SendPushSummary> {
+  const connections = await connectionRepository.listConnectionsForUser(checkinUserId, "accepted");
+  const neighborUserIds = connections.map((c) => c.user.id);
+  if (neighborUserIds.length === 0) {
+    return { sent: 0, pruned: 0, failed: 0 };
+  }
+
+  const name = checkin.displayName ?? "A neighbor";
+  return sendPushToUsers(
+    neighborUserIds,
+    { title: "Neighbor check-in", body: `${name} checked in at ${checkin.venueName}` },
+    subscriptionRepository,
+    sender
+  );
+}
+
+// BACKLOG.md Ref 91's sibling: alerts every super admin (in practice just
+// the app's operator today, but scoped to the role rather than a hardcoded
+// user id so it still works if a second super admin is ever granted) when a
+// brand-new account completes signup -- the one other-user-initiated event
+// besides a check-in that's worth a real-time nudge for the person running
+// the app.
+export async function notifySuperAdminsOfSignup(
+  newUser: { displayName: string | null; email: string | null },
+  superAdminRepository: SuperAdminRepository,
+  subscriptionRepository: PushSubscriptionRepository,
+  sender: PushSender
+): Promise<SendPushSummary> {
+  const superAdminUserIds = await superAdminRepository.listSuperAdminUserIds();
+  if (superAdminUserIds.length === 0) {
+    return { sent: 0, pruned: 0, failed: 0 };
+  }
+
+  const name = newUser.displayName ?? newUser.email ?? "Someone";
+  return sendPushToUsers(
+    superAdminUserIds,
+    { title: "New signup", body: `${name} just joined Spored` },
+    subscriptionRepository,
+    sender
+  );
+}
+
+// Fired when POST /me/connections creates a fresh pending request (not the
+// mutual-interest auto-accept branch, which is already an acceptance --
+// see notifyUserOfConnectionAccepted below).
+export async function notifyUserOfConnectionRequest(
+  recipientUserId: string,
+  requesterDisplayName: string | null,
+  subscriptionRepository: PushSubscriptionRepository,
+  sender: PushSender
+): Promise<SendPushSummary> {
+  const name = requesterDisplayName ?? "A neighbor";
+  return sendPushToUsers(
+    [recipientUserId],
+    { title: "New neighbor request", body: `${name} wants to connect` },
+    subscriptionRepository,
+    sender
+  );
+}
+
+// Fired at both moments a connection can become accepted -- POST
+// /me/connections/:id/accept's explicit accept, and POST /me/connections's
+// mutual-interest auto-accept branch (BACKLOG.md Ref 14/33's connections.ts
+// sendConnectionRequest) -- so the wording stays neutral about which side
+// took the accepting action rather than claiming a specific one did.
+export async function notifyUserOfConnectionAccepted(
+  targetUserId: string,
+  otherDisplayName: string | null,
+  subscriptionRepository: PushSubscriptionRepository,
+  sender: PushSender
+): Promise<SendPushSummary> {
+  const name = otherDisplayName ?? "A neighbor";
+  return sendPushToUsers(
+    [targetUserId],
+    { title: "New neighbor connection", body: `You and ${name} are now connected` },
+    subscriptionRepository,
+    sender
+  );
 }

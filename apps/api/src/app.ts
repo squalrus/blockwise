@@ -140,7 +140,15 @@ import {
   type LocationClassification,
 } from "./locations/review";
 import { SupabaseLocationRepository } from "./locations/supabaseRepository";
-import { sendPushToUsers, subscribeToPush, unsubscribeFromPush } from "./pushSubscriptions/pushSubscriptions";
+import {
+  notifyConnectionsOfCheckin,
+  notifySuperAdminsOfSignup,
+  notifyUserOfConnectionAccepted,
+  notifyUserOfConnectionRequest,
+  sendPushToUsers,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "./pushSubscriptions/pushSubscriptions";
 import { SupabasePushSubscriptionRepository } from "./pushSubscriptions/supabaseRepository";
 import { WebPushSender } from "./pushSubscriptions/webPushSender";
 import { getSupabaseClient } from "./supabase";
@@ -921,6 +929,28 @@ export function createApp() {
           } catch (err) {
             console.error(`awardCheckinRewards (location ${req.params.id}) failed:`, err);
           }
+
+          // BACKLOG.md Ref 91: notify the checking-in user's accepted
+          // connections. Awaited (not fired-and-forgotten) for the same
+          // Netlify/Lambda reason as awardCheckinRewards above -- the
+          // container can freeze as soon as res.json() completes -- but a
+          // failure here is swallowed the same way, since the check-in
+          // already succeeded.
+          try {
+            const venue = await getLocationRepository().getLocationById(req.params.id);
+            if (venue) {
+              await notifyConnectionsOfCheckin(
+                result.checkin.user_id,
+                { displayName: req.appUser!.displayName, venueName: venue.name },
+                getConnectionRepository(),
+                getPushSubscriptionRepository(),
+                getWebPushSender()
+              );
+            }
+          } catch (err) {
+            console.error(`notifyConnectionsOfCheckin (location ${req.params.id}) failed:`, err);
+          }
+
           res.status(201).json({ ...result.checkin, rewards });
           return;
         }
@@ -1356,6 +1386,31 @@ export function createApp() {
         // Netlify-function-freeze reason as awardFavoritePoints above.
         if (result.status === "accepted") {
           await awardNeighborConnectionRewardsForBothSides(result.connection);
+          try {
+            const otherUserId =
+              result.connection.requesterId === req.appUser!.id
+                ? result.connection.recipientId
+                : result.connection.requesterId;
+            await notifyUserOfConnectionAccepted(
+              otherUserId,
+              req.appUser!.displayName,
+              getPushSubscriptionRepository(),
+              getWebPushSender()
+            );
+          } catch (err) {
+            console.error("notifyUserOfConnectionAccepted failed:", err);
+          }
+        } else if (result.status === "created") {
+          try {
+            await notifyUserOfConnectionRequest(
+              result.connection.recipientId,
+              req.appUser!.displayName,
+              getPushSubscriptionRepository(),
+              getWebPushSender()
+            );
+          } catch (err) {
+            console.error("notifyUserOfConnectionRequest failed:", err);
+          }
         }
         res.status(result.status === "created" ? 201 : 200).json({
           id: result.connection.id,
@@ -1631,6 +1686,16 @@ export function createApp() {
           return;
         }
         await awardNeighborConnectionRewardsForBothSides(result.connection);
+        try {
+          await notifyUserOfConnectionAccepted(
+            result.connection.requesterId,
+            req.appUser!.displayName,
+            getPushSubscriptionRepository(),
+            getWebPushSender()
+          );
+        } catch (err) {
+          console.error("notifyUserOfConnectionAccepted failed:", err);
+        }
         res.json({
           id: result.connection.id,
           requester_id: result.connection.requesterId,
@@ -2061,12 +2126,31 @@ export function createApp() {
         return;
       }
 
+      // completeSignup is idempotent for a repeat call by the same auth user
+      // (see auth.ts) -- checked for separately here (rather than having
+      // completeSignup report it) so the super-admin signup alert below only
+      // fires for a genuinely new account, not every retried/duplicate call.
+      const existedAlready = (await getAuthRepository().getByAuthUserId(verified.authUserId)) !== null;
       const user = await completeSignup(verified, account_type ?? "consumer", getAuthRepository());
       await awardFounderBadge(user.id, getGamificationRepository());
       const [isAdmin, isSuperAdmin] = await Promise.all([
         getNeighborhoodAdminRepository().isNeighborhoodAdmin(user.id),
         getSuperAdminRepository().isSuperAdmin(user.id),
       ]);
+
+      if (!existedAlready) {
+        try {
+          await notifySuperAdminsOfSignup(
+            { displayName: user.displayName, email: user.email },
+            getSuperAdminRepository(),
+            getPushSubscriptionRepository(),
+            getWebPushSender()
+          );
+        } catch (err) {
+          console.error("notifySuperAdminsOfSignup failed:", err);
+        }
+      }
+
       res.status(200).json(toAppUser(user, isAdmin, isSuperAdmin));
     } catch (err) {
       console.error("POST /auth/complete-signup failed:", err);
