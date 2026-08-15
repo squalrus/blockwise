@@ -35,7 +35,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
 | 80 | [Missing location suggestion UI](#missing-location-suggestion-ui) | feature | S | M | — |
 | 88 | [Hide past events in the admin Events tabs](#hide-past-events-in-the-admin-events-tabs) | improvement | S | M | — |
-| 93 | [POIs missing from the check-in page](#pois-missing-from-the-check-in-page) | known issue | S | M | — |
 | 76 | [Self-serve neighborhood-admin invite/remove UI](#self-serve-neighborhood-admin-inviteremove-ui) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 77 | [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) | feature | L | M | — |
@@ -53,7 +52,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 12 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | feature | M | M | — |
 | 16 | [Business visitor history and in-person connect](#business-visitor-history-and-in-person-connect) | feature | M | M | — |
 | 19 | [Monetization: credits & entitlements](#monetization-credits--entitlements) | feature | L | M | — |
-| 21 | [Yelp Fusion enrichment (future)](#yelp-fusion-enrichment-future) | feature | M | L | — |
 
 ### User
 
@@ -190,14 +188,6 @@ No open limitations.
 **Why** — Both the neighborhood-admin and business-admin Events tabs (`admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `admin/business/[venueId]/events/page.tsx`) list every event from the dashboard summary with no date filtering — unlike the public Upcoming/Today tabs, which already exclude events whose `end_time` has passed. Over time the admin "Upcoming" list fills up with events that already happened, making it harder to scan for what's actually coming up and to manage the calendar-feed-synced set.
 **Notes:** Both admin pages already need to see hidden events (there's something to Unhide), which is why their dashboard fetch passes `includeHidden = true` — the same reasoning applies here: keep past events fetched (a manual delete/audit trail use case might still want them), but hide them from the default view behind a "Show past" toggle, mirroring the Locations tab's existing "Show hidden" toggle pattern (`admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`). Simplest cut: a client-side filter on `event.end_time < now` in both pages' render, no API changes needed. Applies identically to both admin shells since they share the same `EventListItem`-based Upcoming list layout.
 
-#### POIs missing from the check-in page
-
-**Ref:** 93
-**Type:** known issue
-**Depends:** —
-**Why** — The check-in page's nearby-venues list should surface both regular venues and POIs (multi-POI venues like markets/food halls got curated POI support per project plan §3), but POIs currently don't show up there — users at a POI-only location have nothing to check into.
-**Notes:** Needs investigation into `NearestVenues`/the check-in page's data source (`apps/web/src/app/checkin/`) to confirm whether the underlying query excludes POIs, or the query is right but rendering/filtering drops them. Check whether the same gap affects other venue-listing surfaces (neighborhood Locations tab, venue search) or is isolated to check-in.
-
 ### Business & Venue
 
 #### Category browsing & filtering
@@ -255,14 +245,6 @@ No open limitations.
 **Depends:** —
 **Why** — Revenue model for the business side; deliberately built after business claiming is proven out, not before, per project plan §11.4.
 **Notes:** `BusinessPlan`, `Entitlement`, `CreditBalance`, `CreditTransaction`, `CreditPack` schema (project plan §1.8, §11.3) plus Stripe billing integration for credit-pack purchases. Free-sample entitlement (1 POI, 1 Event, 1 Coupon) ships first; paid credits follow.
-
-#### Yelp Fusion enrichment (future)
-
-**Ref:** 21
-**Type:** feature
-**Depends:** —
-**Why** — Dropped from the initial plan (project plan §1.1) to avoid Yelp's stricter 24-hour content TTL and licensing overhead before the core Google-sourced data layer even ships. Revisit only if ratings/reviews/photos become a clear user ask that Google's own fields don't already cover.
-**Notes:** Would add a `yelp_business_id` column to `Venue` and a `'yelp'` entry to `VenueEnrichmentCache.source` (project plan §1.3), fetched on-demand and never persisted past 24 hours per Yelp's ToS — including the Yelp attribution/compliance checklist items that were removed from project plan §1.6. Not currently planned; no other backlog item depends on it.
 
 ### User
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { VenueListItem } from "@blockwise/types";
+import type { NeighborhoodProfile, VenueListItem } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { clientApiUrl } from "@/lib/clientApi";
 import { sortByDistance, type LatLng } from "@/lib/geo";
@@ -25,14 +25,26 @@ type State =
 // switchable via NeighborhoodSwitcher). Falls back to alphabetical (the
 // API's default order) if location access isn't available, same as
 // VenuesView.
-export function NearestVenues({ neighborhoodId }: { neighborhoodId: string | null }) {
+//
+// BACKLOG.md Ref 93: GET /neighborhoods/:id/venues only ever returns
+// business-kind locations, so POIs (curated points of interest at
+// multi-POI venues) are merged in separately from the neighborhood profile
+// endpoint's `pois` field, same as the public Locations tab
+// (neighborhoods/[slug]/locations/page.tsx) does.
+export function NearestVenues({
+  neighborhoodId,
+  neighborhoodSlug,
+}: {
+  neighborhoodId: string | null;
+  neighborhoodSlug: string | null;
+}) {
   const [state, setState] = useState<State>({ status: "loading" });
   // Which non-top row (if any) is expanded to reveal its own slide-to-check-in
   // control -- the top spot always shows its control, so this never tracks it.
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!neighborhoodId) {
+    if (!neighborhoodId || !neighborhoodSlug) {
       setState({ status: "no_neighborhood" });
       return;
     }
@@ -41,10 +53,28 @@ export function NearestVenues({ neighborhoodId }: { neighborhoodId: string | nul
 
     async function load() {
       try {
-        const res = await fetch(clientApiUrl(`/neighborhoods/${neighborhoodId}/venues`));
-        if (!res.ok) throw new Error("Failed to load venues");
-        const venues = (await res.json()) as VenueListItem[];
+        const [venuesRes, profileRes] = await Promise.all([
+          fetch(clientApiUrl(`/neighborhoods/${neighborhoodId}/venues`)),
+          fetch(clientApiUrl(`/neighborhoods/${neighborhoodSlug}`)),
+        ]);
+        if (!venuesRes.ok) throw new Error("Failed to load venues");
+        if (!profileRes.ok) throw new Error("Failed to load neighborhood profile");
+        const businessVenues = (await venuesRes.json()) as VenueListItem[];
+        const profile = (await profileRes.json()) as NeighborhoodProfile;
         if (cancelled) return;
+
+        const pois: VenueListItem[] = profile.pois
+          .filter((poi) => poi.lat !== null && poi.lng !== null)
+          .map((poi) => ({
+            id: poi.id,
+            name: poi.name,
+            address: poi.address ?? "",
+            lat: poi.lat as number,
+            lng: poi.lng as number,
+            category_name: "Point of interest",
+            category_group: null,
+          }));
+        const venues = [...businessVenues, ...pois];
 
         let ordered = venues;
         try {
@@ -65,7 +95,7 @@ export function NearestVenues({ neighborhoodId }: { neighborhoodId: string | nul
     return () => {
       cancelled = true;
     };
-  }, [neighborhoodId]);
+  }, [neighborhoodId, neighborhoodSlug]);
 
   // Covers the venues fetch and the (often slower, permission-prompt-gated)
   // geolocation lookup below -- both run before this ever leaves "loading",

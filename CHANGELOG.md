@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.59.1] — 2026-08-15
+
+### Fixed
+
+- **POIs were missing from the check-in page.** `GET /neighborhoods/:id/venues` only ever returns business-kind locations, so the check-in page's nearby list (`NearestVenues`) never included POIs (curated points of interest at multi-POI venues like markets/food halls) — users standing at a POI-only location had nothing to check into. It now also fetches the neighborhood's public profile (`GET /neighborhoods/:slug`, which already includes `pois`) and merges the two lists before the existing proximity sort, so POIs are woven in by distance alongside businesses rather than missing entirely. The neighborhood Locations tab had a related gap — it already merged POIs in, but appended them after every business rather than interleaving, so the list wasn't truly alphabetical; it now sorts the merged list by name. (BACKLOG.md Ref 93; `apps/web/src/app/checkin/NearestVenues.tsx`, `apps/web/src/app/checkin/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/locations/page.tsx`)
+
 ## [0.59.0] — 2026-08-14
 
 ### Added
