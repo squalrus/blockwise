@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useLocalDateTime } from "./useLocalDateTime";
 
 const TIMELINE_COLORS = ["#E8542A", "#4C8C4A", "#8B5FBF", "#F2A93B"];
 
@@ -8,6 +9,10 @@ export interface TimelineItem {
   key: string;
   primary: ReactNode;
   timestamp: string;
+}
+
+function formatTimelineTimestamp(date: Date): string {
+  return date.toLocaleString();
 }
 
 // Shared "colored dot per row on a connecting line" timeline layout, used by
@@ -24,6 +29,17 @@ export interface TimelineItem {
 // without this, the same timestamp would render in the server's timezone
 // there but the visitor's timezone wherever a client-component caller (e.g.
 // /account) renders it, showing two different times for the same instant.
+// The timestamp text itself is deferred to useLocalDateTime (rendered blank
+// until after mount) rather than computed inline here, since Next.js still
+// server-renders "use client" components for the initial HTML -- computing
+// toLocaleString() inline would make that server pass (server timezone)
+// disagree with the client's hydration pass (visitor timezone) for any
+// timestamp near a local day boundary, tripping React error #418.
+function TimelineTimestamp({ timestamp }: { timestamp: string }) {
+  const formatted = useLocalDateTime(timestamp, formatTimelineTimestamp);
+  return <p className="text-xs font-bold text-muted">{formatted}</p>;
+}
+
 export function Timeline({ items, emptyMessage }: { items: TimelineItem[]; emptyMessage: string }) {
   if (items.length === 0) {
     return <p className="text-sm text-muted">{emptyMessage}</p>;
@@ -40,7 +56,7 @@ export function Timeline({ items, emptyMessage }: { items: TimelineItem[]; empty
               style={{ backgroundColor: TIMELINE_COLORS[index % TIMELINE_COLORS.length] }}
             />
             {item.primary}
-            <p className="text-xs font-bold text-muted">{new Date(item.timestamp).toLocaleString()}</p>
+            <TimelineTimestamp timestamp={item.timestamp} />
           </li>
         ))}
       </ul>

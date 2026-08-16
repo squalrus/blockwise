@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.60.1] — 2026-08-16
+
+### Fixed
+
+- **Hydration mismatch crash (React error #418) on event/timeline dates, and a no-op service worker fetch handler flagged by Chrome DevTools.** `EventListItem` and `Timeline` formatted timestamps with `toLocaleString`/`toLocaleTimeString` directly during render; since Next.js server-renders `"use client"` components too, a server (UTC) render and a visitor's local-timezone hydration pass could disagree on the date/time text for anything near a local day boundary, crashing hydration. `VenueHours`' "today's hours" line had the same bug via a bare `new Date()`. All three now go through a new shared `useLocalDateTime` hook, which renders a stable placeholder through hydration and fills in the real, locale-formatted value from an effect afterward. Also removed the service worker's empty `fetch` listener (`self.addEventListener("fetch", () => {})`), added under the mistaken belief it was required for installability — Chrome hasn't required a fetch handler for that since Chrome 68, and an empty one only adds per-request overhead, which Chrome's DevTools now calls out explicitly. (`apps/web/src/app/useLocalDateTime.ts`, `apps/web/src/app/EventListItem.tsx`, `apps/web/src/app/Timeline.tsx`, `apps/web/src/app/VenueHours.tsx`, `apps/web/public/service-worker.js`)
+
 ## [0.60.0] — 2026-08-15
 
 ### Added

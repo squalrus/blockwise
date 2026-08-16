@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import type { Event } from "@blockwise/types";
+import { useLocalDateTime } from "./useLocalDateTime";
 
-function formatEventDate(startTime: string): { month: string; day: string } {
-  const date = new Date(startTime);
+function formatEventDateTime(date: Date): { month: string; day: string; time: string } {
   return {
     month: date.toLocaleString(undefined, { month: "short" }).toUpperCase(),
     day: String(date.getDate()),
+    time: date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
   };
 }
 
@@ -31,11 +32,13 @@ export function EventListItem({
   showSource?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { month, day } = formatEventDate(event.start_time);
+  const localTime = useLocalDateTime(event.start_time, formatEventDateTime);
 
-  const metaParts = [
-    new Date(event.start_time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-  ];
+  const month = localTime?.month ?? "";
+  const day = localTime?.day ?? "";
+
+  const metaParts = [];
+  if (localTime) metaParts.push(localTime.time);
   if (event.venue_name) metaParts.push(`@ ${event.venue_name}`);
   if (event.location) metaParts.push(event.location);
 
