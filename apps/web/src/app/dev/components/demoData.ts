@@ -238,6 +238,8 @@ export const NEIGHBORHOOD_CARDS: { label: string; neighborhood: NeighborhoodProf
       poi_count: 1,
       member_count: 5,
       checkin_count: 2,
+      // Sparse case: two distinct one-time visitors, both base size.
+      recent_checkin_mushrooms: [recentVisitor("demo-visitor-14", 1), recentVisitor("demo-visitor-15", 1)],
     }),
     joined: true,
   },
