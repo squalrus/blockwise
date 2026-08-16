@@ -1,4 +1,4 @@
-import type { MushroomSnapshot } from "./mushroom";
+import type { MushroomConfig, MushroomSnapshot, RecentVisitorMushroom } from "./mushroom";
 
 export interface HealthCheckResponse {
   status: "ok";
@@ -180,12 +180,12 @@ export interface VenueDetail {
   // empty for venues with no approved claim, and always empty for kind "poi"
   // since a POI can never be claimed.
   social_links: SocialLinks;
-  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
-  // the most recent distinct check-in-ers' stamped looks, for the "who's
-  // foraged here" mosaic (MushroomField's distinctMushrooms mode). Most
-  // recent first; excludes check-ins that predate this feature (no
-  // snapshot) and repeat visits by the same user.
-  recent_checkin_mushrooms: MushroomSnapshot[];
+  // BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" --
+  // each distinct visitor's *current* live look plus how many times they
+  // checked in within the rolling 60-day window, for the "who's foraged
+  // here" mosaic (MushroomField's distinctMushrooms mode). Most-visits-first,
+  // tie-broken by most recent; excludes visits outside the window.
+  recent_checkin_mushrooms: RecentVisitorMushroom[];
 }
 
 // Business claiming + GPS check-in (BACKLOG.md, README §4/§5).
@@ -632,11 +632,12 @@ export interface NeighborhoodProfile {
   poi_count: number;
   member_count: number;
   checkin_count: number;
-  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
-  // the most recent distinct check-in-ers' stamped looks across the
-  // neighborhood, for the mosaic (MushroomField's distinctMushrooms mode).
-  // Most recent first; excludes check-ins that predate this feature.
-  recent_checkin_mushrooms: MushroomSnapshot[];
+  // BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" --
+  // each distinct visitor's *current* live look plus how many times they
+  // checked in across the neighborhood within the rolling 60-day window, for
+  // the mosaic (MushroomField's distinctMushrooms mode). Most-visits-first,
+  // tie-broken by most recent; excludes visits outside the window.
+  recent_checkin_mushrooms: RecentVisitorMushroom[];
 }
 
 // Neighborhood membership (BACKLOG.md "Neighborhoods on landing page and user
@@ -682,13 +683,14 @@ export interface PublicUserProfile {
   // separate, request-gated listing (GET /me/connections), not exposed on
   // someone else's profile.
   neighbor_count: number;
-  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
-  // unlike neighbor identities above, these carry no username/id linkage
-  // (just the stamped look each neighbor had at accept time), so -- like
-  // the venue/neighborhood mosaics -- they're safe to expose alongside the
-  // bare count rather than gated behind the request-based neighbor check
-  // ProfileDetails.tsx applies to badges/neighborhoods/check-ins.
-  neighbor_mushrooms: MushroomSnapshot[];
+  // BACKLOG.md Ref 97 "Profile card: live, one-to-one neighbor mushrooms" --
+  // each accepted neighbor's *current* live look (resolved server-side, not
+  // a frozen accept-time snapshot), one per neighbor. Carries no
+  // username/id linkage, so -- like the venue/neighborhood mosaics -- it's
+  // safe to expose alongside the bare count rather than gated behind the
+  // request-based neighbor check ProfileDetails.tsx applies to
+  // badges/neighborhoods/check-ins.
+  neighbor_mushrooms: MushroomConfig[];
 }
 
 // BACKLOG.md Ref 14/33 "Connect with other users" / "Friends/neighbors on

@@ -1,4 +1,4 @@
-import type { MushroomCustomization, MushroomSnapshot } from "@blockwise/types";
+import type { MushroomCustomization, MushroomSnapshot, RecentVisitorMushroom } from "@blockwise/types";
 
 export interface LocationCoords {
   id: string;
@@ -62,9 +62,10 @@ export interface CheckinRepository {
   countCheckinsForLocation(locationId: string): Promise<number>;
   // Neighborhood profile stats (BACKLOG.md Ref 58).
   countCheckinsForNeighborhood(neighborhoodId: string): Promise<number>;
-  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
-  // the most recent distinct check-in-ers' stamped looks across the whole
-  // neighborhood, for the neighborhood profile's mosaic, mirroring
+  // BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" --
+  // distinct visitors across the whole neighborhood within the rolling
+  // window, each with their current live mushroom and visit count, for the
+  // neighborhood profile's mosaic. Mirrors
   // LocationRepository.getLocationDetail's venue-scoped equivalent.
-  listRecentCheckinSnapshotsForNeighborhood(neighborhoodId: string, limit: number): Promise<MushroomSnapshot[]>;
+  listRecentVisitorMushroomsForNeighborhood(neighborhoodId: string, limit: number): Promise<RecentVisitorMushroom[]>;
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { AppUser, MushroomSnapshot, UserPointsSummary } from "@blockwise/types";
+import type { AppUser, MushroomConfig, UserPointsSummary } from "@blockwise/types";
 import { Avatar } from "../Avatar";
 import { MushroomField } from "../MushroomField";
 import { ProgressBar } from "../ProgressBar";
@@ -36,13 +36,13 @@ export function ProfileSummaryCard({
   badgeCount: number;
   challengeCount: number;
   neighborCount: number;
-  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
-  // real neighbor mushroom snapshots, most-recent-first, merged into the
-  // card's own mushroom field below (rather than a separate "Neighbors"
-  // field/card) so one field reads as both "my own growth" (level) and "my
-  // reach with others" (neighbor stamps). Optional since a brand-new
+  // BACKLOG.md Ref 97 "Profile card: live, one-to-one neighbor mushrooms" --
+  // each accepted neighbor's current live look, merged into the card's own
+  // mushroom field below (rather than a separate "Neighbors" field/card) so
+  // one field reads as both "my own growth" (level) and "my reach with
+  // others" (one mushroom per neighbor). Optional since a brand-new
   // account/profile has none yet.
-  neighborMushrooms?: MushroomSnapshot[];
+  neighborMushrooms?: MushroomConfig[];
   action?: ReactNode;
 }) {
   const label = user.display_name ?? user.username ?? user.email ?? "You";
@@ -114,12 +114,12 @@ export function ProfileSummaryCard({
           they've set it as their actual avatar image, so it stays a visible
           part of their identity either way (the saved customizer choice,
           BACKLOG.md Ref 75, if any, else derived from the id) -- followed by
-          a mosaic of real neighbor mushroom stamps, one per accepted
-          neighbor (sqrt-scaled like the venue/neighborhood check-in fields
-          so a highly-connected account doesn't instantly max out the cap). */}
+          one live mushroom per accepted neighbor (BACKLOG.md Ref 97),
+          truncating at MushroomField's MAX_MUSHROOMS cap rather than
+          compressing for a very highly-connected account. */}
       <MushroomField
         seed={user.id}
-        count={level + Math.sqrt(neighborCount)}
+        count={level + neighborCount}
         ariaLabel={`Level ${level} · ${neighborCount} neighbors`}
         customization={user.mushroom_customization}
         distinctMushrooms

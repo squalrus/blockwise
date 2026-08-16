@@ -2,7 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
-## [0.59.2] — 2026-08-15
+## [0.60.0] — 2026-08-15
+
+### Added
+
+- **Neighborhood/location card mushroom mosaics now reflect the last 60 days of activity, at live likeness, with a "Mayor" size boost for repeat visitors.** Previously these mosaics pulled the *all-time* most recent check-ins with no time floor, and froze each visitor's look at the moment they checked in (`checkin.mushroom_snapshot`) — a visitor from a year ago could still occupy a slot, and nobody's mushroom ever reflected a later customization. The mosaic now scopes to a rolling 60-day window, resolves each distinct visitor's *current* live mushroom, and scales an individual visitor's mushroom size by how many times they checked in within that window (sqrt-curve, capped), so a repeat regular reads visibly larger than a one-time visitor — ordered most-visits-first. The distinct-visitor cap rose from 12 to 40 to match `MushroomField`'s existing rendering ceiling. The "Check-ins" stat itself is unchanged (still all-time). A new `checkin (venue_id, checked_in_at desc)` index backs the venue-scoped query. (BACKLOG.md Ref 94; `packages/types/src/mushroom.ts`, `packages/types/src/index.ts`, `apps/api/src/checkins/checkin.ts`, `apps/api/src/checkins/supabaseRepository.ts`, `apps/api/src/locations/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `supabase/migrations/20260815010000_checkin_venue_checked_in_at_idx.sql`)
+- **Profile card's neighbor mosaic now shows one live mushroom per connected neighbor**, instead of a `sqrt`-compressed count of frozen snapshots taken at the moment each connection was accepted. A neighbor who later changes their look shows up as they look today, both on your own account page and on public profiles. (BACKLOG.md Ref 97; `packages/types/src/index.ts`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/account/(tabs)/layout.tsx`, `apps/api/src/app.ts`)
 
 ### Added
 

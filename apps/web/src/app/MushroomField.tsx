@@ -6,6 +6,13 @@ import type { MushroomConfig, SpotShape } from "@blockwise/ui";
 // implausibly high count doesn't fill the card with hundreds of icons.
 const MAX_MUSHROOMS = 40;
 const FIELD_HEIGHT_PX = 40;
+// BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" -- a
+// visitor's mushroom grows with their visit count within the mosaic's
+// window, sqrt-scaled (same compression style as this component's own
+// `count` prop) and capped so a handful of very-repeat visits doesn't blow
+// a single mushroom out of proportion with the rest of the field.
+const BASE_MUSHROOM_SIZE_PX = 18;
+const MAX_VISITOR_SIZE_SCALE = 2.5;
 
 // Scattered (not gridded) placement, stable per seed -- each mushroom gets a
 // random spot within its own slice of the width so they land unevenly like
@@ -44,13 +51,19 @@ function fieldLayout(seed: string, count: number): { leftPct: number; liftPx: nu
 // when `distinctMushrooms` is false, since the mosaic case isn't any one
 // person's look to begin with.
 //
-// `mushrooms` (BACKLOG.md "Mushroom fingerprint stamps on connections and
-// check-ins") supplies real per-visitor snapshots, most-recent-first, for
-// the distinctMushrooms mosaic -- position i (offset by `ownCount`, see
-// below) renders mushrooms[i] when present, falling back to a
-// positionally-fabricated skin otherwise (either because no snapshot list
-// was passed at all, or because count exceeds how many real snapshots were
-// fetched). Ignored when distinctMushrooms is false.
+// `mushrooms` supplies real per-visitor configs for the distinctMushrooms
+// mosaic -- position i (offset by `ownCount`, see below) renders
+// mushrooms[i] when present, falling back to a positionally-fabricated skin
+// otherwise (either because no list was passed at all, or because count
+// exceeds how many real entries were fetched). Ignored when
+// distinctMushrooms is false.
+//
+// `visitCounts` (BACKLOG.md Ref 94 "Mushroom size reflects recent check-in
+// activity"), parallel to `mushrooms` by position, scales an individual
+// mushroom's size by how many times that visitor checked in within the
+// caller's window -- a "Mayor" mechanic that rewards coming back. Omitted
+// entirely (e.g. the profile card's one-per-neighbor mosaic, BACKLOG.md Ref
+// 97) or missing for a given position renders that mushroom at the base size.
 //
 // `ownCount` (profile summary card's merged field -- BACKLOG.md "how strong
 // their presence is") lets the field mix both modes at once: the first
@@ -67,6 +80,7 @@ export function MushroomField({
   distinctMushrooms = false,
   customization = null,
   mushrooms,
+  visitCounts,
   ownCount = 0,
 }: {
   seed: string;
@@ -75,6 +89,7 @@ export function MushroomField({
   distinctMushrooms?: boolean;
   customization?: MushroomCustomization | null;
   mushrooms?: MushroomConfig[];
+  visitCounts?: number[];
   ownCount?: number;
 }) {
   const mushroomCount = Math.min(Math.max(Math.floor(count), 0), MAX_MUSHROOMS);
@@ -100,10 +115,14 @@ export function MushroomField({
       </svg>
       <div className="relative bg-brand-green/55" style={{ height: FIELD_HEIGHT_PX }} aria-label={ariaLabel}>
         {layout.map((pos, i) => {
-          const mushroom =
-            distinctMushrooms && i >= ownMushroomCount
-              ? (mushrooms?.[i - ownMushroomCount] ?? mushroomConfigForUser(`${seed}-mushroom-${i - ownMushroomCount}`))
-              : sharedMushroom;
+          const isMosaicPosition = distinctMushrooms && i >= ownMushroomCount;
+          const mushroom = isMosaicPosition
+            ? (mushrooms?.[i - ownMushroomCount] ?? mushroomConfigForUser(`${seed}-mushroom-${i - ownMushroomCount}`))
+            : sharedMushroom;
+          const visitCount = isMosaicPosition ? visitCounts?.[i - ownMushroomCount] : undefined;
+          const size = visitCount
+            ? BASE_MUSHROOM_SIZE_PX * Math.min(Math.sqrt(visitCount), MAX_VISITOR_SIZE_SCALE)
+            : BASE_MUSHROOM_SIZE_PX;
           return (
             <div
               key={i}
@@ -111,7 +130,7 @@ export function MushroomField({
               style={{ left: `${pos.leftPct}%`, transform: `translate(-50%, ${-pos.liftPx}px)` }}
             >
               <MushroomMark
-                size={18}
+                size={size}
                 cap={mushroom.cap}
                 stalk={mushroom.stalk}
                 spots={mushroom.spots}

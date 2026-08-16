@@ -16,7 +16,7 @@ import type {
   SocialPlatform,
   VenueDashboardSummary,
 } from "@blockwise/types";
-import { MUSHROOM_CAPS, MUSHROOM_STALKS, MUSHROOM_SPOT_SHAPES } from "@blockwise/types";
+import { MUSHROOM_CAPS, MUSHROOM_STALKS, MUSHROOM_SPOT_SHAPES, resolveMushroomConfig } from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
 import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
 import { requireSuperAdmin } from "./admin/requireSuperAdmin";
@@ -28,7 +28,7 @@ import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from 
 import { UsernameTakenError } from "./auth/repository";
 import { SupabaseAuthRepository } from "./auth/supabaseRepository";
 import { verifyAccessToken } from "./auth/verifyToken";
-import { performCheckin } from "./checkins/checkin";
+import { performCheckin, toMushroomConfig } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
 import {
   claimCoupon,
@@ -162,11 +162,13 @@ const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
 const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "private"];
-// BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
-// how many distinct-user snapshots a mosaic (neighborhood profile, public
-// profile's neighbors strip) surfaces at once, mirroring
-// locations/supabaseRepository.ts's venue-scoped RECENT_CHECKIN_SNAPSHOT_DISTINCT_LIMIT.
-const RECENT_CHECKIN_MOSAIC_LIMIT = 12;
+// BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" -- how
+// many distinct recent visitors a neighborhood profile's mosaic surfaces at
+// once, mirroring locations/supabaseRepository.ts's venue-scoped
+// RECENT_CHECKIN_SNAPSHOT_DISTINCT_LIMIT. Matches MushroomField's own
+// MAX_MUSHROOMS ceiling, since repeat visits are expressed via size rather
+// than consuming extra mosaic slots.
+const RECENT_CHECKIN_MOSAIC_LIMIT = 40;
 const AVATAR_STYLES: AvatarStyle[] = ["social", "mushroom"];
 // BACKLOG.md Ref 75 "Mushroom avatar customizer" -- customizer offers 0
 // (bare cap) unlike mushroomConfigForUser's auto-assignment, which excludes
@@ -658,7 +660,7 @@ export function createApp() {
         getLocationRepository().countActiveLocationsForNeighborhood(neighborhood.id, "poi"),
         getNeighborhoodMemberRepository().countMembersForNeighborhood(neighborhood.id),
         getCheckinRepository().countCheckinsForNeighborhood(neighborhood.id),
-        getCheckinRepository().listRecentCheckinSnapshotsForNeighborhood(neighborhood.id, RECENT_CHECKIN_MOSAIC_LIMIT),
+        getCheckinRepository().listRecentVisitorMushroomsForNeighborhood(neighborhood.id, RECENT_CHECKIN_MOSAIC_LIMIT),
       ]);
       const profile: NeighborhoodProfile = {
         id: neighborhood.id,
@@ -1781,14 +1783,13 @@ export function createApp() {
           getConnectionRepository().countAcceptedConnectionsForUser(user.id),
           getConnectionRepository().listConnectionsForUser(user.id, "accepted"),
         ]);
-      // Snapshots only (no username/id) -- see PublicUserProfile's
+      // Live-resolved configs only (no username/id) -- see PublicUserProfile's
       // neighbor_mushrooms comment for why this is safe to expose alongside
       // the bare neighbor_count, unlike the request-gated neighbor list
       // itself.
-      const neighborMushrooms = connections
-        .map((c) => c.user.mushroomSnapshot)
-        .filter((snapshot): snapshot is NonNullable<typeof snapshot> => snapshot !== null)
-        .slice(0, RECENT_CHECKIN_MOSAIC_LIMIT);
+      const neighborMushrooms = connections.map((c) =>
+        resolveMushroomConfig(c.user.id, toMushroomConfig(c.user.mushroomCustomization))
+      );
 
       res.json({
         username: user.username,

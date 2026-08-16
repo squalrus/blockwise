@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MushroomCustomization, MushroomSnapshot } from "@blockwise/types";
+import type { MushroomCustomization, MushroomSnapshot, RecentVisitorMushroom } from "@blockwise/types";
+import { resolveMushroomConfig } from "@blockwise/types";
+import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors, toMushroomConfig } from "./checkin";
 import type {
   CheckinRecord,
   CheckinRepository,
@@ -9,6 +11,12 @@ import type {
 } from "./repository";
 
 const CHECKIN_COLUMNS = "id, user_id, venue_id, device_lat, device_lng, checked_in_at, mushroom_snapshot";
+
+// Safety bound on the raw rows fetched for the rolling-window mosaic query
+// (RECENT_VISITOR_WINDOW_MS already bounds it by date) -- generous relative
+// to pilot-scale check-in volume; revisit if a neighborhood's 60-day check-in
+// count regularly exceeds this before ranking distinct visitors.
+const RECENT_VISITOR_QUERY_LIMIT = 2000;
 
 function toRecord(row: {
   id: string;
@@ -147,33 +155,52 @@ export class SupabaseCheckinRepository implements CheckinRepository {
     return count ?? 0;
   }
 
-  // PostgREST has no DISTINCT ON, so dedupe by user in application code:
-  // over-fetch (10x limit, generous enough that a neighborhood with heavy
-  // repeat-visit traffic still surfaces `limit` distinct users) ordered most
-  // recent first, keep the first (most recent) row per user, cap at `limit`
-  // -- mirrors locations/supabaseRepository.ts's venue-scoped equivalent.
-  async listRecentCheckinSnapshotsForNeighborhood(
+  // BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" --
+  // fetch every check-in against the neighborhood's venues within the
+  // rolling window (RECENT_VISITOR_QUERY_LIMIT bounds the raw row fetch as a
+  // safety valve, not a distinct-user cap), rank into distinct visitors via
+  // rankRecentVisitors (most-visits-first, tie-broken by most recent), then
+  // resolve each capped visitor's *current* live mushroom with a batched
+  // app_user lookup -- mirrors locations/supabaseRepository.ts's venue-scoped
+  // equivalent.
+  async listRecentVisitorMushroomsForNeighborhood(
     neighborhoodId: string,
     limit: number
-  ): Promise<MushroomSnapshot[]> {
+  ): Promise<RecentVisitorMushroom[]> {
+    const windowStart = new Date(Date.now() - RECENT_VISITOR_WINDOW_MS).toISOString();
     const { data, error } = await this.supabase
       .from("checkin")
-      .select("user_id, mushroom_snapshot, venue:venue_id!inner(neighborhood_id)")
+      .select("user_id, checked_in_at, venue:venue_id!inner(neighborhood_id)")
       .eq("venue.neighborhood_id", neighborhoodId)
-      .not("mushroom_snapshot", "is", null)
+      .gte("checked_in_at", windowStart)
       .order("checked_in_at", { ascending: false })
-      .limit(limit * 10);
+      .limit(RECENT_VISITOR_QUERY_LIMIT);
 
-    if (error) throw new Error(`listRecentCheckinSnapshotsForNeighborhood failed: ${error.message}`);
+    if (error) throw new Error(`listRecentVisitorMushroomsForNeighborhood failed: ${error.message}`);
 
-    const seenUsers = new Set<string>();
-    const snapshots: MushroomSnapshot[] = [];
-    for (const row of data ?? []) {
-      if (snapshots.length >= limit) break;
-      if (seenUsers.has(row.user_id)) continue;
-      seenUsers.add(row.user_id);
-      snapshots.push(row.mushroom_snapshot as MushroomSnapshot);
-    }
-    return snapshots;
+    const ranked = rankRecentVisitors(
+      (data ?? []).map((row) => ({ userId: row.user_id, checkedInAt: row.checked_in_at })),
+      limit
+    );
+    if (ranked.length === 0) return [];
+
+    const { data: users, error: usersError } = await this.supabase
+      .from("app_user")
+      .select("id, mushroom_customization")
+      .in(
+        "id",
+        ranked.map((r) => r.userId)
+      );
+    if (usersError)
+      throw new Error(`listRecentVisitorMushroomsForNeighborhood (users) failed: ${usersError.message}`);
+
+    const customizationById = new Map(
+      (users ?? []).map((u) => [u.id as string, u.mushroom_customization as MushroomCustomization | null])
+    );
+
+    return ranked.map(({ userId, visitCount }) => ({
+      mushroom: resolveMushroomConfig(userId, toMushroomConfig(customizationById.get(userId) ?? null)),
+      visitCount,
+    }));
   }
 }

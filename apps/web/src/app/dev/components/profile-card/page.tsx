@@ -21,6 +21,7 @@ export default function ProfileCardDemoPage() {
             badgeCount,
             challengeCount,
             neighborCount,
+            neighborMushrooms,
             neighborState,
           }) => (
             <div key={user.id} className="flex flex-col gap-2">
@@ -33,6 +34,7 @@ export default function ProfileCardDemoPage() {
                 badgeCount={badgeCount}
                 challengeCount={challengeCount}
                 neighborCount={neighborCount}
+                neighborMushrooms={neighborMushrooms}
                 action={<NeighborRequestButton username={user.username ?? "demo"} mockNeighborState={neighborState} />}
               />
             </div>

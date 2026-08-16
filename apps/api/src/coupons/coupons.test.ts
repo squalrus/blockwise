@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MushroomCustomization } from "@blockwise/types";
+import type { MushroomCustomization, RecentVisitorMushroom } from "@blockwise/types";
 import { CHECKIN_COOLDOWN_MS } from "../checkins/checkin";
 import type { CheckinRecord, CheckinRepository, CheckinVenue, LocationCoords } from "../checkins/repository";
 import {
@@ -145,7 +145,7 @@ class FakeCheckinRepository implements CheckinRepository {
     return 0;
   }
 
-  async listRecentCheckinSnapshotsForNeighborhood(): Promise<NonNullable<CheckinRecord["mushroomSnapshot"]>[]> {
+  async listRecentVisitorMushroomsForNeighborhood(): Promise<RecentVisitorMushroom[]> {
     return [];
   }
 }

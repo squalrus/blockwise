@@ -85,15 +85,18 @@ export function LocationSummaryCard({
 
       <SlideToCheckIn locationId={location.id} />
 
-      {/* Grows with check-ins like the neighborhood card -- sqrt keeps a
-          long-running popular spot's field differentiated from a brand-new
-          one instead of both instantly maxing out the cap. */}
+      {/* BACKLOG.md Ref 94: one mushroom per distinct visitor within the
+          rolling 60-day window (not sqrt-scaled against the all-time total
+          check-in stat above), each sized by that visitor's own visit count
+          within the window -- a "Mayor" mosaic of recent activity rather
+          than a compressed lifetime total. */}
       <MushroomField
         seed={location.id}
-        count={Math.sqrt(location.checkin_count)}
+        count={location.recent_checkin_mushrooms.length}
         ariaLabel={`${location.checkin_count} check-ins`}
         distinctMushrooms
-        mushrooms={location.recent_checkin_mushrooms}
+        mushrooms={location.recent_checkin_mushrooms.map((m) => m.mushroom)}
+        visitCounts={location.recent_checkin_mushrooms.map((m) => m.visitCount)}
       />
     </div>
   );

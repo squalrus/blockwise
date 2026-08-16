@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { MushroomCustomization } from "@blockwise/types";
-import { evaluateCheckin, performCheckin } from "./checkin";
+import type { MushroomCustomization, RecentVisitorMushroom } from "@blockwise/types";
+import { resolveMushroomConfig } from "@blockwise/types";
+import { evaluateCheckin, performCheckin, rankRecentVisitors, toMushroomConfig } from "./checkin";
 import type { CheckinRecord, CheckinRepository, CheckinVenue, LocationCoords } from "./repository";
 
 const VENUE: LocationCoords = { id: "venue-1", lat: 47.6062, lng: -122.3321 };
@@ -161,20 +162,18 @@ class FakeCheckinRepository implements CheckinRepository {
     return this.checkins.length;
   }
 
-  async listRecentCheckinSnapshotsForNeighborhood(
+  async listRecentVisitorMushroomsForNeighborhood(
     _neighborhoodId: string,
     limit: number
-  ): Promise<NonNullable<CheckinRecord["mushroomSnapshot"]>[]> {
-    const mostRecentFirst = [...this.checkins].sort((a, b) => b.checkedInAt.localeCompare(a.checkedInAt));
-    const seenUsers = new Set<string>();
-    const snapshots: NonNullable<CheckinRecord["mushroomSnapshot"]>[] = [];
-    for (const c of mostRecentFirst) {
-      if (snapshots.length >= limit) break;
-      if (!c.mushroomSnapshot || seenUsers.has(c.userId)) continue;
-      seenUsers.add(c.userId);
-      snapshots.push(c.mushroomSnapshot);
-    }
-    return snapshots;
+  ): Promise<RecentVisitorMushroom[]> {
+    const ranked = rankRecentVisitors(
+      this.checkins.map((c) => ({ userId: c.userId, checkedInAt: c.checkedInAt })),
+      limit
+    );
+    return ranked.map(({ userId, visitCount }) => ({
+      mushroom: resolveMushroomConfig(userId, toMushroomConfig(this.mushroomCustomizations.get(userId) ?? null)),
+      visitCount,
+    }));
   }
 }
 
@@ -294,46 +293,35 @@ describe("performCheckin", () => {
   });
 });
 
-describe("listRecentCheckinSnapshotsForNeighborhood", () => {
-  it("returns the most recent distinct-user snapshots, excluding repeat visits and null-snapshot rows", async () => {
-    const repo = new FakeCheckinRepository();
-    const snapshotFor = (n: number) => ({
-      v: 2,
-      cap: "#e8542a",
-      stalk: "#fbf2e4",
-      spots: "#fbf2e4",
-      bg: "#fbf2e4",
-      spotCount: n,
-      spotShape: "circle" as const,
-    });
-    repo.checkins.push(
-      // user-1 visits twice -- only the more recent snapshot should count.
-      { id: "c1", userId: "user-1", venueId: "v1", deviceLat: 0, deviceLng: 0, checkedInAt: "2026-07-01T00:00:00Z", mushroomSnapshot: snapshotFor(1) },
-      { id: "c2", userId: "user-1", venueId: "v1", deviceLat: 0, deviceLng: 0, checkedInAt: "2026-07-03T00:00:00Z", mushroomSnapshot: snapshotFor(2) },
-      // user-2's check-in predates snapshot capture -- excluded entirely.
-      { id: "c3", userId: "user-2", venueId: "v1", deviceLat: 0, deviceLng: 0, checkedInAt: "2026-07-02T00:00:00Z", mushroomSnapshot: null },
-      { id: "c4", userId: "user-3", venueId: "v1", deviceLat: 0, deviceLng: 0, checkedInAt: "2026-07-04T00:00:00Z", mushroomSnapshot: snapshotFor(3) }
+describe("rankRecentVisitors", () => {
+  it("ranks distinct visitors most-visits-first, tie-broken by most recent", () => {
+    const result = rankRecentVisitors(
+      [
+        // user-1 visits twice within the window.
+        { userId: "user-1", checkedInAt: "2026-07-01T00:00:00Z" },
+        { userId: "user-1", checkedInAt: "2026-07-03T00:00:00Z" },
+        // user-2 and user-3 each visit once -- tied on visitCount, so
+        // user-3 (more recent) should rank ahead of user-2.
+        { userId: "user-2", checkedInAt: "2026-07-02T00:00:00Z" },
+        { userId: "user-3", checkedInAt: "2026-07-04T00:00:00Z" },
+      ],
+      12
     );
 
-    const result = await repo.listRecentCheckinSnapshotsForNeighborhood("neighborhood-1", 12);
-    expect(result).toEqual([snapshotFor(3), snapshotFor(2)]);
+    expect(result).toEqual([
+      { userId: "user-1", visitCount: 2 },
+      { userId: "user-3", visitCount: 1 },
+      { userId: "user-2", visitCount: 1 },
+    ]);
   });
 
-  it("caps at the given limit", async () => {
-    const repo = new FakeCheckinRepository();
-    for (let i = 1; i <= 5; i++) {
-      repo.checkins.push({
-        id: `c${i}`,
-        userId: `user-${i}`,
-        venueId: "v1",
-        deviceLat: 0,
-        deviceLng: 0,
-        checkedInAt: new Date(2026, 6, i).toISOString(),
-        mushroomSnapshot: { v: 2, cap: "#e8542a", stalk: "#fbf2e4", spots: "#fbf2e4", bg: "#fbf2e4", spotCount: 1, spotShape: "circle" },
-      });
-    }
+  it("caps at the given limit", () => {
+    const rows = Array.from({ length: 5 }, (_, i) => ({
+      userId: `user-${i + 1}`,
+      checkedInAt: new Date(2026, 6, i + 1).toISOString(),
+    }));
 
-    const result = await repo.listRecentCheckinSnapshotsForNeighborhood("neighborhood-1", 3);
+    const result = rankRecentVisitors(rows, 3);
     expect(result).toHaveLength(3);
   });
 });

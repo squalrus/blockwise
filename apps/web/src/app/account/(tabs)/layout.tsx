@@ -11,7 +11,8 @@ import type {
   UserChallenge,
   UserPointsSummary,
 } from "@blockwise/types";
-import { MushroomLoader, MushroomLogo } from "@blockwise/ui";
+import { MushroomLoader, MushroomLogo, resolveMushroomConfig } from "@blockwise/ui";
+import type { SpotShape } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { SignInPrompt } from "../../SignInPrompt";
@@ -148,8 +149,14 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
             neighborCount={state.connections.filter((c) => c.status === "accepted").length}
             neighborMushrooms={state.connections
               .filter((c) => c.status === "accepted")
-              .map((c) => c.user.mushroom_snapshot)
-              .filter((snapshot) => snapshot !== null)}
+              .map((c) =>
+                resolveMushroomConfig(
+                  c.user.id,
+                  c.user.mushroom_customization
+                    ? { ...c.user.mushroom_customization, spotShape: c.user.mushroom_customization.spotShape as SpotShape }
+                    : null
+                )
+              )}
             action={
               state.user.visibility === "public" && state.user.username ? (
                 <a

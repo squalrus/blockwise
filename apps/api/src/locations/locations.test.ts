@@ -308,10 +308,13 @@ describe("getLocationDetailWithFreshEnrichment", () => {
     expect(result?.kind).toBe("business");
   });
 
-  it("passes through recent check-in mushroom snapshots for the 'who's foraged here' mosaic", async () => {
+  it("passes through recent visitor mushrooms for the 'who's foraged here' mosaic", async () => {
     const repo = new FakeLocationRepository();
-    const snapshot = { v: 2, cap: "#e8542a", stalk: "#fbf2e4", spots: "#fbf2e4", bg: "#fbf2e4", spotCount: 3, spotShape: "circle" as const };
-    repo.detail = { ...BASE_DETAIL, recentCheckinMushrooms: [snapshot] };
+    const visitor = {
+      mushroom: { cap: "#e8542a", stalk: "#fbf2e4", spots: "#fbf2e4", bg: "#fbf2e4", spotCount: 3, spotShape: "circle" as const },
+      visitCount: 2,
+    };
+    repo.detail = { ...BASE_DETAIL, recentCheckinMushrooms: [visitor] };
 
     const result = await getLocationDetailWithFreshEnrichment(
       "location-1",
@@ -320,7 +323,7 @@ describe("getLocationDetailWithFreshEnrichment", () => {
       new FakePlacesClient()
     );
 
-    expect(result?.recent_checkin_mushrooms).toEqual([snapshot]);
+    expect(result?.recent_checkin_mushrooms).toEqual([visitor]);
   });
 
   it("skips enrichment when the location has no google_place_id", async () => {

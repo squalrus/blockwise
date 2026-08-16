@@ -11,6 +11,42 @@ export function toMushroomConfig(customization: MushroomCustomization | null): M
   return customization ? { ...customization, spotShape: customization.spotShape as SpotShape } : null;
 }
 
+// BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" -- how
+// far back a neighborhood/location mosaic's rolling window looks.
+export const RECENT_VISITOR_WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
+
+export interface RecentVisitorRow {
+  userId: string;
+  checkedInAt: string;
+}
+
+// Aggregates a window's raw check-in rows into distinct visitors ranked
+// most-visits-first (tie-broken by most recent), capped at `limit` -- the
+// shared ranking step behind both the venue-scoped
+// (locations/supabaseRepository.ts) and neighborhood-scoped
+// (checkins/supabaseRepository.ts) recent-visitor mosaic queries. PostgREST
+// has no GROUP BY, so this runs in application code against whatever rows
+// the caller's window query already fetched.
+export function rankRecentVisitors(
+  rows: RecentVisitorRow[],
+  limit: number
+): { userId: string; visitCount: number }[] {
+  const visitCounts = new Map<string, number>();
+  const mostRecentAt = new Map<string, string>();
+  for (const row of rows) {
+    visitCounts.set(row.userId, (visitCounts.get(row.userId) ?? 0) + 1);
+    const seenAt = mostRecentAt.get(row.userId);
+    if (!seenAt || row.checkedInAt > seenAt) mostRecentAt.set(row.userId, row.checkedInAt);
+  }
+
+  return [...visitCounts.entries()]
+    .map(([userId, visitCount]) => ({ userId, visitCount }))
+    .sort(
+      (a, b) => b.visitCount - a.visitCount || mostRecentAt.get(b.userId)!.localeCompare(mostRecentAt.get(a.userId)!)
+    )
+    .slice(0, limit);
+}
+
 // README §4 Phase 1: "GPS geofence check-in (radius check against
 // Venue.lat/lng)". 100m comfortably covers GPS drift for a single-building
 // venue without also catching a neighboring storefront. Reused as-is for POI

@@ -148,3 +148,13 @@ export interface MushroomSnapshot extends MushroomConfig {
 export function snapshotMushroomForUser(seed: string, customization: MushroomConfig | null): MushroomSnapshot {
   return { v: MUSHROOM_SNAPSHOT_VERSION, ...resolveMushroomConfig(seed, customization) };
 }
+
+// Neighborhood/location card mosaics (BACKLOG.md Ref 94): a distinct
+// visitor's *current* live look (resolveMushroomConfig, not a frozen
+// mushroom_snapshot) paired with how many times they checked in within the
+// rolling window the query applies -- MushroomField scales a mushroom's
+// size by visitCount so a repeat visitor ("Mayor") reads as larger.
+export interface RecentVisitorMushroom {
+  mushroom: MushroomConfig;
+  visitCount: number;
+}
