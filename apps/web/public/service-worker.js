@@ -1,8 +1,10 @@
 // PWA service worker (BACKLOG.md Ref 89). No offline asset caching yet --
-// this exists to make the app installable and to receive Web Push. If
-// offline support becomes a separate goal, add caching in the fetch
-// listener below (or adopt Serwist) without touching the push/notification
-// handlers.
+// this exists to make the app installable and to receive Web Push. No fetch
+// listener: Chrome's installability criteria haven't required one since
+// Chrome 68, and an empty fetch handler just adds per-request overhead
+// (Chrome's DevTools flags this as a no-op handler). If offline support
+// becomes a separate goal, add a real fetch listener with actual caching
+// logic (or adopt Serwist) without touching the push/notification handlers.
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -10,12 +12,6 @@ self.addEventListener("install", () => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
-});
-
-self.addEventListener("fetch", () => {
-  // Intentionally a no-op passthrough (the browser serves the request
-  // normally) -- present so the browser recognizes this as a fetch-handling
-  // service worker rather than one that just runs push.
 });
 
 self.addEventListener("push", (event) => {
