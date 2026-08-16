@@ -1,4 +1,4 @@
-import type { MushroomConfig, MushroomSnapshot, RecentVisitorMushroom } from "./mushroom";
+import type { MushroomConfig, RecentVisitorMushroom } from "./mushroom";
 
 export interface HealthCheckResponse {
   status: "ok";
@@ -200,12 +200,6 @@ export interface Checkin {
   device_lat: number;
   device_lng: number;
   checked_in_at: string;
-  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
-  // what the checking-in user's mushroom looked like at this moment
-  // (resolveMushroomConfig(userId, customization) at insert time), frozen so
-  // a later customizer edit doesn't repaint history. Null for check-ins that
-  // predate this feature.
-  mushroom_snapshot: MushroomSnapshot | null;
 }
 
 export interface CreateCheckinRequest {
@@ -725,10 +719,6 @@ export interface ConnectionSummary {
     avatar_url: string | null;
     avatar_style: AvatarStyle;
     mushroom_customization: MushroomCustomization | null;
-    // The other party's stamped look at the moment this connection was
-    // accepted (BACKLOG.md "Mushroom fingerprint stamps on connections and
-    // check-ins") -- not their current live look. Null until accepted.
-    mushroom_snapshot: MushroomSnapshot | null;
   };
 }
 

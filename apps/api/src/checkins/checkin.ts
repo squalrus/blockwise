@@ -1,11 +1,10 @@
 import type { Checkin, MushroomConfig, MushroomCustomization, SpotShape } from "@blockwise/types";
-import { snapshotMushroomForUser } from "@blockwise/types";
 import { haversineMeters } from "../places/geo";
 import type { CheckinRecord, CheckinRepository } from "./repository";
 
 // MushroomCustomization's spotShape is a plain string (packages/types has no
 // dependency on the SpotShape union it validates against server-side, per
-// isValidMushroomCustomization) -- narrow it for snapshotMushroomForUser,
+// isValidMushroomCustomization) -- narrow it for resolveMushroomConfig,
 // mirroring apps/web's Avatar.tsx.
 export function toMushroomConfig(customization: MushroomCustomization | null): MushroomConfig | null {
   return customization ? { ...customization, spotShape: customization.spotShape as SpotShape } : null;
@@ -135,7 +134,6 @@ function toCheckin(record: CheckinRecord): Checkin {
     device_lat: record.deviceLat,
     device_lng: record.deviceLng,
     checked_in_at: record.checkedInAt,
-    mushroom_snapshot: record.mushroomSnapshot,
   };
 }
 
@@ -168,13 +166,11 @@ export async function performCheckin(
     return { status: "cooldown", retryAt: decision.retryAt, scope: decision.scope };
   }
 
-  const customization = await repository.getMushroomCustomization(userId);
   const created = await repository.createCheckin({
     userId,
     venueId: locationId,
     deviceLat: device.lat,
     deviceLng: device.lng,
-    mushroomSnapshot: snapshotMushroomForUser(userId, toMushroomConfig(customization)),
   });
   return { status: "created", checkin: toCheckin(created) };
 }

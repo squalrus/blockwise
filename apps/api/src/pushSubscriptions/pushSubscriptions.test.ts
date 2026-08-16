@@ -74,7 +74,6 @@ function connectionTo(userId: string): ConnectionListItem {
       avatarUrl: null,
       avatarStyle: "mushroom",
       mushroomCustomization: null,
-      mushroomSnapshot: null,
     },
   };
 }

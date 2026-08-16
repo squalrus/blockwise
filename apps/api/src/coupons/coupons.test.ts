@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MushroomCustomization, RecentVisitorMushroom } from "@blockwise/types";
+import type { RecentVisitorMushroom } from "@blockwise/types";
 import { CHECKIN_COOLDOWN_MS } from "../checkins/checkin";
 import type { CheckinRecord, CheckinRepository, CheckinVenue, LocationCoords } from "../checkins/repository";
 import {
@@ -97,10 +97,6 @@ class FakeCheckinRepository implements CheckinRepository {
     return this.locations.find((l) => l.id === locationId) ?? null;
   }
 
-  async getMushroomCustomization(_userId: string): Promise<MushroomCustomization | null> {
-    return null;
-  }
-
   async getLastCheckinForLocation(userId: string, locationId: string): Promise<CheckinRecord | null> {
     const matches = this.checkins.filter((c) => c.userId === userId && c.venueId === locationId);
     if (matches.length === 0) return null;
@@ -118,7 +114,6 @@ class FakeCheckinRepository implements CheckinRepository {
     venueId: string;
     deviceLat: number;
     deviceLng: number;
-    mushroomSnapshot: CheckinRecord["mushroomSnapshot"];
   }): Promise<CheckinRecord> {
     const record: CheckinRecord = {
       id: `checkin-${this.nextId++}`,
@@ -127,7 +122,6 @@ class FakeCheckinRepository implements CheckinRepository {
       deviceLat: input.deviceLat,
       deviceLng: input.deviceLng,
       checkedInAt: new Date().toISOString(),
-      mushroomSnapshot: input.mushroomSnapshot,
     };
     this.checkins.push(record);
     return record;
@@ -160,7 +154,7 @@ const ACTIVE_WINDOW = {
 const VENUE: LocationCoords = { id: "venue-1", lat: 47.6062, lng: -122.3321 };
 
 function checkedInJustNow(userId: string, venueId: string, at = new Date().toISOString()): CheckinRecord {
-  return { id: "checkin-seed", userId, venueId, deviceLat: 0, deviceLng: 0, checkedInAt: at, mushroomSnapshot: null };
+  return { id: "checkin-seed", userId, venueId, deviceLat: 0, deviceLng: 0, checkedInAt: at };
 }
 
 describe("createCoupon", () => {

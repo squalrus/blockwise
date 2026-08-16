@@ -1461,7 +1461,6 @@ export function createApp() {
               avatar_url: c.user.avatarUrl,
               avatar_style: c.user.avatarStyle,
               mushroom_customization: c.user.mushroomCustomization,
-              mushroom_snapshot: c.user.mushroomSnapshot,
             },
           }))
         );

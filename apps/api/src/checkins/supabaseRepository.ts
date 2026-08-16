@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MushroomCustomization, MushroomSnapshot, RecentVisitorMushroom } from "@blockwise/types";
+import type { MushroomCustomization, RecentVisitorMushroom } from "@blockwise/types";
 import { resolveMushroomConfig } from "@blockwise/types";
 import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors, toMushroomConfig } from "./checkin";
 import type {
@@ -10,7 +10,7 @@ import type {
   LocationCoords,
 } from "./repository";
 
-const CHECKIN_COLUMNS = "id, user_id, venue_id, device_lat, device_lng, checked_in_at, mushroom_snapshot";
+const CHECKIN_COLUMNS = "id, user_id, venue_id, device_lat, device_lng, checked_in_at";
 
 // Safety bound on the raw rows fetched for the rolling-window mosaic query
 // (RECENT_VISITOR_WINDOW_MS already bounds it by date) -- generous relative
@@ -25,7 +25,6 @@ function toRecord(row: {
   device_lat: number;
   device_lng: number;
   checked_in_at: string;
-  mushroom_snapshot: MushroomSnapshot | null;
 }): CheckinRecord {
   return {
     id: row.id,
@@ -34,7 +33,6 @@ function toRecord(row: {
     deviceLat: row.device_lat,
     deviceLng: row.device_lng,
     checkedInAt: row.checked_in_at,
-    mushroomSnapshot: row.mushroom_snapshot,
   };
 }
 
@@ -89,24 +87,12 @@ export class SupabaseCheckinRepository implements CheckinRepository {
         venue_id: input.venueId,
         device_lat: input.deviceLat,
         device_lng: input.deviceLng,
-        mushroom_snapshot: input.mushroomSnapshot,
       })
       .select(CHECKIN_COLUMNS)
       .single();
 
     if (error) throw new Error(`createCheckin failed: ${error.message}`);
     return toRecord(data);
-  }
-
-  async getMushroomCustomization(userId: string): Promise<MushroomCustomization | null> {
-    const { data, error } = await this.supabase
-      .from("app_user")
-      .select("mushroom_customization")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (error) throw new Error(`getMushroomCustomization failed: ${error.message}`);
-    return data?.mushroom_customization ?? null;
   }
 
   async listCheckinsForUser(userId: string): Promise<CheckinVenue[]> {

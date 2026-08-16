@@ -114,10 +114,6 @@ class FakeCheckinRepository implements CheckinRepository {
     return this.locations.find((l) => l.id === locationId) ?? null;
   }
 
-  async getMushroomCustomization(userId: string): Promise<MushroomCustomization | null> {
-    return this.mushroomCustomizations.get(userId) ?? null;
-  }
-
   async getLastCheckinForLocation(userId: string, locationId: string): Promise<CheckinRecord | null> {
     const matches = this.checkins.filter((c) => c.userId === userId && c.venueId === locationId);
     if (matches.length === 0) return null;
@@ -135,7 +131,6 @@ class FakeCheckinRepository implements CheckinRepository {
     venueId: string;
     deviceLat: number;
     deviceLng: number;
-    mushroomSnapshot: CheckinRecord["mushroomSnapshot"];
   }): Promise<CheckinRecord> {
     const record: CheckinRecord = {
       id: `checkin-${this.nextId++}`,
@@ -144,7 +139,6 @@ class FakeCheckinRepository implements CheckinRepository {
       deviceLat: input.deviceLat,
       deviceLng: input.deviceLng,
       checkedInAt: new Date().toISOString(),
-      mushroomSnapshot: input.mushroomSnapshot,
     };
     this.checkins.push(record);
     return record;
@@ -215,7 +209,6 @@ describe("performCheckin", () => {
       deviceLat: AT_VENUE.lat,
       deviceLng: AT_VENUE.lng,
       checkedInAt: new Date().toISOString(),
-      mushroomSnapshot: null,
     });
     const result = await performCheckin("venue-1", "user-1", AT_VENUE, repo);
     expect(result.status).toBe("cooldown");
@@ -231,7 +224,6 @@ describe("performCheckin", () => {
       deviceLat: AT_VENUE.lat,
       deviceLng: AT_VENUE.lng,
       checkedInAt: new Date().toISOString(),
-      mushroomSnapshot: null,
     });
     const result = await performCheckin(
       "venue-1",
@@ -259,38 +251,6 @@ describe("performCheckin", () => {
     }
   });
 
-  it("stamps a mushroom_snapshot on the created checkin, honoring a saved customization over the hash default", async () => {
-    const VENUE_2: LocationCoords = { id: "venue-2", lat: AT_VENUE.lat, lng: AT_VENUE.lng };
-    const repo = new FakeCheckinRepository([VENUE, VENUE_2]);
-    // First check-in with no saved customization -- gets the hash-derived
-    // default, tagged with the current snapshot algorithm version.
-    const first = await performCheckin("venue-1", "user-1", AT_VENUE, repo);
-    expect(first.status).toBe("created");
-    if (first.status !== "created") return;
-    expect(first.checkin.mushroom_snapshot).toMatchObject({ v: 2 });
-
-    // Same user saves a customization, then checks in again elsewhere --
-    // the new snapshot should reflect the saved look, not the hash default.
-    const customization = {
-      cap: "#2b1b12",
-      stalk: "#f2a93b",
-      spots: "#f2a93b",
-      bg: "#f2a93b",
-      spotCount: 4,
-      spotShape: "star",
-    };
-    repo.mushroomCustomizations.set(first.checkin.user_id, customization);
-    const second = await performCheckin(
-      "venue-2",
-      "user-1",
-      AT_VENUE,
-      repo,
-      Date.now() + PAST_GLOBAL_COOLDOWN_MS
-    );
-    expect(second.status).toBe("created");
-    if (second.status !== "created") return;
-    expect(second.checkin.mushroom_snapshot).toEqual({ v: 2, ...customization });
-  });
 });
 
 describe("rankRecentVisitors", () => {
