@@ -3,16 +3,14 @@ export { PoweredByGoogle } from "./PoweredByGoogle";
 export { MushroomLogo } from "./MushroomLogo";
 export { MushroomLoader } from "./MushroomLoader";
 export { MushroomMark } from "./MushroomMark";
-// Re-exported from @blockwise/types -- the pure PRNG/palette/snapshot logic
-// lives there (isomorphic, no React) so apps/api can import the same source
-// of truth for server-side mushroom-snapshot capture (BACKLOG.md "Mushroom
-// fingerprint stamps"). packages/ui re-exports it so existing callers
-// (`import { mushroomConfigForUser } from "@blockwise/ui"`) don't need to
-// change their import path.
+// Re-exported from @blockwise/types -- the pure PRNG/palette logic lives
+// there (isomorphic, no React) so apps/api can import the same source of
+// truth for server-side live mushroom resolution. packages/ui re-exports it
+// so existing callers (`import { mushroomConfigForUser } from
+// "@blockwise/ui"`) don't need to change their import path.
 export {
   mushroomConfigForUser,
   resolveMushroomConfig,
-  snapshotMushroomForUser,
   mulberry32,
   hashSeed,
   SPOT_SHAPES,
@@ -30,7 +28,6 @@ export {
   MUSHROOM_STALKS,
   MUSHROOM_SPOT_COUNTS,
   MUSHROOM_SPOT_SHAPES,
-  MUSHROOM_SNAPSHOT_VERSION,
   BRAND_ORANGE,
   BRAND_AMBER,
   BRAND_GREEN,
@@ -40,5 +37,5 @@ export {
   BRAND_RUSSULA,
   BRAND_BLUSHER,
 } from "@blockwise/types";
-export type { MushroomConfig, MushroomSnapshot, SpotShape } from "@blockwise/types";
+export type { MushroomConfig, SpotShape } from "@blockwise/types";
 export { baloo2, jetbrainsMono, nunito } from "./fonts";

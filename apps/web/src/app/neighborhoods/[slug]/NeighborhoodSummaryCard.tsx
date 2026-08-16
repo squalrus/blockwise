@@ -66,16 +66,18 @@ export function NeighborhoodSummaryCard({
         </div>
       )}
 
-      {/* Grows with total check-ins rather than 1:1 like level -- a
-          neighborhood can rack up thousands, so sqrt keeps the field
-          differentiated across neighborhoods instead of every established
-          one instantly maxing out the cap. */}
+      {/* BACKLOG.md Ref 94: one mushroom per distinct visitor within the
+          rolling 60-day window (not sqrt-scaled against the all-time total
+          check-in stat above), each sized by that visitor's own visit count
+          within the window -- a "Mayor" mosaic of recent activity rather
+          than a compressed lifetime total. */}
       <MushroomField
         seed={neighborhood.id}
-        count={Math.sqrt(neighborhood.checkin_count)}
+        count={neighborhood.recent_checkin_mushrooms.length}
         ariaLabel={`${neighborhood.checkin_count} check-ins`}
         distinctMushrooms
-        mushrooms={neighborhood.recent_checkin_mushrooms}
+        mushrooms={neighborhood.recent_checkin_mushrooms.map((m) => m.mushroom)}
+        visitCounts={neighborhood.recent_checkin_mushrooms.map((m) => m.visitCount)}
       />
     </div>
   );

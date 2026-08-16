@@ -1,6 +1,5 @@
 import type { Coupon, CouponClaim, CouponStatus, CouponWithClaim } from "@blockwise/types";
-import { snapshotMushroomForUser } from "@blockwise/types";
-import { CHECKIN_COOLDOWN_MS, toMushroomConfig } from "../checkins/checkin";
+import { CHECKIN_COOLDOWN_MS } from "../checkins/checkin";
 import type { CheckinRepository } from "../checkins/repository";
 import type { ClaimCouponResult, CouponClaimRecord, CouponRecord, CouponRepository } from "./repository";
 
@@ -223,13 +222,11 @@ export async function redeemCouponClaim(
       ? Date.now() - new Date(lastCheckin.checkedInAt).getTime() < CHECKIN_COOLDOWN_MS
       : false;
     if (location && !cooldownActive) {
-      const customization = await repositories.checkin.getMushroomCustomization(userId);
       await repositories.checkin.createCheckin({
         userId,
         venueId: coupon.venueId,
         deviceLat: location.lat,
         deviceLng: location.lng,
-        mushroomSnapshot: snapshotMushroomForUser(userId, toMushroomConfig(customization)),
       });
     }
   }

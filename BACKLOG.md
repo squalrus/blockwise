@@ -58,13 +58,17 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 |---|---|---|---|---|---|
+| 98 | [Forager collection: per-location mushroom identities](#forager-collection-per-location-mushroom-identities) | feature | L | H | — |
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
 | 86 | [Follow events that are currently in progress](#follow-events-that-are-currently-in-progress) | improvement | S | M | — |
 | 87 | [Show events from followed businesses in the Spore feed](#show-events-from-followed-businesses-in-the-spore-feed) | feature | S | M | — |
+| 99 | [Proactive push notification opt-in prompt](#proactive-push-notification-opt-in-prompt) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
-| 94 | [Mushroom size reflects recent check-in activity](#mushroom-size-reflects-recent-check-in-activity) | feature | M | M | — |
+| 100 | [Event detail pages with check-in](#event-detail-pages-with-check-in) | feature | M | M | — |
+| 101 | [Shareable badges with OG image previews](#shareable-badges-with-og-image-previews) | feature | M | M | — |
+| 102 | [Push notification when a followed event starts](#push-notification-when-a-followed-event-starts) | feature | M | M | — |
 | 43 | [Leaderboard aggregation performance](#leaderboard-aggregation-performance) | improvement | S | L | — |
 
 ### Infrastructure & Design
@@ -73,8 +77,11 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 |---|---|---|---|---|---|
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 95 | [Dev instance of the app (Netlify and Supabase)](#dev-instance-of-the-app-netlify-and-supabase) | improvement | L | H | — |
+| 103 | [Make admin surfaces mobile friendly](#make-admin-surfaces-mobile-friendly) | improvement | M | M | — |
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
+| 104 | [Monitoring and error tracking](#monitoring-and-error-tracking) | improvement | L | M | — |
 | 91 | [Custom 404 page](#custom-404-page) | feature | S | L | — |
+| 105 | [Additional app themes within brand guidelines](#additional-app-themes-within-brand-guidelines) | feature | M | L | — |
 
 ### Marketing
 
@@ -258,6 +265,14 @@ No open limitations.
 
 ### User
 
+#### Forager collection: per-location mushroom identities
+
+**Ref:** 98
+**Type:** feature
+**Depends:** —
+**Why** — Tangential to the mushroom-revamp work shipped in v0.60.0 (see [docs/plans/mushroom-revamp.md](docs/plans/mushroom-revamp.md)) — a new profile area where users collect unique mushroom "species," one per location, by checking in there or by connecting with a neighbor. Turns the existing deterministic seed-hash mushroom system (already reused per-user, per-neighborhood, and per-location for the card mosaics) into an explicit collectible-catalog mechanic, giving users a reason to visit new places and meet new neighbors specifically to grow their collection — a Pokedex/badge-collection-style hook.
+**Notes:** Needs a per-location mushroom identity — the same `mushroomConfigForUser`-style hash keyed on `venue.id` (or, for connection-sourced entries, keyed on the other user's id), but explicitly **not** user-customizable, unlike a user's own mushroom, since it's meant to be a fixed "species" to discover rather than something its owner can reskin. Needs a new collection table (`user_id`, source type [`checkin` | `connection`], source id [`venue_id` | other user's id], `first_collected_at`, `quantity`) written on first check-in at a venue or first accepted connection with a user not yet collected, incrementing `quantity` on repeats ("2x" in the UI). Needs a new profile page/section rendering a grid of collected mushrooms — uncollected ones simply aren't shown, unlike the badges page's grayed-out locked state. Closest existing precedent is the earned/locked catalog cross-reference in `apps/web/src/app/account/(tabs)/badges/page.tsx`, though that renders a vertical list, not a grid, and does show locked items, so it needs adapting rather than reusing outright. Also wants generated names for mushroom combinations (a deterministic name generator over the same seed — e.g. combining adjective/noun word banks keyed by the hash) so each collected entry has flavor text, not just a swatch. Open question: given the large combinatorial space (cap × stalk × spots × bg × spotCount × spotShape), is the "unique mushroom" identity the full config tuple, or a coarser subset (e.g. cap + spotShape only)? The full-tuple approach makes collisions vanishingly rare — nothing to accumulate a "2x" on except by literally re-visiting the exact same location or re-connecting with the exact same person, which is exactly the repeat-source mechanic described above, so it's the likely right default.
+
 #### Venue wishlist
 
 **Ref:** 2
@@ -314,13 +329,37 @@ No open limitations.
 **Why** — `GET /neighborhoods/:slug/leaderboard` (`apps/api/src/gamification/supabaseRepository.ts`) computes each user's total by fetching every `point_event` row for the neighborhood and summing in JS, rather than a DB-side aggregation. Fine at pilot scale (one small neighborhood), but this will slow down and burn memory as a neighborhood's check-in/favorite history grows.
 **Notes:** Replace the client-side sum with a DB-side `GROUP BY`/`SUM` (a Postgres view, materialized view, or RPC function) so aggregation scales with the database rather than with rows pulled over the wire. Revisit once a neighborhood's `point_event` row count becomes large enough to notice — not urgent today.
 
-#### Mushroom size reflects recent check-in activity
+#### Proactive push notification opt-in prompt
 
-**Ref:** 94
+**Ref:** 99
 **Type:** feature
 **Depends:** —
-**Why** — Badge/profile cards currently show a static mushroom regardless of how active someone actually is. Scoping "recent" to a rolling 60-day window and scaling mushroom size with check-in count within that window turns the mushroom into a living activity indicator — more engaging than a flat badge, and gives frequent visitors visible recognition on neighborhood/location badge cards and on their own profile, alongside showing neighbors' and other users' check-in mushrooms for social comparison.
-**Notes:** Needs a check-in count aggregated over a rolling 60-day window per (user, neighborhood) or (user, location) pair, likely a query alongside the existing badge-award logic rather than a new table. "Always show latest checkins" suggests the card should also surface the most recent check-in timestamp, not just a size-scaled mushroom. Open questions: exact size-scaling curve (linear vs. stepped tiers), where the neighbor/other-users' mushrooms render on a personal profile (a strip/grid alongside the user's own large mushroom), and whether this replaces or supplements the existing badge iconography.
+**Why** — Web push (Ref 89, shipped) is only discoverable today via a manual toggle buried on `/account/settings` (`NotificationToggle.tsx`) — nothing surfaces the option proactively. `InstallPrompt.tsx` already shows a dismissible top banner nudging users to install the PWA; a parallel banner nudging eligible users to enable push notifications would drive opt-in the same way, instead of relying on someone finding the settings toggle on their own.
+**Notes:** Mirror `InstallPrompt.tsx`'s shape: a dismissible banner (own `localStorage` dismissed-key, same pattern as `blockwise_install_dismissed`) shown to users who are eligible but not yet subscribed and haven't dismissed it, reusing `NotificationToggle.tsx`'s existing eligibility checks (`serviceWorker`/`PushManager` support, iOS standalone requirement, `Notification.permission` state) and its `subscribe()` flow rather than duplicating the VAPID subscribe logic. Open questions: trigger timing (immediately, like the install prompt, or after some engagement signal like a first check-in) and whether it should defer to the install prompt on iOS (where push requires standalone mode first) rather than showing both banners at once.
+
+#### Event detail pages with check-in
+
+**Ref:** 100
+**Type:** feature
+**Depends:** —
+**Why** — Events have no dedicated page today — `EventListItem` only expands its description inline wherever it's rendered (neighborhood Today/Upcoming tabs, venue page, account Events tab), and there's no `GET /events/:id` endpoint to fetch a single event by ID. That means events have no shareable/linkable URL, and unlike venues (GPS geofence check-in via `POST /locations/:id/checkins`, shipped README §4 Phase 1), there's no way to check in at an event specifically — attending an event isn't tracked or rewarded any differently than an ordinary venue visit.
+**Notes:** Needs a new `GET /events/:id` route (`events/events.ts`/`supabaseRepository.ts` have no single-event lookup yet) and a new `apps/web/src/app/events/[id]/page.tsx`, mirroring `location/[id]/page.tsx`'s SSR + `generateMetadata` + JSON-LD pattern; `EventListItem`'s title would link to it instead of (or in addition to) the inline expand. Check-in reuses the existing GPS-geofence + cooldown flow (`checkins/checkin.ts`, `CHECKIN_RADIUS_METERS`/`CHECKIN_COOLDOWN_MS`) straightforwardly for venue-scoped events (`Event.venue_id` set — the venue's own lat/lng is already the geofence target). Open questions: (1) neighborhood-scoped events (`venue_id` null — a block party or feed import with only a free-text `location` string) have no coordinates to geofence against at all, so either need a lat/lng added at authoring time or must fall back to a non-GPS "I'm here" confirmation; (2) whether an event check-in should write a distinct `event_id`-tagged record (for event-specific attendance stats/history and badge rules) rather than just reusing a plain venue `checkin` row, and whether it's restricted to the event's `start_time`/`end_time` window rather than available any time the venue itself is checkinable.
+
+#### Shareable badges with OG image previews
+
+**Ref:** 101
+**Type:** feature
+**Depends:** —
+**Why** — Badges have no shareable presence today: `/account/(tabs)/badges` (self-only) and the "Latest badge" section on `/profile/[username]` both just render a `Badge.icon` code through `BadgeIcon.tsx`'s emoji lookup table inline on the page — there's no per-badge URL, and `profile/[username]/page.tsx`'s `generateMetadata` sets no `openGraph.images` at all (unlike `location/[id]/page.tsx`, which already points its OG image at `/api/locations/:id/photo?index=0`). A link to a friend showing off a badge currently previews as a generic/blank card instead of the badge itself.
+**Notes:** Preferred approach: a dynamic OG image (Next.js `ImageResponse`/`next/og`, `opengraph-image.tsx` convention) that server-renders the badge — icon glyph, name, Spored branding — since badges have no static image asset today, only the plain-text `icon` code `BadgeIcon.tsx` maps to an emoji client-side; that mapping table would need a server-side (non-DOM) equivalent for the image-generation route. Needs a shareable badge URL first, which doesn't exist yet — likely `/profile/[username]/badges/[badgeId]` as a proper sub-route (cleaner OG metadata scoping) rather than a query param on the existing profile page. **Fallback if the rendered-image route proves too costly:** skip the custom OG image and instead add a "Share" button (Web Share API `navigator.share`, with a copy-link fallback for unsupported browsers — no existing share pattern in the codebase to reuse) next to each earned badge on both pages, sharing a link + text (e.g. "I just earned the {name} badge on Spored 🍄") even without a rendered preview image.
+
+#### Push notification when a followed event starts
+
+**Ref:** 102
+**Type:** feature
+**Depends:** —
+**Why** — Following an event (Ref 81, shipped v0.42.0) is currently just a bookmark shown on the account Events tab — nothing actually reminds a follower when the event they followed is about to start, which is presumably the whole point of following one rather than just noting it down.
+**Notes:** Every push trigger that exists today (`notifyConnectionsOfCheckin`, `notifyUserOfConnectionRequest`/`notifyUserOfConnectionAccepted`, `notifySuperAdminsOfSignup`/`notifySuperAdminsOfFeedback` in `apps/api/src/pushSubscriptions/pushSubscriptions.ts`) fires synchronously from an HTTP request handler in `app.ts` — this would be the first *time-based* trigger, needing an actual scheduled job rather than a request-driven one. The API already deploys as a Netlify Function (`apps/api/netlify/functions/api.ts`, per `apps/web/netlify.toml`); a separate Netlify *scheduled* function (different convention/config from the co-located Express function) running every few minutes is the natural fit, querying for events whose `start_time` falls in the next window and fanning out through the existing `sendPushToUsers`. Needs a new `EventFollowRepository` method to list followers *of* an event (only the reverse direction, `listFollowedEventsForUser`, exists today) and a de-dupe mechanism so a follower isn't notified on every sweep before the event starts — e.g. a `notified_at` column on `event_follow`, checked before sending. Open question: how far ahead of `start_time` to fire (at the moment it starts vs. a few minutes' heads-up).
 
 ### Infrastructure & Design
 
@@ -355,6 +394,30 @@ No open limitations.
 **Depends:** —
 **Why** — A persistent staging environment enables safe testing and debugging of changes before they reach production users, and a formal approval/promotion workflow prevents accidental releases and gives visibility into what's going live.
 **Notes:** Set up parallel Netlify and Supabase instances (or use Supabase preview branches) mirroring the production setup. Hide the dev site from users and search engines via `robots.txt` disallow, meta tags, and/or a basic auth gate. Configure Netlify to auto-deploy commits to a dev branch (e.g. `main-dev` or `staging`) or trigger via GitHub Actions. Create a promotion mechanism — either a manual Netlify deployment trigger (promoting a dev build to prod) or a GitHub Actions workflow requiring explicit approval (via `workflow_dispatch` or a review/check) before promoting. Open questions: should this coexist with Netlify's per-PR preview deploys (different purposes — per-branch preview for each PR, vs. persistent shared dev for manual testing), or replace them? Should dev share a Supabase project/database or use a completely separate one for true isolation?
+
+#### Make admin surfaces mobile friendly
+
+**Ref:** 103
+**Type:** improvement
+**Depends:** —
+**Why** — Both admin shells (`admin/neighborhood/[neighborhoodSlug]/layout.tsx` and `admin/business/[venueId]/layout.tsx`) render a fixed `w-64` sidebar plus `h-screen overflow-hidden` two-pane layout with no responsive breakpoints or collapse behavior — on a phone-width viewport the sidebar and workspace both get squeezed rather than adapting, making it hard for a neighborhood admin or business owner to manage anything from a phone.
+**Notes:** Needs a small-viewport treatment for the shared sidebar shell — likely a collapsible/off-canvas sidebar behind a hamburger toggle below a `sm`/`md` breakpoint, matching the pattern most dashboard UIs use, plus auditing the tab content itself (tables/forms in `locations/page.tsx`, `BoundaryMap.tsx`, `EventForm.tsx`, etc.) for horizontal overflow at narrow widths. Since both admin layouts duplicate the same sidebar structure, consider extracting a shared responsive shell component as part of this work rather than fixing each independently. Scope to the sidebar shell + highest-traffic tabs (Overview, Locations, Events) first; less-used tabs can follow if the pattern proves out.
+
+#### Monitoring and error tracking
+
+**Ref:** 104
+**Type:** improvement
+**Depends:** —
+**Why** — Today the only visibility into a production failure is whatever the handler happened to `console.error` (123 call sites in `apps/api/src/app.ts` alone, one ad hoc try/catch per route with no shared error middleware or `process.on("unhandledRejection"/"uncaughtException")` handler) landing in Netlify's own function logs — not searchable, not alertable, and gone once Netlify's retention window passes. The web app has no client-side error capture at all: a React render crash or an uncaught exception in the browser is invisible unless a user happens to report it. [CI/CD pipeline](#cicd-pipeline) (Ref 25) already earmarks Sentry as a "can follow" item once there's more surface area to justify it — this is that piece, split out on its own since it's valuable independent of the CI/CD work itself and project-plan.md §10.4's Observability section calls it out as its own concern (shared error tracking across web/backend/future mobile, API-level request volume and cache-hit-rate metrics).
+**Notes:** Two paths, per the request: (1) a third-party service — Sentry is what the project plan already assumes, and covers web + Express API + a future React Native app ([Ref 1](#native-apps-react-native)) in one project with source-mapped stack traces and alerting essentially out of the box; free tier is likely sufficient at current scale. (2) Roll-your-own — a Postgres error/log table plus a Slack or push-notification alert reusing the existing super-admin alert pattern (`notifySuperAdminsOfSignup`/`notifySuperAdminsOfFeedback` in `pushSubscriptions.ts`) avoids a new vendor dependency but means building search, retention, and alerting from scratch. Recommend starting with Sentry given the effort gap, unless cost or vendor lock-in is a specific concern — revisit rolling a custom solution only if that changes. Either path needs: a shared Express error-handling middleware plus top-level `unhandledRejection`/`uncaughtException` handlers in `apps/api` (neither exists today), a Next.js error boundary + client-side capture in `apps/web`, and basic API request/latency logging (project plan's "request volume, cache hit rate on `VenueEnrichmentCache`").
+
+#### Additional app themes within brand guidelines
+
+**Ref:** 105
+**Type:** feature
+**Depends:** —
+**Why** — Today `ThemeToggle`/`theme.ts` only offer light/dark/system, each a fixed palette (`--brand-purple`, `--brand-orange`, etc. in `globals.css`). Additional theme options — e.g. alternate accent palettes that stay within Spored's brand guidelines rather than full custom theming — would give users a personalization option similar to what many consumer apps offer, without opening the door to arbitrary user-chosen colors that could clash with the brand.
+**Notes:** `ThemePreference` (`apps/web/src/lib/theme.ts`) is currently a light/dark/system union stored under `data-theme` on `<html>`; extending this to a small fixed set of named themes (each its own CSS custom-property block, analogous to the existing light/dark blocks in `globals.css`) is additive rather than a rework. The inline pre-hydration script in `layout.tsx` (kept in sync with `theme.ts` to avoid a flash of the wrong theme) needs the same extension. Open questions: how many theme variants to ship at launch, and whether theme choice is local-only (localStorage, matching today's light/dark behavior) or synced to the account like other profile preferences.
 
 ### Marketing
 

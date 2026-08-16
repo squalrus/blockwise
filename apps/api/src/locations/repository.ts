@@ -1,6 +1,6 @@
 import type {
   LocationKind,
-  MushroomSnapshot,
+  RecentVisitorMushroom,
   SocialLinks,
   VenueEnrichmentCache,
   VenueListItem,
@@ -48,12 +48,12 @@ export interface LocationDetailRecord {
   socialLinks: SocialLinks;
   checkinCount: number;
   favoriteCount: number;
-  // BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins" --
-  // the most recent distinct check-in-ers' stamped looks, for the "who's
-  // foraged here" mosaic (MushroomField's distinctMushrooms mode). Most
-  // recent first; excludes users with no snapshot (check-ins that predate
-  // this feature) and repeat visits by the same user.
-  recentCheckinMushrooms: MushroomSnapshot[];
+  // BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" --
+  // distinct visitors within the rolling 60-day window, each with their
+  // current live mushroom and visit count, for the "who's foraged here"
+  // mosaic (MushroomField's distinctMushrooms mode). Most-visits-first,
+  // tie-broken by most recent.
+  recentCheckinMushrooms: RecentVisitorMushroom[];
 }
 
 export interface CreateLocationInput {

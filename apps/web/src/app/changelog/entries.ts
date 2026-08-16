@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.60.0", date: "2026-08-15", summary: "Neighborhood/location mushroom mosaics now reflect the last 60 days of live activity with a size boost for repeat visitors, and profile cards show one live mushroom per neighbor" },
   { version: "0.59.2", date: "2026-08-15", summary: "Feedback tab badge, consistent Join/Favorite/Connect button styling, review dates and a latest-3 cap on venue reviews, dev component library split into linkable per-section URLs" },
   { version: "0.59.1", date: "2026-08-15", summary: "Fixed POIs missing from the check-in page, and made the Locations tab's merged list truly alphabetical" },
   { version: "0.59.0", date: "2026-08-14", summary: "Super admin Feedback tab with push notifications on new submissions, feedback menu color fix" },

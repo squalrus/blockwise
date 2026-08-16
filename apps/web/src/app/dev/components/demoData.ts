@@ -4,12 +4,15 @@ import type {
   CheckinRewardsSummary,
   CompletedChallengeSummary,
   Event,
+  MushroomConfig,
   NeighborhoodProfile,
   OpenNowLocation,
   PublicUserProfile,
+  RecentVisitorMushroom,
   UserPointsSummary,
   VenueDetail,
 } from "@blockwise/types";
+import { mushroomConfigForUser } from "@blockwise/types";
 import type { NeighborState } from "../../profile/[username]/NeighborRequestButton";
 import type { CheckinStatus } from "../../useCheckIn";
 
@@ -19,6 +22,18 @@ import type { CheckinStatus } from "../../useCheckIn";
 // badge/rewards helpers) to stay centralized rather than duplicated per tab.
 
 export const NOW = new Date().toISOString();
+
+// BACKLOG.md Ref 94/97 -- deterministic sample mushrooms for the
+// neighborhood/location mosaic and profile neighbor-mosaic demo fixtures,
+// so /dev/components actually previews the recent-visitor mosaic (varied
+// sizes by visitCount) and neighbor mosaic instead of rendering empty.
+function neighborMushroom(seed: string): MushroomConfig {
+  return mushroomConfigForUser(seed);
+}
+
+function recentVisitor(seed: string, visitCount: number): RecentVisitorMushroom {
+  return { mushroom: mushroomConfigForUser(seed), visitCount };
+}
 
 function badge(overrides: Partial<Badge> & Pick<Badge, "id" | "code" | "name" | "icon">): Badge {
   return { description: null, ...overrides };
@@ -115,6 +130,7 @@ export const PROFILE_CARDS: {
   badgeCount: number;
   challengeCount: number;
   neighborCount: number;
+  neighborMushrooms: MushroomConfig[];
   neighborState: NeighborState;
 }[] = [
   {
@@ -126,6 +142,7 @@ export const PROFILE_CARDS: {
     badgeCount: 0,
     challengeCount: 0,
     neighborCount: 0,
+    neighborMushrooms: [],
     neighborState: "none",
   },
   {
@@ -137,6 +154,8 @@ export const PROFILE_CARDS: {
     badgeCount: 3,
     challengeCount: 1,
     neighborCount: 4,
+    // BACKLOG.md Ref 97: one live mushroom per accepted neighbor.
+    neighborMushrooms: ["a", "b", "c", "d"].map((s) => neighborMushroom(`demo-neighbor-${s}`)),
     neighborState: "outgoing",
   },
   {
@@ -148,6 +167,7 @@ export const PROFILE_CARDS: {
     badgeCount: 11,
     challengeCount: 6,
     neighborCount: 19,
+    neighborMushrooms: Array.from({ length: 19 }, (_, i) => neighborMushroom(`demo-neighbor-heavy-${i}`)),
     neighborState: "incoming",
   },
   {
@@ -159,6 +179,7 @@ export const PROFILE_CARDS: {
     badgeCount: 1,
     challengeCount: 0,
     neighborCount: 1,
+    neighborMushrooms: [neighborMushroom("demo-neighbor-solo")],
     neighborState: "accepted",
   },
 ];
@@ -193,6 +214,17 @@ export const NEIGHBORHOOD_CARDS: { label: string; neighborhood: NeighborhoodProf
       member_count: 318,
       checkin_count: 1204,
       social_links: { instagram: "https://instagram.com/greenwoodseattle", website: "https://greenwoodseattle.com" },
+      // BACKLOG.md Ref 94: a mosaic mixing repeat "Mayor" visitors (larger,
+      // sqrt-scaled) with one-time visitors (base size) within the 60-day
+      // window, most-visits-first.
+      recent_checkin_mushrooms: [
+        recentVisitor("demo-visitor-1", 14),
+        recentVisitor("demo-visitor-2", 6),
+        recentVisitor("demo-visitor-3", 3),
+        recentVisitor("demo-visitor-4", 1),
+        recentVisitor("demo-visitor-5", 1),
+        recentVisitor("demo-visitor-6", 1),
+      ],
     }),
     joined: false,
   },
@@ -206,6 +238,8 @@ export const NEIGHBORHOOD_CARDS: { label: string; neighborhood: NeighborhoodProf
       poi_count: 1,
       member_count: 5,
       checkin_count: 2,
+      // Sparse case: two distinct one-time visitors, both base size.
+      recent_checkin_mushrooms: [recentVisitor("demo-visitor-14", 1), recentVisitor("demo-visitor-15", 1)],
     }),
     joined: true,
   },
@@ -243,6 +277,15 @@ export const LOCATION_CARDS: { label: string; location: VenueDetail; favorited: 
       claimed_by_business: true,
       checkin_count: 512,
       favorite_count: 89,
+      // BACKLOG.md Ref 94: heavy check-in history -- a "Mayor" mosaic mixing
+      // a few frequent regulars with several one-time visitors.
+      recent_checkin_mushrooms: [
+        recentVisitor("demo-visitor-7", 22),
+        recentVisitor("demo-visitor-8", 9),
+        recentVisitor("demo-visitor-9", 2),
+        recentVisitor("demo-visitor-10", 1),
+        recentVisitor("demo-visitor-11", 1),
+      ],
       enrichment: {
         venue_id: "demo-location-1",
         source: "google",
@@ -280,6 +323,7 @@ export const LOCATION_CARDS: { label: string; location: VenueDetail; favorited: 
       description: "A century-old water tower turned neighborhood landmark, visible from most of Greenwood.",
       checkin_count: 86,
       favorite_count: 14,
+      recent_checkin_mushrooms: [recentVisitor("demo-visitor-12", 4), recentVisitor("demo-visitor-13", 1)],
     }),
     favorited: true,
   },
@@ -294,6 +338,12 @@ export const SAMPLE_BUSINESS_LOCATION: VenueDetail = venueDetail({
   claimed_by_business: true,
   checkin_count: 341,
   favorite_count: 58,
+  recent_checkin_mushrooms: [
+    recentVisitor("demo-sample-location-visitor-1", 17),
+    recentVisitor("demo-sample-location-visitor-2", 6),
+    recentVisitor("demo-sample-location-visitor-3", 3),
+    recentVisitor("demo-sample-location-visitor-4", 1),
+  ],
   social_links: {
     instagram: "https://instagram.com/dieselfuelcoffee",
     website: "https://dieselfuelcoffee.example.com",
@@ -374,6 +424,11 @@ export const SAMPLE_POI_LOCATION: VenueDetail = venueDetail({
     "A century-old water tower turned neighborhood landmark, with a small viewing plaza and historical plaque at its base.",
   checkin_count: 96,
   favorite_count: 21,
+  recent_checkin_mushrooms: [
+    recentVisitor("demo-sample-poi-visitor-1", 8),
+    recentVisitor("demo-sample-poi-visitor-2", 2),
+    recentVisitor("demo-sample-poi-visitor-3", 1),
+  ],
   enrichment: {
     venue_id: "demo-sample-poi",
     source: "google",
@@ -414,6 +469,12 @@ export const SAMPLE_NEIGHBORHOOD: NeighborhoodProfile = neighborhood({
   member_count: 318,
   checkin_count: 1204,
   social_links: { instagram: "https://instagram.com/greenwoodseattle", website: "https://greenwoodseattle.example.com" },
+  recent_checkin_mushrooms: [
+    recentVisitor("demo-sample-visitor-1", 11),
+    recentVisitor("demo-sample-visitor-2", 5),
+    recentVisitor("demo-sample-visitor-3", 2),
+    recentVisitor("demo-sample-visitor-4", 1),
+  ],
 });
 
 export const SAMPLE_NEIGHBORHOOD_EVENTS: Event[] = [
@@ -481,5 +542,5 @@ export const SAMPLE_PROFILE: PublicUserProfile = {
   favorite_count: 22,
   points_summary: { points: 940, level: 9, points_into_level: 90, points_to_next_level: 10 },
   neighbor_count: 19,
-  neighbor_mushrooms: [],
+  neighbor_mushrooms: Array.from({ length: 19 }, (_, i) => neighborMushroom(`demo-profile-neighbor-${i}`)),
 };

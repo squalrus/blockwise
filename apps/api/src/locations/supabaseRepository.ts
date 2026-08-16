@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MushroomSnapshot, SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import type { MushroomCustomization, RecentVisitorMushroom, SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import { resolveMushroomConfig } from "@blockwise/types";
+import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors, toMushroomConfig } from "../checkins/checkin";
 import type {
   CategoryRecord,
   CreateLocationInput,
@@ -10,13 +12,15 @@ import type {
   UpdateLocationInput,
 } from "./repository";
 
-// "who's foraged here" mosaic (MushroomField's distinctMushrooms mode) --
-// PostgREST has no DISTINCT ON, so dedupe by user in application code: scan
-// the QUERY_LIMIT most recent check-ins (generous enough that a venue with
-// heavy repeat-visit traffic still surfaces DISTINCT_LIMIT distinct users),
-// keep the first (most recent) row per user, then cap at DISTINCT_LIMIT.
-const RECENT_CHECKIN_SNAPSHOT_QUERY_LIMIT = 60;
-const RECENT_CHECKIN_SNAPSHOT_DISTINCT_LIMIT = 12;
+// BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" --
+// "who's foraged here" mosaic (MushroomField's distinctMushrooms mode).
+// QUERY_LIMIT bounds the raw rows fetched within the rolling window as a
+// safety valve (not a distinct-user cap); DISTINCT_LIMIT caps the ranked
+// distinct visitors actually resolved and returned, matching MushroomField's
+// own MAX_MUSHROOMS ceiling since repeat visits are now expressed via size
+// rather than consuming extra mosaic slots.
+const RECENT_CHECKIN_SNAPSHOT_QUERY_LIMIT = 2000;
+const RECENT_CHECKIN_SNAPSHOT_DISTINCT_LIMIT = 40;
 
 interface CategoryEmbed {
   name: string;
@@ -161,6 +165,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       ? location.neighborhood[0]
       : location.neighborhood;
 
+    const windowStart = new Date(Date.now() - RECENT_VISITOR_WINDOW_MS).toISOString();
     const [
       { data: enrichment, error: enrichmentError },
       { data: claim, error: claimError },
@@ -192,9 +197,9 @@ export class SupabaseLocationRepository implements LocationRepository {
         .eq("venue_id", locationId),
       this.supabase
         .from("checkin")
-        .select("user_id, mushroom_snapshot")
+        .select("user_id, checked_in_at")
         .eq("venue_id", locationId)
-        .not("mushroom_snapshot", "is", null)
+        .gte("checked_in_at", windowStart)
         .order("checked_in_at", { ascending: false })
         .limit(RECENT_CHECKIN_SNAPSHOT_QUERY_LIMIT),
     ]);
@@ -205,15 +210,31 @@ export class SupabaseLocationRepository implements LocationRepository {
     if (checkinError) throw new Error(`getLocationDetail (checkin count) failed: ${checkinError.message}`);
     if (favoriteError) throw new Error(`getLocationDetail (favorite count) failed: ${favoriteError.message}`);
     if (recentCheckinsError)
-      throw new Error(`getLocationDetail (recent checkin snapshots) failed: ${recentCheckinsError.message}`);
+      throw new Error(`getLocationDetail (recent checkins) failed: ${recentCheckinsError.message}`);
 
-    const seenUsers = new Set<string>();
-    const recentCheckinMushrooms: MushroomSnapshot[] = [];
-    for (const row of recentCheckins ?? []) {
-      if (recentCheckinMushrooms.length >= RECENT_CHECKIN_SNAPSHOT_DISTINCT_LIMIT) break;
-      if (seenUsers.has(row.user_id)) continue;
-      seenUsers.add(row.user_id);
-      recentCheckinMushrooms.push(row.mushroom_snapshot as MushroomSnapshot);
+    const ranked = rankRecentVisitors(
+      (recentCheckins ?? []).map((row) => ({ userId: row.user_id, checkedInAt: row.checked_in_at })),
+      RECENT_CHECKIN_SNAPSHOT_DISTINCT_LIMIT
+    );
+
+    let recentCheckinMushrooms: RecentVisitorMushroom[] = [];
+    if (ranked.length > 0) {
+      const { data: users, error: usersError } = await this.supabase
+        .from("app_user")
+        .select("id, mushroom_customization")
+        .in(
+          "id",
+          ranked.map((r) => r.userId)
+        );
+      if (usersError) throw new Error(`getLocationDetail (recent visitor users) failed: ${usersError.message}`);
+
+      const customizationById = new Map(
+        (users ?? []).map((u) => [u.id as string, u.mushroom_customization as MushroomCustomization | null])
+      );
+      recentCheckinMushrooms = ranked.map(({ userId, visitCount }) => ({
+        mushroom: resolveMushroomConfig(userId, toMushroomConfig(customizationById.get(userId) ?? null)),
+        visitCount,
+      }));
     }
 
     return {

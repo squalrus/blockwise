@@ -129,22 +129,15 @@ export function resolveMushroomConfig(seed: string, customization: MushroomConfi
   return customization ?? mushroomConfigForUser(seed);
 }
 
-// BACKLOG.md "Mushroom fingerprint stamps on connections and check-ins":
-// a user's look can change after the fact (customizer edit, or an
-// auto-assigned look shifting after a palette/shape change) -- a snapshot
-// freezes what it looked like *at the moment* of a check-in or accepted
-// connection, so history doesn't silently repaint. `v` is an algorithm-
-// version tag (bump whenever the shape of MushroomConfig or the
-// palette/PRNG changes) so old snapshots are never misread as the current
-// algorithm's output -- bumped to 2 here since the shipped customizer split
-// the old fused "pattern" into independent spotCount/spotShape and added
-// independent spots/bg colors.
-export const MUSHROOM_SNAPSHOT_VERSION = 2;
-
-export interface MushroomSnapshot extends MushroomConfig {
-  v: number;
-}
-
-export function snapshotMushroomForUser(seed: string, customization: MushroomConfig | null): MushroomSnapshot {
-  return { v: MUSHROOM_SNAPSHOT_VERSION, ...resolveMushroomConfig(seed, customization) };
+// Neighborhood/location card mosaics (BACKLOG.md Ref 94): a distinct
+// visitor's *current* live look (resolveMushroomConfig) paired with how
+// many times they checked in within the rolling window the query applies --
+// MushroomField scales a mushroom's size by visitCount so a repeat visitor
+// ("Mayor") reads as larger. Superseded the old frozen-at-the-moment
+// mushroom_snapshot mechanic (BACKLOG.md "Mushroom fingerprint stamps"),
+// removed in v0.60.0 once both its consumers -- this mosaic and the profile
+// card's neighbor mosaic, Ref 97 -- switched to always-live resolution.
+export interface RecentVisitorMushroom {
+  mushroom: MushroomConfig;
+  visitCount: number;
 }
