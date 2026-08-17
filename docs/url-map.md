@@ -25,7 +25,7 @@ apps/web/src/app/
 ├── account/
 │   ├── (tabs)/                                      route group (no URL segment) — shared layout.tsx (profile summary card: points/favorite/check-in/badge/challenge/neighbor counts; "join a neighborhood" prompt; route-driven tab bar) wraps every tab below, mirroring /neighborhoods/:slug's layout+subnav split; kept out of settings/ below so that page keeps its own separate chrome
 │   │   ├── layout.tsx                              — C — shared chrome described above
-│   │   ├── page.tsx                                /account — Spore Feed tab (default) — accepted-neighbor activity (GET /me/feed) with today's followed events and active coupons at favorited venues pinned above it (GET /me/events + GET /me/coupons — BACKLOG.md Ref 83)
+│   │   ├── page.tsx                                /account — Spore Feed tab (default) — accepted-neighbor activity (GET /me/feed) with today's followed events, today's events at favorited venues, and active coupons at favorited venues pinned above it (GET /me/events + GET /me/events-from-favorites — de-duped against each other — BACKLOG.md Ref 87 — + GET /me/coupons — BACKLOG.md Ref 83)
 │   │   ├── favorites/page.tsx                      /account/favorites — Favorites tab — followed events + favorited venues
 │   │   ├── badges/page.tsx                         /account/badges — Badges tab — earned badges + locked placeholders from the full catalog (BACKLOG.md Ref 61)
 │   │   ├── challenges/page.tsx                     /account/challenges — Challenges tab — in-progress + completed challenges
@@ -176,6 +176,7 @@ Auth gates:
 ├── favorites                                          GET — auth
 ├── events                                              GET — auth — event-joined listing of events this user follows, excludes events that have already ended (BACKLOG.md Ref 81, account page Events section)
 ├── coupons                                             GET — auth — active coupons at every venue this user favorites (favoriting is the follow relationship), for the Spore Feed pin (BACKLOG.md Ref 83)
+├── events-from-favorites                               GET — auth — active, not-yet-ended events at every venue this user favorites, mirroring GET /me/coupons; separate list from GET /me/events (explicit per-event follows) — the Spore Feed pin de-dupes the two client-side (BACKLOG.md Ref 87)
 ├── feed                                                GET — auth — check-ins/favorites/challenge completions/badge unlocks/followed events/neighbor connections from accepted neighbor connections only, not neighborhood-wide (BACKLOG.md Ref 81, account page Spore Feed tab — mirrors GET /neighborhoods/:id/activity's shape scoped to connections instead of a neighborhood; unlike that neighborhood feed, also includes "a neighbor of yours connected with someone" rows since a connection isn't a neighborhood event)
 ├── activity                                            GET — auth — same activity types as GET /me/feed, scoped to just the caller's own actions (BACKLOG.md Ref 81 follow-up, account page My Activity tab, last tab, renamed from Check-ins) — actor name/username are never masked/linked here since it's the account viewing its own data
 ├── neighborhoods                                      GET — auth

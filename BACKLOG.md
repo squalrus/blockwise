@@ -27,14 +27,13 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 ### Neighborhood
 
 | Ref | Item | Type | Effort | Value | Depends |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 84 | [Premium neighborhood tier: events and custom challenges](#premium-neighborhood-tier-events-and-custom-challenges) | feature | L | H | — |
 | 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
 | 80 | [Missing location suggestion UI](#missing-location-suggestion-ui) | feature | S | M | — |
-| 88 | [Hide past events in the admin Events tabs](#hide-past-events-in-the-admin-events-tabs) | improvement | S | M | — |
 | 76 | [Self-serve neighborhood-admin invite/remove UI](#self-serve-neighborhood-admin-inviteremove-ui) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 77 | [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) | feature | L | M | — |
@@ -44,7 +43,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 ### Business & Venue
 
 | Ref | Item | Type | Effort | Value | Depends |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | 22 | [Category browsing & filtering](#category-browsing--filtering) | improvement | S | M | — |
 | 96 | [Investigate missing locations from Google Places API](#investigate-missing-locations-from-google-places-api) | known issue | S | M | — |
 | 7 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | feature | M | M | — |
@@ -57,13 +56,11 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 ### User
 
 | Ref | Item | Type | Effort | Value | Depends |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | 98 | [Forager collection: per-location mushroom identities](#forager-collection-per-location-mushroom-identities) | feature | L | H | — |
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
-| 86 | [Follow events that are currently in progress](#follow-events-that-are-currently-in-progress) | improvement | S | M | — |
-| 87 | [Show events from followed businesses in the Spore feed](#show-events-from-followed-businesses-in-the-spore-feed) | feature | S | M | — |
 | 99 | [Proactive push notification opt-in prompt](#proactive-push-notification-opt-in-prompt) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 100 | [Event detail pages with check-in](#event-detail-pages-with-check-in) | feature | M | M | — |
@@ -74,10 +71,9 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 ### Infrastructure & Design
 
 | Ref | Item | Type | Effort | Value | Depends |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 95 | [Dev instance of the app (Netlify and Supabase)](#dev-instance-of-the-app-netlify-and-supabase) | improvement | L | H | — |
-| 103 | [Make admin surfaces mobile friendly](#make-admin-surfaces-mobile-friendly) | improvement | M | M | — |
 | 25 | [CI/CD pipeline](#cicd-pipeline) | improvement | L | M | — |
 | 104 | [Monitoring and error tracking](#monitoring-and-error-tracking) | improvement | L | M | — |
 | 91 | [Custom 404 page](#custom-404-page) | feature | S | L | — |
@@ -189,14 +185,6 @@ No open limitations.
 **Why** — Users checking in via /checkin may spot a nearby venue the app doesn't yet have in the neighborhood's database, with no way to report it except leaving the app. A suggestion form at the bottom of the check-in page captures venue name/category/address and sends it to neighborhood admins, turning a friction point into a database contribution and improving discovery for future users without requiring the user to file a GitHub issue or email support.
 **Notes:** Add a "Missing a venue?" section at the bottom of NearestVenues with a compact form collecting venue name (required) and optional category/address/notes fields. POST to a new `/me/venue-suggestions` endpoint (or `/neighborhoods/:id/venue-suggestions`) writing to a new `venue_suggestion` table (`user_id`, `neighborhood_id`, `name`, `category`, `address`, `notes`, `created_at`, `status`). Neighborhood admins see incoming suggestions in an admin surface (separate backlog item covering the review/action UI and triage workflow); initial spec can be "email admins on new suggestion" or a simple unreviewed list. Open questions: should photos be attachable? Should this live on other pages (just /checkin, or also /neighborhoods/:slug/venues)? Should the form geo-locate and prepopulate address? Should users get notified if their suggestion becomes a real venue?
 
-#### Hide past events in the admin Events tabs
-
-**Ref:** 88
-**Type:** improvement
-**Depends:** —
-**Why** — Both the neighborhood-admin and business-admin Events tabs (`admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `admin/business/[venueId]/events/page.tsx`) list every event from the dashboard summary with no date filtering — unlike the public Upcoming/Today tabs, which already exclude events whose `end_time` has passed. Over time the admin "Upcoming" list fills up with events that already happened, making it harder to scan for what's actually coming up and to manage the calendar-feed-synced set.
-**Notes:** Both admin pages already need to see hidden events (there's something to Unhide), which is why their dashboard fetch passes `includeHidden = true` — the same reasoning applies here: keep past events fetched (a manual delete/audit trail use case might still want them), but hide them from the default view behind a "Show past" toggle, mirroring the Locations tab's existing "Show hidden" toggle pattern (`admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`). Simplest cut: a client-side filter on `event.end_time < now` in both pages' render, no API changes needed. Applies identically to both admin shells since they share the same `EventListItem`-based Upcoming list layout.
-
 ### Business & Venue
 
 #### Category browsing & filtering
@@ -270,7 +258,7 @@ No open limitations.
 **Ref:** 98
 **Type:** feature
 **Depends:** —
-**Why** — Tangential to the mushroom-revamp work shipped in v0.60.0 (see [docs/plans/mushroom-revamp.md](docs/plans/mushroom-revamp.md)) — a new profile area where users collect unique mushroom "species," one per location, by checking in there or by connecting with a neighbor. Turns the existing deterministic seed-hash mushroom system (already reused per-user, per-neighborhood, and per-location for the card mosaics) into an explicit collectible-catalog mechanic, giving users a reason to visit new places and meet new neighbors specifically to grow their collection — a Pokedex/badge-collection-style hook.
+**Why** — Tangential to the mushroom-revamp work in Ref 94/97 (see [docs/plans/mushroom-revamp.md](docs/plans/mushroom-revamp.md)) — a new profile area where users collect unique mushroom "species," one per location, by checking in there or by connecting with a neighbor. Turns the existing deterministic seed-hash mushroom system (already reused per-user, per-neighborhood, and per-location for the card mosaics) into an explicit collectible-catalog mechanic, giving users a reason to visit new places and meet new neighbors specifically to grow their collection — a Pokedex/badge-collection-style hook.
 **Notes:** Needs a per-location mushroom identity — the same `mushroomConfigForUser`-style hash keyed on `venue.id` (or, for connection-sourced entries, keyed on the other user's id), but explicitly **not** user-customizable, unlike a user's own mushroom, since it's meant to be a fixed "species" to discover rather than something its owner can reskin. Needs a new collection table (`user_id`, source type [`checkin` | `connection`], source id [`venue_id` | other user's id], `first_collected_at`, `quantity`) written on first check-in at a venue or first accepted connection with a user not yet collected, incrementing `quantity` on repeats ("2x" in the UI). Needs a new profile page/section rendering a grid of collected mushrooms — uncollected ones simply aren't shown, unlike the badges page's grayed-out locked state. Closest existing precedent is the earned/locked catalog cross-reference in `apps/web/src/app/account/(tabs)/badges/page.tsx`, though that renders a vertical list, not a grid, and does show locked items, so it needs adapting rather than reusing outright. Also wants generated names for mushroom combinations (a deterministic name generator over the same seed — e.g. combining adjective/noun word banks keyed by the hash) so each collected entry has flavor text, not just a swatch. Open question: given the large combinatorial space (cap × stalk × spots × bg × spotCount × spotShape), is the "unique mushroom" identity the full config tuple, or a coarser subset (e.g. cap + spotShape only)? The full-tuple approach makes collisions vanishingly rare — nothing to accumulate a "2x" on except by literally re-visiting the exact same location or re-connecting with the exact same person, which is exactly the repeat-source mechanic described above, so it's the likely right default.
 
 #### Venue wishlist
@@ -304,22 +292,6 @@ No open limitations.
 **Depends:** —
 **Why** — Same rationale as Google social sign-in (shipped v0.10.0) — removes a signup step at the moments that flow is meant to make frictionless — but scoped separately since it's a materially bigger lift with its own setup dependencies and timeline.
 **Notes:** Requires Apple Developer Program enrollment, creating a Services ID, and generating a rotating client-secret JWT (Apple secrets expire and must be regenerated, unlike Google's). Same completion flow on the app side as Google once configured — `supabase.auth.signInWithOAuth`, a redirect callback route, then the existing `/auth/complete-signup`/`/auth/complete-login`, since `verifyToken.ts` already reads the provider generically off `app_metadata`.
-
-#### Follow events that are currently in progress
-
-**Ref:** 86
-**Type:** improvement
-**Depends:** —
-**Why** — Following an event (BACKLOG.md Ref 81, shipped v0.42.0) already works for an event that has started but not yet ended wherever `FollowEventButton` is rendered — the neighborhood Today and Upcoming events tabs don't filter it out. But the business/POI detail page's own Events section (`apps/web/src/app/location/[id]/page.tsx`) renders events as plain list items with no follow control at all, so an event you're looking at directly on the venue page — including one happening right now — can't be followed from there.
-**Notes:** Add `FollowEventButton` to the venue page's Events list, matching the pattern already used on the neighborhood Today/Upcoming tabs (`<EventListItem event={e} showSource={false} actions={<FollowEventButton eventId={e.id} />} />`) — that page currently renders its own plain `<li>` markup instead of `EventListItem`, so this is also an opportunity to switch it to the shared component for consistency. Open question: confirm there's no other surface where an in-progress event is excluded before/after this fix — `listEventsForNeighborhoodAndVenues` only filters out events whose `end_time` has passed, not ones whose `start_time` has, so no server-side change should be needed.
-
-#### Show events from followed businesses in the Spore feed
-
-**Ref:** 87
-**Type:** feature
-**Depends:** —
-**Why** — The Spore Feed's "Today" pin currently only surfaces events the user has explicitly followed one-by-one (`GET /me/events`) — it doesn't surface new events from a business the user already favorites, unlike venue coupons (shipped v0.54.0, see CHANGELOG.md), which pin every active coupon at a favorited venue automatically with no per-coupon follow step required. Events from a business you already care about should show up the same way, instead of requiring the extra step of following each one individually.
-**Notes:** Direct mirror of the just-shipped coupon pin: add a `listActiveEventsForVenues(venueIds, ...)`-style function (parallel to `coupons.ts`'s `listActiveCouponsForVenues`) and a new `GET /me/events-from-favorites` (or fold into the existing `GET /me/events`) that joins today's/upcoming events across every venue in `FavoriteRepository.listFavoriteVenuesForUser`, then pin those in `account/page.tsx` alongside the existing followed-events and coupon pins. Open question: should this replace or sit alongside the existing explicit per-event follow pin — a user could already follow one of these venue events individually, so de-dupe against the existing `todaysEvents` list rather than showing the same event twice.
 
 #### Leaderboard aggregation performance
 
@@ -394,14 +366,6 @@ No open limitations.
 **Depends:** —
 **Why** — A persistent staging environment enables safe testing and debugging of changes before they reach production users, and a formal approval/promotion workflow prevents accidental releases and gives visibility into what's going live.
 **Notes:** Set up parallel Netlify and Supabase instances (or use Supabase preview branches) mirroring the production setup. Hide the dev site from users and search engines via `robots.txt` disallow, meta tags, and/or a basic auth gate. Configure Netlify to auto-deploy commits to a dev branch (e.g. `main-dev` or `staging`) or trigger via GitHub Actions. Create a promotion mechanism — either a manual Netlify deployment trigger (promoting a dev build to prod) or a GitHub Actions workflow requiring explicit approval (via `workflow_dispatch` or a review/check) before promoting. Open questions: should this coexist with Netlify's per-PR preview deploys (different purposes — per-branch preview for each PR, vs. persistent shared dev for manual testing), or replace them? Should dev share a Supabase project/database or use a completely separate one for true isolation?
-
-#### Make admin surfaces mobile friendly
-
-**Ref:** 103
-**Type:** improvement
-**Depends:** —
-**Why** — Both admin shells (`admin/neighborhood/[neighborhoodSlug]/layout.tsx` and `admin/business/[venueId]/layout.tsx`) render a fixed `w-64` sidebar plus `h-screen overflow-hidden` two-pane layout with no responsive breakpoints or collapse behavior — on a phone-width viewport the sidebar and workspace both get squeezed rather than adapting, making it hard for a neighborhood admin or business owner to manage anything from a phone.
-**Notes:** Needs a small-viewport treatment for the shared sidebar shell — likely a collapsible/off-canvas sidebar behind a hamburger toggle below a `sm`/`md` breakpoint, matching the pattern most dashboard UIs use, plus auditing the tab content itself (tables/forms in `locations/page.tsx`, `BoundaryMap.tsx`, `EventForm.tsx`, etc.) for horizontal overflow at narrow widths. Since both admin layouts duplicate the same sidebar structure, consider extracting a shared responsive shell component as part of this work rather than fixing each independently. Scope to the sidebar shell + highest-traffic tabs (Overview, Locations, Events) first; less-used tabs can follow if the pattern proves out.
 
 #### Monitoring and error tracking
 

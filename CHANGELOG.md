@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.63.0] — 2026-08-17
+
+### Added
+
+- **Events from favorited venues now surface in the Spore Feed.** The "Today" pin on your account page now shows active events from every venue you favorite, alongside events you explicitly followed, so you can discover events at places you already care about without a separate per-event follow step — mirroring how coupons work. Events you've both followed and favorited the venue of appear only once, de-duped. (`apps/api/src/events/repository.ts`, `apps/api/src/events/supabaseRepository.ts`, `apps/api/src/events/events.ts`, `apps/api/src/app.ts`, `apps/web/src/app/account/(tabs)/page.tsx`, `docs/url-map.md`)
+
+### Changed
+
+- **Admin surfaces are now mobile-friendly.** The neighborhood-admin, business-admin, and super-admin shells now collapse their fixed sidebars into an off-canvas hamburger menu at mobile widths (`md` breakpoint and below), and the Locations tab header no longer overflows horizontally on narrow screens. A shared `AdminShell` component replaces the duplicated sidebar logic across all three admin entry points. (`apps/web/src/app/admin/AdminShell.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`, `apps/web/src/app/admin/super/layout.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`)
+- **Admin Events tabs hide past events by default.** Both the neighborhood-admin and business-admin Events tabs now exclude events whose end time has already passed from the default view, behind a "Show past" toggle (mirroring the Locations tab's "Show hidden" pattern) — keeping the admin "Upcoming" list focused on what's actually coming up while still preserving old events for audit/history. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `apps/web/src/app/admin/business/[venueId]/events/page.tsx`)
+- **Events that are currently in progress are now followable from venue detail pages.** The venue page's Events section now renders a follow button on each event, including events happening right now, matching the pattern already used on neighborhood admin tabs. (`apps/web/src/app/location/[id]/page.tsx`)
+
 ## [0.62.0] — 2026-08-16
 
 ### Added

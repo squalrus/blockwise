@@ -5,10 +5,8 @@ import { usePathname } from "next/navigation";
 import type { AppUser, FeedbackSubmissionAdminView } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
-import { MushroomLoader, MushroomLogo } from "@blockwise/ui";
-import { AccountMenu } from "../../AccountMenu";
-import { AdminSwitcher } from "../../AdminSwitcher";
-import packageJson from "../../../../package.json";
+import { MushroomLoader } from "@blockwise/ui";
+import { AdminShell, type AdminShellTab } from "../AdminShell";
 
 type State =
   | { status: "loading" }
@@ -174,67 +172,29 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     window.location.href = "/";
   }
 
+  const shellTabs: AdminShellTab[] = TABS.map((tab) => {
+    const href = `/admin/super${tab.href}`;
+    // Sub-routes should keep their parent tab highlighted -- exact-match
+    // only for Overview, whose own href is a strict prefix of every other
+    // tab's (mirrors the neighborhood/business shells).
+    const active = tab.href === "" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+    const badge =
+      tab.key === "feedback" && !!newFeedbackCount ? (
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
+          {newFeedbackCount}
+        </span>
+      ) : undefined;
+    return { key: tab.key, href, label: tab.label, icon: tab.icon, active, badge };
+  });
+
   return (
-    <div className="flex h-screen overflow-hidden bg-background font-sans text-foreground">
-      {/* ================= SIDEBAR ================= */}
-      <div className="flex w-64 shrink-0 flex-col bg-nav px-3.5 pt-4.5 pb-4 text-nav-foreground">
-        <div className="flex items-center gap-2.5 px-2 pb-4">
-          <MushroomLogo size={26} capColor="var(--brand-orange)" stemClassName="text-nav-foreground" />
-          <span className="font-heading text-xl font-extrabold text-nav-foreground">Spored</span>
-          <span className="ml-auto rounded-full bg-nav-foreground/10 px-2 py-0.75 font-mono text-[10px] text-nav-muted">
-            admin
-          </span>
-        </div>
-
-        <AdminSwitcher current={{ kind: "super", id: "platform", label: "Super admin", sublabel: "All neighborhoods & businesses" }} user={user} />
-
-        <div className="px-2.5 pb-2 font-mono text-[10px] tracking-wide text-nav-muted/80 uppercase">Manage</div>
-
-        <nav className="flex flex-col gap-0.5">
-          {TABS.map((tab) => {
-            const href = `/admin/super${tab.href}`;
-            // Sub-routes should keep their parent tab highlighted -- exact-
-            // match only for Overview, whose own href is a strict prefix of
-            // every other tab's (mirrors the neighborhood/business shells).
-            const isActive = tab.href === "" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-            return (
-              <a
-                key={tab.key}
-                href={href}
-                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-extrabold ${
-                  isActive ? "bg-card text-foreground" : "text-nav-muted hover:bg-nav-foreground/8"
-                }`}
-              >
-                <tab.icon className="shrink-0" />
-                <span>{tab.label}</span>
-                {tab.key === "feedback" && !!newFeedbackCount && (
-                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
-                    {newFeedbackCount}
-                  </span>
-                )}
-              </a>
-            );
-          })}
-        </nav>
-
-        <div className="flex-1" />
-
-        <a href="/changelog" className="block px-3 pt-2 font-mono text-[10px] text-nav-muted/60 hover:text-nav-muted">
-          Spored v{packageJson.version} · BETA
-        </a>
-      </div>
-
-      {/* ================= WORKSPACE ================= */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-[1460px] flex-col px-9 pt-5.5 pb-18">
-          <div className="mb-5.5 flex items-center gap-3.5">
-            <div className="flex-1" />
-            <AccountMenu user={user} tag="admin" onLogOut={handleLogOut} />
-          </div>
-
-          {children}
-        </div>
-      </div>
-    </div>
+    <AdminShell
+      switcherCurrent={{ kind: "super", id: "platform", label: "Super admin", sublabel: "All neighborhoods & businesses" }}
+      user={user}
+      tabs={shellTabs}
+      onLogOut={handleLogOut}
+    >
+      {children}
+    </AdminShell>
   );
 }

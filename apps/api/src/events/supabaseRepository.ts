@@ -131,6 +131,24 @@ export class SupabaseEventRepository implements EventRepository {
     return records;
   }
 
+  async listEventsForVenues(venueIds: string[]): Promise<EventRecord[]> {
+    if (venueIds.length === 0) return [];
+    const nowIso = new Date().toISOString();
+    const { data, error } = await this.supabase
+      .from("event")
+      .select(`${EVENT_COLUMNS}, venue:venue_id!inner(name)`)
+      .in("venue_id", venueIds)
+      .eq("status", "active")
+      .gte("end_time", nowIso)
+      .order("start_time", { ascending: true });
+
+    if (error) throw new Error(`listEventsForVenues failed: ${error.message}`);
+    return (data ?? []).map((row) => {
+      const venue = single(row.venue as { name: string } | { name: string }[] | null);
+      return toRecord(row, venue?.name ?? null);
+    });
+  }
+
   async upsertImportedEventsForNeighborhood(
     neighborhoodId: string,
     events: ImportedEventInput[]

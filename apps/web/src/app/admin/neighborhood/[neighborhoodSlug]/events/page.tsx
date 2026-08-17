@@ -23,6 +23,7 @@ type State =
 export default function NeighborhoodEventsPage() {
   const { neighborhoodId, name } = useNeighborhoodAdmin();
   const [state, setState] = useState<State>({ status: "loading" });
+  const [showPast, setShowPast] = useState(false);
 
   async function load() {
     const token = await getAccessToken();
@@ -121,6 +122,14 @@ export default function NeighborhoodEventsPage() {
     return <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>;
   }
 
+  // Past events (end_time already elapsed) stay fetched -- mirrors the public
+  // Today/Upcoming tabs' own filtering -- but are hidden from the default
+  // view behind this toggle, the same "Show hidden" pattern as the Locations
+  // tab, since the admin still wants them reachable for unhide/audit.
+  const visibleEvents = showPast
+    ? state.summary.events
+    : state.summary.events.filter((e) => new Date(e.end_time).getTime() >= Date.now());
+
   return (
     <div className="flex flex-col gap-5.5">
       <div>
@@ -152,15 +161,26 @@ export default function NeighborhoodEventsPage() {
         </div>
 
         <section className="rounded-3xl border border-border bg-card p-6">
-          <div className="mb-3.5 flex items-baseline gap-2.5">
+          <div className="mb-3.5 flex flex-wrap items-baseline gap-2.5">
             <h2 className="font-heading text-lg font-extrabold">Upcoming</h2>
-            <span className="font-mono text-[11px] text-muted">{state.summary.events.length} events</span>
+            <span className="font-mono text-[11px] text-muted">{visibleEvents.length} events</span>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setShowPast((prev) => !prev)}
+              aria-pressed={showPast}
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.75 text-[13px] font-extrabold ${
+                showPast ? "bg-foreground text-background" : "border-1.5 border-border bg-card text-muted-strong"
+              }`}
+            >
+              <span>Show past</span>
+            </button>
           </div>
-          {state.summary.events.length === 0 ? (
-            <p className="text-sm text-muted">No events yet.</p>
+          {visibleEvents.length === 0 ? (
+            <p className="text-sm text-muted">{showPast ? "No events yet." : "No upcoming events."}</p>
           ) : (
             <ul className="flex flex-col gap-2.5">
-              {state.summary.events.map((e) => (
+              {visibleEvents.map((e) => (
                 <EventListItem
                   key={e.id}
                   event={e}

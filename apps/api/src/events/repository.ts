@@ -88,6 +88,11 @@ export interface EventRepository {
   // end_time hasn't passed yet -- that's what lets happeningNow.ts's
   // isLiveNow filter find it.
   listEventsForNeighborhoodAndVenues(neighborhoodId: string): Promise<EventRecord[]>;
+  // Spore Feed pin (BACKLOG.md Ref 87): active, not-yet-ended events across
+  // every venue in venueIds, with venueName populated (mirrors the
+  // venue-events half of listEventsForNeighborhoodAndVenues above) -- caller
+  // resolves venueIds from FavoriteRepository.listFavoriteVenuesForUser.
+  listEventsForVenues(venueIds: string[]): Promise<EventRecord[]>;
   // iCal feed sync (BACKLOG.md Ref 30) -- upserts by (ownerId, uid), so a
   // feed that still lists a previously-imported event updates that same row
   // instead of creating a second one, and manual rows (external_uid always

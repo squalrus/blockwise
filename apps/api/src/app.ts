@@ -74,6 +74,7 @@ import {
   createEventForNeighborhood,
   deleteEventForNeighborhood,
   deleteEventForVenue,
+  listActiveEventsForVenues,
   listEventsForNeighborhood,
   listEventsForVenue,
   listUpcomingEventsForNeighborhood,
@@ -1167,6 +1168,27 @@ export function createApp() {
     } catch (err) {
       console.error("GET /me/events failed:", err);
       res.status(500).json({ error: "Failed to list followed events" });
+    }
+  });
+
+  // Spore Feed pin (BACKLOG.md Ref 87): active events at every venue the
+  // signed-in user favorites, mirroring GET /me/coupons' composition of
+  // FavoriteRepository.listFavoriteVenuesForUser + listActiveCouponsForVenues.
+  // Kept separate from GET /me/events (explicit per-event follows) rather
+  // than folded in -- the two lists have different id sources (favorite vs.
+  // event_follow), and the Spore Feed page de-dupes them itself so a
+  // followed event at a favorited venue isn't rendered twice.
+  app.get("/me/events-from-favorites", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const favorites = await getFavoriteRepository().listFavoriteVenuesForUser(req.appUser!.id);
+      const events = await listActiveEventsForVenues(
+        favorites.map((f) => f.venueId),
+        getEventRepository()
+      );
+      res.json(events);
+    } catch (err) {
+      console.error("GET /me/events-from-favorites failed:", err);
+      res.status(500).json({ error: "Failed to list events" });
     }
   });
 

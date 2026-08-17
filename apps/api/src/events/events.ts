@@ -98,6 +98,20 @@ export async function listUpcomingEventsForNeighborhood(
   return records.map(toEvent);
 }
 
+// Spore Feed pin (BACKLOG.md Ref 87): active events at every venue the
+// viewer favorites, mirroring coupons.ts's listActiveCouponsForVenues.
+// venueIds is resolved by the caller from
+// FavoriteRepository.listFavoriteVenuesForUser -- filtering to active/
+// not-yet-ended already happens in the repository, same as
+// listUpcomingEventsForNeighborhood above, so this is just the toEvent map.
+export async function listActiveEventsForVenues(
+  venueIds: string[],
+  repository: EventRepository
+): Promise<Event[]> {
+  const records = await repository.listEventsForVenues(venueIds);
+  return records.map(toEvent);
+}
+
 // Shared by delete/setEventStatus below -- checks the event's actual owner
 // against the caller's own venueId/neighborhoodId (venueOwnerGate/
 // neighborhoodAdminGate already prove the caller owns *that* venue/
