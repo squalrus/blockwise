@@ -2,7 +2,8 @@ export { GoogleIcon } from "./GoogleIcon";
 export { PoweredByGoogle } from "./PoweredByGoogle";
 export { MushroomLogo } from "./MushroomLogo";
 export { MushroomLoader } from "./MushroomLoader";
-export { MushroomMark } from "./MushroomMark";
+export { MushroomMark, maxSpotCountForShape, mushroomOutline } from "./MushroomMark";
+export type { MushroomOutline } from "./MushroomMark";
 // Re-exported from @blockwise/types -- the pure PRNG/palette logic lives
 // there (isomorphic, no React) so apps/api can import the same source of
 // truth for server-side live mushroom resolution. packages/ui re-exports it
@@ -28,6 +29,7 @@ export {
   MUSHROOM_STALKS,
   MUSHROOM_SPOT_COUNTS,
   MUSHROOM_SPOT_SHAPES,
+  MUSHROOM_SHAPES,
   BRAND_ORANGE,
   BRAND_AMBER,
   BRAND_GREEN,
@@ -37,5 +39,5 @@ export {
   BRAND_RUSSULA,
   BRAND_BLUSHER,
 } from "@blockwise/types";
-export type { MushroomConfig, SpotShape } from "@blockwise/types";
+export type { MushroomConfig, MushroomShape, SpotShape } from "@blockwise/types";
 export { baloo2, jetbrainsMono, nunito } from "./fonts";

@@ -128,6 +128,7 @@ export default function NeighborhoodAdminClaimsPage() {
             <div key={claim.id} className="flex items-start gap-4 rounded-2xl border border-border bg-card px-5 py-4.5">
               <MushroomMark
                 size={42}
+                shape={mushroom.shape}
                 cap={mushroom.cap}
                 stalk={mushroom.stalk}
                 spots={mushroom.spots}

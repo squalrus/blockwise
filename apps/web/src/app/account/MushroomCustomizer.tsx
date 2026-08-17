@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import {
   MUSHROOM_CAPS,
+  MUSHROOM_SHAPES,
   MUSHROOM_SPOT_COUNTS,
   MUSHROOM_SPOT_SHAPES,
   MUSHROOM_STALK_BASE_OPTIONS,
@@ -16,8 +17,9 @@ import {
   MUSHROOM_STALK_SAGE,
   MUSHROOM_STALK_WHEAT,
   MushroomMark,
+  maxSpotCountForShape,
 } from "@blockwise/ui";
-import type { MushroomConfig, SpotShape } from "@blockwise/ui";
+import type { MushroomConfig, MushroomShape, SpotShape } from "@blockwise/ui";
 
 const STALK_LABELS: Record<string, string> = {
   [MUSHROOM_STALK_CREAM]: "Cream",
@@ -40,7 +42,20 @@ const SPOT_SHAPE_LABELS: Record<SpotShape, string> = {
   cross: "Cross",
 };
 
-type SectionKey = "cap" | "stalk" | "spots" | "background" | "spotCount" | "spotShape";
+const SHAPE_LABELS: Record<MushroomShape, string> = {
+  button: "Button",
+  parasol: "Parasol",
+  bell: "Bell",
+  chanterelle: "Chanterelle",
+  morel: "Morel",
+  enoki: "Enoki",
+  porcini: "Porcini",
+  oyster: "Oyster",
+  puffball: "Puffball",
+  shiitake: "Shiitake",
+};
+
+type SectionKey = "shape" | "cap" | "stalk" | "spots" | "background" | "spotCount" | "spotShape";
 
 // BACKLOG.md Ref 75 "Mushroom avatar customizer" -- swatch pickers for the
 // account's mushroom look (cap, stalk, spots, background, spot count, spot
@@ -71,7 +86,19 @@ export function MushroomCustomizer({
   onReset: () => void;
 }) {
   const accentOptions = MUSHROOM_STALK_BASE_OPTIONS;
-  const [openSection, setOpenSection] = useState<SectionKey | null>("cap");
+  const [openSection, setOpenSection] = useState<SectionKey | null>("shape");
+  // Chanterelle/enoki only have room for 3 spots (MushroomMark's
+  // SHAPE_GEOMETRY) -- their cap area is too narrow for more, so offering
+  // 4-6 there would just silently render the same 3-spot mushroom as
+  // whichever of those the user picked.
+  const maxSpots = maxSpotCountForShape(value.shape);
+  const spotCountOptions = MUSHROOM_SPOT_COUNTS.filter((count) => count <= maxSpots);
+  // Auto-assigned defaults (mushroomConfigForUser) pick shape and spotCount
+  // independently, so an un-customized mushroom can land here already over
+  // its shape's limit (e.g. enoki + 6) -- MushroomMark quietly renders only
+  // `maxSpots` of those, so the summary/selection reflect that same clamp
+  // rather than a number nothing on screen matches.
+  const displaySpotCount = Math.min(value.spotCount, maxSpots);
 
   function toggle(section: SectionKey) {
     setOpenSection((current) => (current === section ? null : section));
@@ -79,6 +106,10 @@ export function MushroomCustomizer({
 
   function selectCap(cap: string) {
     onChange({ ...value, cap });
+  }
+
+  function selectShape(shape: MushroomShape) {
+    onChange({ ...value, shape, spotCount: Math.min(value.spotCount, maxSpotCountForShape(shape)) });
   }
 
   return (
@@ -99,6 +130,7 @@ export function MushroomCustomizer({
       <div className="flex justify-center">
         <MushroomMark
           size={120}
+          shape={value.shape}
           cap={value.cap}
           stalk={value.stalk}
           spots={value.spots}
@@ -109,6 +141,36 @@ export function MushroomCustomizer({
       </div>
 
       <div className="flex flex-col gap-2">
+        <CollapsibleSection
+          label="Shape"
+          isOpen={openSection === "shape"}
+          onToggle={() => toggle("shape")}
+          summary={<span className="text-xs font-bold text-muted">{SHAPE_LABELS[value.shape]}</span>}
+        >
+          {MUSHROOM_SHAPES.map((shape) => (
+            <button
+              key={shape}
+              type="button"
+              title={SHAPE_LABELS[shape]}
+              aria-label={SHAPE_LABELS[shape]}
+              onClick={() => selectShape(shape)}
+              className={`flex h-12 w-12 items-center justify-center rounded-full border-2 bg-card ${
+                shape === value.shape ? "border-brand-purple" : "border-transparent"
+              }`}
+            >
+              <MushroomMark
+                size={34}
+                shape={shape}
+                cap={value.cap}
+                stalk={value.stalk}
+                spots={value.spots}
+                spotCount={value.spotCount}
+                spotShape={value.spotShape}
+              />
+            </button>
+          ))}
+        </CollapsibleSection>
+
         <CollapsibleSection
           label="Cap"
           isOpen={openSection === "cap"}
@@ -175,9 +237,9 @@ export function MushroomCustomizer({
           label="Spot count"
           isOpen={openSection === "spotCount"}
           onToggle={() => toggle("spotCount")}
-          summary={<span className="text-xs font-bold text-muted">{value.spotCount}</span>}
+          summary={<span className="text-xs font-bold text-muted">{displaySpotCount}</span>}
         >
-          {MUSHROOM_SPOT_COUNTS.map((spotCount) => (
+          {spotCountOptions.map((spotCount) => (
             <button
               key={spotCount}
               type="button"
@@ -185,11 +247,12 @@ export function MushroomCustomizer({
               aria-label={`${spotCount} spot${spotCount === 1 ? "" : "s"}`}
               onClick={() => onChange({ ...value, spotCount })}
               className={`flex h-12 w-12 items-center justify-center rounded-full border-2 bg-card ${
-                spotCount === value.spotCount ? "border-brand-purple" : "border-transparent"
+                spotCount === displaySpotCount ? "border-brand-purple" : "border-transparent"
               }`}
             >
               <MushroomMark
                 size={34}
+                shape={value.shape}
                 cap={value.cap}
                 stalk={value.stalk}
                 spots={value.spots}
@@ -219,6 +282,7 @@ export function MushroomCustomizer({
             >
               <MushroomMark
                 size={34}
+                shape={value.shape}
                 cap={value.cap}
                 stalk={value.stalk}
                 spots={value.spots}

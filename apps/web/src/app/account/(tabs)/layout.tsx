@@ -12,7 +12,7 @@ import type {
   UserPointsSummary,
 } from "@blockwise/types";
 import { MushroomLoader, MushroomLogo, resolveMushroomConfig } from "@blockwise/ui";
-import type { SpotShape } from "@blockwise/ui";
+import type { MushroomShape, SpotShape } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { SignInPrompt } from "../../SignInPrompt";
@@ -153,7 +153,11 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                 resolveMushroomConfig(
                   c.user.id,
                   c.user.mushroom_customization
-                    ? { ...c.user.mushroom_customization, spotShape: c.user.mushroom_customization.spotShape as SpotShape }
+                    ? {
+                        ...c.user.mushroom_customization,
+                        shape: (c.user.mushroom_customization.shape as MushroomShape | undefined) ?? "button",
+                        spotShape: c.user.mushroom_customization.spotShape as SpotShape,
+                      }
                     : null
                 )
               )}

@@ -1,7 +1,15 @@
+import type { MushroomShape } from "@blockwise/types";
+import { mushroomOutline } from "./MushroomMark";
+
 // Spored's mushroom mark: a rounded cap (with the brand's "classic" spot
 // pattern) over a short stem -- the four-part anatomy documented on the
 // /brand guidelines page, minus the background swatch. Reused as the nav
-// logo, map/list pins, and the slide-to-check-in thumb icon.
+// logo, map/list pins, and the slide-to-check-in thumb icon. `shape`
+// defaults to "button" -- the original, single fixed mark every existing
+// caller (nav, footer, admin layouts) keeps rendering unchanged -- but
+// PlaceListItem's venue/POI pins pass a per-id silhouette (Spored Shape
+// Study) via mushroomOutline, the same geometry MushroomMark's full
+// generative avatars draw from.
 //
 // capColor should normally be a `var(--brand-*)` reference (not a raw hex) so
 // the cap re-colors and glows automatically when the dark theme's brighter
@@ -13,28 +21,30 @@
 // callers that only set one color keep their prior look.
 export function MushroomLogo({
   size = 24,
+  shape = "button",
   capColor = "var(--brand-orange)",
   stemClassName = "text-card",
   dotClassName = stemClassName,
 }: {
   size?: number;
+  shape?: MushroomShape;
   capColor?: string;
   stemClassName?: string;
   dotClassName?: string;
 }) {
+  const { capD, stalkD, dots } = mushroomOutline(shape);
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
-      <path
-        d="M4 22 Q4 6 20 6 Q36 6 36 22 Z"
-        fill="currentColor"
-        className="icon-glow"
-        style={{ color: capColor }}
-      />
-      <rect x="16" y="21" width="8" height="15" rx="4" fill="currentColor" className={stemClassName} />
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true">
+      {stalkD ? (
+        <path d={stalkD} fill="currentColor" className={stemClassName} />
+      ) : (
+        <rect x={40} y={52} width={20} height={34} rx={10} fill="currentColor" className={stemClassName} />
+      )}
+      <path d={capD} fill="currentColor" className="icon-glow" style={{ color: capColor }} />
       <g fill="currentColor" className={dotClassName}>
-        <circle cx="13" cy="14" r="2.6" />
-        <circle cx="21" cy="10" r="1.9" />
-        <circle cx="26" cy="16" r="2.3" />
+        {dots.map(([cx, cy, r], i) => (
+          <circle key={i} cx={cx} cy={cy} r={r} />
+        ))}
       </g>
     </svg>
   );

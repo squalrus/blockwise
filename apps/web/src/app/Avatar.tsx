@@ -1,6 +1,6 @@
 import type { AvatarStyle, MushroomCustomization } from "@blockwise/types";
 import { MushroomMark, resolveMushroomConfig } from "@blockwise/ui";
-import type { MushroomConfig, SpotShape } from "@blockwise/ui";
+import type { MushroomConfig, MushroomShape, SpotShape } from "@blockwise/ui";
 
 // Shared avatar rendering (BACKLOG.md "Show profile picture from Google" /
 // "Mushroom avatars"): shows the social photo when avatarStyle is "social"
@@ -40,14 +40,20 @@ export function Avatar({
 
   // Server-validated against the same enum a customizer save is checked
   // against (PATCH /me/profile), so the spotShape string is safe to trust as
-  // a SpotShape here.
+  // a SpotShape here. shape falls back to "button" for rows saved before
+  // that field existed (undefined, not just an unrecognized string).
   const config: MushroomConfig | null = mushroomCustomization
-    ? { ...mushroomCustomization, spotShape: mushroomCustomization.spotShape as SpotShape }
+    ? {
+        ...mushroomCustomization,
+        shape: (mushroomCustomization.shape as MushroomShape | undefined) ?? "button",
+        spotShape: mushroomCustomization.spotShape as SpotShape,
+      }
     : null;
   const mushroom = resolveMushroomConfig(seed, config);
   return (
     <MushroomMark
       size={size}
+      shape={mushroom.shape}
       cap={mushroom.cap}
       stalk={mushroom.stalk}
       spots={mushroom.spots}

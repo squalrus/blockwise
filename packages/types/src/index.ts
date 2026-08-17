@@ -345,6 +345,10 @@ export type AvatarStyle = "social" | "mushroom";
 // rendering's backdrop circle, not MushroomField's decorative growing-field
 // icons (which never render a background at all).
 export interface MushroomCustomization {
+  // Plain string (not MushroomShape) for the same reason spotShape is a
+  // plain string here -- packages/types has no dependency on the shape enum
+  // it validates against server-side (isValidMushroomCustomization).
+  shape: string;
   cap: string;
   stalk: string;
   spots: string;
@@ -393,9 +397,12 @@ export interface CompleteSignupRequest {
 
 // GET /admin/users (superAdminGate) -- every account on the platform, for
 // the super admin UI's user list (BACKLOG.md). Deliberately not the same
-// shape as AppUser: no mushroom_customization/avatar_url (not useful in a
-// tabular list) and role flags are the two grants a super admin actually
-// cares about when scanning accounts, not the full self-view.
+// shape as AppUser except for mushroom_customization (needed so the list's
+// mushroom column shows each account's real current look -- a saved
+// customizer choice, when present -- rather than only its hash-derived
+// default): no avatar_url, and role flags and has_push_enabled are what a
+// super admin actually cares about when scanning accounts, not the full
+// self-view.
 export interface AppUserAdminView {
   id: string;
   email: string | null;
@@ -406,6 +413,16 @@ export interface AppUserAdminView {
   created_at: string;
   is_neighborhood_admin: boolean;
   is_super_admin: boolean;
+  mushroom_customization: MushroomCustomization | null;
+  // Whether this account has at least one active push_subscription row
+  // (BACKLOG.md Ref 89) -- there's no per-endpoint "enabled" flag, just
+  // presence/absence of subscribed devices, same signal "Send test push"
+  // already acts on.
+  has_push_enabled: boolean;
+  // How the account signed up ("google", "email", ...) -- Supabase's
+  // app_metadata.provider at token verification time, null only for rows
+  // old enough to predate the auth_provider column.
+  auth_provider: string | null;
 }
 
 export interface ClaimedVenueSummary {

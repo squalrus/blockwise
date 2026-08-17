@@ -1,4 +1,4 @@
-import { MushroomMark, SPOT_SHAPES } from "@blockwise/ui";
+import { MUSHROOM_SHAPES, MushroomMark, SPOT_SHAPES } from "@blockwise/ui";
 import type { SpotShape } from "@blockwise/ui";
 
 // This page's anatomy/spot illustrations reuse packages/ui's MushroomMark
@@ -36,6 +36,7 @@ export function BrandMosaic({ cols = 10, rows = 3, size = 44, seed = 7 }: { cols
     const stalk = cap === "#2B1B12" ? "#F2A93B" : MOSAIC_ACCENTS[Math.floor(rnd() * MOSAIC_ACCENTS.length)];
     const spots = cap === "#2B1B12" ? "#F2A93B" : MOSAIC_ACCENTS[Math.floor(rnd() * MOSAIC_ACCENTS.length)];
     return {
+      shape: MUSHROOM_SHAPES[Math.floor(rnd() * MUSHROOM_SHAPES.length)],
       cap,
       stalk,
       spots,
@@ -50,6 +51,7 @@ export function BrandMosaic({ cols = 10, rows = 3, size = 44, seed = 7 }: { cols
         <BrandMushroom
           key={i}
           size={size}
+          shape={c.shape}
           cap={c.cap}
           stalk={c.stalk}
           spots={c.spots}

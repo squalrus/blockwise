@@ -16,7 +16,13 @@ import type {
   SocialPlatform,
   VenueDashboardSummary,
 } from "@blockwise/types";
-import { MUSHROOM_CAPS, MUSHROOM_STALKS, MUSHROOM_SPOT_SHAPES, resolveMushroomConfig } from "@blockwise/types";
+import {
+  MUSHROOM_CAPS,
+  MUSHROOM_STALKS,
+  MUSHROOM_SPOT_SHAPES,
+  MUSHROOM_SHAPES,
+  resolveMushroomConfig,
+} from "@blockwise/types";
 import { requireAdmin } from "./admin/requireAdmin";
 import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
 import { requireSuperAdmin } from "./admin/requireSuperAdmin";
@@ -179,16 +185,18 @@ const MUSHROOM_MIN_SPOT_COUNT = 0;
 const MUSHROOM_MAX_SPOT_COUNT = 6;
 
 // null clears a saved customization back to the hash-derived default -- only
-// that or a fully-approved { cap, stalk, spots, bg, spotCount, spotShape }
-// combination is accepted. Stalk, spots, and bg are independent choices (not
-// one mirroring another), but share the same approved palette. spotCount and
-// spotShape are likewise independent choices (any count 0-6 pairs with any
-// shape), not a fused named pattern.
+// that or a fully-approved { shape, cap, stalk, spots, bg, spotCount,
+// spotShape } combination is accepted. Stalk, spots, and bg are independent
+// choices (not one mirroring another), but share the same approved palette.
+// spotCount and spotShape are likewise independent choices (any count 0-6
+// pairs with any shape), not a fused named pattern. shape (Spored Shape
+// Study) is its own independent axis alongside all of the above.
 function isValidMushroomCustomization(value: unknown): value is MushroomCustomization | null {
   if (value === null) return true;
   if (typeof value !== "object" || Array.isArray(value)) return false;
 
-  const { cap, stalk, spots, bg, spotCount, spotShape } = value as Record<string, unknown>;
+  const { shape, cap, stalk, spots, bg, spotCount, spotShape } = value as Record<string, unknown>;
+  if (typeof shape !== "string" || !(MUSHROOM_SHAPES as string[]).includes(shape)) return false;
   if (typeof cap !== "string" || !MUSHROOM_CAPS.includes(cap)) return false;
   if (typeof stalk !== "string" || !MUSHROOM_STALKS.includes(stalk)) return false;
   if (typeof spots !== "string" || !MUSHROOM_STALKS.includes(spots)) return false;
@@ -1302,7 +1310,7 @@ export function createApp() {
       if (mushroom_customization !== undefined && !isValidMushroomCustomization(mushroom_customization)) {
         res.status(400).json({
           error:
-            "mushroom_customization must be null or an approved { cap, stalk, spots, bg, spotCount, spotShape } combination",
+            "mushroom_customization must be null or an approved { shape, cap, stalk, spots, bg, spotCount, spotShape } combination",
         });
         return;
       }
@@ -1987,7 +1995,7 @@ export function createApp() {
   // ones an admin happens to be able to reach otherwise.
   app.get("/admin/users", superAdminGate, async (_req, res) => {
     try {
-      const users = await listUsersForAdmin(getUserRepository());
+      const users = await listUsersForAdmin(getUserRepository(), getPushSubscriptionRepository());
       res.json(users);
     } catch (err) {
       console.error("GET /admin/users failed:", err);
