@@ -1,7 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MushroomCustomization, RecentVisitorMushroom, SocialLinks, VenueEnrichmentCache, VenueListItem } from "@blockwise/types";
+import type {
+  LocationMayor,
+  MushroomCustomization,
+  RecentVisitorMushroom,
+  SocialLinks,
+  VenueEnrichmentCache,
+  VenueListItem,
+} from "@blockwise/types";
 import { resolveMushroomConfig } from "@blockwise/types";
-import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors, toMushroomConfig } from "../checkins/checkin";
+import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors, resolveMayor, toMushroomConfig } from "../checkins/checkin";
 import type {
   CategoryRecord,
   CreateLocationInput,
@@ -218,10 +225,11 @@ export class SupabaseLocationRepository implements LocationRepository {
     );
 
     let recentCheckinMushrooms: RecentVisitorMushroom[] = [];
+    let mayor: LocationMayor | null = null;
     if (ranked.length > 0) {
       const { data: users, error: usersError } = await this.supabase
         .from("app_user")
-        .select("id, mushroom_customization")
+        .select("id, mushroom_customization, username, display_name, visibility")
         .in(
           "id",
           ranked.map((r) => r.userId)
@@ -235,6 +243,18 @@ export class SupabaseLocationRepository implements LocationRepository {
         mushroom: resolveMushroomConfig(userId, toMushroomConfig(customizationById.get(userId) ?? null)),
         visitCount,
       }));
+
+      const mayorCandidatesById = new Map(
+        (users ?? []).map((u) => [
+          u.id as string,
+          {
+            username: u.username as string | null,
+            displayName: u.display_name as string | null,
+            visibility: u.visibility as string,
+          },
+        ])
+      );
+      mayor = resolveMayor(ranked, mayorCandidatesById);
     }
 
     return {
@@ -255,6 +275,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       checkinCount: checkinCount ?? 0,
       favoriteCount: favoriteCount ?? 0,
       recentCheckinMushrooms,
+      mayor,
     };
   }
 

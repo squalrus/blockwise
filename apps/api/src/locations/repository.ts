@@ -1,5 +1,6 @@
 import type {
   LocationKind,
+  LocationMayor,
   RecentVisitorMushroom,
   SocialLinks,
   VenueEnrichmentCache,
@@ -54,6 +55,10 @@ export interface LocationDetailRecord {
   // mosaic (MushroomField's distinctMushrooms mode). Most-visits-first,
   // tie-broken by most recent.
   recentCheckinMushrooms: RecentVisitorMushroom[];
+  // The identity behind recentCheckinMushrooms[0] (the "Mayor"/"Top Cap"
+  // sign next to the mosaic) -- null if there's no top visitor or their
+  // profile isn't public.
+  mayor: LocationMayor | null;
 }
 
 export interface CreateLocationInput {

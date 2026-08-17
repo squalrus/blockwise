@@ -1,6 +1,6 @@
 {
   "name": "@blockwise/api",
-  "version": "0.60.1",
+  "version": "0.61.0",
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",

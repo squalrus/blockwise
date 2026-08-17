@@ -654,7 +654,7 @@ export function createApp() {
         return;
       }
 
-      const [pois, venueCount, poiCount, memberCount, checkinCount, recentCheckinMushrooms] = await Promise.all([
+      const [pois, venueCount, poiCount, memberCount, checkinCount, visitorMosaic] = await Promise.all([
         listLocationsForNeighborhood(neighborhood.id, getLocationRepository(), "poi"),
         getLocationRepository().countActiveLocationsForNeighborhood(neighborhood.id, "business"),
         getLocationRepository().countActiveLocationsForNeighborhood(neighborhood.id, "poi"),
@@ -675,7 +675,8 @@ export function createApp() {
         poi_count: poiCount,
         member_count: memberCount,
         checkin_count: checkinCount,
-        recent_checkin_mushrooms: recentCheckinMushrooms,
+        recent_checkin_mushrooms: visitorMosaic.mushrooms,
+        mayor: visitorMosaic.mayor,
       };
       res.json(profile);
     } catch (err) {

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
-const UPDATED = "August 14, 2026";
+const UPDATED = "August 16, 2026";
 
 function Question({ q, children }: { q: string; children: React.ReactNode }) {
   return (
@@ -64,6 +64,12 @@ export default function FaqPage() {
           Every check-in earns you points. Points unlock badges as you explore, and your running total puts
           you on your neighborhood&apos;s leaderboard, which resets each season.
         </Question>
+        <Question q="What are the mushrooms on a business, POI, or neighborhood page?">
+          Each place and neighborhood grows its own little mushroom patch — one mushroom per distinct visitor
+          over the last 60 days, sized by how often they&apos;ve checked in. Whoever&apos;s checked in the most
+          gets a &ldquo;Top Cap&rdquo; sign next to the patch naming them, shown only if their profile is
+          public.
+        </Question>
       </LegalSection>
 
       <LegalSection title="Events">
@@ -95,9 +101,9 @@ export default function FaqPage() {
 
       <LegalSection title="Privacy and your account">
         <Question q="Can other users see my check-ins or activity?">
-          Only if your profile is public. New accounts default to public (badges, check-in count, and
-          neighbor count are visible to others), but you can switch to private at any time from Account
-          settings. See our{" "}
+          Only if your profile is public. New accounts default to public (badges, check-in count, neighbor
+          count, and — if you&apos;re the top visitor somewhere — a &ldquo;Top Cap&rdquo; sign are visible to
+          others), but you can switch to private at any time from Account settings. See our{" "}
           <a href="/privacy" className="font-bold">
             Privacy Policy
           </a>{" "}

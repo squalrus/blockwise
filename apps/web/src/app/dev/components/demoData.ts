@@ -4,6 +4,7 @@ import type {
   CheckinRewardsSummary,
   CompletedChallengeSummary,
   Event,
+  LocationMayor,
   MushroomConfig,
   NeighborhoodProfile,
   OpenNowLocation,
@@ -33,6 +34,13 @@ function neighborMushroom(seed: string): MushroomConfig {
 
 function recentVisitor(seed: string, visitCount: number): RecentVisitorMushroom {
   return { mushroom: mushroomConfigForUser(seed), visitCount };
+}
+
+// The identity behind a mosaic's top visitor (BACKLOG.md Ref 94's
+// "Mayor"/"Top Cap" sign) -- paired with that same entry's recentVisitor(...)
+// call below so the sign matches the biggest mushroom in the fixture.
+function mayor(username: string, displayName: string | null = null): LocationMayor {
+  return { username, displayName };
 }
 
 function badge(overrides: Partial<Badge> & Pick<Badge, "id" | "code" | "name" | "icon">): Badge {
@@ -196,6 +204,7 @@ function neighborhood(overrides: Partial<NeighborhoodProfile> & Pick<Neighborhoo
     member_count: 0,
     checkin_count: 0,
     recent_checkin_mushrooms: [],
+    mayor: null,
     ...overrides,
   };
 }
@@ -225,6 +234,7 @@ export const NEIGHBORHOOD_CARDS: { label: string; neighborhood: NeighborhoodProf
         recentVisitor("demo-visitor-5", 1),
         recentVisitor("demo-visitor-6", 1),
       ],
+      mayor: mayor("ravik", "Ravi K"),
     }),
     joined: false,
   },
@@ -261,6 +271,7 @@ function venueDetail(overrides: Partial<VenueDetail> & Pick<VenueDetail, "id" | 
     neighborhood_name: "Greenwood",
     social_links: {},
     recent_checkin_mushrooms: [],
+    mayor: null,
     ...overrides,
   };
 }
@@ -286,6 +297,8 @@ export const LOCATION_CARDS: { label: string; location: VenueDetail; favorited: 
         recentVisitor("demo-visitor-10", 1),
         recentVisitor("demo-visitor-11", 1),
       ],
+      // Long display name, to check the sign's truncation.
+      mayor: mayor("alexandriamw", "Alexandria Montgomery-Whitfield"),
       enrichment: {
         venue_id: "demo-location-1",
         source: "google",
@@ -344,6 +357,7 @@ export const SAMPLE_BUSINESS_LOCATION: VenueDetail = venueDetail({
     recentVisitor("demo-sample-location-visitor-3", 3),
     recentVisitor("demo-sample-location-visitor-4", 1),
   ],
+  mayor: mayor("avap", "Ava P"),
   social_links: {
     instagram: "https://instagram.com/dieselfuelcoffee",
     website: "https://dieselfuelcoffee.example.com",
@@ -475,6 +489,7 @@ export const SAMPLE_NEIGHBORHOOD: NeighborhoodProfile = neighborhood({
     recentVisitor("demo-sample-visitor-3", 2),
     recentVisitor("demo-sample-visitor-4", 1),
   ],
+  mayor: mayor("morganlee"),
 });
 
 export const SAMPLE_NEIGHBORHOOD_EVENTS: Event[] = [

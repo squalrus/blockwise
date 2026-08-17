@@ -279,6 +279,7 @@ const BASE_DETAIL: LocationDetailRecord = {
   checkinCount: 3,
   favoriteCount: 2,
   recentCheckinMushrooms: [],
+  mayor: null,
 };
 
 describe("getLocationDetailWithFreshEnrichment", () => {
@@ -324,6 +325,21 @@ describe("getLocationDetailWithFreshEnrichment", () => {
     );
 
     expect(result?.recent_checkin_mushrooms).toEqual([visitor]);
+  });
+
+  it("passes through the resolved Mayor for the sign next to the mosaic", async () => {
+    const repo = new FakeLocationRepository();
+    const mayor = { username: "topvisitor", displayName: "Top Visitor" };
+    repo.detail = { ...BASE_DETAIL, mayor };
+
+    const result = await getLocationDetailWithFreshEnrichment(
+      "location-1",
+      repo,
+      new FakeEnrichmentRepository(),
+      new FakePlacesClient()
+    );
+
+    expect(result?.mayor).toEqual(mayor);
   });
 
   it("skips enrichment when the location has no google_place_id", async () => {

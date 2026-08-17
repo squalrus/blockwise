@@ -31,6 +31,33 @@ function fieldLayout(seed: string, count: number): { leftPct: number; liftPx: nu
   }));
 }
 
+// A small hand-painted wooden sign staked in the mosaic, naming the "Mayor"
+// (BACKLOG.md Ref 94) -- nicknamed "Top Cap" for players -- the same
+// visitor whose mushroom renders biggest in the field beside it. Caller
+// (MushroomField below) only renders this when the server resolved a public
+// Mayor -- private profiles are excluded server-side, mirroring the
+// neighborhood leaderboard's own visibility rule -- so there's no empty or
+// broken sign to account for here. `role="img"` collapses the placard +
+// post into one glyph for screen readers, same pattern as BadgeIcon.
+function MayorSign({ label }: { label: string }) {
+  return (
+    <div
+      className="absolute top-0 right-1 z-10 flex -rotate-6 flex-col items-center"
+      role="img"
+      aria-label={`Top Cap: ${label}`}
+      title={`Top Cap: ${label}`}
+    >
+      <div
+        aria-hidden="true"
+        className="max-w-[64px] truncate rounded-[2px] border border-wood-dark bg-gradient-to-b from-wood to-wood-dark px-1.5 py-0.5 text-[8px] leading-none font-bold tracking-tight text-wood-text shadow-sm"
+      >
+        {label}
+      </div>
+      <div aria-hidden="true" className="h-3 w-[3px] bg-wood-dark" />
+    </div>
+  );
+}
+
 // A growing patch of mushrooms along the bottom edge of a profile summary
 // card -- shared by the account (grows with level), neighborhood, and
 // location cards (both grow with check-in count) so all three visibly
@@ -73,6 +100,12 @@ function fieldLayout(seed: string, count: number): { leftPct: number; liftPx: nu
 // connected with" (neighbor mushroom stamps) without one obscuring the
 // other. Defaults to 0, which reproduces the old all-mosaic behavior
 // unchanged for the neighborhood/location cards that don't pass it.
+//
+// `mayorLabel` (BACKLOG.md Ref 94's "Mayor"/"Top Cap") stakes a small
+// wooden sign in the field naming the top-ranked mosaic visitor, when the
+// caller resolved one (VenueDetail.mayor / NeighborhoodProfile.mayor) --
+// omitted for the account card's own-growth field, which has no "mayor" of
+// one person's own patch.
 export function MushroomField({
   seed,
   count,
@@ -82,6 +115,7 @@ export function MushroomField({
   mushrooms,
   visitCounts,
   ownCount = 0,
+  mayorLabel,
 }: {
   seed: string;
   count: number;
@@ -91,6 +125,7 @@ export function MushroomField({
   mushrooms?: MushroomConfig[];
   visitCounts?: number[];
   ownCount?: number;
+  mayorLabel?: string | null;
 }) {
   const mushroomCount = Math.min(Math.max(Math.floor(count), 0), MAX_MUSHROOMS);
   if (mushroomCount === 0) return null;
@@ -140,6 +175,7 @@ export function MushroomField({
             </div>
           );
         })}
+        {mayorLabel && <MayorSign label={mayorLabel} />}
       </div>
     </div>
   );

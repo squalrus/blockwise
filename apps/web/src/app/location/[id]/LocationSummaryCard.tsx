@@ -97,6 +97,7 @@ export function LocationSummaryCard({
         distinctMushrooms
         mushrooms={location.recent_checkin_mushrooms.map((m) => m.mushroom)}
         visitCounts={location.recent_checkin_mushrooms.map((m) => m.visitCount)}
+        mayorLabel={location.mayor && (location.mayor.displayName ?? location.mayor.username)}
       />
     </div>
   );

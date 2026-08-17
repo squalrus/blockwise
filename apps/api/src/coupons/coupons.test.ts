@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { RecentVisitorMushroom } from "@blockwise/types";
 import { CHECKIN_COOLDOWN_MS } from "../checkins/checkin";
-import type { CheckinRecord, CheckinRepository, CheckinVenue, LocationCoords } from "../checkins/repository";
+import type {
+  CheckinRecord,
+  CheckinRepository,
+  CheckinVenue,
+  LocationCoords,
+  NeighborhoodVisitorMosaic,
+} from "../checkins/repository";
 import {
   claimCoupon,
   createCoupon,
@@ -139,8 +144,8 @@ class FakeCheckinRepository implements CheckinRepository {
     return 0;
   }
 
-  async listRecentVisitorMushroomsForNeighborhood(): Promise<RecentVisitorMushroom[]> {
-    return [];
+  async listRecentVisitorMushroomsForNeighborhood(): Promise<NeighborhoodVisitorMosaic> {
+    return { mushrooms: [], mayor: null };
   }
 }
 

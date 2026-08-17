@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { MushroomCustomization, RecentVisitorMushroom } from "@blockwise/types";
+import type { MushroomCustomization } from "@blockwise/types";
 import { resolveMushroomConfig } from "@blockwise/types";
-import { evaluateCheckin, performCheckin, rankRecentVisitors, toMushroomConfig } from "./checkin";
-import type { CheckinRecord, CheckinRepository, CheckinVenue, LocationCoords } from "./repository";
+import { evaluateCheckin, performCheckin, rankRecentVisitors, resolveMayor, toMushroomConfig } from "./checkin";
+import type {
+  CheckinRecord,
+  CheckinRepository,
+  CheckinVenue,
+  LocationCoords,
+  NeighborhoodVisitorMosaic,
+} from "./repository";
 
 const VENUE: LocationCoords = { id: "venue-1", lat: 47.6062, lng: -122.3321 };
 const AT_VENUE = { lat: 47.6062, lng: -122.3321 };
@@ -106,6 +112,7 @@ describe("evaluateCheckin", () => {
 class FakeCheckinRepository implements CheckinRepository {
   checkins: CheckinRecord[] = [];
   mushroomCustomizations = new Map<string, MushroomCustomization>(); // userId -> customization
+  users = new Map<string, { username: string | null; displayName: string | null; visibility: string }>(); // userId -> profile
   private nextId = 1;
 
   constructor(private readonly locations: LocationCoords[] = []) {}
@@ -159,15 +166,16 @@ class FakeCheckinRepository implements CheckinRepository {
   async listRecentVisitorMushroomsForNeighborhood(
     _neighborhoodId: string,
     limit: number
-  ): Promise<RecentVisitorMushroom[]> {
+  ): Promise<NeighborhoodVisitorMosaic> {
     const ranked = rankRecentVisitors(
       this.checkins.map((c) => ({ userId: c.userId, checkedInAt: c.checkedInAt })),
       limit
     );
-    return ranked.map(({ userId, visitCount }) => ({
+    const mushrooms = ranked.map(({ userId, visitCount }) => ({
       mushroom: resolveMushroomConfig(userId, toMushroomConfig(this.mushroomCustomizations.get(userId) ?? null)),
       visitCount,
     }));
+    return { mushrooms, mayor: resolveMayor(ranked, this.users) };
   }
 }
 
@@ -283,5 +291,37 @@ describe("rankRecentVisitors", () => {
 
     const result = rankRecentVisitors(rows, 3);
     expect(result).toHaveLength(3);
+  });
+});
+
+describe("resolveMayor", () => {
+  it("names the top-ranked visitor when their profile is public", () => {
+    const ranked = [
+      { userId: "user-1", visitCount: 5 },
+      { userId: "user-2", visitCount: 2 },
+    ];
+    const users = new Map([
+      ["user-1", { username: "topvisitor", displayName: "Top Visitor", visibility: "public" }],
+      ["user-2", { username: "other", displayName: "Other", visibility: "public" }],
+    ]);
+
+    expect(resolveMayor(ranked, users)).toEqual({ username: "topvisitor", displayName: "Top Visitor" });
+  });
+
+  it("returns null rather than falling through when the top visitor's profile is private", () => {
+    const ranked = [
+      { userId: "user-1", visitCount: 5 },
+      { userId: "user-2", visitCount: 2 },
+    ];
+    const users = new Map([
+      ["user-1", { username: "topvisitor", displayName: "Top Visitor", visibility: "private" }],
+      ["user-2", { username: "other", displayName: "Other", visibility: "public" }],
+    ]);
+
+    expect(resolveMayor(ranked, users)).toBeNull();
+  });
+
+  it("returns null when there are no ranked visitors", () => {
+    expect(resolveMayor([], new Map())).toBeNull();
   });
 });
