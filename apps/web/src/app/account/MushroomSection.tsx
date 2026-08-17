@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { AppUser } from "@blockwise/types";
 import { mushroomConfigForUser } from "@blockwise/ui";
-import type { MushroomConfig, SpotShape } from "@blockwise/ui";
+import type { MushroomConfig, MushroomShape, SpotShape } from "@blockwise/ui";
 import { getAccessToken, setCachedUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomCustomizer } from "./MushroomCustomizer";
@@ -13,6 +13,7 @@ type Status = { state: "idle" | "submitting" | "error"; message?: string };
 function sameMushroomConfig(a: MushroomConfig | null, b: MushroomConfig | null): boolean {
   if (a === null || b === null) return a === b;
   return (
+    a.shape === b.shape &&
     a.cap === b.cap &&
     a.stalk === b.stalk &&
     a.spots === b.spots &&
@@ -44,7 +45,11 @@ export function MushroomSection({
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const [mushroomConfig, setMushroomConfig] = useState<MushroomConfig>(
     user.mushroom_customization
-      ? { ...user.mushroom_customization, spotShape: user.mushroom_customization.spotShape as SpotShape }
+      ? {
+          ...user.mushroom_customization,
+          shape: (user.mushroom_customization.shape as MushroomShape | undefined) ?? "button",
+          spotShape: user.mushroom_customization.spotShape as SpotShape,
+        }
       : mushroomConfigForUser(user.id)
   );
   const [isCustomized, setIsCustomized] = useState(user.mushroom_customization !== null);
@@ -53,7 +58,11 @@ export function MushroomSection({
   // what saving right now would send -- gates the save button's third state
   // below, alongside idle/submitting.
   const savedCustomization: MushroomConfig | null = user.mushroom_customization
-    ? { ...user.mushroom_customization, spotShape: user.mushroom_customization.spotShape as SpotShape }
+    ? {
+        ...user.mushroom_customization,
+        shape: (user.mushroom_customization.shape as MushroomShape | undefined) ?? "button",
+        spotShape: user.mushroom_customization.spotShape as SpotShape,
+      }
     : null;
   const pendingCustomization = isCustomized ? mushroomConfig : null;
   const hasChanges = !sameMushroomConfig(savedCustomization, pendingCustomization);

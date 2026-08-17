@@ -1,12 +1,30 @@
 import type { Metadata } from "next";
 import { MushroomLogo } from "@blockwise/ui";
+import type { MushroomShape } from "@blockwise/ui";
 import { MarketingNav } from "../MarketingNav";
 import { MarketingFooter } from "../MarketingFooter";
 import { BrandMushroom, BrandMosaic, SPOT_SHAPES } from "./BrandMushroom";
 
+// Spored Shape Study -- section 03 below. label/note mirror the design
+// exploration's own names; cap colors mirror its per-silhouette assignments
+// so this page matches the study's own presentation of each shape.
+const SILHOUETTES: { shape: MushroomShape; cap: string; label: string; note: string }[] = [
+  { shape: "button", cap: "#E8542A", label: "Button", note: "original mark" },
+  { shape: "parasol", cap: "#F2A93B", label: "Parasol", note: "wide, peaked, skirted" },
+  { shape: "bell", cap: "#8B5FBF", label: "Bell", note: "tall, storybook" },
+  { shape: "chanterelle", cap: "#F2A93B", label: "Chanterelle", note: "upturned funnel" },
+  { shape: "morel", cap: "#4C8C4A", label: "Morel", note: "spots read as pits" },
+  { shape: "enoki", cap: "#D98A9C", label: "Enoki", note: "cluster of three" },
+  { shape: "porcini", cap: "#B33A3A", label: "Porcini", note: "bulbous stalk" },
+  { shape: "oyster", cap: "#4A5FA5", label: "Oyster", note: "asymmetric shelf" },
+  { shape: "puffball", cap: "#E8542A", label: "Puffball", note: "pure circle" },
+  { shape: "shiitake", cap: "#4C8C4A", label: "Shiitake", note: "scalloped edge" },
+];
+
 export const metadata: Metadata = {
   title: "Brand guidelines — Spored",
-  description: "Logo lockups, color palette, spot count and shape, and usage guidelines for the Spored mycelial mark.",
+  description:
+    "Logo lockups, color palette, silhouette, spot count and shape, and usage guidelines for the Spored mycelial mark.",
   alternates: { canonical: "/brand" },
 };
 
@@ -56,8 +74,8 @@ export default function Brand() {
             Brand guidelines
           </div>
           <div className="max-w-[620px] text-[17px] leading-[1.55]" style={{ color: "#6B5744" }}>
-            One mushroom, four parts. Every mark in the system — logo, favicon, avatars, neighborhood badges — is
-            built from the same cap, spots, stalk, and background.
+            One mushroom, five parts. Every mark in the system — logo, favicon, avatars, neighborhood badges — is
+            built from the same silhouette, cap, spots, stalk, and background.
           </div>
         </div>
 
@@ -109,12 +127,12 @@ export default function Brand() {
 
         {/* 02 ANATOMY */}
         <div className="flex flex-col gap-6">
-          <Eyebrow n="02" title="Anatomy — four dynamic parts" />
+          <Eyebrow n="02" title="Anatomy — five dynamic parts" />
           <div className="max-w-[640px] text-[15px] leading-[1.55]" style={{ color: "#6B5744" }}>
-            The mark is generated from four independent layers. Cap, stalk, spots, and background each take their own
-            color from the approved palette — stalk and spots are never forced to match — and spots additionally
-            carry their own count (0–6) and shape. Any combination is valid, so users and neighborhoods can build a
-            mushroom that&apos;s theirs.
+            The mark is generated from five independent layers: a silhouette (section 03), plus cap, stalk, spots,
+            and background. Cap, stalk, spots, and background each take their own color from the approved palette —
+            stalk and spots are never forced to match — and spots additionally carry their own count (0–6) and
+            shape. Any combination is valid, so users and neighborhoods can build a mushroom that&apos;s theirs.
           </div>
           <div className="grid grid-cols-1 gap-5 md:grid-cols-[1.1fr_2fr]">
             <Card dark className="flex flex-col items-center justify-center gap-4">
@@ -164,11 +182,37 @@ export default function Brand() {
           </div>
         </div>
 
-        {/* 03 SPOT COUNT & SHAPE */}
+        {/* 03 SILHOUETTE */}
         <div className="flex flex-col gap-6">
-          <Eyebrow n="03" title="Spot count & shape" />
+          <Eyebrow n="03" title="Silhouette" />
           <div className="max-w-[640px] text-[15px] leading-[1.55]" style={{ color: "#6B5744" }}>
-            Count and shape are independent choices — any count from 0–6 pairs with any of the six shapes.
+            Ten approved cap/stalk silhouettes, each built from the same four-part construction and drawn only in
+            approved palette colors. A mark&apos;s silhouette is deterministically assigned alongside its color and
+            spots — never invent an eleventh.
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+            {SILHOUETTES.map((s) => (
+              <div key={s.shape} className="flex flex-col items-center gap-2.5 rounded-[18px] px-3 py-5" style={{ background: CARD }}>
+                <BrandMushroom size={72} shape={s.shape} cap={s.cap} stalk={INK} spots={CREAM} spotCount={3} spotShape="circle" />
+                <div className="text-center">
+                  <div className="text-[13px] font-extrabold" style={{ color: INK }}>
+                    {s.label}
+                  </div>
+                  <div className="text-[10.5px]" style={{ fontFamily: MONO, color: "#8A7761" }}>
+                    {s.note}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 04 SPOT COUNT & SHAPE */}
+        <div className="flex flex-col gap-6">
+          <Eyebrow n="04" title="Spot count & shape" />
+          <div className="max-w-[640px] text-[15px] leading-[1.55]" style={{ color: "#6B5744" }}>
+            Count and shape are independent choices — any count from 0–6 pairs with any of the six spot shapes, on
+            any silhouette (chanterelle and enoki top out at 3 — their caps have no room for more).
           </div>
           <div className="flex flex-col gap-3">
             <div className="text-[11px] font-extrabold tracking-wide uppercase" style={{ fontFamily: MONO, color: "#8A7761" }}>
@@ -187,7 +231,7 @@ export default function Brand() {
           </div>
           <div className="flex flex-col gap-3">
             <div className="text-[11px] font-extrabold tracking-wide uppercase" style={{ fontFamily: MONO, color: "#8A7761" }}>
-              Shape
+              Spot shape
             </div>
             <div className="grid grid-cols-3 gap-4 md:grid-cols-6">
               {SPOT_SHAPES.map((shape) => (
@@ -202,9 +246,9 @@ export default function Brand() {
           </div>
         </div>
 
-        {/* 04 COLOR */}
+        {/* 05 COLOR */}
         <div className="flex flex-col gap-6">
-          <Eyebrow n="04" title="Color" />
+          <Eyebrow n="05" title="Color" />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
             {[
               { name: "Chanterelle", hex: "#E8542A", note: "cap" },
@@ -255,9 +299,9 @@ export default function Brand() {
           </div>
         </div>
 
-        {/* 05 FAVICON & APP ICON */}
+        {/* 06 FAVICON & APP ICON */}
         <div className="flex flex-col gap-6">
-          <Eyebrow n="05" title="Favicon & app icon" />
+          <Eyebrow n="06" title="Favicon & app icon" />
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <Card className="flex flex-col gap-5">
               <div className="flex items-end justify-center gap-7">
@@ -305,18 +349,18 @@ export default function Brand() {
           </div>
         </div>
 
-        {/* 06 GENERATED IDENTITY */}
+        {/* 07 GENERATED IDENTITY */}
         <div className="flex flex-col gap-6">
-          <Eyebrow n="06" title="Your mushroom — generated identity" />
+          <Eyebrow n="07" title="Your mushroom — generated identity" />
           <div className="max-w-[640px] text-[15px] leading-[1.55]" style={{ color: "#6B5744" }}>
             Every member and neighborhood gets a mushroom deterministically assigned from a hash of their account,
-            built from the four parts. Members can override their own with a deliberate choice from the Mushroom
-            avatar section in account settings. Community mosaics tile members&apos; mushrooms into a banner for a
-            business or neighborhood.
+            built from the five parts — silhouette included. Members can override their own with a deliberate
+            choice from the Mushroom avatar section in account settings. Community mosaics tile members&apos;
+            mushrooms, across all ten silhouettes, into a banner for a business or neighborhood.
           </div>
           <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_2fr]">
             <Card dark className="flex flex-col items-center justify-center gap-4">
-              <BrandMushroom size={150} cap={PURPLE} stalk={CREAM} spots={CREAM} spotCount={3} spotShape="sparks" bg="#C9B3E0" />
+              <BrandMushroom size={150} shape="oyster" cap={PURPLE} stalk={CREAM} spots={CREAM} spotCount={3} spotShape="sparks" bg="#C9B3E0" />
               <div className="text-center text-xs" style={{ fontFamily: MONO, color: "#C9B8A0" }}>
                 example specimen
               </div>
@@ -324,22 +368,23 @@ export default function Brand() {
             <Card className="flex flex-col items-center justify-center gap-[18px]">
               <BrandMosaic cols={10} rows={3} size={44} seed={7} />
               <div className="text-xs" style={{ fontFamily: MONO, color: "#8A7761" }}>
-                community mosaic · seed-generated from member mushrooms
+                community mosaic · seed-generated from member mushrooms, all ten silhouettes in rotation
               </div>
             </Card>
           </div>
         </div>
 
-        {/* 07 USAGE */}
+        {/* 08 USAGE */}
         <div className="flex flex-col gap-6">
-          <Eyebrow n="07" title="Usage" />
+          <Eyebrow n="08" title="Usage" />
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div className="rounded-[22px] p-7" style={{ background: "#DCEBD3" }}>
               <div className="font-heading text-lg font-extrabold" style={{ color: "#2E5C2C" }}>
                 Do
               </div>
               <div className="mt-3.5 flex flex-col gap-2.5 text-sm leading-[1.5]" style={{ color: "#3A4A34" }}>
-                <div>· Build every mark from the four parts — never redraw the silhouette</div>
+                <div>· Build every mark from the five parts, choosing a silhouette only from the ten approved shapes</div>
+                <div>· Keep the logo lockup and favicon on the Button silhouette regardless of any avatar variety</div>
                 <div>· Use one cap hue per mark; stalk and spots each take any approved accent color</div>
                 <div>· Keep clear space around the lockup equal to the cap height</div>
                 <div>· Use the cocoa-squircle favicon in browser and OS contexts</div>

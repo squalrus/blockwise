@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AppUser } from "@blockwise/types";
 import { MushroomLogo, MushroomMark, resolveMushroomConfig } from "@blockwise/ui";
-import type { MushroomConfig, SpotShape } from "@blockwise/ui";
+import type { MushroomConfig, MushroomShape, SpotShape } from "@blockwise/ui";
 import { getCurrentUser } from "@/lib/auth";
 import { SignInPrompt } from "./SignInPrompt";
 
@@ -122,7 +122,11 @@ export function SlideTrack({
     ? resolveMushroomConfig(
         user.id,
         user.mushroom_customization
-          ? { ...user.mushroom_customization, spotShape: user.mushroom_customization.spotShape as SpotShape }
+          ? {
+              ...user.mushroom_customization,
+              shape: (user.mushroom_customization.shape as MushroomShape | undefined) ?? "button",
+              spotShape: user.mushroom_customization.spotShape as SpotShape,
+            }
           : null
       )
     : null;
@@ -160,6 +164,7 @@ export function SlideTrack({
           {mushroom ? (
             <MushroomMark
               size={SLIDE_THUMB_SIZE}
+              shape={mushroom.shape}
               cap={mushroom.cap}
               stalk={mushroom.stalk}
               spots={mushroom.spots}

@@ -34,6 +34,36 @@ export type SpotShape = "circle" | "ring" | "sparks" | "star" | "triangle" | "cr
 
 export const SPOT_SHAPES: SpotShape[] = ["circle", "ring", "sparks", "star", "triangle", "cross"];
 
+// Cap/stalk silhouette, from the "Spored Shape Study" design exploration --
+// "button" is the original (and only, pre-existing) mark; the other nine are
+// alternate outlines drawn from the same four-part construction (cap, spots,
+// stalk, background) and approved palette. Order here is also swatch order
+// in the customizer.
+export type MushroomShape =
+  | "button"
+  | "parasol"
+  | "bell"
+  | "chanterelle"
+  | "morel"
+  | "enoki"
+  | "porcini"
+  | "oyster"
+  | "puffball"
+  | "shiitake";
+
+export const MUSHROOM_SHAPES: MushroomShape[] = [
+  "button",
+  "parasol",
+  "bell",
+  "chanterelle",
+  "morel",
+  "enoki",
+  "porcini",
+  "oyster",
+  "puffball",
+  "shiitake",
+];
+
 // Spored's brand accent palette (light-theme values) -- single source of
 // truth for both the themed app (globals.css's --brand-* vars) and the
 // marketing site (which uses fixed hex, no theming).
@@ -97,6 +127,9 @@ export const MUSHROOM_SPOT_COUNTS = [0, 1, 2, 3, 4, 5, 6];
 export const MUSHROOM_SPOT_SHAPES = SPOT_SHAPES;
 
 export interface MushroomConfig {
+  // The cap/stalk silhouette (Spored Shape Study) -- a fifth generative axis
+  // alongside cap/stalk/spots/bg below.
+  shape: MushroomShape;
   cap: string;
   stalk: string;
   spots: string;
@@ -109,17 +142,19 @@ export interface MushroomConfig {
 }
 
 // One randomly-assigned mushroom "skin" per user, stable for that user's
-// lifetime (BACKLOG.md: mushroom avatars). Stalk, spots, and background are
-// each picked independently (separate rolls), not fused into one color.
+// lifetime (BACKLOG.md: mushroom avatars). Shape, stalk, spots, and
+// background are each picked independently (separate rolls), not fused into
+// one combination.
 export function mushroomConfigForUser(seed: string): MushroomConfig {
   const rnd = mulberry32(hashSeed(seed));
+  const shape = MUSHROOM_SHAPES[Math.floor(rnd() * MUSHROOM_SHAPES.length)];
   const cap = CAPS[Math.floor(rnd() * CAPS.length)];
   const stalk = BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
   const spots = BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
   const bg = BASE_ACCENTS[Math.floor(rnd() * BASE_ACCENTS.length)];
   const spotCount = MIN_AUTO_SPOT_COUNT + Math.floor(rnd() * (MAX_SPOT_COUNT - MIN_AUTO_SPOT_COUNT + 1));
   const spotShape = SPOT_SHAPES[Math.floor(rnd() * SPOT_SHAPES.length)];
-  return { cap, stalk, spots, spotCount, spotShape, bg };
+  return { shape, cap, stalk, spots, spotCount, spotShape, bg };
 }
 
 // Prefers a user's saved customizer choice (BACKLOG.md Ref 75) over the

@@ -1,13 +1,28 @@
-import type { Checkin, LocationMayor, MushroomConfig, MushroomCustomization, SpotShape } from "@blockwise/types";
+import type {
+  Checkin,
+  LocationMayor,
+  MushroomConfig,
+  MushroomCustomization,
+  MushroomShape,
+  SpotShape,
+} from "@blockwise/types";
 import { haversineMeters } from "../places/geo";
 import type { CheckinRecord, CheckinRepository } from "./repository";
 
-// MushroomCustomization's spotShape is a plain string (packages/types has no
-// dependency on the SpotShape union it validates against server-side, per
-// isValidMushroomCustomization) -- narrow it for resolveMushroomConfig,
-// mirroring apps/web's Avatar.tsx.
+// MushroomCustomization's shape/spotShape are plain strings (packages/types
+// has no dependency on the enums they validate against server-side, per
+// isValidMushroomCustomization) -- narrow them for resolveMushroomConfig,
+// mirroring apps/web's Avatar.tsx. shape falls back to "button" for rows
+// saved before that field existed (undefined, not just an unrecognized
+// string) rather than passing undefined through as a lie to the type.
 export function toMushroomConfig(customization: MushroomCustomization | null): MushroomConfig | null {
-  return customization ? { ...customization, spotShape: customization.spotShape as SpotShape } : null;
+  return customization
+    ? {
+        ...customization,
+        shape: (customization.shape as MushroomShape | undefined) ?? "button",
+        spotShape: customization.spotShape as SpotShape,
+      }
+    : null;
 }
 
 // BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" -- how

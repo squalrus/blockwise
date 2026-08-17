@@ -1,10 +1,62 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { AppUserAdminView } from "@blockwise/types";
-import { MushroomLoader } from "@blockwise/ui";
+import type { AppUserAdminView, MushroomShape, SpotShape } from "@blockwise/types";
+import { MushroomLoader, MushroomMark, resolveMushroomConfig } from "@blockwise/ui";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+
+// Column widths shared by the header row and every data row so they line up
+// -- mushroom avatar, name/contact (grows), type, signed-up-via, roles
+// (grows), push status, joined date, actions. There's no server-side signal
+// for "has this account installed the PWA" (InstallPrompt.tsx's install
+// state is client-local only, via matchMedia/localStorage -- never reported
+// back), so that column isn't here; signed-up-via and push status are,
+// since auth_provider and push_subscription rows are both real per-user
+// server state.
+// The trailing column is a fixed px width, not `auto` -- `auto` sizes to its
+// own row's content, and the header row's last cell (empty) is narrower
+// than a data row's ("Send test push" button). That mismatch left more
+// leftover space for the two fr() columns to divide in the header than in
+// each row, so every fixed column after them drifted further right in the
+// header the closer it was to the end -- a fixed width keeps the track
+// identical regardless of what's inside it.
+const ROW_GRID = "grid-cols-[36px_minmax(160px,1.6fr)_84px_84px_minmax(120px,1fr)_84px_92px_128px]";
+
+// auth_provider is Supabase's raw app_metadata.provider string -- "google"
+// and "email" cover every provider this app currently offers, but an
+// unrecognized value (a provider added later, or old data) still renders as
+// something readable rather than a blank cell.
+function authProviderLabel(provider: string | null): string {
+  if (provider === "google") return "Google";
+  if (provider === "email") return "Email";
+  if (!provider) return "Unknown";
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+// Matches each data row's own border-2 (px-4 is already identical) -- a
+// header row with a plain px-4 and no border sits its grid columns 2px
+// further left (and the row's fr columns get 4px more space to divide) than
+// a bordered <li>'s, since border-box counts the border inside the box:
+// enough drift for the header labels to visibly fall out of line with the
+// columns below them.
+const HEADER_ROW_CLASS = `grid ${ROW_GRID} items-center gap-3 border-2 border-transparent px-4 text-[10px] font-extrabold tracking-wide text-muted uppercase`;
+
+// The account's real current mushroom -- a saved customizer choice when
+// present, else the same hash-derived default Avatar.tsx falls back to.
+// Mirrors that component's own narrowing of the plain-string
+// shape/spotShape fields (server-validated already, so safe to trust here).
+function resolveAdminMushroom(user: AppUserAdminView) {
+  return resolveMushroomConfig(
+    user.id,
+    user.mushroom_customization
+      ? {
+          ...user.mushroom_customization,
+          shape: user.mushroom_customization.shape as MushroomShape,
+          spotShape: user.mushroom_customization.spotShape as SpotShape,
+        }
+      : null
+  );
+}
 
 type State =
   | { status: "loading" }
@@ -179,89 +231,110 @@ export default function SuperAdminUsersPage() {
         {filtered?.length ?? 0} of {users?.length ?? 0} users
       </p>
 
-      <ul className="flex flex-col gap-2">
-        {filtered?.map((user) => (
-          <li
-            key={user.id}
-            className="flex flex-col gap-2.5 rounded-2xl border-2 border-border/60 bg-card px-4 py-3.5"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-col">
-                <span className="font-heading text-[15px] font-bold">
-                  {user.display_name ?? user.username ?? user.email ?? "Unnamed account"}
-                </span>
-                <span className="font-mono text-[11px] text-muted">
-                  {user.email ?? "no email"}
-                  {user.username && ` · @${user.username}`}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="rounded-full border border-border bg-card-alt px-2.25 py-0.5 text-[10px] font-extrabold text-muted-strong">
-                  {user.account_type}
-                </span>
-                {user.is_neighborhood_admin && (
-                  <span className="rounded-full bg-brand-purple/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-purple">
-                    Neighborhood admin
-                  </span>
-                )}
-                {user.is_super_admin && (
-                  <span className="rounded-full bg-brand-orange/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-orange">
-                    Super admin
-                  </span>
-                )}
-                <span className="font-mono text-[11px] text-muted">
-                  {new Date(user.created_at).toLocaleDateString()}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => toggleTestPush(user.id)}
-                  className="rounded-full border border-border px-2.25 py-0.5 text-[10px] font-extrabold text-foreground hover:bg-card-alt"
-                >
-                  Send test push
-                </button>
-              </div>
-            </div>
+      <div className="overflow-x-auto">
+        <div className="flex min-w-[880px] flex-col gap-2">
+          <div className={HEADER_ROW_CLASS}>
+            <span />
+            <span>Account</span>
+            <span>Type</span>
+            <span>Via</span>
+            <span>Roles</span>
+            <span>Push</span>
+            <span>Joined</span>
+            <span />
+          </div>
 
-            {openTestPushUserId === user.id && (
-              <div className="flex flex-col gap-2 rounded-xl bg-card-alt px-3 py-3">
-                <input
-                  value={testPushTitle}
-                  onChange={(e) => setTestPushTitle(e.target.value)}
-                  placeholder="Notification title"
-                  className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground"
-                />
-                <input
-                  value={testPushBody}
-                  onChange={(e) => setTestPushBody(e.target.value)}
-                  placeholder="Notification body"
-                  className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground"
-                />
-                <div className="flex items-center gap-2">
+          <ul className="flex flex-col gap-2">
+            {filtered?.map((user) => (
+              <li key={user.id} className="flex flex-col gap-2.5 rounded-2xl border-2 border-border/60 bg-card px-4 py-3.5">
+                <div className={`grid ${ROW_GRID} items-center gap-3`}>
+                  <MushroomMark size={32} {...resolveAdminMushroom(user)} />
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate font-heading text-[15px] font-bold">
+                      {user.display_name ?? user.username ?? user.email ?? "Unnamed account"}
+                    </span>
+                    <span className="truncate font-mono text-[11px] text-muted">
+                      {user.email ?? "no email"}
+                      {user.username && ` · @${user.username}`}
+                    </span>
+                  </div>
+                  <span className="w-fit rounded-full border border-border bg-card-alt px-2.25 py-0.5 text-[10px] font-extrabold text-muted-strong">
+                    {user.account_type}
+                  </span>
+                  <span className="font-mono text-[11px] text-muted">{authProviderLabel(user.auth_provider)}</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {user.is_neighborhood_admin && (
+                      <span className="rounded-full bg-brand-purple/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-purple">
+                        Neighborhood admin
+                      </span>
+                    )}
+                    {user.is_super_admin && (
+                      <span className="rounded-full bg-brand-orange/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-orange">
+                        Super admin
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`w-fit rounded-full px-2.25 py-0.5 text-[10px] font-extrabold ${
+                      user.has_push_enabled ? "bg-brand-green/20 text-brand-green" : "bg-card-alt text-muted"
+                    }`}
+                  >
+                    {user.has_push_enabled ? "Enabled" : "Off"}
+                  </span>
+                  <span className="font-mono text-[11px] text-muted">
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </span>
                   <button
                     type="button"
-                    disabled={testPushState.status === "sending" || !testPushTitle.trim() || !testPushBody.trim()}
-                    onClick={() => sendTestPush(user.id)}
-                    className="rounded-full bg-brand-purple px-3 py-1 text-xs font-bold text-on-accent disabled:opacity-60"
+                    onClick={() => toggleTestPush(user.id)}
+                    className="w-fit rounded-full border border-border px-2.25 py-0.5 text-[10px] font-extrabold text-foreground hover:bg-card-alt"
                   >
-                    {testPushState.status === "sending" ? "Sending…" : "Send"}
+                    Send test push
                   </button>
-                  {testPushState.status === "done" && (
-                    <span className="text-xs text-muted">
-                      {testPushState.summary.sent > 0
-                        ? `Sent to ${testPushState.summary.sent} device${testPushState.summary.sent === 1 ? "" : "s"}.`
-                        : "This user has no active push subscriptions."}
-                      {testPushState.summary.pruned > 0 && ` (${testPushState.summary.pruned} stale, removed)`}
-                    </span>
-                  )}
-                  {testPushState.status === "error" && (
-                    <span className="text-xs text-red-600 dark:text-red-400">{testPushState.message}</span>
-                  )}
                 </div>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+
+                {openTestPushUserId === user.id && (
+                  <div className="flex flex-col gap-2 rounded-xl bg-card-alt px-3 py-3">
+                    <input
+                      value={testPushTitle}
+                      onChange={(e) => setTestPushTitle(e.target.value)}
+                      placeholder="Notification title"
+                      className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground"
+                    />
+                    <input
+                      value={testPushBody}
+                      onChange={(e) => setTestPushBody(e.target.value)}
+                      placeholder="Notification body"
+                      className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={testPushState.status === "sending" || !testPushTitle.trim() || !testPushBody.trim()}
+                        onClick={() => sendTestPush(user.id)}
+                        className="rounded-full bg-brand-purple px-3 py-1 text-xs font-bold text-on-accent disabled:opacity-60"
+                      >
+                        {testPushState.status === "sending" ? "Sending…" : "Send"}
+                      </button>
+                      {testPushState.status === "done" && (
+                        <span className="text-xs text-muted">
+                          {testPushState.summary.sent > 0
+                            ? `Sent to ${testPushState.summary.sent} device${testPushState.summary.sent === 1 ? "" : "s"}.`
+                            : "This user has no active push subscriptions."}
+                          {testPushState.summary.pruned > 0 && ` (${testPushState.summary.pruned} stale, removed)`}
+                        </span>
+                      )}
+                      {testPushState.status === "error" && (
+                        <span className="text-xs text-red-600 dark:text-red-400">{testPushState.message}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
 
       {filtered?.length === 0 && <p className="text-sm text-muted">No users match.</p>}
     </div>

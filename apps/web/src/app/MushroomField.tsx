@@ -1,6 +1,6 @@
 import type { MushroomCustomization } from "@blockwise/types";
 import { MushroomMark, hashSeed, mulberry32, mushroomConfigForUser, resolveMushroomConfig } from "@blockwise/ui";
-import type { MushroomConfig, SpotShape } from "@blockwise/ui";
+import type { MushroomConfig, MushroomShape, SpotShape } from "@blockwise/ui";
 
 // Purely decorative -- caps how many little mushrooms a field draws so an
 // implausibly high count doesn't fill the card with hundreds of icons.
@@ -132,9 +132,14 @@ export function MushroomField({
 
   // Server-validated against the same enum a customizer save is checked
   // against (PATCH /me/profile), so the spotShape string is safe to trust as
-  // a SpotShape here.
+  // a SpotShape here. shape falls back to "button" for rows saved before
+  // that field existed (undefined, not just an unrecognized string).
   const config: MushroomConfig | null = customization
-    ? { ...customization, spotShape: customization.spotShape as SpotShape }
+    ? {
+        ...customization,
+        shape: (customization.shape as MushroomShape | undefined) ?? "button",
+        spotShape: customization.spotShape as SpotShape,
+      }
     : null;
   const sharedMushroom = resolveMushroomConfig(seed, config);
   const layout = fieldLayout(seed, mushroomCount);
@@ -166,6 +171,7 @@ export function MushroomField({
             >
               <MushroomMark
                 size={size}
+                shape={mushroom.shape}
                 cap={mushroom.cap}
                 stalk={mushroom.stalk}
                 spots={mushroom.spots}

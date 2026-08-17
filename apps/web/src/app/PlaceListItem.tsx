@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { MushroomLogo } from "@blockwise/ui";
+import { MUSHROOM_SHAPES, MushroomLogo } from "@blockwise/ui";
+import type { MushroomShape } from "@blockwise/ui";
 
 const PIN_COLORS = ["var(--brand-orange)", "var(--brand-green)", "var(--brand-purple)", "var(--brand-amber)"];
 
@@ -10,6 +11,17 @@ export function pinColorFor(id: string): string {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
   return PIN_COLORS[Math.abs(hash) % PIN_COLORS.length];
+}
+
+// Deterministic per-id pin silhouette (Spored Shape Study), same idea as
+// pinColorFor above but salted separately so a place's shape and color don't
+// always move together. Every venue/POI list in the app renders through
+// this one component, so this is the only place a shape needs picking.
+function shapeFor(id: string): MushroomShape {
+  let hash = 0;
+  const salted = `${id}-shape`;
+  for (let i = 0; i < salted.length; i++) hash = (hash * 31 + salted.charCodeAt(i)) | 0;
+  return MUSHROOM_SHAPES[Math.abs(hash) % MUSHROOM_SHAPES.length];
 }
 
 // Shared row style for venue/POI-backed lists across the app (neighborhood
@@ -38,7 +50,7 @@ export function PlaceListItem({
 }) {
   const label = (
     <>
-      <MushroomLogo size={18} capColor={pinColorFor(id)} />
+      <MushroomLogo size={18} shape={shapeFor(id)} capColor={pinColorFor(id)} />
       <div className="flex flex-col">
         <span className="font-extrabold text-foreground">{name}</span>
         <span className="text-xs font-bold text-muted">{subtitle}</span>

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AccountType, ProfileVisibility } from "@blockwise/types";
+import type { AccountType, MushroomCustomization, ProfileVisibility } from "@blockwise/types";
 import type { AdminUserRecord, UserRepository } from "./repository";
 
 type Row = {
@@ -10,9 +10,12 @@ type Row = {
   account_type: AccountType;
   visibility: ProfileVisibility;
   created_at: string;
+  mushroom_customization: MushroomCustomization | null;
+  auth_provider: string | null;
 };
 
-const COLUMNS = "id, email, display_name, username, account_type, visibility, created_at";
+const COLUMNS =
+  "id, email, display_name, username, account_type, visibility, created_at, mushroom_customization, auth_provider";
 
 export class SupabaseUserRepository implements UserRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -45,6 +48,8 @@ export class SupabaseUserRepository implements UserRepository {
       createdAt: row.created_at,
       isNeighborhoodAdmin: neighborhoodAdminIds.has(row.id),
       isSuperAdmin: superAdminIds.has(row.id),
+      mushroomCustomization: row.mushroom_customization,
+      authProvider: row.auth_provider,
     }));
   }
 }

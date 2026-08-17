@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { SpotShape } from "@blockwise/types";
+import type { MushroomShape, SpotShape } from "@blockwise/types";
 
 // Shared four-part mushroom renderer (cap / spots / stalk / background) --
 // the full generative mark from the Spored brand system, documented on the
@@ -7,10 +7,136 @@ import type { SpotShape } from "@blockwise/types";
 // simpler cap+stem+fixed-spots nav mark; this is the fuller version with
 // configurable spot count/shape/colors, used both by the brand page's
 // anatomy illustration and by per-user mushroom avatars (apps/web's
-// mushroomConfigForUser).
-const CAP_PATH = "M14 54 Q14 16 50 16 Q86 16 86 54 Z";
+// mushroomConfigForUser). "button" -- the original mark -- keeps its own
+// hardcoded path and hand-tuned per-count spot layout (SPOT_LAYOUTS below)
+// unchanged; the other nine silhouettes (Spored Shape Study) live in
+// SHAPE_GEOMETRY below with their own cap/stalk paths and spot positions.
+const BUTTON_CAP_PATH = "M14 54 Q14 16 50 16 Q86 16 86 54 Z";
 
-export type { SpotShape };
+export type { SpotShape, MushroomShape };
+
+// Cap/stalk path data for every silhouette but "button" (viewBox 0 0 100
+// 100, matching BUTTON_CAP_PATH's own coordinate space) -- ported from the
+// "Spored Shape Study" design exploration (spored-shapes.js). Each shape's
+// `spots` are fixed [cx, cy, r] positions tailored to that cap's outline,
+// sliced to spotCount (0-6) rather than button's per-count hand-tuned
+// SPOT_LAYOUTS -- the study only hand-placed one set of up-to-six spots per
+// silhouette, not a distinct layout for every count.
+interface ShapeGeometry {
+  capD: string;
+  stalkD: string;
+  spots: [number, number, number][];
+}
+
+const SHAPE_GEOMETRY: Record<Exclude<MushroomShape, "button">, ShapeGeometry> = {
+  parasol: {
+    capD: "M8 58 Q10 30 50 22 Q90 30 92 58 Z",
+    stalkD: "M44 56 H56 V84 A6 6 0 0 1 44 84 Z M35 60 H65 V65 A4 4 0 0 1 61 69 H39 A4 4 0 0 1 35 65 Z",
+    spots: [
+      [28, 45, 5],
+      [50, 35, 5],
+      [72, 45, 5],
+      [39, 52, 3.6],
+      [61, 52, 3.6],
+      [50, 51, 3.2],
+    ],
+  },
+  bell: {
+    capD: "M26 62 Q22 10 50 10 Q78 10 74 62 Z",
+    stalkD: "M43 58 H57 V82 A7 7 0 0 1 43 82 Z",
+    spots: [
+      [38, 34, 5],
+      [58, 26, 4.4],
+      [60, 47, 4.6],
+      [40, 52, 3.4],
+      [50, 18, 3.4],
+      [34, 46, 3.2],
+    ],
+  },
+  chanterelle: {
+    capD: "M10 46 Q12 18 50 18 Q88 18 90 46 Q68 32 50 36 Q32 32 10 46 Z",
+    stalkD: "M42 34 H58 L55 82 A6 6 0 0 1 45 82 Z",
+    // Only 3 -- the funnel cap's visible rim is too narrow for more without
+    // spots crowding together or spilling past the edge.
+    spots: [
+      [28, 32, 4.4],
+      [50, 26, 4.4],
+      [72, 32, 4.4],
+    ],
+  },
+  morel: {
+    capD: "M50 6 C72 6 80 26 80 44 C80 60 67 68 50 68 C33 68 20 60 20 44 C20 26 28 6 50 6 Z",
+    stalkD: "M40 62 H60 V82 A10 10 0 0 1 40 82 Z",
+    spots: [
+      [34, 26, 4.4],
+      [50, 19, 4.4],
+      [66, 28, 4.4],
+      [30, 44, 4.4],
+      [50, 38, 4.4],
+      [69, 46, 4.4],
+    ],
+  },
+  enoki: {
+    capD:
+      "M22 44 Q22 31 32 31 Q42 31 42 44 Z M44 34 Q44 19 55 19 Q66 19 66 34 Z M65 53 Q65 42 74 42 Q83 42 83 53 Z",
+    stalkD: "M28 42 H36 V84 A4 4 0 0 1 28 84 Z M51 32 H59 V84 A4 4 0 0 1 51 84 Z M70 51 H78 V84 A4 4 0 0 1 70 84 Z",
+    // Only 3 -- one per cap in the cluster, the most any of the three tiny
+    // caps has room for.
+    spots: [
+      [32, 38, 3],
+      [55, 27, 3],
+      [74, 48, 2.6],
+    ],
+  },
+  porcini: {
+    capD: "M10 48 Q10 18 50 18 Q90 18 90 48 Q70 58 50 57 Q30 58 10 48 Z",
+    stalkD: "M36 46 C28 60 28 78 34 86 Q50 93 66 86 C72 78 72 60 64 46 Z",
+    spots: [
+      [30, 36, 5],
+      [52, 28, 5],
+      [70, 38, 5],
+      [40, 47, 3.6],
+      [62, 48, 3.6],
+      [50, 44, 3.2],
+    ],
+  },
+  oyster: {
+    capD: "M18 72 Q8 40 40 24 Q76 12 88 42 Q94 66 52 74 Z",
+    stalkD: "M22 66 L36 71 L30 86 A6 6 0 0 1 17 84 Z",
+    spots: [
+      [40, 40, 5],
+      [62, 33, 4.6],
+      [69, 55, 4.4],
+      [28, 54, 4],
+      [50, 58, 3.6],
+      [78, 42, 3.4],
+    ],
+  },
+  puffball: {
+    capD: "M18 42 A32 32 0 1 1 82 42 A32 32 0 1 1 18 42 Z",
+    stalkD: "M40 64 H60 V80 A10 10 0 0 1 40 80 Z",
+    spots: [
+      [36, 32, 5],
+      [58, 25, 4.6],
+      [64, 46, 5],
+      [38, 52, 4],
+      [50, 39, 3.6],
+      [26, 44, 3.6],
+    ],
+  },
+  shiitake: {
+    capD: "M10 50 Q10 24 50 24 Q90 24 90 50 Q80 58 70 52 Q60 60 50 54 Q40 60 30 52 Q20 58 10 50 Z",
+    stalkD: "M42 50 H58 V78 A8 8 0 0 1 42 78 Z",
+    spots: [
+      [30, 36, 5],
+      [52, 31, 4.6],
+      [70, 38, 4.6],
+      [40, 45, 3.4],
+      [61, 46, 3.4],
+      [50, 42, 3],
+    ],
+  },
+};
 
 // Vertices for a regular polygon (or star) centered at (cx, cy) -- angles in
 // degrees, 0 pointing straight up, matching how a viewer expects a triangle
@@ -75,11 +201,68 @@ const SPOT_LAYOUTS: { cx: number; cy: number; size: number }[][] = [
   ],
 ];
 
-function spotElements(spotCount: number, spotShape: SpotShape, color: string) {
-  const count = Math.max(0, Math.min(SPOT_LAYOUTS.length, Math.round(spotCount)));
-  if (count === 0) return null;
+// Falls back to "button" (null -- its own hardcoded path/layout below) for
+// anything not in SHAPE_GEOMETRY, not just an unrecognized string but also
+// undefined/missing -- mushroom_customization rows saved before `shape`
+// existed have no such field at all, and a stale client could still submit
+// one from before a shape was added or removed here.
+function geometryForShape(shape: MushroomShape): ShapeGeometry | null {
+  return Object.prototype.hasOwnProperty.call(SHAPE_GEOMETRY, shape)
+    ? SHAPE_GEOMETRY[shape as Exclude<MushroomShape, "button">]
+    : null;
+}
 
-  return SPOT_LAYOUTS[count - 1].map(({ cx, cy, size }, i) => {
+// "button"'s layout is its own hand-tuned-per-count table (SPOT_LAYOUTS);
+// every other silhouette slices its fixed SHAPE_GEOMETRY.spots list (up to
+// six, but only three for chanterelle/enoki -- their caps are too narrow for
+// more) down to spotCount instead.
+function spotLayout(
+  shape: MushroomShape,
+  spotCount: number
+): { cx: number; cy: number; size: number }[] {
+  const geometry = geometryForShape(shape);
+  if (!geometry) {
+    const count = Math.max(0, Math.min(SPOT_LAYOUTS.length, Math.round(spotCount)));
+    return count === 0 ? [] : SPOT_LAYOUTS[count - 1];
+  }
+  const count = Math.max(0, Math.min(geometry.spots.length, Math.round(spotCount)));
+  return geometry.spots.slice(0, count).map(([cx, cy, size]) => ({ cx, cy, size }));
+}
+
+// How many spots a silhouette actually has room to draw -- lets callers
+// (the account customizer's spot-count picker) hide options that would
+// silently render fewer spots than selected instead of the count asked for.
+export function maxSpotCountForShape(shape: MushroomShape): number {
+  return geometryForShape(shape)?.spots.length ?? SPOT_LAYOUTS.length;
+}
+
+// Cap/stalk/dot-position data for MushroomLogo's simpler two-tone mark
+// (fixed 3 dots, no bg/spotCount/spotShape) -- lets it draw the same ten
+// silhouettes as the full generative MushroomMark without duplicating
+// SHAPE_GEOMETRY. null stalkD means "draw the plain rounded rect" (button's
+// own stalk isn't a path) rather than a path string.
+export interface MushroomOutline {
+  capD: string;
+  stalkD: string | null;
+  dots: [number, number, number][];
+}
+
+export function mushroomOutline(shape: MushroomShape): MushroomOutline {
+  const geometry = geometryForShape(shape);
+  if (geometry) {
+    return { capD: geometry.capD, stalkD: geometry.stalkD, dots: geometry.spots.slice(0, 3) };
+  }
+  return {
+    capD: BUTTON_CAP_PATH,
+    stalkD: null,
+    dots: SPOT_LAYOUTS[2].map(({ cx, cy, size }): [number, number, number] => [cx, cy, size]),
+  };
+}
+
+function spotElements(layout: { cx: number; cy: number; size: number }[], spotShape: SpotShape, color: string) {
+  if (layout.length === 0) return null;
+
+  return layout.map(({ cx, cy, size }, i) => {
     switch (spotShape) {
       case "circle":
         return <circle key={i} cx={cx} cy={cy} r={size} fill={color} />;
@@ -144,6 +327,7 @@ function spotElements(spotCount: number, spotShape: SpotShape, color: string) {
 
 export function MushroomMark({
   size = 96,
+  shape = "button",
   cap = "#E8542A",
   stalk = "#FBF2E4",
   spots,
@@ -152,6 +336,7 @@ export function MushroomMark({
   bg,
 }: {
   size?: number;
+  shape?: MushroomShape;
   cap?: string;
   stalk?: string;
   spots?: string;
@@ -161,6 +346,8 @@ export function MushroomMark({
 }) {
   const clipId = useId();
   const hasBg = Boolean(bg);
+  const geometry = geometryForShape(shape);
+  const capD = geometry ? geometry.capD : BUTTON_CAP_PATH;
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" style={{ display: "block" }} aria-hidden="true">
       {hasBg && (
@@ -170,12 +357,16 @@ export function MushroomMark({
         <circle cx={50} cy={50} r={50} style={{ fill: bg }} />
       )}
       <g transform={hasBg ? "translate(50 52) scale(0.72) translate(-50 -50)" : undefined}>
-        <path d={CAP_PATH} fill={cap} />
-        <rect x={40} y={52} width={20} height={34} rx={10} fill={stalk} />
-        <g clipPath={`url(#${clipId})`}>{spotElements(spotCount, spotShape, spots ?? stalk)}</g>
+        {geometry ? (
+          <path d={geometry.stalkD} fill={stalk} />
+        ) : (
+          <rect x={40} y={52} width={20} height={34} rx={10} fill={stalk} />
+        )}
+        <path d={capD} fill={cap} />
+        <g clipPath={`url(#${clipId})`}>{spotElements(spotLayout(shape, spotCount), spotShape, spots ?? stalk)}</g>
         <defs>
           <clipPath id={clipId}>
-            <path d={CAP_PATH} />
+            <path d={capD} />
           </clipPath>
         </defs>
       </g>

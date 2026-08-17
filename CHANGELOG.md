@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.62.0] — 2026-08-16
+
+### Added
+
+- **Ten new mushroom silhouettes** (button, parasol, bell, chanterelle, morel, enoki, porcini, oyster, puffball, shiitake), drawn from the "Spored Shape Study" design exploration — silhouette is now a fifth generative axis alongside cap, stalk, spot color, and background, so every auto-assigned mushroom (and every existing user's, since the shape hash shuffles prior assignments) can vary in outline, not just color. Chanterelle and enoki cap outlines don't have room for a full 6-spot layout, so their spot count is capped at 3 in both auto-assignment and the customizer. The account customizer gained a new "Shape" section (now the default landing section) with a swatch grid for all ten; venue/POI list pins (`PlaceListItem`) now vary silhouette per venue via a salted hash instead of always rendering the original button cap. The marketing `/brand` guidelines page documents the new fifth part with a full silhouette grid and updated anatomy/usage copy. (`packages/types/src/mushroom.ts`, `packages/types/src/index.ts`, `packages/ui/src/MushroomMark.tsx`, `packages/ui/src/MushroomLogo.tsx`, `packages/ui/src/index.ts`, `apps/api/src/app.ts`, `apps/api/src/checkins/checkin.ts`, `apps/web/src/app/Avatar.tsx`, `apps/web/src/app/SlideTrack.tsx`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/PlaceListItem.tsx`, `apps/web/src/app/account/(tabs)/layout.tsx`, `apps/web/src/app/account/MushroomSection.tsx`, `apps/web/src/app/account/MushroomCustomizer.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/claims/page.tsx`, `apps/marketing/src/app/brand/BrandMushroom.tsx`, `apps/marketing/src/app/brand/page.tsx`)
+- **Super admin Users list redesigned as a column-aligned table**, with a mushroom-avatar column (each account's real current look — a saved customizer choice when present, not just its hash-derived default), a "Via" column showing how the account signed up (Google vs. email, from Supabase's `auth_provider`), and a "Push" column showing whether the account has any active push subscription. Previously the list only showed name/email, account type, role badges, and join date in a loosely-wrapped row. (`apps/web/src/app/admin/super/users/page.tsx`, `packages/types/src/index.ts`, `apps/api/src/users/users.ts`, `apps/api/src/users/repository.ts`, `apps/api/src/users/supabaseRepository.ts`)
+
 ## [0.61.0] — 2026-08-16
 
 ### Added
