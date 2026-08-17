@@ -5,11 +5,9 @@ import { usePathname, useParams } from "next/navigation";
 import type { AppUser, NeighborhoodAdminSummary, NeighborhoodProfile } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
-import { MushroomLoader, MushroomLogo } from "@blockwise/ui";
-import { AccountMenu } from "../../../AccountMenu";
-import { AdminSwitcher } from "../../../AdminSwitcher";
+import { MushroomLoader } from "@blockwise/ui";
+import { AdminShell, type AdminShellTab } from "../../AdminShell";
 import { NeighborhoodAdminProvider } from "./NeighborhoodAdminContext";
-import packageJson from "../../../../../package.json";
 
 type State =
   | { status: "loading" }
@@ -217,110 +215,47 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
     window.location.href = "/";
   }
 
+  const shellTabs: AdminShellTab[] = TABS.map((tab) => {
+    const href = `/admin/neighborhood/${neighborhoodSlug}${tab.href}`;
+    // Sub-routes (e.g. locations/review) should keep their parent tab
+    // highlighted -- exact-match only for Overview, whose own href is a
+    // strict prefix of every other tab's.
+    const active = tab.href === "" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+    let badge: React.ReactNode = null;
+    if (tab.key === "locations" && locationCount !== null) {
+      badge = <span className="ml-auto font-mono text-[10px] opacity-70">{locationCount}</span>;
+    } else if (tab.key === "claims" && !!pendingClaimCount) {
+      badge = (
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
+          {pendingClaimCount}
+        </span>
+      );
+    }
+    return { key: tab.key, href, label: tab.label, icon: tab.icon, active, badge };
+  });
+
   return (
-    <div className="flex h-screen overflow-hidden bg-background font-sans text-foreground">
-      {/* ================= SIDEBAR ================= */}
-      <div className="flex w-64 shrink-0 flex-col bg-nav px-3.5 pt-4.5 pb-4 text-nav-foreground">
-        <div className="flex items-center gap-2.5 px-2 pb-4">
-          <MushroomLogo size={26} capColor="var(--brand-orange)" stemClassName="text-nav-foreground" />
-          <span className="font-heading text-xl font-extrabold text-nav-foreground">Spored</span>
-          <span className="ml-auto rounded-full bg-nav-foreground/10 px-2 py-0.75 font-mono text-[10px] text-nav-muted">
-            admin
-          </span>
-        </div>
-
-        <AdminSwitcher
-          current={{
-            kind: "neighborhood",
-            id: neighborhood.neighborhood_id,
-            label: neighborhood.name,
-            sublabel: profile ? `${profile.city}, ${profile.state}` : undefined,
-          }}
-          user={user}
-        />
-
-        <div className="px-2.5 pb-2 font-mono text-[10px] tracking-wide text-nav-muted/80 uppercase">Manage</div>
-
-        <nav className="flex flex-col gap-0.5">
-          {TABS.map((tab) => {
-            const href = `/admin/neighborhood/${neighborhoodSlug}${tab.href}`;
-            // Sub-routes (e.g. locations/review) should keep their parent
-            // tab highlighted -- exact-match only for Overview, whose own
-            // href is a strict prefix of every other tab's.
-            const isActive = tab.href === "" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-            return (
-              <a
-                key={tab.key}
-                href={href}
-                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-extrabold ${
-                  isActive ? "bg-card text-foreground" : "text-nav-muted hover:bg-nav-foreground/8"
-                }`}
-              >
-                <tab.icon className="shrink-0" />
-                <span>{tab.label}</span>
-                {tab.key === "locations" && locationCount !== null && (
-                  <span className="ml-auto font-mono text-[10px] opacity-70">{locationCount}</span>
-                )}
-                {tab.key === "claims" && !!pendingClaimCount && (
-                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
-                    {pendingClaimCount}
-                  </span>
-                )}
-              </a>
-            );
-          })}
-        </nav>
-
-        <div className="flex-1" />
-
-        <a
-          href={`/neighborhoods/${neighborhoodSlug}`}
-          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-bold text-nav-muted hover:bg-nav-foreground/8"
-        >
-          <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
-            <path
-              d="M8 4 L4 4 Q3 4 3 5 L3 16 Q3 17 4 17 L15 17 Q16 17 16 16 L16 12"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-            />
-            <path
-              d="M11 3 L17 3 L17 9"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path d="M17 3 L9.5 10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          View public page
-        </a>
-        <a href="/changelog" className="block px-3 pt-2 font-mono text-[10px] text-nav-muted/60 hover:text-nav-muted">
-          Spored v{packageJson.version} · BETA
-        </a>
-      </div>
-
-      {/* ================= WORKSPACE ================= */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-[1460px] flex-col px-9 pt-5.5 pb-18">
-          <div className="mb-5.5 flex items-center gap-3.5">
-            <div className="flex-1" />
-            <AccountMenu user={user} tag="admin" onLogOut={handleLogOut} />
-          </div>
-
-          <NeighborhoodAdminProvider
-            value={{
-              neighborhoodId: neighborhood.neighborhood_id,
-              slug: neighborhood.slug,
-              name: neighborhood.name,
-            }}
-          >
-            {children}
-          </NeighborhoodAdminProvider>
-        </div>
-      </div>
-    </div>
+    <AdminShell
+      switcherCurrent={{
+        kind: "neighborhood",
+        id: neighborhood.neighborhood_id,
+        label: neighborhood.name,
+        sublabel: profile ? `${profile.city}, ${profile.state}` : undefined,
+      }}
+      user={user}
+      tabs={shellTabs}
+      viewPublicHref={`/neighborhoods/${neighborhoodSlug}`}
+      onLogOut={handleLogOut}
+    >
+      <NeighborhoodAdminProvider
+        value={{
+          neighborhoodId: neighborhood.neighborhood_id,
+          slug: neighborhood.slug,
+          name: neighborhood.name,
+        }}
+      >
+        {children}
+      </NeighborhoodAdminProvider>
+    </AdminShell>
   );
 }

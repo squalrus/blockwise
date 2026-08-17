@@ -4,6 +4,7 @@ import {
   createEventForNeighborhood,
   deleteEventForNeighborhood,
   deleteEventForVenue,
+  listActiveEventsForVenues,
   listEventsForNeighborhood,
   listEventsForVenue,
   listUpcomingEventsForNeighborhood,
@@ -70,6 +71,13 @@ class FakeEventRepository implements EventRepository {
           e.endTime >= now &&
           e.status === "active"
       )
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }
+
+  async listEventsForVenues(venueIds: string[]): Promise<EventRecord[]> {
+    const now = new Date().toISOString();
+    return this.events
+      .filter((e) => e.venueId !== null && venueIds.includes(e.venueId) && e.endTime >= now && e.status === "active")
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
   }
 
@@ -152,8 +160,8 @@ class FakeEventRepository implements EventRepository {
 const VALID_INPUT = {
   title: "Live music night",
   description: "Local band on the patio",
-  startTime: "2026-08-01T18:00:00.000Z",
-  endTime: "2026-08-01T21:00:00.000Z",
+  startTime: "2030-08-01T18:00:00.000Z",
+  endTime: "2030-08-01T21:00:00.000Z",
 };
 
 describe("createEvent", () => {
@@ -239,8 +247,8 @@ describe("listUpcomingEventsForNeighborhood", () => {
     repo.registerVenue("venue-1", "neighborhood-1", "Phinney Farmers Market");
     repo.registerVenue("venue-2", "neighborhood-2", "Out-of-neighborhood Cafe");
 
-    await createEventForNeighborhood("neighborhood-1", { ...VALID_INPUT, startTime: "2026-08-02T18:00:00.000Z", endTime: "2026-08-02T21:00:00.000Z" }, repo);
-    await createEvent("venue-1", { ...VALID_INPUT, title: "Market day", startTime: "2026-08-01T10:00:00.000Z", endTime: "2026-08-01T14:00:00.000Z" }, repo);
+    await createEventForNeighborhood("neighborhood-1", { ...VALID_INPUT, startTime: "2030-08-02T18:00:00.000Z", endTime: "2030-08-02T21:00:00.000Z" }, repo);
+    await createEvent("venue-1", { ...VALID_INPUT, title: "Market day", startTime: "2030-08-01T10:00:00.000Z", endTime: "2030-08-01T14:00:00.000Z" }, repo);
     await createEvent("venue-2", VALID_INPUT, repo);
     await createEventForNeighborhood("neighborhood-3", VALID_INPUT, repo);
 
@@ -251,6 +259,35 @@ describe("listUpcomingEventsForNeighborhood", () => {
     expect(results[0].venue_name).toBe("Phinney Farmers Market");
     expect(results[1].neighborhood_id).toBe("neighborhood-1");
     expect(results[1].venue_name).toBeNull();
+  });
+});
+
+describe("listActiveEventsForVenues", () => {
+  it("returns active, not-yet-ended events across the given venues, sorted by start time", async () => {
+    const repo = new FakeEventRepository();
+    repo.registerVenue("venue-1", "neighborhood-1", "Phinney Farmers Market");
+    repo.registerVenue("venue-2", "neighborhood-1", "Corner Cafe");
+    repo.registerVenue("venue-3", "neighborhood-1", "Not favorited");
+
+    const later = await createEvent("venue-1", { ...VALID_INPUT, title: "Later", startTime: "2030-08-02T18:00:00.000Z", endTime: "2030-08-02T21:00:00.000Z" }, repo);
+    await createEvent("venue-2", { ...VALID_INPUT, title: "Sooner", startTime: "2030-08-01T10:00:00.000Z", endTime: "2030-08-01T14:00:00.000Z" }, repo);
+    await createEvent("venue-3", VALID_INPUT, repo);
+    await createEvent("venue-1", { ...VALID_INPUT, title: "Already ended", startTime: "2020-01-01T10:00:00.000Z", endTime: "2020-01-01T14:00:00.000Z" }, repo);
+    const hidden = await createEvent("venue-2", { ...VALID_INPUT, title: "Hidden", startTime: "2030-08-03T10:00:00.000Z", endTime: "2030-08-03T14:00:00.000Z" }, repo);
+    if (later.status !== "created" || hidden.status !== "created") throw new Error("expected created");
+    await setEventStatusForVenue("venue-2", hidden.event.id, "hidden", repo);
+
+    const results = await listActiveEventsForVenues(["venue-1", "venue-2"], repo);
+
+    expect(results).toHaveLength(2);
+    expect(results[0].title).toBe("Sooner");
+    expect(results[0].venue_name).toBe("Corner Cafe");
+    expect(results[1].title).toBe("Later");
+  });
+
+  it("returns an empty list for no venues", async () => {
+    const repo = new FakeEventRepository();
+    expect(await listActiveEventsForVenues([], repo)).toEqual([]);
   });
 });
 
@@ -338,7 +375,7 @@ describe("setEventStatusForNeighborhood", () => {
     const repo = new FakeEventRepository();
     const created = await createEventForNeighborhood(
       "neighborhood-1",
-      { ...VALID_INPUT, startTime: "2026-08-02T18:00:00.000Z", endTime: "2026-08-02T21:00:00.000Z" },
+      { ...VALID_INPUT, startTime: "2030-08-02T18:00:00.000Z", endTime: "2030-08-02T21:00:00.000Z" },
       repo
     );
     if (created.status !== "created") throw new Error("expected created");
@@ -369,8 +406,8 @@ describe("iCal re-sync preserves a hidden status", () => {
       uid: "feed-uid-1",
       title: "Weekly market",
       description: "desc",
-      startTime: "2026-08-02T18:00:00.000Z",
-      endTime: "2026-08-02T21:00:00.000Z",
+      startTime: "2030-08-02T18:00:00.000Z",
+      endTime: "2030-08-02T21:00:00.000Z",
       location: null,
     };
 

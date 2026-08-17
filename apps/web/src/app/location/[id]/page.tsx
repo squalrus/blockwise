@@ -6,6 +6,8 @@ import { PoweredByGoogle } from "@blockwise/ui";
 import { apiUrl } from "@/lib/api";
 import { SITE_URL } from "@/lib/siteUrl";
 import { EnrichmentAbout, EnrichmentPhotos, EnrichmentReviews } from "../../EnrichmentSection";
+import { EventListItem } from "../../EventListItem";
+import { FollowEventButton } from "../../FollowEventButton";
 import { ClaimBusinessForm } from "./ClaimBusinessForm";
 import { CouponsSection } from "./CouponsSection";
 import { FavoriteButton } from "./FavoriteButton";
@@ -133,15 +135,9 @@ export default async function LocationDetailPage({
       {isBusiness && events.length > 0 && (
         <div>
           <p className="mb-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">Upcoming events</p>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2.5">
             {events.map((e) => (
-              <li key={e.id} className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
-                <span className="font-extrabold text-foreground">{e.title}</span>
-                <p className="mt-1 text-body-text">{e.description}</p>
-                <p className="mt-1.5 text-xs font-bold text-muted">
-                  {new Date(e.start_time).toLocaleString()} – {new Date(e.end_time).toLocaleString()}
-                </p>
-              </li>
+              <EventListItem key={e.id} event={e} showSource={false} actions={<FollowEventButton eventId={e.id} />} />
             ))}
           </ul>
         </div>

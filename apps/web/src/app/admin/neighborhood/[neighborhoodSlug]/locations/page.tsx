@@ -296,8 +296,8 @@ export default function NeighborhoodAdminLocationsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end gap-5">
-        <div className="flex-1">
+      <div className="flex flex-wrap items-end gap-5">
+        <div className="min-w-50 flex-1">
           <h1 className="font-heading text-4xl font-extrabold">Locations</h1>
           <p className="mt-1 text-[15px] text-body-text">
             Every venue and point of interest in the neighborhood — curate what neighbors see.
