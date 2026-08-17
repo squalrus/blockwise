@@ -125,6 +125,7 @@ export function ProfileSummaryCard({
         distinctMushrooms
         ownCount={level}
         mushrooms={neighborMushrooms}
+        mayorLabel={user.display_name ?? user.username}
       />
     </div>
   );

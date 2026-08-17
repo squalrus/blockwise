@@ -1,13 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MushroomCustomization, RecentVisitorMushroom } from "@blockwise/types";
+import type { LocationMayor, MushroomCustomization } from "@blockwise/types";
 import { resolveMushroomConfig } from "@blockwise/types";
-import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors, toMushroomConfig } from "./checkin";
+import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors, resolveMayor, toMushroomConfig } from "./checkin";
 import type {
   CheckinRecord,
   CheckinRepository,
   CheckinVenue,
   CreateCheckinInput,
   LocationCoords,
+  NeighborhoodVisitorMosaic,
 } from "./repository";
 
 const CHECKIN_COLUMNS = "id, user_id, venue_id, device_lat, device_lng, checked_in_at";
@@ -152,7 +153,7 @@ export class SupabaseCheckinRepository implements CheckinRepository {
   async listRecentVisitorMushroomsForNeighborhood(
     neighborhoodId: string,
     limit: number
-  ): Promise<RecentVisitorMushroom[]> {
+  ): Promise<NeighborhoodVisitorMosaic> {
     const windowStart = new Date(Date.now() - RECENT_VISITOR_WINDOW_MS).toISOString();
     const { data, error } = await this.supabase
       .from("checkin")
@@ -168,11 +169,11 @@ export class SupabaseCheckinRepository implements CheckinRepository {
       (data ?? []).map((row) => ({ userId: row.user_id, checkedInAt: row.checked_in_at })),
       limit
     );
-    if (ranked.length === 0) return [];
+    if (ranked.length === 0) return { mushrooms: [], mayor: null };
 
     const { data: users, error: usersError } = await this.supabase
       .from("app_user")
-      .select("id, mushroom_customization")
+      .select("id, mushroom_customization, username, display_name, visibility")
       .in(
         "id",
         ranked.map((r) => r.userId)
@@ -184,9 +185,23 @@ export class SupabaseCheckinRepository implements CheckinRepository {
       (users ?? []).map((u) => [u.id as string, u.mushroom_customization as MushroomCustomization | null])
     );
 
-    return ranked.map(({ userId, visitCount }) => ({
+    const mushrooms = ranked.map(({ userId, visitCount }) => ({
       mushroom: resolveMushroomConfig(userId, toMushroomConfig(customizationById.get(userId) ?? null)),
       visitCount,
     }));
+
+    const mayorCandidatesById = new Map(
+      (users ?? []).map((u) => [
+        u.id as string,
+        {
+          username: u.username as string | null,
+          displayName: u.display_name as string | null,
+          visibility: u.visibility as string,
+        },
+      ])
+    );
+    const mayor: LocationMayor | null = resolveMayor(ranked, mayorCandidatesById);
+
+    return { mushrooms, mayor };
   }
 }

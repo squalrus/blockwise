@@ -40,6 +40,12 @@
   --brand-amber: #f2a93b;
   --brand-green: #4c8c4a;
   --brand-purple: #8b5fbf;
+  /* Mayor sign (BACKLOG.md Ref 94, "Top Cap") -- a literal wooden placard, so
+     it stays the same wood tone in both themes rather than flipping with
+     --brand-*'s light/dark contrast logic. */
+  --wood: #9c6b3f;
+  --wood-dark: #4a2f1a;
+  --wood-text: #f4e4c8;
   color-scheme: light;
 }
 
@@ -61,6 +67,9 @@
   --color-brand-amber: var(--brand-amber);
   --color-brand-green: var(--brand-green);
   --color-brand-purple: var(--brand-purple);
+  --color-wood: var(--wood);
+  --color-wood-dark: var(--wood-dark);
+  --color-wood-text: var(--wood-text);
   --font-sans: var(--font-nunito);
   --font-heading: var(--font-baloo);
   --font-mono: var(--font-jetbrains-mono);

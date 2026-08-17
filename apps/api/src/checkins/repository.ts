@@ -1,4 +1,4 @@
-import type { RecentVisitorMushroom } from "@blockwise/types";
+import type { LocationMayor, RecentVisitorMushroom } from "@blockwise/types";
 
 export interface LocationCoords {
   id: string;
@@ -27,6 +27,13 @@ export interface CheckinVenue {
   name: string;
   address: string;
   checkedInAt: string;
+}
+
+export interface NeighborhoodVisitorMosaic {
+  mushrooms: RecentVisitorMushroom[];
+  // The identity behind mushrooms[0] (the "Mayor"/"Top Cap" sign next to the
+  // mosaic) -- null if there's no top visitor or their profile isn't public.
+  mayor: LocationMayor | null;
 }
 
 // Abstracts persistence so the geofence/cooldown decision (checkin.ts) can be
@@ -59,5 +66,8 @@ export interface CheckinRepository {
   // window, each with their current live mushroom and visit count, for the
   // neighborhood profile's mosaic. Mirrors
   // LocationRepository.getLocationDetail's venue-scoped equivalent.
-  listRecentVisitorMushroomsForNeighborhood(neighborhoodId: string, limit: number): Promise<RecentVisitorMushroom[]>;
+  listRecentVisitorMushroomsForNeighborhood(
+    neighborhoodId: string,
+    limit: number
+  ): Promise<NeighborhoodVisitorMosaic>;
 }

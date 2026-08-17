@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.61.0] — 2026-08-16
+
+### Added
+
+- **A "Top Cap" sign names the top visitor next to a neighborhood/location's mushroom mosaic, and every profile's own mushroom patch.** The visitor with the most check-ins within the mosaic's rolling 60-day window (already the biggest mushroom in the mosaic, per the "Mayor" size mechanic shipped in v0.60.0) now gets a small wooden sign next to the patch naming them — but only if their profile is public, mirroring the neighborhood leaderboard's own visibility rule; a private top visitor's mushroom still renders, just unnamed. The same sign renders on every account and public profile page too, naming that profile's own owner (display name, falling back to username) next to their personal growth patch. New `LocationMayor` type and `mayor` field on `VenueDetail`/`NeighborhoodProfile`; a `resolveMayor` helper picks the named visitor without ever falling through to a lower-ranked one (so the name always matches the mushroom drawn beside it). Privacy Policy and FAQ updated to disclose the new visibility rule. (`packages/types/src/mushroom.ts`, `packages/types/src/index.ts`, `apps/api/src/checkins/checkin.ts`, `apps/api/src/checkins/repository.ts`, `apps/api/src/checkins/supabaseRepository.ts`, `apps/api/src/locations/repository.ts`, `apps/api/src/locations/supabaseRepository.ts`, `apps/api/src/locations/locations.ts`, `apps/api/src/app.ts`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/globals.css`, `apps/marketing/src/app/privacy/page.tsx`, `apps/marketing/src/app/faq/page.tsx`)
+
 ## [0.60.1] — 2026-08-16
 
 ### Fixed

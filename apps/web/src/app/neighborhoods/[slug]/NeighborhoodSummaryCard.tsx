@@ -78,6 +78,7 @@ export function NeighborhoodSummaryCard({
         distinctMushrooms
         mushrooms={neighborhood.recent_checkin_mushrooms.map((m) => m.mushroom)}
         visitCounts={neighborhood.recent_checkin_mushrooms.map((m) => m.visitCount)}
+        mayorLabel={neighborhood.mayor && (neighborhood.mayor.displayName ?? neighborhood.mayor.username)}
       />
     </div>
   );

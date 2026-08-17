@@ -1,4 +1,4 @@
-import type { MushroomConfig, RecentVisitorMushroom } from "./mushroom";
+import type { LocationMayor, MushroomConfig, RecentVisitorMushroom } from "./mushroom";
 
 export interface HealthCheckResponse {
   status: "ok";
@@ -186,6 +186,10 @@ export interface VenueDetail {
   // here" mosaic (MushroomField's distinctMushrooms mode). Most-visits-first,
   // tie-broken by most recent; excludes visits outside the window.
   recent_checkin_mushrooms: RecentVisitorMushroom[];
+  // The identity behind recent_checkin_mushrooms[0] (the biggest mushroom),
+  // for the "Mayor" sign next to the mosaic -- null if there's no top
+  // visitor or their profile isn't public.
+  mayor: LocationMayor | null;
 }
 
 // Business claiming + GPS check-in (BACKLOG.md, README §4/§5).
@@ -632,6 +636,10 @@ export interface NeighborhoodProfile {
   // the mosaic (MushroomField's distinctMushrooms mode). Most-visits-first,
   // tie-broken by most recent; excludes visits outside the window.
   recent_checkin_mushrooms: RecentVisitorMushroom[];
+  // The identity behind recent_checkin_mushrooms[0] (the biggest mushroom),
+  // for the "Mayor" sign next to the mosaic -- null if there's no top
+  // visitor or their profile isn't public.
+  mayor: LocationMayor | null;
 }
 
 // Neighborhood membership (BACKLOG.md "Neighborhoods on landing page and user

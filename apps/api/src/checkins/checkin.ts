@@ -1,4 +1,4 @@
-import type { Checkin, MushroomConfig, MushroomCustomization, SpotShape } from "@blockwise/types";
+import type { Checkin, LocationMayor, MushroomConfig, MushroomCustomization, SpotShape } from "@blockwise/types";
 import { haversineMeters } from "../places/geo";
 import type { CheckinRecord, CheckinRepository } from "./repository";
 
@@ -44,6 +44,34 @@ export function rankRecentVisitors(
       (a, b) => b.visitCount - a.visitCount || mostRecentAt.get(b.userId)!.localeCompare(mostRecentAt.get(a.userId)!)
     )
     .slice(0, limit);
+}
+
+export interface MayorCandidateUser {
+  username: string | null;
+  displayName: string | null;
+  visibility: string;
+}
+
+// The "Mayor" sign next to a mosaic (BACKLOG.md Ref 94) names the top-ranked
+// visitor -- position 0 of an already most-visits-first `ranked` list -- but
+// only when that visitor opted into a public profile, the same visibility
+// gate the neighborhood leaderboard applies. Deliberately does NOT fall
+// through to the next-ranked visitor when the top one is private: the sign
+// sits next to the *biggest* mushroom in the mosaic, so naming anyone other
+// than that top visitor would mismatch what's drawn beside it -- better to
+// show no sign than a wrong one.
+export function resolveMayor(
+  ranked: { userId: string; visitCount: number }[],
+  usersById: Map<string, MayorCandidateUser>
+): LocationMayor | null {
+  const top = ranked[0];
+  if (!top) return null;
+
+  const user = usersById.get(top.userId);
+  if (!user || user.visibility !== "public") return null;
+  if (!user.displayName && !user.username) return null;
+
+  return { username: user.username, displayName: user.displayName };
 }
 
 // README §4 Phase 1: "GPS geofence check-in (radius check against
