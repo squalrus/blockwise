@@ -557,7 +557,13 @@ export interface CreateEventRequest {
 // `state` in the super admin shell's Feedback tab -- awards the "Feedback
 // Giver" badge on first submission and the "Contributor" badge when a
 // submission is later marked "done" via PATCH /admin/feedback/:id.
-export type FeedbackType = "bug" | "feature";
+//
+// "missing_venue" (BACKLOG.md Ref 80/96) is a third type sharing the same
+// table/state machine, but routed to the *reported neighborhood's own*
+// admins instead of super admins (GET/PATCH
+// /neighborhood-admin/neighborhoods/:id/feedback, not /admin/feedback) --
+// it's the only type that populates neighborhood_id/venue_name below.
+export type FeedbackType = "bug" | "feature" | "missing_venue";
 export type FeedbackState = "new" | "in_progress" | "done" | "removed";
 
 export interface FeedbackSubmission {
@@ -567,15 +573,25 @@ export interface FeedbackSubmission {
   comment: string;
   state: FeedbackState;
   created_at: string;
+  // "missing_venue" only -- null for bug/feature.
+  neighborhood_id: string | null;
+  venue_name: string | null;
 }
 
 export interface CreateFeedbackRequest {
   type: FeedbackType;
+  // Required for bug/feature; optional extra notes for missing_venue.
   comment: string;
+  // Required when type is "missing_venue", omitted otherwise.
+  neighborhood_id?: string;
+  venue_name?: string;
 }
 
-// GET /admin/feedback -- joined with basic submitter identity for triage,
-// since a bare user_id isn't useful in the admin UI without it.
+// GET /admin/feedback (bug/feature, super admin) and GET
+// /neighborhood-admin/neighborhoods/:id/feedback (missing_venue, scoped to
+// that neighborhood's own admins) both return this same joined shape --
+// basic submitter identity, since a bare user_id isn't useful in either
+// triage UI without it.
 export interface FeedbackSubmissionAdminView extends FeedbackSubmission {
   user_display_name: string | null;
   user_email: string | null;
@@ -1018,6 +1034,47 @@ export interface CommitLocationReviewResult {
   // hidden" on.
   removed: string[];
   failed: { name: string; error: string }[];
+}
+
+// Missing-location investigation (BACKLOG.md Ref 96) -- a single admin
+// Google Places Text Search lookup for one reported-missing venue, distinct
+// from LocationReviewCandidate (a full-boundary Nearby Search sweep): a
+// free-text query has no Google-type restriction, so it can surface a place
+// the boundary-wide review/sync flow never would, along with why it looks
+// missing.
+export interface PlacesInvestigationCandidate {
+  google_place_id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  business_status: string | null;
+  types: string[];
+  suggested_category_id: string | null;
+  suggested_category_name: string | null;
+  // Name of the existing venue/POI already keyed to this exact Google place,
+  // if any -- means it isn't actually missing, just not found under this name.
+  already_known_as: string | null;
+  // Null when the neighborhood has no saved boundary to test against.
+  inside_boundary: boolean | null;
+}
+
+export interface PlacesInvestigationReport {
+  query: string;
+  candidates: PlacesInvestigationCandidate[];
+}
+
+export interface AddInvestigatedLocationRequest {
+  google_place_id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+  category_id: string;
+}
+
+export interface AddInvestigatedLocationResult {
+  created_businesses: string[];
 }
 
 // Only leaf categories (see supabase/migrations/.../category_taxonomy.sql)

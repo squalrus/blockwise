@@ -85,7 +85,12 @@ import { syncNeighborhoodIcalFeed, syncVenueIcalFeed } from "./events/icalSync";
 import { SupabaseEventRepository } from "./events/supabaseRepository";
 import { followEvent, getEventFollowStatus, unfollowEvent } from "./eventFollows/eventFollow";
 import { SupabaseEventFollowRepository } from "./eventFollows/supabaseRepository";
-import { listFeedbackForAdmin, submitFeedback, updateFeedbackState } from "./feedback/feedback";
+import {
+  listFeedbackForAdmin,
+  listMissingVenueFeedbackForNeighborhood,
+  submitFeedback,
+  updateFeedbackState,
+} from "./feedback/feedback";
 import { SupabaseFeedbackRepository } from "./feedback/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
@@ -121,8 +126,14 @@ import {
   setHomeNeighborhood,
 } from "./neighborhoodMembers/neighborhoodMembers";
 import { SupabaseNeighborhoodMemberRepository } from "./neighborhoodMembers/supabaseRepository";
-import { LivePlacesClient, type GooglePlacesClient, type PlaceDetailsClient } from "./places/client";
+import {
+  LivePlacesClient,
+  type GooglePlacesClient,
+  type PlaceDetailsClient,
+  type PlacesTextSearchClient,
+} from "./places/client";
 import { isValidPolygon } from "./places/geo";
+import { investigateMissingLocation } from "./places/investigate";
 import { MockPlacesClient } from "./places/mockClient";
 import { previewNeighborhoodBoundary } from "./places/preview";
 import { SupabasePlacesRepository } from "./places/supabaseRepository";
@@ -149,6 +160,7 @@ import {
 import { SupabaseLocationRepository } from "./locations/supabaseRepository";
 import {
   notifyConnectionsOfCheckin,
+  notifyNeighborhoodAdminsOfMissingVenue,
   notifySuperAdminsOfFeedback,
   notifySuperAdminsOfSignup,
   notifyUserOfConnectionAccepted,
@@ -255,7 +267,7 @@ const PUBLIC_PATH_PREFIX = /^\/api(?=\/|$)/;
 // dev. Both classes implement GooglePlacesClient (searchNearby) as well as
 // PlaceDetailsClient, so the same cached instance also backs the boundary
 // preview route's Nearby Search calls.
-function getPlacesClient(): GooglePlacesClient & PlaceDetailsClient {
+function getPlacesClient(): GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   return apiKey ? new LivePlacesClient(apiKey) : new MockPlacesClient();
 }
@@ -270,8 +282,8 @@ function getLocationRepository(): SupabaseLocationRepository {
   return locationRepository;
 }
 
-let placesClient: (GooglePlacesClient & PlaceDetailsClient) | undefined;
-function getCachedPlacesClient(): GooglePlacesClient & PlaceDetailsClient {
+let placesClient: (GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient) | undefined;
+function getCachedPlacesClient(): GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient {
   placesClient ??= getPlacesClient();
   return placesClient;
 }
@@ -1546,14 +1558,35 @@ export function createApp() {
   // unconditionally rather than separately tracking whether this is the
   // user's first submission.
   app.post("/me/feedback", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
-    const { type, comment } = req.body ?? {};
-    if (typeof type !== "string" || typeof comment !== "string") {
-      res.status(400).json({ error: "type and comment are required" });
+    const { type, comment, neighborhood_id, venue_name } = req.body ?? {};
+    if (typeof type !== "string") {
+      res.status(400).json({ error: "type is required" });
+      return;
+    }
+    if (comment !== undefined && typeof comment !== "string") {
+      res.status(400).json({ error: "comment must be a string" });
+      return;
+    }
+    if (neighborhood_id !== undefined && typeof neighborhood_id !== "string") {
+      res.status(400).json({ error: "neighborhood_id must be a string" });
+      return;
+    }
+    if (venue_name !== undefined && typeof venue_name !== "string") {
+      res.status(400).json({ error: "venue_name must be a string" });
       return;
     }
 
     try {
-      const result = await submitFeedback({ userId: req.appUser!.id, type, comment }, getFeedbackRepository());
+      const result = await submitFeedback(
+        {
+          userId: req.appUser!.id,
+          type,
+          comment: comment ?? "",
+          neighborhoodId: neighborhood_id,
+          venueName: venue_name,
+        },
+        getFeedbackRepository()
+      );
       if (result.status === "invalid") {
         res.status(400).json({ error: result.message });
         return;
@@ -1565,15 +1598,29 @@ export function createApp() {
         console.error(`awardFeedbackGiverBadge (user ${req.appUser!.id}) failed:`, err);
       }
 
+      // Routed to the reported neighborhood's own admins for "missing_venue"
+      // (BACKLOG.md Ref 80/96), every other type still goes to super admins
+      // -- these are mutually exclusive recipients, never both.
+      const submissionType = result.submission.type;
       try {
-        await notifySuperAdminsOfFeedback(
-          { displayName: req.appUser!.displayName, type: result.submission.type },
-          getSuperAdminRepository(),
-          getPushSubscriptionRepository(),
-          getWebPushSender()
-        );
+        if (submissionType === "missing_venue") {
+          await notifyNeighborhoodAdminsOfMissingVenue(
+            { displayName: req.appUser!.displayName, venueName: result.submission.venue_name ?? "a venue" },
+            result.submission.neighborhood_id!,
+            getNeighborhoodAdminRepository(),
+            getPushSubscriptionRepository(),
+            getWebPushSender()
+          );
+        } else {
+          await notifySuperAdminsOfFeedback(
+            { displayName: req.appUser!.displayName, type: submissionType },
+            getSuperAdminRepository(),
+            getPushSubscriptionRepository(),
+            getWebPushSender()
+          );
+        }
       } catch (err) {
-        console.error("notifySuperAdminsOfFeedback failed:", err);
+        console.error("feedback push notification failed:", err);
       }
 
       res.status(201).json(result.submission);
@@ -1634,6 +1681,62 @@ export function createApp() {
       res.status(500).json({ error: "Failed to update feedback" });
     }
   });
+
+  // /admin/feedback's sibling for "missing_venue" submissions (BACKLOG.md Ref
+  // 80/96) -- neighborhoodAdminGate-scoped (not superAdminGate) since these
+  // are only ever triaged by the reported neighborhood's own admins.
+  app.get("/neighborhood-admin/neighborhoods/:id/feedback", neighborhoodAdminGate, async (req, res) => {
+    try {
+      const submissions = await listMissingVenueFeedbackForNeighborhood(req.params.id, getFeedbackRepository());
+      res.json(submissions);
+    } catch (err) {
+      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/feedback failed:`, err);
+      res.status(500).json({ error: "Failed to list feedback" });
+    }
+  });
+
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/feedback/:feedbackId",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { state } = req.body ?? {};
+      if (typeof state !== "string") {
+        res.status(400).json({ error: "state is required" });
+        return;
+      }
+
+      try {
+        // Confirms the submission is both a "missing_venue" report AND
+        // belongs to *this* neighborhood before allowing the state change --
+        // without this, an admin of neighborhood A could PATCH a report that
+        // actually belongs to neighborhood B just by guessing its id, since
+        // updateFeedbackState below only takes a bare submission id.
+        const existing = await getFeedbackRepository().getSubmission(req.params.feedbackId);
+        if (!existing || existing.type !== "missing_venue" || existing.neighborhoodId !== req.params.id) {
+          res.status(404).json({ error: "Submission not found" });
+          return;
+        }
+
+        const result = await updateFeedbackState(req.params.feedbackId, state, getFeedbackRepository());
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Submission not found" });
+          return;
+        }
+        if (result.status === "invalid") {
+          res.status(400).json({ error: result.message });
+          return;
+        }
+
+        res.json(result.submission);
+      } catch (err) {
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/feedback/${req.params.feedbackId} failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to update feedback" });
+      }
+    }
+  );
 
   // BACKLOG.md Ref 89: registers a browser/device's web push subscription
   // (the client already called pushManager.subscribe() with the VAPID public
@@ -3117,6 +3220,141 @@ export function createApp() {
           err
         );
         res.status(500).json({ error: "Failed to commit location review" });
+      }
+    }
+  );
+
+  // Missing-location investigation (BACKLOG.md Ref 96) -- a single
+  // admin-triggered Google Places Text Search for one venue name/address, to
+  // diagnose why a reported venue isn't turning up through the normal
+  // Nearby-Search-based review/sync flow (which is restricted to Google
+  // types the category taxonomy maps, and scoped strictly to the boundary
+  // polygon). Text Search has neither restriction, so it can surface a place
+  // Nearby Search never would, along with why it looks "missing" -- outside
+  // the boundary, or already on record under a different name. Costs one
+  // Places API call per search, not a full tile sweep, so it isn't
+  // cooldown-gated like .../locations/review -- an admin chasing one venue
+  // needs to retry different phrasings freely.
+  //
+  // Registered ahead of the generic GET .../locations/:locationId route
+  // below for the same reason .../locations/review is -- see that route's
+  // comment.
+  app.get(
+    "/neighborhood-admin/neighborhoods/:id/locations/investigate",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const query = req.query.query;
+      if (typeof query !== "string" || !query.trim()) {
+        res.status(400).json({ error: "query is required" });
+        return;
+      }
+
+      try {
+        const boundaryResult = await getNeighborhoodBoundary(req.params.id, getNeighborhoodRepository());
+        if (boundaryResult.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+
+        const [categories, existingLocations] = await Promise.all([
+          getPlacesRepository().listCategories(),
+          listLocationListItemsForNeighborhood(req.params.id, getLocationRepository()),
+        ]);
+
+        const candidates = await investigateMissingLocation(
+          query,
+          { lat: boundaryResult.boundary.centerLat, lng: boundaryResult.boundary.centerLng },
+          boundaryResult.boundary.boundaryGeojson,
+          getCachedPlacesClient(),
+          categories,
+          existingLocations.map((l) => ({ googlePlaceId: l.google_place_id, name: l.name }))
+        );
+
+        res.json({
+          query,
+          candidates: candidates.map((c) => ({
+            google_place_id: c.raw.id,
+            name: c.name,
+            address: c.address,
+            lat: c.lat,
+            lng: c.lng,
+            business_status: c.businessStatus,
+            types: c.raw.types,
+            suggested_category_id: c.suggestedCategoryId,
+            suggested_category_name: c.suggestedCategoryName,
+            already_known_as: c.alreadyKnownAs,
+            inside_boundary: c.insideBoundary,
+          })),
+        });
+      } catch (err) {
+        console.error(
+          `GET /neighborhood-admin/neighborhoods/${req.params.id}/locations/investigate failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to investigate location" });
+      }
+    }
+  );
+
+  // One-click "this Places result is real, add it as a business" shortcut
+  // (BACKLOG.md Ref 96) -- reuses commitLocationReview's own "business"
+  // classification path rather than calling placesRepository.upsertVenue
+  // directly, so a manually-added-from-investigation venue goes through
+  // exactly the same creation logic (and the same per-item failure handling)
+  // as a bulk-review "business" classification. Registered ahead of the
+  // generic route below for the same reason as GET .../investigate above.
+  app.post(
+    "/neighborhood-admin/neighborhoods/:id/locations/investigate/add",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { google_place_id, name, lat, lng, address, category_id } = req.body ?? {};
+      if (
+        typeof google_place_id !== "string" ||
+        !google_place_id ||
+        typeof name !== "string" ||
+        !name ||
+        typeof lat !== "number" ||
+        typeof lng !== "number" ||
+        typeof address !== "string" ||
+        !address ||
+        typeof category_id !== "string" ||
+        !category_id
+      ) {
+        res
+          .status(400)
+          .json({ error: "google_place_id, name, lat, lng, address, and category_id are required" });
+        return;
+      }
+
+      try {
+        const result = await commitLocationReview(
+          req.params.id,
+          [
+            {
+              googlePlaceId: google_place_id,
+              name,
+              lat,
+              lng,
+              address,
+              classification: "business",
+              categoryId: category_id,
+            },
+          ],
+          [],
+          getPlacesRepository(),
+          getLocationRepository()
+        );
+        if (result.failed.length > 0) {
+          res.status(500).json({ error: result.failed[0].error });
+          return;
+        }
+        res.status(201).json({ created_businesses: result.createdBusinesses });
+      } catch (err) {
+        console.error(
+          `POST /neighborhood-admin/neighborhoods/${req.params.id}/locations/investigate/add failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to add location" });
       }
     }
   );

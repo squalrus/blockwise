@@ -33,7 +33,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
-| 80 | [Missing location suggestion UI](#missing-location-suggestion-ui) | feature | S | M | — |
 | 76 | [Self-serve neighborhood-admin invite/remove UI](#self-serve-neighborhood-admin-inviteremove-ui) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 77 | [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) | feature | L | M | — |
@@ -45,7 +44,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 | --- | --- | --- | --- | --- | --- |
 | 22 | [Category browsing & filtering](#category-browsing--filtering) | improvement | S | M | — |
-| 96 | [Investigate missing locations from Google Places API](#investigate-missing-locations-from-google-places-api) | known issue | S | M | — |
 | 7 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | feature | M | M | — |
 | 18 | [Business-editable venue basic data](#business-editable-venue-basic-data) | feature | M | M | — |
 | 38 | [Map on business page](#map-on-business-page) | feature | M | M | — |
@@ -177,14 +175,6 @@ No open limitations.
 **Why** — The Locations tab (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`) is list-only today. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed a split list+map layout (color-coded markers per category, click-to-select syncing between list row and marker, a category legend) that was deliberately left out of the visual-only redesign pending a real map integration decision.
 **Notes:** No schema/API changes needed — `LocationListItem` already carries `lat`/`lng` for every row. Most likely adapts `BoundaryMap.tsx`'s existing Google Maps setup (already a dependency for the Boundary tab) for marker display instead of polygon editing, rather than introducing a second mapping library. Marker color should reuse the same category-group color mapping the redesigned list rows already use (`GROUP_COLORS` in `locations/page.tsx`).
 
-#### Missing location suggestion UI
-
-**Ref:** 80
-**Type:** feature
-**Depends:** —
-**Why** — Users checking in via /checkin may spot a nearby venue the app doesn't yet have in the neighborhood's database, with no way to report it except leaving the app. A suggestion form at the bottom of the check-in page captures venue name/category/address and sends it to neighborhood admins, turning a friction point into a database contribution and improving discovery for future users without requiring the user to file a GitHub issue or email support.
-**Notes:** Add a "Missing a venue?" section at the bottom of NearestVenues with a compact form collecting venue name (required) and optional category/address/notes fields. POST to a new `/me/venue-suggestions` endpoint (or `/neighborhoods/:id/venue-suggestions`) writing to a new `venue_suggestion` table (`user_id`, `neighborhood_id`, `name`, `category`, `address`, `notes`, `created_at`, `status`). Neighborhood admins see incoming suggestions in an admin surface (separate backlog item covering the review/action UI and triage workflow); initial spec can be "email admins on new suggestion" or a simple unreviewed list. Open questions: should photos be attachable? Should this live on other pages (just /checkin, or also /neighborhoods/:slug/venues)? Should the form geo-locate and prepopulate address? Should users get notified if their suggestion becomes a real venue?
-
 ### Business & Venue
 
 #### Category browsing & filtering
@@ -194,14 +184,6 @@ No open limitations.
 **Depends:** —
 **Why** — The 39-category taxonomy (project plan §2, shipped v0.4.0) exists server-side, but the venue list only shows category as plain text next to the address — there's no way to filter or browse by category today.
 **Notes:** Filter chips or a category picker on the venues list and map view (map view shipped v0.7.0, already color-codes markers by category group per project plan §1.7). Reuses the existing `Category`/`source_mapping_json` data, no new schema needed.
-
-#### Investigate missing locations from Google Places API
-
-**Ref:** 96
-**Type:** known issue
-**Depends:** —
-**Why** — Some venues that users or admins report as missing are not found in Google Places API results, making them impossible to add to the neighborhood's database through the normal sync/discovery flow. Understanding why (API limitation, search index lag, business not yet claimed on Maps, location archived, etc.) and documenting how to debug these cases helps admins triage missing-venue reports and identify where to take action (e.g. claiming on Google, opening a support ticket with Google, manually adding the location).
-**Notes:** Build or document a debugging toolkit for admins investigating missing venues: given a venue name and approximate location (lat/long, address, neighborhood), show what the Google Places API returns for that query, what fields are indexed, and why it might not match. Consider creating an admin tool (e.g. a page under `/neighborhood-admin/[slug]/places-debug` or similar) that lets an admin paste a venue name/address and see the raw API response, nearby results ranked by relevance, and any geocoding issues. Document common reasons a venue might be missing (new business not yet indexed, archived by user, misspelled/transliterated name variants, location on the margin of a neighborhood boundary) and workarounds (manual venue creation, re-syncing after a delay, trying alternate search terms). Open questions: should missing-venue reports from the /checkin page (Ref 80) integrate with this debugging surface, or remain separate? Should admins be able to suggest/veto specific Places results when a match is found?
 
 #### QR check-in + POI curation + leaderboards
 

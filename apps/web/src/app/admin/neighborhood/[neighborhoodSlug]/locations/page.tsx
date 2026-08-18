@@ -336,6 +336,21 @@ export default function NeighborhoodAdminLocationsPage() {
         </button>
       </div>
 
+      <div className="flex flex-wrap gap-4">
+        <a
+          href={`/admin/neighborhood/${slug}/locations/reports`}
+          className="text-sm font-bold text-brand-purple hover:text-brand-orange"
+        >
+          Reported venues →
+        </a>
+        <a
+          href={`/admin/neighborhood/${slug}/locations/investigate`}
+          className="text-sm font-bold text-brand-purple hover:text-brand-orange"
+        >
+          Investigate a missing venue →
+        </a>
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <form onSubmit={handleSearchSubmit} className="w-full sm:w-75">
           <input

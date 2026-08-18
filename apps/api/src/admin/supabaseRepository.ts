@@ -53,6 +53,16 @@ export class SupabaseNeighborhoodAdminRepository implements NeighborhoodAdminRep
     });
   }
 
+  async listAdminUserIdsForNeighborhood(neighborhoodId: string): Promise<string[]> {
+    const { data, error } = await this.supabase
+      .from("neighborhood_admin")
+      .select("user_id")
+      .eq("neighborhood_id", neighborhoodId);
+
+    if (error) throw new Error(`listAdminUserIdsForNeighborhood failed: ${error.message}`);
+    return (data ?? []).map((row) => row.user_id as string);
+  }
+
   async addNeighborhoodAdmin(userId: string, neighborhoodId: string): Promise<void> {
     const { error } = await this.supabase
       .from("neighborhood_admin")

@@ -12,6 +12,8 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.64.0", date: "2026-08-17", summary: "Report a missing venue from Send Feedback or the check-in page, notifying your neighborhood's admins -- who get a triage page with a one-click Google Places investigation tool" },
+  { version: "0.63.0", date: "2026-08-17", summary: "Admin surfaces are now mobile-friendly, followed-venue events surface in the Spore Feed, and in-progress events are now followable" },
   { version: "0.62.0", date: "2026-08-16", summary: "Ten new mushroom silhouettes join the generative avatar system, and the super admin Users list gets a mushroom column, signup method, and push status" },
   { version: "0.61.0", date: "2026-08-16", summary: "A \"Top Cap\" wooden sign names the top visitor next to a neighborhood/location's mushroom mosaic, and every profile's own patch" },
   { version: "0.60.1", date: "2026-08-16", summary: "Fixed a hydration crash on event/timeline dates and removed a no-op service worker handler flagged by Chrome" },
