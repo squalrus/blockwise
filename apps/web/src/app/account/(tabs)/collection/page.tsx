@@ -32,7 +32,7 @@ function RevealedContent({ entry }: { entry: MushroomCollectionEntry }) {
   return (
     <div className="flex h-33 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl bg-card-alt px-2 py-3.5 text-center">
       <div className="relative">
-        <MushroomMark {...entry.mushroom} size={56} />
+        <MushroomMark {...entry.mushroom} size={56} outline />
         {entry.quantity > 1 && (
           <span className="absolute -right-1.5 -bottom-1 rounded-full bg-brand-orange px-1.5 py-0.5 text-[10px] font-extrabold text-on-accent">
             {entry.quantity}x
@@ -131,43 +131,33 @@ export default function CollectionPage() {
     );
   }
 
-  // Grouped by revealed-at-fetch-time, not live state -- a tile that gets
-  // flipped stays right where it is in the "New species to reveal" grid for
-  // the rest of this visit instead of jumping into the sorted grid below
-  // mid-interaction. It'll land in its proper sorted position the next time
-  // this page loads.
-  const unrevealed = state.entries.filter((entry) => !entry.revealed);
-  const revealed = state.entries.filter((entry) => entry.revealed);
-
   function handleRevealed() {
     // Only refreshes (tabs)/layout.tsx's unrevealed-count badge -- this
-    // page's own `entries` deliberately isn't touched, so the flipped tile
-    // doesn't re-sort into the grid below until the next fetch.
+    // page's own `entries` deliberately isn't touched, so a flipped tile
+    // doesn't move within the grid until the next fetch re-sorts everything
+    // server-side.
     refreshAccount();
   }
 
-  return (
-    <section className="flex flex-col gap-4">
-      {unrevealed.length > 0 && (
-        <div>
-          <p className="mb-2 text-[11px] font-extrabold tracking-wide text-muted uppercase">
-            New species to reveal
-          </p>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-            {unrevealed.map((entry) => (
-              <CollectionTile key={entry.id} entry={entry} onRevealed={handleRevealed} />
-            ))}
-          </div>
-        </div>
-      )}
+  // Unrevealed first (stable sort preserves the API's own quantity/id order
+  // within each group) so anything new to reveal is visible without
+  // scrolling, without giving it a separate section/row of its own -- a
+  // lone unrevealed tile just leads straight into the revealed grid on the
+  // same row.
+  const orderedEntries = [...state.entries].sort((a, b) => Number(a.revealed) - Number(b.revealed));
 
-      {revealed.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-          {revealed.map((entry) => (
+  return (
+    <section className="flex flex-col gap-2">
+      <p className="text-[11px] font-extrabold tracking-wide text-muted uppercase">Discovered species</p>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+        {orderedEntries.map((entry) =>
+          entry.revealed ? (
             <RevealedContent key={entry.id} entry={entry} />
-          ))}
-        </div>
-      )}
+          ) : (
+            <CollectionTile key={entry.id} entry={entry} onRevealed={handleRevealed} />
+          )
+        )}
+      </div>
     </section>
   );
 }

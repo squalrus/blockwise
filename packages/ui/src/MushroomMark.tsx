@@ -341,6 +341,7 @@ export function MushroomMark({
   spotCount = 3,
   spotShape = "circle",
   bg,
+  outline = false,
 }: {
   size?: number;
   shape?: MushroomShape;
@@ -350,11 +351,19 @@ export function MushroomMark({
   spotCount?: number;
   spotShape?: SpotShape;
   bg?: string;
+  // Test flag (BACKLOG.md Ref 98 collection-tile experiment): a thin
+  // cap/stalk outline so a mushroom reads distinctly from a same-toned card
+  // background. Off by default -- every other call site (avatars, mosaics,
+  // checkin flip cards) is tuned for the current borderless look.
+  outline?: boolean;
 }) {
   const clipId = useId();
   const hasBg = Boolean(bg);
   const geometry = geometryForShape(shape);
   const capD = geometry ? geometry.capD : BUTTON_CAP_PATH;
+  // A translucent ink stroke reads as a border against any cap/stalk color
+  // (light or dark) without needing per-color contrast logic.
+  const outlineProps = outline ? { stroke: "rgba(43, 27, 18, 0.35)", strokeWidth: 1.5 } : undefined;
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" style={{ display: "block" }} aria-hidden="true">
       {hasBg && (
@@ -365,11 +374,11 @@ export function MushroomMark({
       )}
       <g transform={hasBg ? "translate(50 52) scale(0.72) translate(-50 -50)" : undefined}>
         {geometry ? (
-          <path d={geometry.stalkD} fill={stalk} />
+          <path d={geometry.stalkD} fill={stalk} {...outlineProps} />
         ) : (
-          <rect x={40} y={52} width={20} height={34} rx={10} fill={stalk} />
+          <rect x={40} y={52} width={20} height={34} rx={10} fill={stalk} {...outlineProps} />
         )}
-        <path d={capD} fill={cap} />
+        <path d={capD} fill={cap} {...outlineProps} />
         <g clipPath={`url(#${clipId})`}>{spotElements(spotLayout(shape, spotCount), spotShape, spots ?? stalk)}</g>
         <defs>
           <clipPath id={clipId}>
