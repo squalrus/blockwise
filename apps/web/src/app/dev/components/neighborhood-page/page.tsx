@@ -6,8 +6,8 @@ import { NeighborhoodTabs } from "../../../neighborhoods/[slug]/NeighborhoodTabs
 import { PlaceListItem } from "../../../PlaceListItem";
 import { SAMPLE_NEIGHBORHOOD, SAMPLE_NEIGHBORHOOD_EVENTS, SAMPLE_OPEN_NOW } from "../demoData";
 
-// Full sample neighborhood page, mirroring layout.tsx + page.tsx (the Today
-// tab) for /neighborhoods/[slug]. NeighborhoodTabs renders for visual
+// Full sample neighborhood page, mirroring layout.tsx + today/page.tsx (the
+// Today tab) for /neighborhoods/[slug]. NeighborhoodTabs renders for visual
 // fidelity, but its links target a slug that doesn't exist in the database
 // (SAMPLE_NEIGHBORHOOD.slug) and won't show an active tab here, since this
 // route's own pathname never matches -- fine for reviewing the tab bar's

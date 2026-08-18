@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.65.0] — 2026-08-17
+
+### Added
+
+- **Leaderboard is its own neighborhood tab again.** Split back out of the Challenges tab (merged together in v0.39.0) into a new `/neighborhoods/:slug/leaderboard` route, after the two grew crowded stacked in one tab. The Challenges tab now shows only challenges. (`apps/web/src/app/neighborhoods/[slug]/leaderboard/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/challenges/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `docs/url-map.md`)
+
+### Changed
+
+- **Chanterelle and enoki mushroom silhouettes now support the full 1-6 spot range**, instead of being capped at 3. Chanterelle's three big spots sit at deliberately uneven heights/spacing rather than mirrored across the center, with smaller spots layered in for counts 4-6; enoki's three big spots are each pushed off their tiny cap's center instead of pinned to the middle, with a second, smaller off-center spot per cap added for counts 4-6. (`packages/ui/src/MushroomMark.tsx`)
+- **The admin sidebar's account menu now matches the main nav's**, showing the same My account / home neighborhood / Settings / What's new / Send feedback / Admin / Log out items instead of a shorter version missing the home-neighborhood link and Admin item. (`apps/web/src/app/admin/AdminShell.tsx`)
+- **Neighborhood profile's "Recent activity" tab renamed "Spore feed" and moved to the default route** (`/neighborhoods/:slug`, was `/activity`), matching `/account`'s "Spore Feed" tab already being that page's default. "Today" (the previous default) moved to its own `/today` route. New tab order: Spore feed → Today → Upcoming events → Locations → Challenges → Leaderboard. (`apps/web/src/app/neighborhoods/[slug]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/today/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `apps/web/src/app/ActivityFeed.tsx`, `apps/web/src/app/Timeline.tsx`, `apps/web/src/app/account/(tabs)/page.tsx`, `apps/api/src/activity/activity.ts`, `apps/api/src/app.ts`, `apps/web/src/app/dev/components/neighborhood-page/page.tsx`, `docs/url-map.md`)
+
 ## [0.64.0] — 2026-08-17
 
 ### Added

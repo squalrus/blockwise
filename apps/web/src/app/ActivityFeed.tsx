@@ -75,7 +75,7 @@ function Description({ item }: { item: ActivityItem }) {
   }
 }
 
-// Shared by the neighborhood-wide Recent activity tab (BACKLOG.md Ref 27)
+// Shared by the neighborhood-wide Spore feed tab (BACKLOG.md Ref 27)
 // and /account's Spore Feed tab (BACKLOG.md Ref 81, connections-scoped
 // instead of neighborhood-scoped) -- both render the same ActivityItem[]
 // shape through the same Timeline UI CheckinTimeline uses, so every

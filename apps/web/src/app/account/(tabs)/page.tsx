@@ -63,7 +63,7 @@ async function load(setState: (state: State) => void) {
 // BACKLOG.md Ref 81: check-ins, favorites, badge unlocks, challenge
 // completions, and followed events from accepted neighbor connections
 // (GET /me/feed) -- not neighborhood-wide, unlike
-// /neighborhoods/:slug/activity's Recent activity tab. Default tab (the
+// /neighborhoods/:slug's own Spore feed tab. Default tab (the
 // bare /account route) since it's meant to be the first thing you see
 // landing on your account. Any of your own followed events happening
 // today, today's events at venues you favorite (BACKLOG.md Ref 87 --
