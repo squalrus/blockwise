@@ -2,9 +2,11 @@ import type {
   GooglePlacesClient,
   PhotoMedia,
   PlaceDetailsClient,
+  PlacesTextSearchClient,
   RawGooglePlace,
   RawPlaceDetails,
   SearchNearbyParams,
+  SearchTextParams,
 } from "./client";
 
 // Fixture data for building/testing the sync pipeline without a real
@@ -82,9 +84,19 @@ const FIXTURE_PLACES: RawGooglePlace[] = [
   },
 ];
 
-export class MockPlacesClient implements GooglePlacesClient, PlaceDetailsClient {
+export class MockPlacesClient implements GooglePlacesClient, PlaceDetailsClient, PlacesTextSearchClient {
   async searchNearby(_params: SearchNearbyParams): Promise<RawGooglePlace[]> {
     return FIXTURE_PLACES;
+  }
+
+  // Matches by substring against the fixture names rather than always
+  // returning everything -- so local dev without a GOOGLE_PLACES_API_KEY
+  // still exercises the "nothing found" path the investigate tool (BACKLOG.md
+  // Ref 96) exists to diagnose, not just the "found it" path.
+  async searchText({ textQuery }: SearchTextParams): Promise<RawGooglePlace[]> {
+    const query = textQuery.trim().toLowerCase();
+    if (!query) return [];
+    return FIXTURE_PLACES.filter((place) => place.displayName.text.toLowerCase().includes(query));
   }
 
   // Fixture Contact/Atmosphere data for the venue detail page's on-demand

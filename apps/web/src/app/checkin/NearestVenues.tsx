@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { NeighborhoodProfile, VenueListItem } from "@blockwise/types";
+import type { NeighborhoodMembership, NeighborhoodProfile, VenueListItem } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { clientApiUrl } from "@/lib/clientApi";
 import { sortByDistance, type LatLng } from "@/lib/geo";
 import { getCurrentPosition } from "@/lib/geolocation";
 import { PlaceListItem } from "../PlaceListItem";
 import { SlideToCheckIn } from "../SlideToCheckIn";
+import { MissingVenueRow } from "./MissingVenueRow";
 
 const NEAREST_LIMIT = 7;
 
@@ -34,9 +35,14 @@ type State =
 export function NearestVenues({
   neighborhoodId,
   neighborhoodSlug,
+  neighborhoods,
 }: {
   neighborhoodId: string | null;
   neighborhoodSlug: string | null;
+  // Full membership list, for the "Missing a venue?" row's neighborhood
+  // picker (BACKLOG.md Ref 80/96) -- already loaded by the parent CheckinPage,
+  // so this is threaded down rather than fetched again here.
+  neighborhoods: NeighborhoodMembership[];
 }) {
   const [state, setState] = useState<State>({ status: "loading" });
   // Which non-top row (if any) is expanded to reveal its own slide-to-check-in
@@ -125,26 +131,31 @@ export function NearestVenues({
     return <p className="text-sm text-red-600 dark:text-red-400">Couldn&apos;t load nearby venues.</p>;
   }
 
-  if (state.venues.length === 0) {
-    return <p className="text-sm text-muted">No venues yet in this neighborhood.</p>;
-  }
-
   return (
-    <ul className="flex flex-col gap-2.5">
-      {state.venues.map((venue, index) => (
-        <li key={venue.id}>
-          <PlaceListItem
-            href={`/location/${venue.id}`}
-            id={venue.id}
-            name={venue.name}
-            subtitle={`${venue.category_name ?? "Uncategorized"} · ${venue.address}`}
-            action={
-              index === 0 || expandedId === venue.id ? <SlideToCheckIn locationId={venue.id} /> : undefined
-            }
-            onSelect={index === 0 ? undefined : () => setExpandedId((cur) => (cur === venue.id ? null : venue.id))}
-          />
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-2.5">
+      {state.venues.length === 0 ? (
+        <p className="text-sm text-muted">No venues yet in this neighborhood.</p>
+      ) : (
+        <ul className="flex flex-col gap-2.5">
+          {state.venues.map((venue, index) => (
+            <li key={venue.id}>
+              <PlaceListItem
+                href={`/location/${venue.id}`}
+                id={venue.id}
+                name={venue.name}
+                subtitle={`${venue.category_name ?? "Uncategorized"} · ${venue.address}`}
+                action={
+                  index === 0 || expandedId === venue.id ? <SlideToCheckIn locationId={venue.id} /> : undefined
+                }
+                onSelect={
+                  index === 0 ? undefined : () => setExpandedId((cur) => (cur === venue.id ? null : venue.id))
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+      <MissingVenueRow neighborhoods={neighborhoods} defaultNeighborhoodId={neighborhoodId} />
+    </div>
   );
 }

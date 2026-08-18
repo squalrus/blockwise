@@ -1,5 +1,5 @@
 import type { CreatePushSubscriptionRequest, PushSubscriptionKeys, PushSubscriptionRecord as PushSubscriptionDto } from "@blockwise/types";
-import type { SuperAdminRepository } from "../admin/repository";
+import type { NeighborhoodAdminRepository, SuperAdminRepository } from "../admin/repository";
 import type { ConnectionRepository } from "../connections/repository";
 import type { PushSubscriptionRecord, PushSubscriptionRepository } from "./repository";
 import type { PushPayload, PushSender } from "./webPushSender";
@@ -170,6 +170,32 @@ export async function notifySuperAdminsOfFeedback(
   return sendPushToUsers(
     superAdminUserIds,
     { title: "New feedback", body: `${name} submitted a ${kind}` },
+    subscriptionRepository,
+    sender
+  );
+}
+
+// notifySuperAdminsOfFeedback's sibling for the "missing_venue" feedback
+// type (BACKLOG.md Ref 80/96) -- routed to the *reported neighborhood's own*
+// admins rather than every super admin, since a missing-venue report is
+// only actionable by someone who can already manage that neighborhood's
+// Locations tab (and now its Investigate tool).
+export async function notifyNeighborhoodAdminsOfMissingVenue(
+  report: { displayName: string | null; venueName: string },
+  neighborhoodId: string,
+  neighborhoodAdminRepository: NeighborhoodAdminRepository,
+  subscriptionRepository: PushSubscriptionRepository,
+  sender: PushSender
+): Promise<SendPushSummary> {
+  const adminUserIds = await neighborhoodAdminRepository.listAdminUserIdsForNeighborhood(neighborhoodId);
+  if (adminUserIds.length === 0) {
+    return { sent: 0, pruned: 0, failed: 0 };
+  }
+
+  const name = report.displayName ?? "A neighbor";
+  return sendPushToUsers(
+    adminUserIds,
+    { title: "Missing venue reported", body: `${name} reported "${report.venueName}" as missing` },
     subscriptionRepository,
     sender
   );

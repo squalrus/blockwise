@@ -14,6 +14,11 @@ export interface NeighborhoodAdminRepository {
   // only proves "admin of at least one neighborhood".
   isNeighborhoodAdminFor(userId: string, neighborhoodId: string): Promise<boolean>;
   listNeighborhoodsForAdmin(userId: string): Promise<NeighborhoodAdminSummaryRecord[]>;
+  // Reverse direction of listNeighborhoodsForAdmin above -- every admin of
+  // one given neighborhood, for fanning a push notification out to all of
+  // them (BACKLOG.md Ref 80/96's missing-venue reports), mirroring
+  // SuperAdminRepository.listSuperAdminUserIds()'s shape.
+  listAdminUserIdsForNeighborhood(neighborhoodId: string): Promise<string[]>;
   // Admin portal create-neighborhood flow (BACKLOG.md Ref 8): a brand-new
   // neighborhood has no admins yet, so whoever creates it (already proven to
   // be an admin of *some* neighborhood, via requireAdmin) is granted admin of

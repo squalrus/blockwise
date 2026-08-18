@@ -118,6 +118,7 @@ export default function CheckinPage() {
           key={selectedNeighborhoodId}
           neighborhoodId={selectedNeighborhoodId}
           neighborhoodSlug={selectedNeighborhoodSlug}
+          neighborhoods={state.neighborhoods}
         />
       )}
     </div>

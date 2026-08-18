@@ -38,6 +38,26 @@ export interface GooglePlacesClient {
   searchNearby(params: SearchNearbyParams): Promise<RawGooglePlace[]>;
 }
 
+export interface SearchTextParams {
+  textQuery: string;
+  // Text Search's locationBias (unlike Nearby Search's locationRestriction)
+  // is a soft hint, not a hard filter -- a real match just outside the
+  // circle can still surface, which is what BACKLOG.md Ref 96's "why isn't
+  // this venue showing up" investigation needs: a place Google ranks as
+  // slightly outside the neighborhood center is still worth showing an
+  // admin, not silently dropped the way Nearby Search would drop it.
+  locationBias?: { center: LatLng; radiusMeters: number };
+}
+
+// Free-text lookup (BACKLOG.md Ref 96) for investigating a single
+// admin-reported missing venue -- distinct from searchNearby, which powers
+// the boundary-wide tiled sync/review sweep and only returns Google types
+// the category taxonomy maps. Text Search has no such type restriction, so
+// it can surface a place the Nearby-Search-based flows would never return.
+export interface PlacesTextSearchClient {
+  searchText(params: SearchTextParams): Promise<RawGooglePlace[]>;
+}
+
 // Contact/Atmosphere fields only (README §1.1/§1.4 step 4) -- requested
 // lazily per-venue when a detail page is opened, never as part of the
 // Basic-field sync above, since these fields are billed at a much higher
@@ -106,7 +126,7 @@ export interface PlaceDetailsClient {
 // generateCoverageGrid in geo.ts), a dense tile can still hit this cap.
 // syncNeighborhoodPlaces reports how many tiles saturated so that's visible
 // per run rather than silently missing venues.
-export class LivePlacesClient implements GooglePlacesClient, PlaceDetailsClient {
+export class LivePlacesClient implements GooglePlacesClient, PlaceDetailsClient, PlacesTextSearchClient {
   constructor(private readonly apiKey: string) {}
 
   async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
@@ -175,6 +195,39 @@ export class LivePlacesClient implements GooglePlacesClient, PlaceDetailsClient 
     if (!response.ok) {
       throw new Error(
         `Google Places searchNearby failed: ${response.status} ${await response.text()}`
+      );
+    }
+
+    const body = (await response.json()) as { places?: RawGooglePlace[] };
+    return body.places ?? [];
+  }
+
+  async searchText({ textQuery, locationBias }: SearchTextParams): Promise<RawGooglePlace[]> {
+    const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": this.apiKey,
+        "X-Goog-FieldMask": BASIC_FIELD_MASK,
+      },
+      body: JSON.stringify({
+        textQuery,
+        ...(locationBias
+          ? {
+              locationBias: {
+                circle: {
+                  center: { latitude: locationBias.center.lat, longitude: locationBias.center.lng },
+                  radius: locationBias.radiusMeters,
+                },
+              },
+            }
+          : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Google Places searchText failed: ${response.status} ${await response.text()}`
       );
     }
 
