@@ -30,7 +30,7 @@ async function load(setState: (state: State) => void) {
 // face (which wraps this in its own rotateY(180deg), see below).
 function RevealedContent({ entry }: { entry: MushroomCollectionEntry }) {
   return (
-    <div className="flex min-h-33 flex-col items-center justify-center gap-1.5 rounded-2xl bg-card-alt px-2 py-3.5 text-center">
+    <div className="flex h-33 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl bg-card-alt px-2 py-3.5 text-center">
       <div className="relative">
         <MushroomMark {...entry.mushroom} size={56} />
         {entry.quantity > 1 && (
@@ -39,8 +39,8 @@ function RevealedContent({ entry }: { entry: MushroomCollectionEntry }) {
           </span>
         )}
       </div>
-      <p className="text-xs font-extrabold text-foreground">{entry.species_name}</p>
-      <p className="text-[11px] text-muted">
+      <p className="line-clamp-1 text-xs font-extrabold text-foreground">{entry.species_name}</p>
+      <p className="line-clamp-1 text-[11px] text-muted">
         {entry.source_type === "checkin" ? entry.source_name : `with ${entry.source_name}`}
       </p>
     </div>
@@ -56,7 +56,7 @@ function RevealedContent({ entry }: { entry: MushroomCollectionEntry }) {
 // (col-start-1 row-start-1) and each hide their own back
 // ([backface-visibility:hidden]), with the back face pre-rotated 180deg so
 // it's right-side-up once the whole grid rotates.
-function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry; onRevealed: (id: string) => void }) {
+function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry; onRevealed: () => void }) {
   const [flipped, setFlipped] = useState(false);
   const [revealing, setRevealing] = useState(false);
 
@@ -71,7 +71,7 @@ function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry;
       });
       if (res.ok) {
         setFlipped(true);
-        onRevealed(entry.id);
+        onRevealed();
       }
     } finally {
       setRevealing(false);
@@ -89,7 +89,7 @@ function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry;
           flipped ? "[transform:rotateY(180deg)]" : ""
         }`}
       >
-        <div className="col-start-1 row-start-1 flex min-h-33 flex-col items-center justify-center gap-1.5 rounded-2xl bg-brand-purple px-2 py-3.5 text-center [backface-visibility:hidden]">
+        <div className="col-start-1 row-start-1 flex h-33 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl bg-brand-purple px-2 py-3.5 text-center [backface-visibility:hidden]">
           <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-on-accent text-2xl font-extrabold text-on-accent">
             ?
           </span>
@@ -131,16 +131,18 @@ export default function CollectionPage() {
     );
   }
 
+  // Grouped by revealed-at-fetch-time, not live state -- a tile that gets
+  // flipped stays right where it is in the "New species to reveal" grid for
+  // the rest of this visit instead of jumping into the sorted grid below
+  // mid-interaction. It'll land in its proper sorted position the next time
+  // this page loads.
   const unrevealed = state.entries.filter((entry) => !entry.revealed);
   const revealed = state.entries.filter((entry) => entry.revealed);
 
-  function handleRevealed(id: string) {
-    setState((prev) =>
-      prev.status === "ready"
-        ? { status: "ready", entries: prev.entries.map((e) => (e.id === id ? { ...e, revealed: true } : e)) }
-        : prev
-    );
-    // Updates the Collection tab's unrevealed-count badge in (tabs)/layout.tsx.
+  function handleRevealed() {
+    // Only refreshes (tabs)/layout.tsx's unrevealed-count badge -- this
+    // page's own `entries` deliberately isn't touched, so the flipped tile
+    // doesn't re-sort into the grid below until the next fetch.
     refreshAccount();
   }
 
