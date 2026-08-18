@@ -4,11 +4,12 @@ import { usePathname } from "next/navigation";
 import { TabNav } from "../../TabNav";
 
 const TABS = [
-  { key: "", label: "Today" },
-  { key: "/activity", label: "Recent activity" },
+  { key: "", label: "Spore feed" },
+  { key: "/today", label: "Today" },
   { key: "/events", label: "Upcoming events" },
   { key: "/locations", label: "Locations" },
   { key: "/challenges", label: "Challenges" },
+  { key: "/leaderboard", label: "Leaderboard" },
 ];
 
 // BACKLOG.md Ref 44: subnav tab bar, mirroring the tab nav in

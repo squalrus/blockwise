@@ -56,12 +56,16 @@ const SHAPE_GEOMETRY: Record<Exclude<MushroomShape, "button">, ShapeGeometry> = 
   chanterelle: {
     capD: "M10 46 Q12 18 50 18 Q88 18 90 46 Q68 32 50 36 Q32 32 10 46 Z",
     stalkD: "M42 34 H58 L55 82 A6 6 0 0 1 45 82 Z",
-    // Only 3 -- the funnel cap's visible rim is too narrow for more without
-    // spots crowding together or spilling past the edge.
+    // The three big spots sit at deliberately uneven heights/spacing rather
+    // than mirrored across the center, so the rim doesn't read as a stamped
+    // pattern; 4-6 layer in smaller, more randomly scattered spots.
     spots: [
-      [28, 32, 4.4],
-      [50, 26, 4.4],
-      [72, 32, 4.4],
+      [26, 32, 4.8],
+      [53, 24, 4.2],
+      [71, 30, 4.8],
+      [40, 24, 2.8],
+      [61, 32, 2.6],
+      [48, 30, 2.4],
     ],
   },
   morel: {
@@ -80,12 +84,16 @@ const SHAPE_GEOMETRY: Record<Exclude<MushroomShape, "button">, ShapeGeometry> = 
     capD:
       "M22 44 Q22 31 32 31 Q42 31 42 44 Z M44 34 Q44 19 55 19 Q66 19 66 34 Z M65 53 Q65 42 74 42 Q83 42 83 53 Z",
     stalkD: "M28 42 H36 V84 A4 4 0 0 1 28 84 Z M51 32 H59 V84 A4 4 0 0 1 51 84 Z M70 51 H78 V84 A4 4 0 0 1 70 84 Z",
-    // Only 3 -- one per cap in the cluster, the most any of the three tiny
-    // caps has room for.
+    // One big spot per tiny cap, each pushed off that cap's center rather
+    // than pinned to its middle; 4-6 add a second, smaller off-center spot
+    // to each cap.
     spots: [
-      [32, 38, 3],
-      [55, 27, 3],
-      [74, 48, 2.6],
+      [29, 40, 3.2],
+      [59, 24, 3],
+      [69, 49, 2.8],
+      [35, 41, 2],
+      [61, 31, 2],
+      [79, 46, 1.8],
     ],
   },
   porcini: {
@@ -214,8 +222,7 @@ function geometryForShape(shape: MushroomShape): ShapeGeometry | null {
 
 // "button"'s layout is its own hand-tuned-per-count table (SPOT_LAYOUTS);
 // every other silhouette slices its fixed SHAPE_GEOMETRY.spots list (up to
-// six, but only three for chanterelle/enoki -- their caps are too narrow for
-// more) down to spotCount instead.
+// six) down to spotCount instead.
 function spotLayout(
   shape: MushroomShape,
   spotCount: number

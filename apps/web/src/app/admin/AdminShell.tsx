@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import type { AppUser } from "@blockwise/types";
+import { useEffect, useState } from "react";
+import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { MushroomLogo } from "@blockwise/ui";
+import { getAccessToken } from "@/lib/auth";
+import { clientApiUrl } from "@/lib/clientApi";
 import { AccountMenu } from "../AccountMenu";
 import { AdminSwitcher, type AdminSwitcherCurrent } from "../AdminSwitcher";
 import packageJson from "../../../package.json";
@@ -38,6 +40,27 @@ interface AdminShellProps {
 // w-64 layout regardless of toggle state.
 export function AdminShell({ switcherCurrent, user, tabs, viewPublicHref, onLogOut, children }: AdminShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [homeNeighborhood, setHomeNeighborhood] = useState<NeighborhoodMembership | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const token = await getAccessToken();
+      const res = await fetch(clientApiUrl("/me/neighborhoods"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (cancelled) return;
+      const neighborhoods: NeighborhoodMembership[] = res.ok ? await res.json() : [];
+      setHomeNeighborhood(neighborhoods.find((n) => n.is_primary) ?? null);
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background font-sans text-foreground">
@@ -142,7 +165,13 @@ export function AdminShell({ switcherCurrent, user, tabs, viewPublicHref, onLogO
               </svg>
             </button>
             <div className="flex-1" />
-            <AccountMenu user={user} tag="admin" onLogOut={onLogOut} />
+            <AccountMenu
+              user={user}
+              homeNeighborhood={homeNeighborhood}
+              showAdminLink
+              tag="admin"
+              onLogOut={onLogOut}
+            />
           </div>
 
           {children}

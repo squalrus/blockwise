@@ -37,7 +37,7 @@ function toActivityItem(record: ActivityRecord): ActivityItem {
   };
 }
 
-// Neighborhood-wide Recent activity tab (BACKLOG.md Ref 27's expanded
+// Neighborhood-wide Spore feed tab (BACKLOG.md Ref 27's expanded
 // scope): the actor's real name is only ever exposed for a public profile --
 // a private profile shows as "A user" rather than being excluded, since the
 // point is to show that *something* happened in the neighborhood.

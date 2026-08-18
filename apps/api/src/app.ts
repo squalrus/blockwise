@@ -767,7 +767,7 @@ export function createApp() {
     }
   });
 
-  // Neighborhood-wide Recent activity tab (BACKLOG.md Ref 27's expanded
+  // Neighborhood-wide Spore feed tab (BACKLOG.md Ref 27's expanded
   // scope): the ~50 most recent check-ins, favorites, challenge completions,
   // and badge unlocks across every user in the neighborhood, with actor
   // names masked to "A user" for private profiles.
