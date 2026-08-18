@@ -164,6 +164,72 @@ export function resolveMushroomConfig(seed: string, customization: MushroomConfi
   return customization ?? mushroomConfigForUser(seed);
 }
 
+// Forager collection (BACKLOG.md Ref 98): a fixed "species" identity for a
+// venue or a connected neighbor, deliberately kept out of
+// mushroomConfigForUser's own seed space (the "species:" prefix) so a
+// venue/user id can never collide with -- and coincidentally render
+// identical to -- that same user's own (possibly customized) avatar.
+export function mushroomConfigForSpecies(sourceId: string): MushroomConfig {
+  return mushroomConfigForUser(`species:${sourceId}`);
+}
+
+const SPECIES_ADJECTIVES = [
+  "Whispering",
+  "Dappled",
+  "Hollow",
+  "Mossy",
+  "Velvet",
+  "Amber",
+  "Shy",
+  "Wandering",
+  "Frosted",
+  "Glimmering",
+  "Rusty",
+  "Silent",
+  "Twilight",
+  "Dewy",
+  "Curious",
+  "Speckled",
+  "Drowsy",
+  "Sunlit",
+  "Foggy",
+  "Tangled",
+];
+
+const SPECIES_NOUNS = [
+  "Cap",
+  "Sporeling",
+  "Chanterelle",
+  "Puffball",
+  "Toadstool",
+  "Morel",
+  "Bracket",
+  "Gill",
+  "Ring",
+  "Cluster",
+  "Shelf",
+  "Button",
+  "Parasol",
+  "Grove",
+  "Hollow",
+  "Thicket",
+  "Bloom",
+  "Veil",
+  "Stipe",
+  "Fen",
+];
+
+// Deterministic flavor name for a collected species (BACKLOG.md Ref 98) --
+// its own PRNG stream (a "name:"-prefixed seed, distinct from
+// mushroomConfigForSpecies's own draws) so it stays stable even if that
+// function's draw order/count ever changes.
+export function mushroomSpeciesName(sourceId: string): string {
+  const rnd = mulberry32(hashSeed(`name:${sourceId}`));
+  const adjective = SPECIES_ADJECTIVES[Math.floor(rnd() * SPECIES_ADJECTIVES.length)];
+  const noun = SPECIES_NOUNS[Math.floor(rnd() * SPECIES_NOUNS.length)];
+  return `${adjective} ${noun}`;
+}
+
 // Neighborhood/location card mosaics (BACKLOG.md Ref 94): a distinct
 // visitor's *current* live look (resolveMushroomConfig) paired with how
 // many times they checked in within the rolling window the query applies --

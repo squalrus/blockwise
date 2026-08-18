@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
-const UPDATED = "August 16, 2026";
+const UPDATED = "August 18, 2026";
 
 function Question({ q, children }: { q: string; children: React.ReactNode }) {
   return (
@@ -69,6 +69,12 @@ export default function FaqPage() {
           over the last 60 days, sized by how often they&apos;ve checked in. Whoever&apos;s checked in the most
           gets a &ldquo;Top Cap&rdquo; sign next to the patch naming them, shown only if their profile is
           public.
+        </Question>
+        <Question q="What is the Collection tab?">
+          Every venue you check into and every neighbor you connect with has its own unique mushroom
+          &ldquo;species,&rdquo; discovered the first time you check in there or connect with them. Your
+          account&apos;s Collection tab shows every species you&apos;ve found so far — revisiting a place or
+          reconnecting with someone bumps that entry&apos;s count instead of adding a duplicate.
         </Question>
       </LegalSection>
 

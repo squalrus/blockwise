@@ -132,7 +132,7 @@ function profileUser(overrides: Partial<AppUser> & Pick<AppUser, "id" | "display
 export const PROFILE_CARDS: {
   label: string;
   user: AppUser;
-  favoriteCount: number;
+  collectionCount: number;
   checkinCount: number;
   pointsSummary: UserPointsSummary;
   badgeCount: number;
@@ -144,7 +144,7 @@ export const PROFILE_CARDS: {
   {
     label: "New forager -- Level 1, just getting started, not connected",
     user: profileUser({ id: "demo-profile-1", display_name: "Jamie R" }),
-    favoriteCount: 1,
+    collectionCount: 1,
     checkinCount: 0,
     pointsSummary: { points: 5, level: 1, points_into_level: 5, points_to_next_level: 45 },
     badgeCount: 0,
@@ -156,7 +156,7 @@ export const PROFILE_CARDS: {
   {
     label: "Level 4 -- matches screenshot, request sent",
     user: profileUser({ id: "demo-profile-2", display_name: "Chad S" }),
-    favoriteCount: 6,
+    collectionCount: 6,
     checkinCount: 13,
     pointsSummary: { points: 160, level: 4, points_into_level: 60, points_to_next_level: 40 },
     badgeCount: 3,
@@ -169,7 +169,7 @@ export const PROFILE_CARDS: {
   {
     label: "Level 9 -- heavy activity, near level-up, incoming request",
     user: profileUser({ id: "demo-profile-3", display_name: "Morgan Lee" }),
-    favoriteCount: 22,
+    collectionCount: 22,
     checkinCount: 87,
     pointsSummary: { points: 940, level: 9, points_into_level: 90, points_to_next_level: 10 },
     badgeCount: 11,
@@ -181,7 +181,7 @@ export const PROFILE_CARDS: {
   {
     label: "Long display name -- wrapping/truncation check, already neighbors",
     user: profileUser({ id: "demo-profile-4", display_name: "Alexandria Montgomery-Whitfield" }),
-    favoriteCount: 3,
+    collectionCount: 3,
     checkinCount: 2,
     pointsSummary: { points: 25, level: 2, points_into_level: 5, points_to_next_level: 45 },
     badgeCount: 1,
@@ -554,7 +554,7 @@ export const SAMPLE_PROFILE: PublicUserProfile = {
     },
   ],
   checkin_count: 87,
-  favorite_count: 22,
+  collection_count: 22,
   points_summary: { points: 940, level: 9, points_into_level: 90, points_to_next_level: 10 },
   neighbor_count: 19,
   neighbor_mushrooms: Array.from({ length: 19 }, (_, i) => neighborMushroom(`demo-profile-neighbor-${i}`)),

@@ -54,7 +54,14 @@ export default function BadgesPage() {
   }
 
   const earnedIds = new Set(state.badges.map((b) => b.badge.id));
-  const locked = state.badgeCatalog.filter((b) => !earnedIds.has(b.id));
+  // BACKLOG.md Ref 98: the forager collection_milestone tier (10 through
+  // 1000, ~28 badges) is excluded from the locked preview -- unlike the
+  // rest of the catalog, previewing every tier here would be noise rather
+  // than a helpful "what's next" hint. Still shown normally, alongside
+  // everything else, once actually earned (state.badges above isn't
+  // filtered) -- and still flashes in the check-in "unlocked" popup
+  // (CheckinResultCard.tsx) the moment it's earned.
+  const locked = state.badgeCatalog.filter((b) => !earnedIds.has(b.id) && !b.code.startsWith("forager_"));
 
   if (state.badges.length === 0 && locked.length === 0) {
     return <p className="text-sm text-muted">No badges yet -- complete a neighborhood challenge to earn one.</p>;

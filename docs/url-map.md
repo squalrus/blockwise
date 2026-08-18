@@ -28,6 +28,7 @@ apps/web/src/app/
 │   │   ├── page.tsx                                /account — Spore Feed tab (default) — accepted-neighbor activity (GET /me/feed) with today's followed events, today's events at favorited venues, and active coupons at favorited venues pinned above it (GET /me/events + GET /me/events-from-favorites — de-duped against each other — BACKLOG.md Ref 87 — + GET /me/coupons — BACKLOG.md Ref 83)
 │   │   ├── favorites/page.tsx                      /account/favorites — Favorites tab — followed events + favorited venues
 │   │   ├── badges/page.tsx                         /account/badges — Badges tab — earned badges + locked placeholders from the full catalog (BACKLOG.md Ref 61)
+│   │   ├── collection/page.tsx                     /account/collection — Collection tab — grid of collected mushroom "species" (GET /me/collection), one per venue checked into or neighbor connected with (BACKLOG.md Ref 98); unlike Badges, uncollected species simply aren't shown
 │   │   ├── challenges/page.tsx                     /account/challenges — Challenges tab — in-progress + completed challenges
 │   │   ├── neighbors/page.tsx                      /account/neighbors — Neighbors tab — add/accept/decline/remove connections (NeighborsSection); on change, also asks the (tabs) layout to refresh its neighbor count via AccountContext
 │   │   └── activity/page.tsx                       /account/activity — My Activity tab — own unmasked activity (GET /me/activity, renamed from Check-ins)
@@ -186,6 +187,8 @@ Auth gates:
 ├── neighborhoods                                      GET — auth
 ├── points                                              GET — auth — all-time, all-neighborhood points total + level/points_into_level/points_to_next_level
 ├── badges                                              GET — auth — every badge this user has earned, across every neighborhood
+├── collection                                          GET — auth — every mushroom "species" this user has collected, one per venue checked into or neighbor connected with, with a species look/name derived (not stored) from the venue/neighbor id (BACKLOG.md Ref 98)
+├── collection/:id/reveal                               POST — auth — flips one collection entry's face-down "new species" flag to revealed (idempotent); the Collection tab's tap-to-flip card, gating only the client-side reveal moment since the API already sends the full look/name up front
 ├── challenges/completed-count                          GET — auth — all-time, all-neighborhood completed-challenge count
 ├── challenges                                          GET — auth — every challenge this user has completed, across every neighborhood (account page Challenges tab)
 ├── challenges/active                                   GET — auth — every challenge this user has started (progress_count > 0) but not completed, with live progress, across every neighborhood they belong to, ordered by percent complete descending (account page Challenges tab "in progress" section)

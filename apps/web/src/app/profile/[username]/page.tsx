@@ -89,7 +89,7 @@ export default async function PublicProfilePage({
       <div className="flex flex-col gap-1.5">
         <ProfileSummaryCard
           user={toCardUser(profile)}
-          favoriteCount={profile.favorite_count}
+          collectionCount={profile.collection_count}
           checkinCount={profile.checkin_count}
           pointsSummary={profile.points_summary}
           badgeCount={profile.badges.length}

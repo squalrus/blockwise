@@ -252,6 +252,26 @@ export interface FavoriteVenueSummary {
   created_at: string;
 }
 
+// GET /me/collection (BACKLOG.md Ref 98) -- a collected mushroom "species",
+// one per venue checked into or neighbor connected with. mushroom/
+// species_name are derived (mushroomConfigForSpecies/mushroomSpeciesName in
+// ./mushroom), not stored -- source_name is the only piece that needs a
+// join (venue.name, or the other user's display name). The API always sends
+// the full look/name even when `revealed` is false -- "reveal" is a
+// client-side flip-card delight moment (POST /me/collection/:id/reveal just
+// persists that it happened), not a server-side spoiler gate.
+export interface MushroomCollectionEntry {
+  id: string;
+  source_type: "checkin" | "connection";
+  source_id: string;
+  source_name: string;
+  species_name: string;
+  mushroom: MushroomConfig;
+  quantity: number;
+  first_collected_at: string;
+  revealed: boolean;
+}
+
 // GET /me/checkins -- venue-joined check-in history for the "My account"
 // page, mirroring FavoriteVenueSummary above.
 export interface CheckinHistoryItem {
@@ -707,11 +727,13 @@ export interface PublicUserProfile {
   // client-side, same as /account's tabs).
   challenges: UserChallenge[];
   // Added alongside ProfileSummaryCard reuse on the public profile page --
-  // checkin_count/favorite_count are all-time totals (unlike recent_checkins,
+  // checkin_count/collection_count are all-time totals (unlike recent_checkins,
   // capped to PUBLIC_PROFILE_CHECKIN_LIMIT), mirroring /me/points'
-  // account-page equivalent.
+  // account-page equivalent. collection_count is the forager collection's
+  // total species count (BACKLOG.md Ref 98) -- the collected species
+  // themselves stay private, only /me/collection lists them.
   checkin_count: number;
-  favorite_count: number;
+  collection_count: number;
   points_summary: UserPointsSummary;
   // BACKLOG.md Ref 14/33 "Connect with other users" -- accepted-connection
   // count only; the neighbors themselves (usernames, avatars) are a

@@ -5,6 +5,10 @@ import Link from "next/link";
 export interface TabNavItem {
   key: string;
   label: string;
+  // Optional pill/count shown after the label (BACKLOG.md Ref 98's Collection
+  // tab unrevealed-count), mirroring AdminShellTab.badge in AdminShell.tsx --
+  // absent for every other tab today, so most callers never set this.
+  badge?: React.ReactNode;
 }
 
 // Shared secondary-nav pill bar (BACKLOG.md Ref 44/47): used both for a
@@ -31,7 +35,7 @@ export function TabNav({
     <nav className="sticky top-0 z-10 -mx-4 flex gap-2 overflow-x-auto bg-background px-4 py-2 text-sm sm:-mx-16 sm:px-16">
       {items.map((item) => {
         const active = item.key === activeKey;
-        const className = `shrink-0 rounded-full px-4 py-2 font-extrabold whitespace-nowrap ${
+        const className = `flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 font-extrabold whitespace-nowrap ${
           active ? "bg-foreground text-on-accent" : "bg-card-alt text-muted"
         }`;
 
@@ -39,6 +43,7 @@ export function TabNav({
           return (
             <Link key={item.key} href={getHref(item.key)} scroll={false} className={className}>
               {item.label}
+              {item.badge}
             </Link>
           );
         }
@@ -46,6 +51,7 @@ export function TabNav({
         return (
           <button key={item.key} type="button" onClick={() => onSelect?.(item.key)} className={className}>
             {item.label}
+            {item.badge}
           </button>
         );
       })}

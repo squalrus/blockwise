@@ -42,6 +42,13 @@ function isRelevant(rule: BadgeRuleRecord, categoryId: string | undefined, kind:
     // connection is accepted (see evaluateBadgesForNeighborCount below).
     case "neighbor_count_reached":
       return false;
+    // Never affected by a check-in *directly* -- a checked-in venue only
+    // grows the forager collection (and so this rule's progress) the first
+    // time it's visited, which recordVenueCollection's own return value
+    // already tells the caller without re-running the badge rule set here.
+    // Evaluated separately (see evaluateBadgesForCollectionCount below).
+    case "collection_milestone":
+      return false;
   }
 }
 
@@ -70,9 +77,10 @@ async function progressForRule(
       });
     case "level_reached":
       return computeLevel(input.totalPoints).level;
-    // Unreachable -- isRelevant above filters this rule type out of every
-    // checkin-triggered call before progressForRule is ever invoked with it.
+    // Unreachable -- isRelevant above filters these rule types out of every
+    // checkin-triggered call before progressForRule is ever invoked with them.
     case "neighbor_count_reached":
+    case "collection_milestone":
       return 0;
   }
 }
@@ -133,6 +141,31 @@ export async function evaluateBadgesForNeighborCount(
   const awarded: Badge[] = [];
   for (const rule of rules) {
     if (neighborCount < rule.threshold) continue;
+    if (await repository.hasEarnedBadge(userId, rule.badgeId)) continue;
+
+    const wasAwarded = await repository.awardRuleBadge(userId, rule.badgeId);
+    if (wasAwarded) awarded.push(toBadge(rule.badge));
+  }
+  return awarded;
+}
+
+// Called after a new forager-collection entry is recorded -- either a
+// venue's first check-in or a neighbor's first connection (BACKLOG.md Ref
+// 98), entirely independent of the other two evaluate* functions above.
+// Mirrors evaluateBadgesForNeighborCount's shape: the caller already knows
+// the user's new total collection count (from MushroomCollectionRepository,
+// a different repository than this one), so it's passed in rather than
+// queried here.
+export async function evaluateBadgesForCollectionCount(
+  userId: string,
+  collectionCount: number,
+  repository: GamificationRepository
+): Promise<Badge[]> {
+  const rules = (await repository.getAllBadgeRules()).filter((rule) => rule.ruleType === "collection_milestone");
+
+  const awarded: Badge[] = [];
+  for (const rule of rules) {
+    if (collectionCount < rule.threshold) continue;
     if (await repository.hasEarnedBadge(userId, rule.badgeId)) continue;
 
     const wasAwarded = await repository.awardRuleBadge(userId, rule.badgeId);
