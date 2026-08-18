@@ -256,7 +256,10 @@ export interface FavoriteVenueSummary {
 // one per venue checked into or neighbor connected with. mushroom/
 // species_name are derived (mushroomConfigForSpecies/mushroomSpeciesName in
 // ./mushroom), not stored -- source_name is the only piece that needs a
-// join (venue.name, or the other user's display name).
+// join (venue.name, or the other user's display name). The API always sends
+// the full look/name even when `revealed` is false -- "reveal" is a
+// client-side flip-card delight moment (POST /me/collection/:id/reveal just
+// persists that it happened), not a server-side spoiler gate.
 export interface MushroomCollectionEntry {
   id: string;
   source_type: "checkin" | "connection";
@@ -266,6 +269,7 @@ export interface MushroomCollectionEntry {
   mushroom: MushroomConfig;
   quantity: number;
   first_collected_at: string;
+  revealed: boolean;
 }
 
 // GET /me/checkins -- venue-joined check-in history for the "My account"

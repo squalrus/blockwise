@@ -159,7 +159,7 @@ import {
   type LocationClassification,
 } from "./locations/review";
 import { SupabaseLocationRepository } from "./locations/supabaseRepository";
-import { getMushroomCollectionForUser } from "./mushroomCollection/collection";
+import { getMushroomCollectionForUser, revealMushroomCollectionEntry } from "./mushroomCollection/collection";
 import { SupabaseMushroomCollectionRepository } from "./mushroomCollection/supabaseRepository";
 import {
   notifyConnectionsOfCheckin,
@@ -1142,6 +1142,32 @@ export function createApp() {
       res.status(500).json({ error: "Failed to list mushroom collection" });
     }
   });
+
+  // Flips a single collection entry's face-down "new species" state to
+  // revealed (BACKLOG.md Ref 98 follow-up) -- the Collection tab's tap-to-
+  // flip card interaction. Idempotent; 404 covers both "no such entry" and
+  // "not your entry" the same way, mirroring other ownership-scoped routes.
+  app.post(
+    "/me/collection/:id/reveal",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const entry = await revealMushroomCollectionEntry(
+          req.appUser!.id,
+          req.params.id,
+          getMushroomCollectionRepository()
+        );
+        if (!entry) {
+          res.status(404).json({ error: "Collection entry not found" });
+          return;
+        }
+        res.json(entry);
+      } catch (err) {
+        console.error(`POST /me/collection/${req.params.id}/reveal failed:`, err);
+        res.status(500).json({ error: "Failed to reveal collection entry" });
+      }
+    }
+  );
 
   // Spore Feed pin (BACKLOG.md Ref 83): active coupons at every venue the
   // signed-in user favorites (favoriting is the follow relationship, per

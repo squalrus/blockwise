@@ -188,6 +188,7 @@ Auth gates:
 ├── points                                              GET — auth — all-time, all-neighborhood points total + level/points_into_level/points_to_next_level
 ├── badges                                              GET — auth — every badge this user has earned, across every neighborhood
 ├── collection                                          GET — auth — every mushroom "species" this user has collected, one per venue checked into or neighbor connected with, with a species look/name derived (not stored) from the venue/neighbor id (BACKLOG.md Ref 98)
+├── collection/:id/reveal                               POST — auth — flips one collection entry's face-down "new species" flag to revealed (idempotent); the Collection tab's tap-to-flip card, gating only the client-side reveal moment since the API already sends the full look/name up front
 ├── challenges/completed-count                          GET — auth — all-time, all-neighborhood completed-challenge count
 ├── challenges                                          GET — auth — every challenge this user has completed, across every neighborhood (account page Challenges tab)
 ├── challenges/active                                   GET — auth — every challenge this user has started (progress_count > 0) but not completed, with live progress, across every neighborhood they belong to, ordered by percent complete descending (account page Challenges tab "in progress" section)

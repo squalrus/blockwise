@@ -173,7 +173,9 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
             }
           />
 
-          <AccountTabs />
+          <AccountTabs
+            unrevealedCollectionCount={state.collection.filter((entry) => !entry.revealed).length}
+          />
 
           <AccountRefreshProvider value={refresh}>{children}</AccountRefreshProvider>
         </>

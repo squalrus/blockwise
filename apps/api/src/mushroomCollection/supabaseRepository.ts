@@ -6,7 +6,34 @@ import type {
 } from "./repository";
 
 const LIST_COLUMNS =
-  "id, venue_id, connection_user_id, quantity, first_collected_at, venue:venue_id (name), connection_user:connection_user_id (username, display_name)";
+  "id, venue_id, connection_user_id, quantity, first_collected_at, revealed_at, venue:venue_id (name), connection_user:connection_user_id (username, display_name)";
+
+type ListRow = {
+  id: string;
+  venue_id: string | null;
+  connection_user_id: string | null;
+  quantity: number;
+  first_collected_at: string;
+  revealed_at: string | null;
+  venue: { name: string } | null;
+  connection_user: { username: string | null; display_name: string | null } | null;
+};
+
+function toListItem(row: ListRow): MushroomCollectionListItem {
+  const sourceType: MushroomCollectionSourceType = row.venue_id ? "checkin" : "connection";
+  return {
+    id: row.id,
+    sourceType,
+    sourceId: (sourceType === "checkin" ? row.venue_id : row.connection_user_id) as string,
+    sourceName:
+      sourceType === "checkin"
+        ? (row.venue?.name ?? "Unknown venue")
+        : (row.connection_user?.display_name ?? row.connection_user?.username ?? "A neighbor"),
+    quantity: row.quantity,
+    firstCollectedAt: row.first_collected_at,
+    revealedAt: row.revealed_at,
+  };
+}
 
 export class SupabaseMushroomCollectionRepository implements MushroomCollectionRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -77,23 +104,31 @@ export class SupabaseMushroomCollectionRepository implements MushroomCollectionR
 
     if (error) throw new Error(`listCollectionForUser failed: ${error.message}`);
 
-    return (data ?? []).map((row) => {
-      const venue = row.venue as unknown as { name: string } | null;
-      const connectionUser = row.connection_user as unknown as
-        | { username: string | null; display_name: string | null }
-        | null;
-      const sourceType: MushroomCollectionSourceType = row.venue_id ? "checkin" : "connection";
-      return {
-        id: row.id as string,
-        sourceType,
-        sourceId: (sourceType === "checkin" ? row.venue_id : row.connection_user_id) as string,
-        sourceName:
-          sourceType === "checkin"
-            ? (venue?.name ?? "Unknown venue")
-            : (connectionUser?.display_name ?? connectionUser?.username ?? "A neighbor"),
-        quantity: row.quantity as number,
-        firstCollectedAt: row.first_collected_at as string,
-      };
-    });
+    return (data ?? []).map((row) => toListItem(row as unknown as ListRow));
+  }
+
+  async revealCollectionItem(userId: string, id: string): Promise<MushroomCollectionListItem | null> {
+    const { data: existing, error: selectError } = await this.supabase
+      .from("mushroom_collection")
+      .select(LIST_COLUMNS)
+      .eq("id", id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (selectError) throw new Error(`revealCollectionItem select failed: ${selectError.message}`);
+    if (!existing) return null;
+
+    const existingRow = existing as unknown as ListRow;
+    if (existingRow.revealed_at !== null) return toListItem(existingRow);
+
+    const { data, error } = await this.supabase
+      .from("mushroom_collection")
+      .update({ revealed_at: new Date().toISOString() })
+      .eq("id", id)
+      .select(LIST_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`revealCollectionItem update failed: ${error.message}`);
+    return toListItem(data as unknown as ListRow);
   }
 }

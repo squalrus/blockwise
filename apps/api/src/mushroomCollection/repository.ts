@@ -11,6 +11,12 @@ export interface MushroomCollectionListItem {
   sourceName: string;
   quantity: number;
   firstCollectedAt: string;
+  // Null until the user taps to flip the tile over on the Collection tab
+  // (POST /me/collection/:id/reveal) -- every row starts null here,
+  // including ones that existed before the reveal mechanic shipped
+  // (migration 20260818050000 added the column with no backfill step), so
+  // existing accounts get to flip through their whole collection too.
+  revealedAt: string | null;
 }
 
 // Abstracts persistence so recordVenueCollection/recordConnectionCollection
@@ -31,4 +37,9 @@ export interface MushroomCollectionRepository {
   // rule's progress metric, mirroring ConnectionRepository's
   // countAcceptedConnectionsForUser.
   countCollectionForUser(userId: string): Promise<number>;
+  // Marks one collection entry revealed (idempotent -- a second reveal of
+  // an already-revealed row is a no-op, returning it unchanged). Scoped to
+  // userId so a caller can't reveal (or even discover the existence of)
+  // another account's row. Null means no such row for this user.
+  revealCollectionItem(userId: string, id: string): Promise<MushroomCollectionListItem | null>;
 }
