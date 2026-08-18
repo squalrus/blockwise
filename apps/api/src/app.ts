@@ -100,6 +100,7 @@ import {
   getUserCompletedChallenges,
   listChallengesWithProgress,
 } from "./gamification/challenges";
+import { evaluateBadgesForCollectionCount } from "./gamification/badges";
 import { awardEventFollowBadge } from "./gamification/eventFollowBadge";
 import { awardContributorBadge, awardFeedbackGiverBadge } from "./gamification/feedbackBadges";
 import { awardFounderBadge } from "./gamification/founderBadge";
@@ -158,6 +159,8 @@ import {
   type LocationClassification,
 } from "./locations/review";
 import { SupabaseLocationRepository } from "./locations/supabaseRepository";
+import { getMushroomCollectionForUser } from "./mushroomCollection/collection";
+import { SupabaseMushroomCollectionRepository } from "./mushroomCollection/supabaseRepository";
 import {
   notifyConnectionsOfCheckin,
   notifyNeighborhoodAdminsOfMissingVenue,
@@ -318,6 +321,12 @@ function getConnectionRepository(): SupabaseConnectionRepository {
   return connectionRepository;
 }
 
+let mushroomCollectionRepository: SupabaseMushroomCollectionRepository | undefined;
+function getMushroomCollectionRepository(): SupabaseMushroomCollectionRepository {
+  mushroomCollectionRepository ??= new SupabaseMushroomCollectionRepository(getSupabaseClient());
+  return mushroomCollectionRepository;
+}
+
 let gamificationRepository: SupabaseGamificationRepository | undefined;
 function getGamificationRepository(): SupabaseGamificationRepository {
   gamificationRepository ??= new SupabaseGamificationRepository(getSupabaseClient());
@@ -351,6 +360,17 @@ async function awardNeighborConnectionRewardsForBothSides(connection: {
         getAuthRepository(),
         getGamificationRepository()
       );
+      // BACKLOG.md Ref 98: forager collection -- each side collects the
+      // other's mushroom "species" the first time they connect, then checks
+      // collection_milestone badges only when this call actually grew the
+      // collection (a reconnect can't). Not surfaced in the accept
+      // response, mirroring awardNeighborConnectionRewards's own
+      // neighbor_count_reached badges above, which aren't either.
+      const isNewSpecies = await getMushroomCollectionRepository().recordConnectionCollection(userId, otherUserId);
+      if (isNewSpecies) {
+        const collectionCount = await getMushroomCollectionRepository().countCollectionForUser(userId);
+        await evaluateBadgesForCollectionCount(userId, collectionCount, getGamificationRepository());
+      }
     } catch (err) {
       console.error(`awardNeighborConnectionRewards (user ${userId}) failed:`, err);
     }
@@ -976,6 +996,35 @@ export function createApp() {
             console.error(`notifyConnectionsOfCheckin (location ${req.params.id}) failed:`, err);
           }
 
+          // BACKLOG.md Ref 98: forager collection -- collects this venue's
+          // mushroom "species" the first time (bumps quantity on repeats),
+          // then checks collection_milestone badges only when this call
+          // actually grew the collection (a repeat check-in can't). Merged
+          // into rewards.badges_earned like the other checkin-triggered
+          // badges above, so a newly-earned forager tier still flashes in
+          // CheckinResultCard's "unlocked" popup -- only the Badges tab's
+          // *locked* preview hides un-earned forager tiers (BadgesPage.tsx),
+          // since previewing all ~28 of them there would be noisy.
+          try {
+            const isNewSpecies = await getMushroomCollectionRepository().recordVenueCollection(
+              result.checkin.user_id,
+              req.params.id
+            );
+            if (isNewSpecies) {
+              const collectionCount = await getMushroomCollectionRepository().countCollectionForUser(
+                result.checkin.user_id
+              );
+              const collectionBadges = await evaluateBadgesForCollectionCount(
+                result.checkin.user_id,
+                collectionCount,
+                getGamificationRepository()
+              );
+              rewards = { ...rewards, badges_earned: [...rewards.badges_earned, ...collectionBadges] };
+            }
+          } catch (err) {
+            console.error(`recordVenueCollection (location ${req.params.id}) failed:`, err);
+          }
+
           res.status(201).json({ ...result.checkin, rewards });
           return;
         }
@@ -1079,6 +1128,18 @@ export function createApp() {
     } catch (err) {
       console.error("GET /me/favorites failed:", err);
       res.status(500).json({ error: "Failed to list favorite venues" });
+    }
+  });
+
+  // Forager collection (BACKLOG.md Ref 98): every mushroom "species" the
+  // signed-in user has collected via check-in or neighbor connection.
+  app.get("/me/collection", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const entries = await getMushroomCollectionForUser(req.appUser!.id, getMushroomCollectionRepository());
+      res.json(entries);
+    } catch (err) {
+      console.error("GET /me/collection failed:", err);
+      res.status(500).json({ error: "Failed to list mushroom collection" });
     }
   });
 
@@ -1890,9 +1951,9 @@ export function createApp() {
   // isn't distinguishable from a nonexistent one to an outside caller.
   // Recent check-ins are gated by the same profile-level visibility, since
   // checkin has no per-row privacy field of its own. checkin_count/
-  // favorite_count/points_summary let the web app render ProfileSummaryCard
-  // here too -- favorite_count is a plain count (the favorited venues
-  // themselves stay private; only /me/favorites lists them). neighbor_count
+  // collection_count/points_summary let the web app render ProfileSummaryCard
+  // here too -- collection_count is a plain count (the collected species
+  // themselves stay private; only /me/collection lists them). neighbor_count
   // is likewise a plain count (BACKLOG.md Ref 14/33) -- the connections
   // themselves stay private to the two parties, only /me/connections lists
   // them. `badges`/`challenges` are full lists like their /me/ equivalents
@@ -1905,13 +1966,13 @@ export function createApp() {
         return;
       }
 
-      const [checkins, neighborhoods, badges, challenges, favorites, pointsSummary, neighborCount, connections] =
+      const [checkins, neighborhoods, badges, challenges, collectionCount, pointsSummary, neighborCount, connections] =
         await Promise.all([
           getCheckinRepository().listCheckinsForUser(user.id),
           listMembershipsForUser(user.id, getNeighborhoodMemberRepository()),
           getUserBadges(user.id, getGamificationRepository()),
           getUserCompletedChallenges(user.id, getGamificationRepository()),
-          getFavoriteRepository().listFavoriteVenuesForUser(user.id),
+          getMushroomCollectionRepository().countCollectionForUser(user.id),
           getUserPoints(user.id, getGamificationRepository()),
           getConnectionRepository().countAcceptedConnectionsForUser(user.id),
           getConnectionRepository().listConnectionsForUser(user.id, "accepted"),
@@ -1941,7 +2002,7 @@ export function createApp() {
         badges,
         challenges,
         checkin_count: checkins.length,
-        favorite_count: favorites.length,
+        collection_count: collectionCount,
         points_summary: pointsSummary,
         neighbor_count: neighborCount,
         neighbor_mushrooms: neighborMushrooms,

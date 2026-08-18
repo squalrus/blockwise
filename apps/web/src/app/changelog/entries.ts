@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.66.0", date: "2026-08-18", summary: "New Forager collection tab -- checking in or connecting with a neighbor collects a unique mushroom species, with a new Collection profile tile and a 10-to-1000-species badge tier" },
   { version: "0.65.0", date: "2026-08-17", summary: "Leaderboard is its own tab again, the neighborhood profile's default tab is now a renamed \"Spore feed\", admin's account menu matches the main nav, and chanterelle/enoki mushrooms support all 6 spot counts" },
   { version: "0.64.0", date: "2026-08-17", summary: "Report a missing venue from Send Feedback or the check-in page, notifying your neighborhood's admins -- who get a triage page with a one-click Google Places investigation tool" },
   { version: "0.63.0", date: "2026-08-17", summary: "Admin surfaces are now mobile-friendly, followed-venue events surface in the Spore Feed, and in-progress events are now followable" },

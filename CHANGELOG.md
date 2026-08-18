@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.66.0] — 2026-08-18
+
+### Added
+
+- **Forager collection: a per-venue and per-neighbor mushroom "species" catalog.** (BACKLOG.md Ref 98) Checking in at a venue for the first time, or connecting with a neighbor for the first time, now "collects" a unique deterministic mushroom species tied to that venue/person — revisiting or reconnecting bumps a "Nx" counter instead of adding a duplicate. A new `/account/collection` tab (sorted most-collected first) shows only species discovered so far, unlike the Badges tab's locked-placeholder catalog. The account and public profile summary cards' "Favorites" stat tile is now "Collection" (distinct species count). A new tier of "N-Species Forager" badges (10 through 1000, steps of 10 then 50) awards on the same milestone — flashed in the check-in "unlocked" popup when earned, but excluded from the Badges tab's locked preview since previewing all ~28 tiers there would be noisy. Existing check-in and connection history was backfilled into the new collection table. (`supabase/migrations/20260818010000_mushroom_collection.sql`, `supabase/migrations/20260818020000_collection_milestone_badges.sql`, `supabase/migrations/20260818030000_backfill_mushroom_collection.sql`, `supabase/migrations/20260818040000_collection_milestone_badges_100_to_1000.sql`, `packages/types/src/mushroom.ts`, `packages/types/src/index.ts`, `apps/api/src/mushroomCollection/`, `apps/api/src/gamification/badges.ts`, `apps/api/src/gamification/repository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/account/(tabs)/collection/page.tsx`, `apps/web/src/app/account/(tabs)/badges/page.tsx`, `apps/web/src/app/account/(tabs)/layout.tsx`, `apps/web/src/app/account/AccountTabs.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/profile/[username]/page.tsx`, `docs/url-map.md`)
+
 ## [0.65.0] — 2026-08-17
 
 ### Added

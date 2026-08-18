@@ -112,7 +112,12 @@ export type BadgeRuleType =
   // N accepted neighbor connections (BACKLOG.md Ref 14/33) -- unlike the
   // other rule types, evaluated after a connection is accepted, not after a
   // check-in (see evaluateBadgesForNeighborCount in badges.ts).
-  | "neighbor_count_reached";
+  | "neighbor_count_reached"
+  // N total mushroom_collection rows, venue + connection combined
+  // (BACKLOG.md Ref 98) -- evaluated after either kind of collection event,
+  // not after a check-in specifically (see evaluateBadgesForCollectionCount
+  // in badges.ts).
+  | "collection_milestone";
 
 export interface BadgeRuleRecord {
   id: string;

@@ -5,7 +5,7 @@ import type {
   AppUser,
   CheckinHistoryItem,
   ConnectionSummary,
-  FavoriteVenueSummary,
+  MushroomCollectionEntry,
   NeighborhoodMembership,
   UserBadge,
   UserChallenge,
@@ -27,7 +27,7 @@ type State =
   | {
       status: "ready";
       user: AppUser;
-      favorites: FavoriteVenueSummary[];
+      collection: MushroomCollectionEntry[];
       checkins: CheckinHistoryItem[];
       pointsSummary: UserPointsSummary;
       badges: UserBadge[];
@@ -50,9 +50,9 @@ async function loadSummary(setState: (state: State) => void) {
 
   const token = await getAccessToken();
   const headers = { Authorization: `Bearer ${token}` };
-  const [favoritesRes, checkinsRes, pointsRes, badgesRes, challengesRes, connectionsRes, neighborhoodsRes] =
+  const [collectionRes, checkinsRes, pointsRes, badgesRes, challengesRes, connectionsRes, neighborhoodsRes] =
     await Promise.all([
-      fetch(clientApiUrl("/me/favorites"), { headers }),
+      fetch(clientApiUrl("/me/collection"), { headers }),
       fetch(clientApiUrl("/me/checkins"), { headers }),
       fetch(clientApiUrl("/me/points"), { headers }),
       fetch(clientApiUrl("/me/badges"), { headers }),
@@ -62,7 +62,7 @@ async function loadSummary(setState: (state: State) => void) {
     ]);
 
   if (
-    !favoritesRes.ok ||
+    !collectionRes.ok ||
     !checkinsRes.ok ||
     !pointsRes.ok ||
     !badgesRes.ok ||
@@ -77,7 +77,7 @@ async function loadSummary(setState: (state: State) => void) {
   setState({
     status: "ready",
     user,
-    favorites: await favoritesRes.json(),
+    collection: await collectionRes.json(),
     checkins: await checkinsRes.json(),
     pointsSummary: await pointsRes.json(),
     badges: await badgesRes.json(),
@@ -141,7 +141,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
           <ProfileSummaryCard
             user={state.user}
-            favoriteCount={state.favorites.length}
+            collectionCount={state.collection.length}
             checkinCount={state.checkins.length}
             pointsSummary={state.pointsSummary}
             badgeCount={state.badges.length}

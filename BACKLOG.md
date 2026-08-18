@@ -55,7 +55,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 | --- | --- | --- | --- | --- | --- |
-| 98 | [Forager collection: per-location mushroom identities](#forager-collection-per-location-mushroom-identities) | feature | L | H | — |
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
@@ -234,14 +233,6 @@ No open limitations.
 **Notes:** `BusinessPlan`, `Entitlement`, `CreditBalance`, `CreditTransaction`, `CreditPack` schema (project plan §1.8, §11.3) plus Stripe billing integration for credit-pack purchases. Free-sample entitlement (1 POI, 1 Event, 1 Coupon) ships first; paid credits follow.
 
 ### User
-
-#### Forager collection: per-location mushroom identities
-
-**Ref:** 98
-**Type:** feature
-**Depends:** —
-**Why** — Tangential to the mushroom-revamp work in Ref 94/97 (see [docs/plans/mushroom-revamp.md](docs/plans/mushroom-revamp.md)) — a new profile area where users collect unique mushroom "species," one per location, by checking in there or by connecting with a neighbor. Turns the existing deterministic seed-hash mushroom system (already reused per-user, per-neighborhood, and per-location for the card mosaics) into an explicit collectible-catalog mechanic, giving users a reason to visit new places and meet new neighbors specifically to grow their collection — a Pokedex/badge-collection-style hook.
-**Notes:** Needs a per-location mushroom identity — the same `mushroomConfigForUser`-style hash keyed on `venue.id` (or, for connection-sourced entries, keyed on the other user's id), but explicitly **not** user-customizable, unlike a user's own mushroom, since it's meant to be a fixed "species" to discover rather than something its owner can reskin. Needs a new collection table (`user_id`, source type [`checkin` | `connection`], source id [`venue_id` | other user's id], `first_collected_at`, `quantity`) written on first check-in at a venue or first accepted connection with a user not yet collected, incrementing `quantity` on repeats ("2x" in the UI). Needs a new profile page/section rendering a grid of collected mushrooms — uncollected ones simply aren't shown, unlike the badges page's grayed-out locked state. Closest existing precedent is the earned/locked catalog cross-reference in `apps/web/src/app/account/(tabs)/badges/page.tsx`, though that renders a vertical list, not a grid, and does show locked items, so it needs adapting rather than reusing outright. Also wants generated names for mushroom combinations (a deterministic name generator over the same seed — e.g. combining adjective/noun word banks keyed by the hash) so each collected entry has flavor text, not just a swatch. Open question: given the large combinatorial space (cap × stalk × spots × bg × spotCount × spotShape), is the "unique mushroom" identity the full config tuple, or a coarser subset (e.g. cap + spotShape only)? The full-tuple approach makes collisions vanishingly rare — nothing to accumulate a "2x" on except by literally re-visiting the exact same location or re-connecting with the exact same person, which is exactly the repeat-source mechanic described above, so it's the likely right default.
 
 #### Venue wishlist
 

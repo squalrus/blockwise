@@ -15,7 +15,7 @@ export default function ProfileCardDemoPage() {
           ({
             label,
             user,
-            favoriteCount,
+            collectionCount,
             checkinCount,
             pointsSummary,
             badgeCount,
@@ -28,7 +28,7 @@ export default function ProfileCardDemoPage() {
               <p className="text-[11px] font-extrabold tracking-wide text-muted uppercase">{label}</p>
               <ProfileSummaryCard
                 user={user}
-                favoriteCount={favoriteCount}
+                collectionCount={collectionCount}
                 checkinCount={checkinCount}
                 pointsSummary={pointsSummary}
                 badgeCount={badgeCount}
