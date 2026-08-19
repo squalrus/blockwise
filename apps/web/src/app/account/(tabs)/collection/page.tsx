@@ -89,11 +89,22 @@ function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry;
           flipped ? "[transform:rotateY(180deg)]" : ""
         }`}
       >
-        <div className="col-start-1 row-start-1 flex h-33 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl bg-brand-purple px-2 py-3.5 text-center [backface-visibility:hidden]">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-on-accent text-2xl font-extrabold text-on-accent">
+        <div className="relative col-start-1 row-start-1 flex h-33 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl bg-brand-purple px-2 py-3.5 text-center [backface-visibility:hidden]">
+          {/* Faint silhouettes hinting "a mushroom is in here" without giving away
+              which one -- currentColor + a low-opacity wrapper so the tint follows
+              --on-accent's per-theme flip instead of a hardcoded color. */}
+          <div aria-hidden className="pointer-events-none absolute inset-0 text-on-accent opacity-[0.16]">
+            <div className="absolute -top-3 -left-4 rotate-[-16deg]">
+              <MushroomMark shape="chanterelle" cap="currentColor" stalk="currentColor" spotCount={0} size={46} />
+            </div>
+            <div className="absolute -right-4 -bottom-4 rotate-[13deg]">
+              <MushroomMark shape="parasol" cap="currentColor" stalk="currentColor" spotCount={0} size={42} />
+            </div>
+          </div>
+          <span className="relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-on-accent bg-on-accent/15 text-2xl font-extrabold text-on-accent shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)]">
             ?
           </span>
-          <p className="text-[11px] font-extrabold text-on-accent">Tap to reveal</p>
+          <p className="relative text-[11px] font-extrabold text-on-accent">Tap to reveal</p>
         </div>
         <div className="col-start-1 row-start-1 [backface-visibility:hidden] [transform:rotateY(180deg)]">
           <RevealedContent entry={entry} />
