@@ -104,7 +104,7 @@ export async function sendPushToUsers(
 // check-ins in this first cut.
 export async function notifyConnectionsOfCheckin(
   checkinUserId: string,
-  checkin: { displayName: string | null; venueName: string },
+  checkin: { displayName: string | null; venueName: string; venueId: string },
   connectionRepository: ConnectionRepository,
   subscriptionRepository: PushSubscriptionRepository,
   sender: PushSender
@@ -118,7 +118,7 @@ export async function notifyConnectionsOfCheckin(
   const name = checkin.displayName ?? "A neighbor";
   return sendPushToUsers(
     neighborUserIds,
-    { title: "Neighbor check-in", body: `${name} checked in at ${checkin.venueName}` },
+    { title: "Neighbor check-in", body: `${name} checked in at ${checkin.venueName}`, url: `/location/${checkin.venueId}` },
     subscriptionRepository,
     sender
   );
@@ -144,7 +144,7 @@ export async function notifySuperAdminsOfSignup(
   const name = newUser.displayName ?? newUser.email ?? "Someone";
   return sendPushToUsers(
     superAdminUserIds,
-    { title: "New signup", body: `${name} just joined Spored` },
+    { title: "New signup", body: `${name} just joined Spored`, url: "/admin/super/users" },
     subscriptionRepository,
     sender
   );
@@ -169,7 +169,7 @@ export async function notifySuperAdminsOfFeedback(
   const kind = submission.type === "bug" ? "bug report" : "feature request";
   return sendPushToUsers(
     superAdminUserIds,
-    { title: "New feedback", body: `${name} submitted a ${kind}` },
+    { title: "New feedback", body: `${name} submitted a ${kind}`, url: "/admin/super/feedback" },
     subscriptionRepository,
     sender
   );
@@ -183,6 +183,11 @@ export async function notifySuperAdminsOfFeedback(
 export async function notifyNeighborhoodAdminsOfMissingVenue(
   report: { displayName: string | null; venueName: string },
   neighborhoodId: string,
+  // The reported neighborhood's own slug (the admin shell's routes are
+  // slug-keyed, not id-keyed) -- fetched by the caller rather than looked up
+  // in here, since this function otherwise has no reason to depend on
+  // NeighborhoodRepository.
+  neighborhoodSlug: string,
   neighborhoodAdminRepository: NeighborhoodAdminRepository,
   subscriptionRepository: PushSubscriptionRepository,
   sender: PushSender
@@ -195,7 +200,11 @@ export async function notifyNeighborhoodAdminsOfMissingVenue(
   const name = report.displayName ?? "A neighbor";
   return sendPushToUsers(
     adminUserIds,
-    { title: "Missing venue reported", body: `${name} reported "${report.venueName}" as missing` },
+    {
+      title: "Missing venue reported",
+      body: `${name} reported "${report.venueName}" as missing`,
+      url: `/admin/neighborhood/${neighborhoodSlug}/locations/reports`,
+    },
     subscriptionRepository,
     sender
   );
@@ -213,7 +222,7 @@ export async function notifyUserOfConnectionRequest(
   const name = requesterDisplayName ?? "A neighbor";
   return sendPushToUsers(
     [recipientUserId],
-    { title: "New neighbor request", body: `${name} wants to connect` },
+    { title: "New neighbor request", body: `${name} wants to connect`, url: "/account/neighbors" },
     subscriptionRepository,
     sender
   );
@@ -233,7 +242,7 @@ export async function notifyUserOfConnectionAccepted(
   const name = otherDisplayName ?? "A neighbor";
   return sendPushToUsers(
     [targetUserId],
-    { title: "New neighbor connection", body: `You and ${name} are now connected` },
+    { title: "New neighbor connection", body: `You and ${name} are now connected`, url: "/account/neighbors" },
     subscriptionRepository,
     sender
   );

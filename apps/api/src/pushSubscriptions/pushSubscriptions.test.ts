@@ -244,7 +244,7 @@ describe("notifyConnectionsOfCheckin", () => {
 
     const summary = await notifyConnectionsOfCheckin(
       "user-1",
-      { displayName: "Alex", venueName: "Diesel Fuel Coffee" },
+      { displayName: "Alex", venueName: "Diesel Fuel Coffee", venueId: "venue-1" },
       connectionRepo,
       pushRepo,
       sender
@@ -252,8 +252,8 @@ describe("notifyConnectionsOfCheckin", () => {
 
     expect(summary).toEqual({ sent: 2, pruned: 0, failed: 0 });
     expect(sender.sent).toEqual([
-      { title: "Neighbor check-in", body: "Alex checked in at Diesel Fuel Coffee" },
-      { title: "Neighbor check-in", body: "Alex checked in at Diesel Fuel Coffee" },
+      { title: "Neighbor check-in", body: "Alex checked in at Diesel Fuel Coffee", url: "/location/venue-1" },
+      { title: "Neighbor check-in", body: "Alex checked in at Diesel Fuel Coffee", url: "/location/venue-1" },
     ]);
   });
 
@@ -265,13 +265,15 @@ describe("notifyConnectionsOfCheckin", () => {
 
     await notifyConnectionsOfCheckin(
       "user-1",
-      { displayName: null, venueName: "Herkimer Coffee" },
+      { displayName: null, venueName: "Herkimer Coffee", venueId: "venue-2" },
       connectionRepo,
       pushRepo,
       sender
     );
 
-    expect(sender.sent).toEqual([{ title: "Neighbor check-in", body: "A neighbor checked in at Herkimer Coffee" }]);
+    expect(sender.sent).toEqual([
+      { title: "Neighbor check-in", body: "A neighbor checked in at Herkimer Coffee", url: "/location/venue-2" },
+    ]);
   });
 
   it("does nothing when the checking-in user has no accepted connections", async () => {
@@ -281,7 +283,7 @@ describe("notifyConnectionsOfCheckin", () => {
 
     const summary = await notifyConnectionsOfCheckin(
       "user-1",
-      { displayName: "Alex", venueName: "Herkimer Coffee" },
+      { displayName: "Alex", venueName: "Herkimer Coffee", venueId: "venue-3" },
       connectionRepo,
       pushRepo,
       sender
@@ -309,8 +311,8 @@ describe("notifySuperAdminsOfSignup", () => {
 
     expect(summary).toEqual({ sent: 2, pruned: 0, failed: 0 });
     expect(sender.sent).toEqual([
-      { title: "New signup", body: "Jane just joined Spored" },
-      { title: "New signup", body: "Jane just joined Spored" },
+      { title: "New signup", body: "Jane just joined Spored", url: "/admin/super/users" },
+      { title: "New signup", body: "Jane just joined Spored", url: "/admin/super/users" },
     ]);
   });
 
@@ -326,11 +328,15 @@ describe("notifySuperAdminsOfSignup", () => {
       pushRepo,
       withEmailSender
     );
-    expect(withEmailSender.sent).toEqual([{ title: "New signup", body: "jane@example.com just joined Spored" }]);
+    expect(withEmailSender.sent).toEqual([
+      { title: "New signup", body: "jane@example.com just joined Spored", url: "/admin/super/users" },
+    ]);
 
     const noEmailSender = new FakePushSender();
     await notifySuperAdminsOfSignup({ displayName: null, email: null }, superAdminRepo, pushRepo, noEmailSender);
-    expect(noEmailSender.sent).toEqual([{ title: "New signup", body: "Someone just joined Spored" }]);
+    expect(noEmailSender.sent).toEqual([
+      { title: "New signup", body: "Someone just joined Spored", url: "/admin/super/users" },
+    ]);
   });
 
   it("does nothing when there are no super admins", async () => {
@@ -362,8 +368,8 @@ describe("notifySuperAdminsOfFeedback", () => {
 
     expect(summary).toEqual({ sent: 2, pruned: 0, failed: 0 });
     expect(sender.sent).toEqual([
-      { title: "New feedback", body: "Jane submitted a bug report" },
-      { title: "New feedback", body: "Jane submitted a bug report" },
+      { title: "New feedback", body: "Jane submitted a bug report", url: "/admin/super/feedback" },
+      { title: "New feedback", body: "Jane submitted a bug report", url: "/admin/super/feedback" },
     ]);
   });
 
@@ -375,7 +381,9 @@ describe("notifySuperAdminsOfFeedback", () => {
 
     await notifySuperAdminsOfFeedback({ displayName: null, type: "feature" }, superAdminRepo, pushRepo, sender);
 
-    expect(sender.sent).toEqual([{ title: "New feedback", body: "Someone submitted a feature request" }]);
+    expect(sender.sent).toEqual([
+      { title: "New feedback", body: "Someone submitted a feature request", url: "/admin/super/feedback" },
+    ]);
   });
 
   it("does nothing when there are no super admins", async () => {
@@ -399,7 +407,7 @@ describe("notifyUserOfConnectionRequest", () => {
     const summary = await notifyUserOfConnectionRequest("recipient-1", "Alex", pushRepo, sender);
 
     expect(summary).toEqual({ sent: 1, pruned: 0, failed: 0 });
-    expect(sender.sent).toEqual([{ title: "New neighbor request", body: "Alex wants to connect" }]);
+    expect(sender.sent).toEqual([{ title: "New neighbor request", body: "Alex wants to connect", url: "/account/neighbors" }]);
   });
 
   it("falls back to a generic name when the requester has no display name", async () => {
@@ -409,7 +417,9 @@ describe("notifyUserOfConnectionRequest", () => {
 
     await notifyUserOfConnectionRequest("recipient-1", null, pushRepo, sender);
 
-    expect(sender.sent).toEqual([{ title: "New neighbor request", body: "A neighbor wants to connect" }]);
+    expect(sender.sent).toEqual([
+      { title: "New neighbor request", body: "A neighbor wants to connect", url: "/account/neighbors" },
+    ]);
   });
 });
 
@@ -422,7 +432,9 @@ describe("notifyUserOfConnectionAccepted", () => {
     const summary = await notifyUserOfConnectionAccepted("requester-1", "Alex", pushRepo, sender);
 
     expect(summary).toEqual({ sent: 1, pruned: 0, failed: 0 });
-    expect(sender.sent).toEqual([{ title: "New neighbor connection", body: "You and Alex are now connected" }]);
+    expect(sender.sent).toEqual([
+      { title: "New neighbor connection", body: "You and Alex are now connected", url: "/account/neighbors" },
+    ]);
   });
 
   it("falls back to a generic name when the other party has no display name", async () => {
@@ -432,6 +444,8 @@ describe("notifyUserOfConnectionAccepted", () => {
 
     await notifyUserOfConnectionAccepted("requester-1", null, pushRepo, sender);
 
-    expect(sender.sent).toEqual([{ title: "New neighbor connection", body: "You and A neighbor are now connected" }]);
+    expect(sender.sent).toEqual([
+      { title: "New neighbor connection", body: "You and A neighbor are now connected", url: "/account/neighbors" },
+    ]);
   });
 });

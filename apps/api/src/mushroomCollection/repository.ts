@@ -9,6 +9,10 @@ export interface MushroomCollectionListItem {
   sourceType: MushroomCollectionSourceType;
   sourceId: string;
   sourceName: string;
+  // Only set for sourceType "connection" -- the neighbor's username, for
+  // linking to their public profile. Null for "checkin" (sourceId is
+  // already the venue's own id/route in that case).
+  sourceUsername: string | null;
   quantity: number;
   firstCollectedAt: string;
   // Null until the user taps to flip the tile over on the Collection tab

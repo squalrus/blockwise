@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.68.0] — 2026-08-20
+
+### Added
+
+- **A detail view for collected species.** Tapping any revealed tile on the Collection tab now opens a modal showing the specimen at a larger size, its full (non-truncated) name, when it was first unlocked, and a clickable link to the venue or neighbor it was collected from. The card sits in a swipeable carousel — drag, use the arrow buttons below it, or use the arrow keys — with the neighboring entry visibly sliding in as you swipe, a centered N/total counter, and a close button. (`packages/types/src/index.ts`, `apps/api/src/mushroomCollection/`, `apps/web/src/app/account/(tabs)/collection/CollectionDetailModal.tsx`, `apps/web/src/app/account/(tabs)/collection/page.tsx`)
+- **Push notifications now deep-link to what they're about.** Tapping a neighbor check-in alert opens that venue's page; a connection request or acceptance opens Neighbors; a new-signup or feedback alert opens the relevant admin tab; a missing-venue report opens that neighborhood's Locations reports. Previously every notification just opened the app's home page regardless of what it was announcing — the service worker already supported a per-notification link, it just wasn't being sent. (`apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `apps/api/src/app.ts`)
+
+### Changed
+
+- **Next.js upgraded from 16.2.10 to 16.3.1** across the web and marketing apps. (`apps/web/package.json`, `apps/marketing/package.json`)
+
 ## [0.67.0] — 2026-08-19
 
 ### Added
