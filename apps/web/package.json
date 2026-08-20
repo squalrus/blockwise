@@ -1,12 +1,13 @@
 {
   "name": "@blockwise/web",
-  "version": "0.68.0",
+  "version": "0.68.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@blockwise/types": "*",

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { APP_URL } from "@/lib/appUrl";
 import { LegalLayout, LegalSection } from "../LegalLayout";
 
@@ -110,16 +111,16 @@ export default function FaqPage() {
           Only if your profile is public. New accounts default to public (badges, check-in count, neighbor
           count, and — if you&apos;re the top visitor somewhere — a &ldquo;Top Cap&rdquo; sign are visible to
           others), but you can switch to private at any time from Account settings. See our{" "}
-          <a href="/privacy" className="font-bold">
+          <Link href="/privacy" className="font-bold">
             Privacy Policy
-          </a>{" "}
+          </Link>{" "}
           for details.
         </Question>
         <Question q="How do I delete my account?">
           You can delete your account at any time from Account settings. See our{" "}
-          <a href="/privacy" className="font-bold">
+          <Link href="/privacy" className="font-bold">
             Privacy Policy
-          </a>{" "}
+          </Link>{" "}
           for what happens to your data.
         </Question>
         <Question q="I have another question — how do I reach you?">

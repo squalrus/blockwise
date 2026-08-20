@@ -49,7 +49,7 @@ export default async function NeighborhoodTodayPage({
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-2">
-        <h2 className="font-heading text-lg font-extrabold text-foreground">Today's events</h2>
+        <h2 className="font-heading text-lg font-extrabold text-foreground">Today&apos;s events</h2>
         {happeningNow.today_events.length === 0 ? (
           <p className="text-sm text-muted">No events happening today.</p>
         ) : (

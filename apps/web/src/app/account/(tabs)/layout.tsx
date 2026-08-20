@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type {
   AppUser,
   CheckinHistoryItem,
@@ -130,12 +131,12 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                 You haven&apos;t joined a neighborhood yet -- join one to check in at nearby spots, earn points,
                 and connect with the neighbors around you.
               </p>
-              <a
+              <Link
                 href="/neighborhoods"
                 className="mt-1 rounded-full bg-brand-orange px-4 py-2 text-sm font-extrabold text-on-accent"
               >
                 Browse neighborhoods
-              </a>
+              </Link>
             </section>
           )}
 

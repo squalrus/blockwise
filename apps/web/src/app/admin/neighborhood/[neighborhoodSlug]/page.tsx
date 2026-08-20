@@ -191,7 +191,7 @@ export default function NeighborhoodAdminOverviewPage() {
               <a href={`/admin/neighborhood/${slug}/events`} className="font-bold text-brand-amber hover:underline">
                 events
               </a>{" "}
-              tab for what's coming up.
+              tab for what&apos;s coming up.
             </p>
           </section>
         </div>

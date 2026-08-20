@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
@@ -153,9 +154,9 @@ export default function AccountSettingsPage() {
             {state.neighborhoods.length === 0 ? (
               <p className="text-sm text-muted">
                 No neighborhoods joined yet -- browse and join one on the{" "}
-                <a href="/neighborhoods" className="font-bold text-brand-purple hover:text-brand-orange">
+                <Link href="/neighborhoods" className="font-bold text-brand-purple hover:text-brand-orange">
                   Neighborhoods page
-                </a>
+                </Link>
                 .
               </p>
             ) : (

@@ -1,9 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { awardCheckinRewards, awardNeighborConnectionRewards } from "./rewards";
 import { CHECKIN_POINTS, NEIGHBOR_CONNECTION_POINTS } from "./points";
 import { FakeGamificationRepository, makeBadge, makeBadgeRule, makeChallenge } from "./testSupport";
 
+// Frozen so the source's own `new Date()` calls (challenges.ts's "now" for
+// endsAt comparisons, reached via awardCheckinRewards) line up with this
+// file's fixtures instead of drifting out of range as real time passes NOW/
+// the default makeChallenge endsAt.
 const NOW = "2026-07-15T12:00:00.000Z";
+
+beforeEach(() => {
+  vi.useFakeTimers({ now: new Date(NOW) });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("awardCheckinRewards", () => {
   it("returns zeroed rewards for a check-in against an unknown location", async () => {

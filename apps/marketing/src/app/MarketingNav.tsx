@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MushroomLogo } from "@blockwise/ui";
 import { APP_URL } from "@/lib/appUrl";
 
@@ -10,7 +11,7 @@ export function MarketingNav() {
   return (
     <div className="sticky top-0 z-50 backdrop-blur-sm" style={{ background: "rgba(43,27,18,0.96)" }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-        <a href="/" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           <MushroomLogo size={28} capColor={ORANGE} stemClassName="text-[#FBF2E4]" />
           <span className="font-heading text-xl font-extrabold" style={{ color: CREAM }}>
             Spored
@@ -23,20 +24,20 @@ export function MarketingNav() {
           >
             BETA
           </span>
-        </a>
+        </Link>
         <div className="hidden items-center gap-7 md:flex">
-          <a href="/#how" className="text-sm font-bold" style={{ color: "#E4D3B8" }}>
+          <Link href="/#how" className="text-sm font-bold" style={{ color: "#E4D3B8" }}>
             How it works
-          </a>
-          <a href="/#neighborhoods" className="text-sm font-bold" style={{ color: "#E4D3B8" }}>
+          </Link>
+          <Link href="/#neighborhoods" className="text-sm font-bold" style={{ color: "#E4D3B8" }}>
             Neighborhoods
-          </a>
-          <a href="/#business" className="text-sm font-bold" style={{ color: "#E4D3B8" }}>
+          </Link>
+          <Link href="/#business" className="text-sm font-bold" style={{ color: "#E4D3B8" }}>
             For businesses
-          </a>
-          <a href="/brand" className="text-sm font-bold" style={{ color: "#E4D3B8" }}>
+          </Link>
+          <Link href="/brand" className="text-sm font-bold" style={{ color: "#E4D3B8" }}>
             Brand
-          </a>
+          </Link>
         </div>
         <div className="flex items-center gap-2.5">
           <a href={`${APP_URL}/login`} className="hidden text-sm font-bold md:inline" style={{ color: "#E4D3B8" }}>
