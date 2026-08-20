@@ -58,7 +58,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 2 | [Venue wishlist](#venue-wishlist) | feature | S | M | — |
 | 52 | [Turn off founder badge auto-award at v1.0.0](#turn-off-founder-badge-auto-award-at-v100) | improvement | S | M | — |
 | 72 | [Additional low-complexity auth providers](#additional-low-complexity-auth-providers) | feature | S | M | — |
-| 99 | [Proactive push notification opt-in prompt](#proactive-push-notification-opt-in-prompt) | feature | S | M | — |
 | 17 | [Apple social sign-in (Sign in with Apple)](#apple-social-sign-in-sign-in-with-apple) | feature | M | M | — |
 | 100 | [Event detail pages with check-in](#event-detail-pages-with-check-in) | feature | M | M | — |
 | 101 | [Shareable badges with OG image previews](#shareable-badges-with-og-image-previews) | feature | M | M | — |
@@ -273,14 +272,6 @@ No open limitations.
 **Depends:** —
 **Why** — `GET /neighborhoods/:slug/leaderboard` (`apps/api/src/gamification/supabaseRepository.ts`) computes each user's total by fetching every `point_event` row for the neighborhood and summing in JS, rather than a DB-side aggregation. Fine at pilot scale (one small neighborhood), but this will slow down and burn memory as a neighborhood's check-in/favorite history grows.
 **Notes:** Replace the client-side sum with a DB-side `GROUP BY`/`SUM` (a Postgres view, materialized view, or RPC function) so aggregation scales with the database rather than with rows pulled over the wire. Revisit once a neighborhood's `point_event` row count becomes large enough to notice — not urgent today.
-
-#### Proactive push notification opt-in prompt
-
-**Ref:** 99
-**Type:** feature
-**Depends:** —
-**Why** — Web push (Ref 89, shipped) is only discoverable today via a manual toggle buried on `/account/settings` (`NotificationToggle.tsx`) — nothing surfaces the option proactively. `InstallPrompt.tsx` already shows a dismissible top banner nudging users to install the PWA; a parallel banner nudging eligible users to enable push notifications would drive opt-in the same way, instead of relying on someone finding the settings toggle on their own.
-**Notes:** Mirror `InstallPrompt.tsx`'s shape: a dismissible banner (own `localStorage` dismissed-key, same pattern as `blockwise_install_dismissed`) shown to users who are eligible but not yet subscribed and haven't dismissed it, reusing `NotificationToggle.tsx`'s existing eligibility checks (`serviceWorker`/`PushManager` support, iOS standalone requirement, `Notification.permission` state) and its `subscribe()` flow rather than duplicating the VAPID subscribe logic. Open questions: trigger timing (immediately, like the install prompt, or after some engagement signal like a first check-in) and whether it should defer to the install prompt on iOS (where push requires standalone mode first) rather than showing both banners at once.
 
 #### Event detail pages with check-in
 

@@ -45,8 +45,10 @@ export function NearestVenues({
   neighborhoods: NeighborhoodMembership[];
 }) {
   const [state, setState] = useState<State>({ status: "loading" });
-  // Which non-top row (if any) is expanded to reveal its own slide-to-check-in
-  // control -- the top spot always shows its control, so this never tracks it.
+  // Which row (if any) is expanded to reveal its own slide-to-check-in
+  // control -- single-select accordion across every row, including the
+  // first, which defaults to expanded once venues load (see load() below)
+  // but collapses like any other row once a different one is picked.
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,7 +92,11 @@ export function NearestVenues({
         } catch {
           // Location denied/unavailable -- keep the API's alphabetical order.
         }
-        if (!cancelled) setState({ status: "ready", venues: ordered.slice(0, NEAREST_LIMIT) });
+        const ready = ordered.slice(0, NEAREST_LIMIT);
+        if (!cancelled) {
+          setState({ status: "ready", venues: ready });
+          setExpandedId(ready[0]?.id ?? null);
+        }
       } catch {
         if (!cancelled) setState({ status: "error" });
       }
@@ -137,19 +143,15 @@ export function NearestVenues({
         <p className="text-sm text-muted">No venues yet in this neighborhood.</p>
       ) : (
         <ul className="flex flex-col gap-2.5">
-          {state.venues.map((venue, index) => (
+          {state.venues.map((venue) => (
             <li key={venue.id}>
               <PlaceListItem
                 href={`/location/${venue.id}`}
                 id={venue.id}
                 name={venue.name}
                 subtitle={`${venue.category_name ?? "Uncategorized"} · ${venue.address}`}
-                action={
-                  index === 0 || expandedId === venue.id ? <SlideToCheckIn locationId={venue.id} /> : undefined
-                }
-                onSelect={
-                  index === 0 ? undefined : () => setExpandedId((cur) => (cur === venue.id ? null : venue.id))
-                }
+                action={expandedId === venue.id ? <SlideToCheckIn locationId={venue.id} /> : undefined}
+                onSelect={() => setExpandedId((cur) => (cur === venue.id ? null : venue.id))}
               />
             </li>
           ))}

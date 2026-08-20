@@ -141,6 +141,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
           <ProfileSummaryCard
             user={state.user}
+            linkToAccountTabs
             collectionCount={state.collection.length}
             checkinCount={state.checkins.length}
             pointsSummary={state.pointsSummary}

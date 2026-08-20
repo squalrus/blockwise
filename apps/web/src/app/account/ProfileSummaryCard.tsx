@@ -1,17 +1,19 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import type { AppUser, MushroomConfig, UserPointsSummary } from "@blockwise/types";
 import { Avatar } from "../Avatar";
 import { MushroomField } from "../MushroomField";
 import { ProgressBar } from "../ProgressBar";
 
 // BACKLOG.md Ref 47: profile summary card at the top of the account page --
-// avatar, level/points progress, and activity counts. Every stat is a
-// plain, non-interactive tile -- the account page's Favorites/Check-ins/
-// Badges/Collection/Challenges/Neighbors sections are switched by the
-// separate TabNav below this card, not by these tiles (the Collection tile
-// itself, BACKLOG.md Ref 98, replaced the original Favorites tile here so
-// favoriting stays visible only via its own tab, not double-counted on this
-// card). Level is computed server-side
+// avatar, level/points progress, and activity counts. Collection/Check-ins/
+// Badges/Challenges/Neighbors each link to their matching /account/* tab
+// when linkToAccountTabs is set (the account page's own layout.tsx passes
+// it; the public profile page doesn't, since its tiles show *someone else's*
+// counts -- a tile there linking to your own /account/collection would be
+// showing their number but navigating to your data). Points has no matching
+// tab (level/points already live in this same card's header/progress bar
+// above), so it never links. Level is computed server-side
 // (GET /me/points, apps/api's gamification/points.ts computeLevel) rather
 // than here, so it agrees with the badge rule engine's "level_reached"
 // badges, which need the same number. `action` is an optional upper-right
@@ -21,6 +23,27 @@ import { ProgressBar } from "../ProgressBar";
 // a "View public" link to the same public-visibility/username gate the
 // ProfileForm settings link already uses (unset entirely otherwise, same as
 // a private or username-less account viewing its own card).
+// href unset (Points, or any tile when linkToAccountTabs is false) renders
+// a plain div; otherwise a Link to that stat's own /account/* tab.
+function StatTile({ value, label, accent, href }: { value: number; label: string; accent: string; href?: string }) {
+  const content = (
+    <>
+      <p className={`font-heading text-lg font-extrabold ${accent}`}>{value}</p>
+      <p className="text-[10.5px] font-bold text-muted">{label}</p>
+    </>
+  );
+
+  if (!href) {
+    return <div className="rounded-xl bg-card px-1.5 py-2.5">{content}</div>;
+  }
+
+  return (
+    <Link href={href} className="rounded-xl bg-card px-1.5 py-2.5 transition-opacity hover:opacity-80 active:opacity-70">
+      {content}
+    </Link>
+  );
+}
+
 export function ProfileSummaryCard({
   user,
   collectionCount,
@@ -31,6 +54,7 @@ export function ProfileSummaryCard({
   neighborCount,
   neighborMushrooms = [],
   action,
+  linkToAccountTabs = false,
 }: {
   user: AppUser;
   collectionCount: number;
@@ -47,6 +71,7 @@ export function ProfileSummaryCard({
   // account/profile has none yet.
   neighborMushrooms?: MushroomConfig[];
   action?: ReactNode;
+  linkToAccountTabs?: boolean;
 }) {
   const label = user.display_name ?? user.username ?? user.email ?? "You";
   const { points, level, points_into_level: pointsIntoLevel, points_to_next_level: pointsToNext } = pointsSummary;
@@ -85,30 +110,12 @@ export function ProfileSummaryCard({
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-xl bg-card px-1.5 py-2.5">
-          <p className="font-heading text-lg font-extrabold text-brand-orange">{collectionCount}</p>
-          <p className="text-[10.5px] font-bold text-muted">Collection</p>
-        </div>
-        <div className="rounded-xl bg-card px-1.5 py-2.5">
-          <p className="font-heading text-lg font-extrabold text-brand-green">{checkinCount}</p>
-          <p className="text-[10.5px] font-bold text-muted">Check-ins</p>
-        </div>
-        <div className="rounded-xl bg-card px-1.5 py-2.5">
-          <p className="font-heading text-lg font-extrabold text-brand-purple">{points}</p>
-          <p className="text-[10.5px] font-bold text-muted">Points</p>
-        </div>
-        <div className="rounded-xl bg-card px-1.5 py-2.5">
-          <p className="font-heading text-lg font-extrabold text-brand-amber">{badgeCount}</p>
-          <p className="text-[10.5px] font-bold text-muted">Badges</p>
-        </div>
-        <div className="rounded-xl bg-card px-1.5 py-2.5">
-          <p className="font-heading text-lg font-extrabold text-brand-orange">{challengeCount}</p>
-          <p className="text-[10.5px] font-bold text-muted">Challenges</p>
-        </div>
-        <div className="rounded-xl bg-card px-1.5 py-2.5">
-          <p className="font-heading text-lg font-extrabold text-brand-purple">{neighborCount}</p>
-          <p className="text-[10.5px] font-bold text-muted">Neighbors</p>
-        </div>
+        <StatTile value={collectionCount} label="Collection" accent="text-brand-orange" href={linkToAccountTabs ? "/account/collection" : undefined} />
+        <StatTile value={checkinCount} label="Check-ins" accent="text-brand-green" href={linkToAccountTabs ? "/account/activity" : undefined} />
+        <StatTile value={points} label="Points" accent="text-brand-purple" />
+        <StatTile value={badgeCount} label="Badges" accent="text-brand-amber" href={linkToAccountTabs ? "/account/badges" : undefined} />
+        <StatTile value={challengeCount} label="Challenges" accent="text-brand-orange" href={linkToAccountTabs ? "/account/challenges" : undefined} />
+        <StatTile value={neighborCount} label="Neighbors" accent="text-brand-purple" href={linkToAccountTabs ? "/account/neighbors" : undefined} />
       </div>
 
       {/* Merged field (BACKLOG.md "how strong their presence is within the

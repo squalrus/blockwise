@@ -11,6 +11,7 @@ import type {
   NeighborhoodDashboardSummary,
   NeighborhoodProfile,
   NeighborhoodSummary,
+  OnboardingChecklist,
   ProfileVisibility,
   SocialLinks,
   SocialPlatform,
@@ -1369,6 +1370,38 @@ export function createApp() {
       }
     }
   );
+
+  // "First run" checklist (join a neighborhood, set a username, customize
+  // your mushroom, check in somewhere, make a friend) -- every field is
+  // derived from data that already exists for its own reason rather than a
+  // dedicated onboarding-progress table, mirroring how GET /me/points etc.
+  // above are thin reads over existing repositories. getLastCheckinAnywhere
+  // and countAcceptedConnectionsForUser are already used for the cooldown
+  // check and the account page's Neighbors count respectively; membership
+  // reuses the same "any row at all" check joinNeighborhood itself makes
+  // (neighborhoodMembers.ts's hadAnyMembership) rather than the heavier
+  // neighborhood-joined listMembershipsForUser wrapper.
+  app.get("/me/onboarding", requireAuthUser(getSupabaseClient, getAuthRepository), async (req, res) => {
+    try {
+      const userId = req.appUser!.id;
+      const [memberships, lastCheckin, connectionCount] = await Promise.all([
+        getNeighborhoodMemberRepository().listMembershipsForUser(userId),
+        getCheckinRepository().getLastCheckinAnywhere(userId),
+        getConnectionRepository().countAcceptedConnectionsForUser(userId),
+      ]);
+      const checklist: OnboardingChecklist = {
+        has_neighborhood: memberships.length > 0,
+        has_username: req.appUser!.username !== null,
+        has_customized_mushroom: req.appUser!.mushroomCustomization !== null,
+        has_checkin: lastCheckin !== null,
+        has_connection: connectionCount > 0,
+      };
+      res.json(checklist);
+    } catch (err) {
+      console.error("GET /me/onboarding failed:", err);
+      res.status(500).json({ error: "Failed to load onboarding checklist" });
+    }
+  });
 
   // BACKLOG.md Ref 61: every badge that exists (earned or not), so the
   // account page can render "locked" badges alongside GET /me/badges'

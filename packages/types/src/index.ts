@@ -1284,6 +1284,21 @@ export interface UserChallengesSummary {
   completed_count: number;
 }
 
+// GET /me/onboarding -- the "first run" checklist's five steps (join a
+// neighborhood, set a username, customize your mushroom, check in
+// somewhere, make a friend), each derived from data that already exists for
+// its own reason (neighborhood_member rows, app_user.username/
+// mushroom_customization, a checkin row, an accepted connection) rather than
+// a dedicated onboarding-progress table -- so this is read-only, and there's
+// nothing to explicitly mark "done" beyond doing the thing itself.
+export interface OnboardingChecklist {
+  has_neighborhood: boolean;
+  has_username: boolean;
+  has_customized_mushroom: boolean;
+  has_checkin: boolean;
+  has_connection: boolean;
+}
+
 // GET /me/challenges -- every challenge this user has completed, across
 // every neighborhood, for the account page's Challenges tab, mirroring
 // UserBadge's shape (a fixed template plus the award/completion timestamp).
