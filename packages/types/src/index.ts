@@ -265,6 +265,10 @@ export interface MushroomCollectionEntry {
   source_type: "checkin" | "connection";
   source_id: string;
   source_name: string;
+  // Only set when source_type is "connection" -- lets the collection detail
+  // view link to /profile/[username] (the venue case links via source_id
+  // itself, /location/[source_id], so it needs no separate field).
+  source_username: string | null;
   species_name: string;
   mushroom: MushroomConfig;
   quantity: number;

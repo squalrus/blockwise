@@ -29,6 +29,7 @@ function toListItem(row: ListRow): MushroomCollectionListItem {
       sourceType === "checkin"
         ? (row.venue?.name ?? "Unknown venue")
         : (row.connection_user?.display_name ?? row.connection_user?.username ?? "A neighbor"),
+    sourceUsername: sourceType === "connection" ? (row.connection_user?.username ?? null) : null,
     quantity: row.quantity,
     firstCollectedAt: row.first_collected_at,
     revealedAt: row.revealed_at,

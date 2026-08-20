@@ -6,6 +6,7 @@ import { MushroomLoader, MushroomMark, hashSeed, mulberry32 } from "@blockwise/u
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useAccountRefresh } from "../../AccountContext";
+import { CollectionDetailModal } from "./CollectionDetailModal";
 
 type State =
   | { status: "loading" }
@@ -174,6 +175,7 @@ function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry;
 
 export default function CollectionPage() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [detailIndex, setDetailIndex] = useState<number | null>(null);
   const refreshAccount = useAccountRefresh();
 
   useEffect(() => {
@@ -214,6 +216,10 @@ export default function CollectionPage() {
   // lone unrevealed tile just leads straight into the revealed grid on the
   // same row.
   const orderedEntries = [...state.entries].sort((a, b) => Number(a.revealed) - Number(b.revealed));
+  // Only revealed entries are navigable in the detail modal -- an unrevealed
+  // tile has no species/date/source to show yet, so it's excluded from both
+  // the clickable set and the N/total count.
+  const revealedEntries = orderedEntries.filter((entry) => entry.revealed);
 
   return (
     <section className="flex flex-col gap-2">
@@ -221,12 +227,27 @@ export default function CollectionPage() {
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
         {orderedEntries.map((entry) =>
           entry.revealed ? (
-            <RevealedContent key={entry.id} entry={entry} />
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => setDetailIndex(revealedEntries.findIndex((e) => e.id === entry.id))}
+              className="w-full text-left"
+            >
+              <RevealedContent entry={entry} />
+            </button>
           ) : (
             <CollectionTile key={entry.id} entry={entry} onRevealed={handleRevealed} />
           )
         )}
       </div>
+      {detailIndex !== null && (
+        <CollectionDetailModal
+          entries={revealedEntries}
+          index={detailIndex}
+          onClose={() => setDetailIndex(null)}
+          onNavigate={setDetailIndex}
+        />
+      )}
     </section>
   );
 }

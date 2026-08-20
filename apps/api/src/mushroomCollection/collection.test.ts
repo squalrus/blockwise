@@ -27,6 +27,7 @@ class FakeMushroomCollectionRepository implements MushroomCollectionRepository {
       sourceType,
       sourceId,
       sourceName,
+      sourceUsername: sourceType === "connection" ? `user-${sourceId}` : null,
       quantity: 1,
       firstCollectedAt: new Date().toISOString(),
       revealedAt: null,

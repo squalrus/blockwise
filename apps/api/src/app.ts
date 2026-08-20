@@ -987,7 +987,7 @@ export function createApp() {
             if (venue) {
               await notifyConnectionsOfCheckin(
                 result.checkin.user_id,
-                { displayName: req.appUser!.displayName, venueName: venue.name },
+                { displayName: req.appUser!.displayName, venueName: venue.name, venueId: venue.id },
                 getConnectionRepository(),
                 getPushSubscriptionRepository(),
                 getWebPushSender()
@@ -1724,13 +1724,20 @@ export function createApp() {
       const submissionType = result.submission.type;
       try {
         if (submissionType === "missing_venue") {
-          await notifyNeighborhoodAdminsOfMissingVenue(
-            { displayName: req.appUser!.displayName, venueName: result.submission.venue_name ?? "a venue" },
+          const reportedNeighborhood = await getNeighborhoodById(
             result.submission.neighborhood_id!,
-            getNeighborhoodAdminRepository(),
-            getPushSubscriptionRepository(),
-            getWebPushSender()
+            getNeighborhoodRepository()
           );
+          if (reportedNeighborhood) {
+            await notifyNeighborhoodAdminsOfMissingVenue(
+              { displayName: req.appUser!.displayName, venueName: result.submission.venue_name ?? "a venue" },
+              result.submission.neighborhood_id!,
+              reportedNeighborhood.slug,
+              getNeighborhoodAdminRepository(),
+              getPushSubscriptionRepository(),
+              getWebPushSender()
+            );
+          }
         } else {
           await notifySuperAdminsOfFeedback(
             { displayName: req.appUser!.displayName, type: submissionType },
@@ -1910,7 +1917,7 @@ export function createApp() {
   // notifications) into sendPushToUsers is a separate future change; this
   // route exists so that function has a first caller today.
   app.post("/admin/push-subscriptions/test-send", superAdminGate, async (req, res) => {
-    const { title, body, userId } = req.body ?? {};
+    const { title, body, userId, url } = req.body ?? {};
     if (typeof title !== "string" || !title.trim() || typeof body !== "string" || !body.trim()) {
       res.status(400).json({ error: "title and body are required" });
       return;
@@ -1919,11 +1926,15 @@ export function createApp() {
       res.status(400).json({ error: "userId must be a string" });
       return;
     }
+    if (url !== undefined && typeof url !== "string") {
+      res.status(400).json({ error: "url must be a string" });
+      return;
+    }
 
     try {
       const summary = await sendPushToUsers(
         [userId ?? req.appUser!.id],
-        { title, body },
+        { title, body, url },
         getPushSubscriptionRepository(),
         getWebPushSender()
       );
