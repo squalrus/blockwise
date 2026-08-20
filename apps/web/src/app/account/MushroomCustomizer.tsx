@@ -18,6 +18,7 @@ import {
   MUSHROOM_STALK_WHEAT,
   MushroomMark,
   maxSpotCountForShape,
+  spotShapeElement,
 } from "@blockwise/ui";
 import type { MushroomConfig, MushroomShape, SpotShape } from "@blockwise/ui";
 
@@ -246,19 +247,11 @@ export function MushroomCustomizer({
               title={`${spotCount} spot${spotCount === 1 ? "" : "s"}`}
               aria-label={`${spotCount} spot${spotCount === 1 ? "" : "s"}`}
               onClick={() => onChange({ ...value, spotCount })}
-              className={`flex h-12 w-12 items-center justify-center rounded-full border-2 bg-card ${
-                spotCount === displaySpotCount ? "border-brand-purple" : "border-transparent"
+              className={`flex h-12 w-12 items-center justify-center rounded-full border-2 bg-card font-heading text-lg font-extrabold ${
+                spotCount === displaySpotCount ? "border-brand-purple text-brand-purple" : "border-transparent text-foreground"
               }`}
             >
-              <MushroomMark
-                size={34}
-                shape={value.shape}
-                cap={value.cap}
-                stalk={value.stalk}
-                spots={value.spots}
-                spotCount={spotCount}
-                spotShape={value.spotShape}
-              />
+              {spotCount}
             </button>
           ))}
         </CollapsibleSection>
@@ -280,15 +273,17 @@ export function MushroomCustomizer({
                 spotShape === value.spotShape ? "border-brand-purple" : "border-transparent"
               }`}
             >
-              <MushroomMark
-                size={34}
-                shape={value.shape}
-                cap={value.cap}
-                stalk={value.stalk}
-                spots={value.spots}
-                spotCount={Math.max(value.spotCount, 1)}
-                spotShape={spotShape}
-              />
+              {/* A simplified swatch rather than a full tiny MushroomMark --
+                  the cap-colored circle standing in for the mushroom, with
+                  one representative spot in the spot color, so the shape
+                  being picked stays legible at this size regardless of which
+                  mushroom shape/colors are otherwise selected (some
+                  shape/spot-color combinations render too small/faint to
+                  read as a full mushroom preview here). */}
+              <svg width={34} height={34} viewBox="0 0 100 100" aria-hidden="true">
+                <circle cx={50} cy={50} r={48} fill={value.cap} />
+                {spotShapeElement(spotShape, 50, 50, 22, value.spots)}
+              </svg>
             </button>
           ))}
         </CollapsibleSection>

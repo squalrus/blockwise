@@ -52,15 +52,20 @@ function RevealedContent({ entry }: { entry: MushroomCollectionEntry }) {
 // generated with (packages/types/src/mushroom.ts), seeded off the entry id
 // so every unrevealed tile's watermark shapes/stains are stable across
 // re-renders but distinct from its neighbors, like individually worn cards
-// rather than one stamped-out template.
+// rather than one stamped-out template. realShape is excluded from the pool
+// (and shapeB from ever repeating shapeA) so the "mystery" silhouettes can
+// never coincidentally give away -- or double up on -- the actual species.
 const WATERMARK_SHAPES: MushroomShape[] = ["chanterelle", "parasol", "morel", "puffball", "shiitake", "oyster"];
 
-function grungeLook(id: string) {
+function grungeLook(id: string, realShape: MushroomShape) {
   const rnd = mulberry32(hashSeed(id));
   const pick = <T,>(options: T[]) => options[Math.floor(rnd() * options.length)];
+  const pool = WATERMARK_SHAPES.filter((shape) => shape !== realShape);
+  const shapeA = pick(pool);
+  const shapeB = pick(pool.filter((shape) => shape !== shapeA));
   return {
-    shapeA: pick(WATERMARK_SHAPES),
-    shapeB: pick(WATERMARK_SHAPES),
+    shapeA,
+    shapeB,
     rotA: -30 + Math.round(rnd() * 16),
     rotB: 10 + Math.round(rnd() * 18),
     grainSeed: Math.floor(rnd() * 1000),
@@ -93,7 +98,7 @@ function grainTextureUrl(seed: number) {
 function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry; onRevealed: () => void }) {
   const [flipped, setFlipped] = useState(false);
   const [revealing, setRevealing] = useState(false);
-  const look = grungeLook(entry.id);
+  const look = grungeLook(entry.id, entry.mushroom.shape);
 
   async function reveal() {
     if (flipped || revealing) return;
@@ -120,7 +125,7 @@ function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry;
         onClick={reveal}
         disabled={revealing}
         aria-label={flipped ? entry.species_name : "Tap to reveal new species"}
-        className={`grid w-full [transform-style:preserve-3d] transition-transform duration-500 ${
+        className={`grid w-full [transform-style:preserve-3d] transition-transform duration-500 motion-reduce:transition-none ${
           flipped ? "[transform:rotateY(180deg)]" : ""
         }`}
       >

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { AppUser, NeighborhoodMembership } from "@blockwise/types";
+import type { AppUser, NeighborhoodMembership, OnboardingChecklist } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomLogo } from "@blockwise/ui";
@@ -11,7 +11,14 @@ import { ThemeToggle } from "./ThemeToggle";
 type State =
   | { status: "loading" }
   | { status: "signed_out" }
-  | { status: "signed_in"; user: AppUser; homeNeighborhood: NeighborhoodMembership | null };
+  | {
+      status: "signed_in";
+      user: AppUser;
+      homeNeighborhood: NeighborhoodMembership | null;
+      // null on fetch failure -- AccountMenu just omits the "Getting
+      // started" checklist entry rather than showing a broken link.
+      onboarding: OnboardingChecklist | null;
+    };
 
 function HamburgerIcon({ open }: { open: boolean }) {
   return (
@@ -56,19 +63,21 @@ export function AccountNav() {
       }
 
       const token = await getAccessToken();
-      const res = await fetch(clientApiUrl("/me/neighborhoods"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const headers = { Authorization: `Bearer ${token}` };
+      const [neighborhoodsRes, onboardingRes] = await Promise.all([
+        fetch(clientApiUrl("/me/neighborhoods"), { headers }),
+        fetch(clientApiUrl("/me/onboarding"), { headers }),
+      ]);
       if (cancelled) return;
-      const neighborhoods: NeighborhoodMembership[] = res.ok ? await res.json() : [];
+      const neighborhoods: NeighborhoodMembership[] = neighborhoodsRes.ok ? await neighborhoodsRes.json() : [];
       setState({
         status: "signed_in",
         user,
         homeNeighborhood: neighborhoods.find((n) => n.is_primary) ?? null,
+        onboarding: onboardingRes.ok ? await onboardingRes.json() : null,
       });
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;
@@ -127,6 +136,7 @@ export function AccountNav() {
           <AccountMenu
             user={state.user}
             homeNeighborhood={state.homeNeighborhood}
+            onboarding={state.onboarding}
             showAdminLink={state.user.account_type === "business" || state.user.is_neighborhood_admin}
             onLogOut={handleLogOut}
           />

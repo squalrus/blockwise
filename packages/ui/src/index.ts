@@ -2,7 +2,7 @@ export { GoogleIcon } from "./GoogleIcon";
 export { PoweredByGoogle } from "./PoweredByGoogle";
 export { MushroomLogo } from "./MushroomLogo";
 export { MushroomLoader } from "./MushroomLoader";
-export { MushroomMark, maxSpotCountForShape, mushroomOutline } from "./MushroomMark";
+export { MushroomMark, maxSpotCountForShape, mushroomOutline, spotShapeElement } from "./MushroomMark";
 export type { MushroomOutline } from "./MushroomMark";
 // Re-exported from @blockwise/types -- the pure PRNG/palette logic lives
 // there (isomorphic, no React) so apps/api can import the same source of

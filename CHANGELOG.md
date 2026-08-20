@@ -2,6 +2,23 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.67.0] — 2026-08-19
+
+### Added
+
+- **A "Getting started" checklist for new accounts**, tracking five first-run steps — join a neighborhood, add a username, customize your mushroom, check in somewhere, and make a friend — computed entirely from data that already exists (neighborhood membership, username, mushroom customization, check-in history, accepted connections) rather than a dedicated onboarding table. Stays out of the way: a small orange dot on the account menu's avatar is the only signal while incomplete, with a "Getting started X/5" entry appearing above "My account" in the dropdown; both disappear once every step is done. The checklist itself lives at `/account/getting-started`, reachable only from that menu entry. (`packages/types/src/index.ts`, `apps/api/src/app.ts`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/AccountMenu.tsx`, `apps/web/src/app/account/getting-started/page.tsx`, `docs/url-map.md`)
+- **A proactive banner nudging eligible users to turn on push notifications.** (BACKLOG.md Ref 99) Mirrors the existing PWA-install banner: shown to signed-in users whose browser supports push and who haven't already subscribed or dismissed it, with an inline "Enable" button that reuses the same subscribe flow and eligibility checks as the `/account/settings` toggle, so the two can never disagree about whether push is actually usable. Dismissing (or enabling) it doesn't nag again; the settings toggle remains available to opt in later regardless. (`apps/web/src/app/NotificationToggle.tsx`, `apps/web/src/app/PushOptInPrompt.tsx`, `apps/web/src/app/SiteChrome.tsx`)
+
+### Changed
+
+- **The Collection tab's unrevealed species cards no longer hint at the mushroom shape underneath.** The card back's silhouette watermarks are now drawn from a pool that excludes the actual species' shape (and never repeats the same silhouette twice on one card), closing a preview leak where an attentive player could sometimes guess the answer before tapping. The flip animation also now respects reduced-motion preferences instead of always playing its 3D rotation. (`apps/web/src/app/account/(tabs)/collection/page.tsx`)
+- **The profile summary card's stat tiles are now links** to their matching account tab (Collection, Check-ins, Badges, Challenges, Neighbors) when shown on your own account page — tapping "12 Badges" jumps straight to the Badges tab instead of requiring a separate tap on the tab nav below. Points has no matching tab, so it stays a plain tile; the public profile page's tiles also stay non-interactive, since they show someone else's counts. (`apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/account/(tabs)/layout.tsx`)
+- **The mushroom customizer's spot-count and spot-shape pickers are easier to read.** Spot count buttons now show the number directly instead of a tiny rendered mushroom (hard to make out on some shapes); spot-shape buttons now show a cap-colored circle with a single representative spot in the chosen color and shape, instead of a full miniature mushroom that could render too small or faint to tell shapes apart. (`apps/web/src/app/account/MushroomCustomizer.tsx`, `packages/ui/src/MushroomMark.tsx`, `packages/ui/src/index.ts`)
+
+### Fixed
+
+- **The check-in page's first nearby venue now collapses like any other row.** Previously the top spot's slide-to-check-in control was hardcoded to always stay open regardless of which row was selected; it now participates in the same single-select accordion as the rest of the list, defaulting to open on load but collapsing when another venue is expanded. (`apps/web/src/app/checkin/NearestVenues.tsx`)
+
 ## [0.66.0] — 2026-08-18
 
 ### Added

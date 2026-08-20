@@ -266,70 +266,75 @@ export function mushroomOutline(shape: MushroomShape): MushroomOutline {
   };
 }
 
+// One spot's shape at a given position/size/color -- factored out of
+// spotElements below so a single spot can be drawn standalone (the account
+// customizer's spot-shape swatches, which show one representative spot per
+// shape rather than a full spotCount-many layout on a tiny mushroom).
+export function spotShapeElement(spotShape: SpotShape, cx: number, cy: number, size: number, color: string) {
+  switch (spotShape) {
+    case "circle":
+      return <circle cx={cx} cy={cy} r={size} fill={color} />;
+    case "ring":
+      return <circle cx={cx} cy={cy} r={size} fill="none" stroke={color} strokeWidth={size * 0.55} />;
+    case "sparks": {
+      const side = size * 1.7;
+      return (
+        <rect
+          x={cx - side / 2}
+          y={cy - side / 2}
+          width={side}
+          height={side}
+          rx={side * 0.18}
+          transform={`rotate(45 ${cx} ${cy})`}
+          fill={color}
+        />
+      );
+    }
+    case "star": {
+      const outerR = size * 1.3;
+      const innerR = size * 0.5;
+      const angles = [0, 45, 90, 135, 180, 225, 270, 315];
+      const radii = angles.map((_, idx) => (idx % 2 === 0 ? outerR : innerR));
+      return <polygon points={polygonPoints(cx, cy, angles, radii)} fill={color} />;
+    }
+    case "triangle": {
+      const r = size * 1.25;
+      const angles = [0, 120, 240];
+      return <polygon points={polygonPoints(cx, cy, angles, [r, r, r])} fill={color} />;
+    }
+    case "cross": {
+      const armLength = size * 2.2;
+      const armWidth = size * 0.75;
+      return (
+        <g>
+          <rect
+            x={cx - armLength / 2}
+            y={cy - armWidth / 2}
+            width={armLength}
+            height={armWidth}
+            rx={armWidth * 0.3}
+            fill={color}
+          />
+          <rect
+            x={cx - armWidth / 2}
+            y={cy - armLength / 2}
+            width={armWidth}
+            height={armLength}
+            rx={armWidth * 0.3}
+            fill={color}
+          />
+        </g>
+      );
+    }
+  }
+}
+
 function spotElements(layout: { cx: number; cy: number; size: number }[], spotShape: SpotShape, color: string) {
   if (layout.length === 0) return null;
 
-  return layout.map(({ cx, cy, size }, i) => {
-    switch (spotShape) {
-      case "circle":
-        return <circle key={i} cx={cx} cy={cy} r={size} fill={color} />;
-      case "ring":
-        return (
-          <circle key={i} cx={cx} cy={cy} r={size} fill="none" stroke={color} strokeWidth={size * 0.55} />
-        );
-      case "sparks": {
-        const side = size * 1.7;
-        return (
-          <rect
-            key={i}
-            x={cx - side / 2}
-            y={cy - side / 2}
-            width={side}
-            height={side}
-            rx={side * 0.18}
-            transform={`rotate(45 ${cx} ${cy})`}
-            fill={color}
-          />
-        );
-      }
-      case "star": {
-        const outerR = size * 1.3;
-        const innerR = size * 0.5;
-        const angles = [0, 45, 90, 135, 180, 225, 270, 315];
-        const radii = angles.map((_, idx) => (idx % 2 === 0 ? outerR : innerR));
-        return <polygon key={i} points={polygonPoints(cx, cy, angles, radii)} fill={color} />;
-      }
-      case "triangle": {
-        const r = size * 1.25;
-        const angles = [0, 120, 240];
-        return <polygon key={i} points={polygonPoints(cx, cy, angles, [r, r, r])} fill={color} />;
-      }
-      case "cross": {
-        const armLength = size * 2.2;
-        const armWidth = size * 0.75;
-        return (
-          <g key={i}>
-            <rect
-              x={cx - armLength / 2}
-              y={cy - armWidth / 2}
-              width={armLength}
-              height={armWidth}
-              rx={armWidth * 0.3}
-              fill={color}
-            />
-            <rect
-              x={cx - armWidth / 2}
-              y={cy - armLength / 2}
-              width={armWidth}
-              height={armLength}
-              rx={armWidth * 0.3}
-              fill={color}
-            />
-          </g>
-        );
-      }
-    }
-  });
+  return layout.map(({ cx, cy, size }, i) => (
+    <g key={i}>{spotShapeElement(spotShape, cx, cy, size, color)}</g>
+  ));
 }
 
 export function MushroomMark({

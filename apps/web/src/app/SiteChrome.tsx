@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { AccountNav } from "./AccountNav";
 import { Footer } from "./Footer";
 import { InstallPrompt } from "./InstallPrompt";
+import { PushOptInPrompt } from "./PushOptInPrompt";
 
 // The neighborhood-admin, business-admin, and super-admin dashboards
 // (/admin/neighborhood/[slug]/*, /admin/business/[venueId]/*, /admin/super/*)
@@ -36,6 +37,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
   return (
     <>
       <InstallPrompt />
+      <PushOptInPrompt />
       <AccountNav />
       <div className="flex flex-1 flex-col">{children}</div>
       <Footer />
