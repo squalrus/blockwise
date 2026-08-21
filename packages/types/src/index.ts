@@ -824,6 +824,41 @@ export interface NeighborhoodDashboardSummary {
   ical_synced_at: string | null;
 }
 
+// Neighborhood-admin Analytics tab: check-ins over time, activity-by-type
+// breakdown, locations-by-category-group, and a top-venues leaderboard --
+// one combined shape since get_neighborhood_analytics returns all four
+// together in a single RPC call.
+export interface NeighborhoodAnalyticsDailyCheckins {
+  date: string; // 'YYYY-MM-DD'
+  count: number;
+}
+
+export interface NeighborhoodAnalyticsActivityByType {
+  event_type: "checkin" | "favorite" | "challenge_completion";
+  count: number;
+}
+
+export interface NeighborhoodAnalyticsLocationsByCategoryGroup {
+  category_group: string;
+  kind: "business" | "poi";
+  count: number;
+}
+
+export interface NeighborhoodAnalyticsTopVenue {
+  venue_id: string;
+  name: string;
+  checkin_count: number;
+}
+
+export interface NeighborhoodAnalytics {
+  neighborhood_id: string;
+  days: number;
+  checkins_over_time: NeighborhoodAnalyticsDailyCheckins[];
+  activity_by_type: NeighborhoodAnalyticsActivityByType[];
+  locations_by_category_group: NeighborhoodAnalyticsLocationsByCategoryGroup[];
+  top_venues: NeighborhoodAnalyticsTopVenue[];
+}
+
 // Admin portal boundary drawing (BACKLOG.md Ref 8, project plan §12.6).
 
 export interface NeighborhoodBoundary {

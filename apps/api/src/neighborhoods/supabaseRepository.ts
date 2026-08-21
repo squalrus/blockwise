@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { GeoJsonPolygon, SocialLinks } from "@blockwise/types";
+import type { GeoJsonPolygon, NeighborhoodAnalytics, SocialLinks } from "@blockwise/types";
 import type {
   CreatedNeighborhood,
   CreateNeighborhoodInput,
@@ -166,6 +166,16 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
       centerLng: row.center_lng,
       locationsReviewedAt: row.locations_reviewed_at,
     };
+  }
+
+  async getAnalytics(id: string, days: number): Promise<NeighborhoodAnalytics> {
+    const { data, error } = await this.supabase.rpc("get_neighborhood_analytics", {
+      p_neighborhood_id: id,
+      p_days: days,
+    });
+
+    if (error) throw new Error(`getAnalytics failed: ${error.message}`);
+    return data as NeighborhoodAnalytics;
   }
 
   async markLocationsReviewed(id: string, reviewedAt: string): Promise<void> {

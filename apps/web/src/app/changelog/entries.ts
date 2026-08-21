@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.69.0", date: "2026-08-21", summary: "Analytics tab for neighborhood admins -- check-ins over time, a locations-by-category breakdown, and a top-venues leaderboard" },
   { version: "0.68.1", date: "2026-08-20", summary: "Automated lint/typecheck/test checks on every code change (CI), fixed 14 flaky gamification tests and 10 React strict-mode bugs, cleaned up internal links and legal-page text escaping" },
   { version: "0.68.0", date: "2026-08-20", summary: "Collection detail modal with swipeable cards, deep-linked push notifications, Next.js 16.3.1" },
   { version: "0.67.0", date: "2026-08-19", summary: "A \"Getting started\" checklist for new accounts, a proactive push-notification opt-in banner, clickable profile stat tiles, a fixed check-in accordion, and clearer mushroom customizer pickers" },

@@ -2797,6 +2797,25 @@ export function createApp() {
     }
   );
 
+  // Analytics tab (charts/breakdowns of locations + activity within a
+  // neighborhood) -- ?days= clamped to [1, 90], defaulting to 30, backed by
+  // a single get_neighborhood_analytics RPC covering all four charts.
+  app.get(
+    "/neighborhood-admin/neighborhoods/:id/analytics",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      try {
+        const rawDays = Number(req.query.days);
+        const days = Number.isFinite(rawDays) ? Math.min(Math.max(Math.trunc(rawDays), 1), 90) : 30;
+        const analytics = await getNeighborhoodRepository().getAnalytics(req.params.id, days);
+        res.json(analytics);
+      } catch (err) {
+        console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/analytics failed:`, err);
+        res.status(500).json({ error: "Failed to load neighborhood analytics" });
+      }
+    }
+  );
+
   app.patch("/neighborhood-admin/neighborhoods/:id", neighborhoodAdminGate, async (req, res) => {
     const { description } = req.body ?? {};
     if (typeof description !== "string") {
