@@ -71,9 +71,13 @@ export function BoundaryMap({
   const clickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const drawingPointsRef = useRef<google.maps.LatLngLiteral[]>([]);
   const previewMarkersRef = useRef<google.maps.Marker[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "no-key" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [drawing, setDrawing] = useState(!initialPolygon);
   const [drawingPointCount, setDrawingPointCount] = useState(0);
+  // Inlined at build time by Next.js, so this is available synchronously --
+  // gating on it directly here (rather than via effect + setStatus) avoids
+  // a render pass and reads no ref/impure value during render.
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   // Component-scope (not effect-local) so handleClear can re-enter drawing
   // mode without duplicating this setup -- reads the map/Polygon class off
@@ -114,12 +118,7 @@ export function BoundaryMap({
   }
 
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      setStatus("no-key");
-      return;
-    }
-    if (!mapDivRef.current) return;
+    if (!apiKey || !mapDivRef.current) return;
 
     let cancelled = false;
     ensureMapsOptionsSet(apiKey);
@@ -200,7 +199,7 @@ export function BoundaryMap({
     startDrawing();
   }
 
-  if (status === "no-key") {
+  if (!apiKey) {
     return (
       <p className="rounded-xl border border-border bg-card-alt px-4 py-3 text-sm text-muted">
         Boundary drawing requires <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to be configured (see{" "}

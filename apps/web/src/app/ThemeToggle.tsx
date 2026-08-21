@@ -16,6 +16,7 @@ export function ThemeToggle() {
   // the server-rendered "system" markup and only picks up the real stored
   // preference after hydration.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberately deferred a render pass past hydration, see comment above
     setPreference(getStoredThemePreference());
   }, []);
 

@@ -19,6 +19,7 @@ type State =
 export default function BusinessCouponsPage() {
   const { venueId, name } = useBusinessAdmin();
   const [state, setState] = useState<State>({ status: "loading" });
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +86,7 @@ export default function BusinessCouponsPage() {
           ) : (
             <ul className="flex flex-col gap-2.5">
               {state.summary.coupons.map((c) => {
-                const ended = Date.now() > new Date(c.end_at).getTime();
+                const ended = now > new Date(c.end_at).getTime();
                 const claimed = c.quantity - c.quantity_remaining;
                 return (
                   <li

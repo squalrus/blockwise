@@ -24,6 +24,7 @@ export default function NeighborhoodEventsPage() {
   const { neighborhoodId, name } = useNeighborhoodAdmin();
   const [state, setState] = useState<State>({ status: "loading" });
   const [showPast, setShowPast] = useState(false);
+  const [now] = useState(() => Date.now());
 
   async function load() {
     const token = await getAccessToken();
@@ -128,7 +129,7 @@ export default function NeighborhoodEventsPage() {
   // tab, since the admin still wants them reachable for unhide/audit.
   const visibleEvents = showPast
     ? state.summary.events
-    : state.summary.events.filter((e) => new Date(e.end_time).getTime() >= Date.now());
+    : state.summary.events.filter((e) => new Date(e.end_time).getTime() >= now);
 
   return (
     <div className="flex flex-col gap-5.5">

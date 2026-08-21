@@ -70,9 +70,15 @@ export function SlideTrack({
     };
   }, []);
 
-  useEffect(() => {
+  // Resets the thumb when the caller flips snapBack, without a setState-in-
+  // effect round trip: compare against the previous prop value during
+  // render (React's documented pattern for "adjust state on a prop change")
+  // and bail out immediately if it already matches.
+  const [prevSnapBack, setPrevSnapBack] = useState(snapBack);
+  if (snapBack !== prevSnapBack) {
+    setPrevSnapBack(snapBack);
     if (snapBack) setDragX(0);
-  }, [snapBack]);
+  }
 
   function maxDragX(): number {
     const track = trackRef.current;
@@ -131,8 +137,6 @@ export function SlideTrack({
       )
     : null;
 
-  const thumbX = parkedAtEnd ? maxDragX() : dragX;
-
   return (
     <div
       ref={trackRef}
@@ -147,13 +151,27 @@ export function SlideTrack({
         className={`absolute top-1/2 flex items-center justify-center rounded-full ${
           dragging ? "" : "transition-transform duration-300 ease-out"
         }`}
-        style={{
-          left: SLIDE_TRACK_INSET - (SLIDE_THUMB_HIT_SIZE - SLIDE_THUMB_SIZE) / 2,
-          width: SLIDE_THUMB_HIT_SIZE,
-          height: SLIDE_THUMB_HIT_SIZE,
-          transform: `translate(${thumbX}px, -50%)`,
-          cursor: locked ? "default" : "grab",
-        }}
+        style={
+          // Parked-at-end is anchored via CSS `right` instead of a pixel
+          // offset read from trackRef.current -- reading a ref's value
+          // during render isn't safe (react-hooks/refs), and this way stays
+          // correct across track widths with no resize listener needed.
+          parkedAtEnd
+            ? {
+                right: SLIDE_TRACK_INSET - (SLIDE_THUMB_HIT_SIZE - SLIDE_THUMB_SIZE) / 2,
+                width: SLIDE_THUMB_HIT_SIZE,
+                height: SLIDE_THUMB_HIT_SIZE,
+                transform: "translateY(-50%)",
+                cursor: locked ? "default" : "grab",
+              }
+            : {
+                left: SLIDE_TRACK_INSET - (SLIDE_THUMB_HIT_SIZE - SLIDE_THUMB_SIZE) / 2,
+                width: SLIDE_THUMB_HIT_SIZE,
+                height: SLIDE_THUMB_HIT_SIZE,
+                transform: `translate(${dragX}px, -50%)`,
+                cursor: locked ? "default" : "grab",
+              }
+        }
       >
         <div
           className={`pointer-events-none flex items-center justify-center rounded-full shadow-none dark:shadow-[0_0_12px_rgba(255,107,61,0.6)] ${
