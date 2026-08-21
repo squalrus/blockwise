@@ -23,6 +23,7 @@ export default function BusinessEventsPage() {
   const { venueId, name } = useBusinessAdmin();
   const [state, setState] = useState<State>({ status: "loading" });
   const [showPast, setShowPast] = useState(false);
+  const [now] = useState(() => Date.now());
 
   async function load() {
     const token = await getAccessToken();
@@ -50,7 +51,6 @@ export default function BusinessEventsPage() {
       }
       setState({ status: "ready", summary: await res.json() });
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     run();
     return () => {
       cancelled = true;
@@ -123,7 +123,7 @@ export default function BusinessEventsPage() {
   // reachable for unhide/audit.
   const visibleEvents = showPast
     ? state.summary.events
-    : state.summary.events.filter((e) => new Date(e.end_time).getTime() >= Date.now());
+    : state.summary.events.filter((e) => new Date(e.end_time).getTime() >= now);
 
   return (
     <div className="flex flex-col gap-5.5">

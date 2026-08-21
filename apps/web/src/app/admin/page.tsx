@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { AppUser, ClaimedVenueSummary, NeighborhoodAdminSummary } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser, promoteToBusiness } from "@/lib/auth";
@@ -60,7 +61,6 @@ export default function AdminLandingPage() {
       }
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;
@@ -104,9 +104,9 @@ export default function AdminLandingPage() {
           {state.user.is_super_admin ? (
             <p className="text-sm text-muted">
               You aren&apos;t an admin of any neighborhood yet.{" "}
-              <a href="/admin/neighborhood/new" className="font-bold text-brand-purple hover:text-brand-orange">
+              <Link href="/admin/neighborhood/new" className="font-bold text-brand-purple hover:text-brand-orange">
                 Create one
-              </a>
+              </Link>
               .
             </p>
           ) : (

@@ -15,7 +15,7 @@ Blockwise is moving from a build plan ([docs/project-plan.md](./docs/project-pla
 2. Make the change. Update `docs/project-plan.md`, `BACKLOG.md`, or other docs if reality has changed — in particular, **update [docs/url-map.md](./docs/url-map.md) whenever a route is added, removed, renamed, or re-scoped** (web page or API endpoint). It's a living inventory, not a point-in-time snapshot; a stale map is worse than no map.
 3. Move the relevant backlog entry into `CHANGELOG.md` under a new version block (date, classification, user-facing summary), and remove it from `BACKLOG.md`.
 4. Bump `version` in `package.json` per [semver](https://semver.org/): feature → minor, bug/improvement/cleanup → patch, breaking change → major.
-5. Run the build/tests as the correctness gate: `npm run build` at the repo root (Turborepo builds all workspaces). No automated CI pipeline exists yet — see project plan §10.4 for the intended pipeline once the app surface justifies it.
+5. Run the build/tests as the correctness gate: `npm run build` at the repo root (Turborepo builds all workspaces). A GitHub Actions workflow (`.github/workflows/ci.yml`) also runs `npm run lint`, `npm run typecheck`, and `npm run test` on every pull request and push to `main` — Playwright E2E, Sentry, and feature flags remain unbuilt; see project plan §10.4 for that longer-term scope.
 6. Commit, push the branch, and open a PR with `gh pr create`. Requires the [GitHub CLI](https://cli.github.com), authenticated via `gh auth login`.
 
 ## Commit and PR conventions

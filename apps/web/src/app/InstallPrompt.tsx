@@ -39,8 +39,13 @@ export function InstallPrompt() {
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
+    // dismissed/showIosBanner start out hiding the banner so the first
+    // client render matches the server-rendered markup -- these only flip
+    // after mount, once localStorage/standalone-mode (both browser-only)
+    // have actually been checked.
     if (isStandalone()) return;
     if (localStorage.getItem(DISMISSED_KEY) === "1") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberately deferred past hydration, see comment above
     setDismissed(false);
 
     if (isIos()) {

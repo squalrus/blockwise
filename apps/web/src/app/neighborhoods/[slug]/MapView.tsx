@@ -57,16 +57,15 @@ function buildInfoWindowContent(venue: VenueListItem): HTMLElement {
 
 export function MapView({ venues }: { venues: VenueListItem[] }) {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "no-key" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const mode = useColorMode();
+  // Inlined at build time by Next.js, so this is available synchronously --
+  // gating on it directly here (rather than via effect + setStatus) avoids
+  // a render pass and reads no ref/impure value during render.
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      setStatus("no-key");
-      return;
-    }
-    if (!mapDivRef.current) return;
+    if (!apiKey || !mapDivRef.current) return;
 
     let clusterer: MarkerClusterer | undefined;
     let cancelled = false;
@@ -127,10 +126,9 @@ export function MapView({ venues }: { venues: VenueListItem[] }) {
       cancelled = true;
       clusterer?.clearMarkers();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-init only when the venue set or color mode actually changes
-  }, [venues, mode]);
+  }, [venues, mode, apiKey]);
 
-  if (status === "no-key") {
+  if (!apiKey) {
     return (
       <p className="rounded-xl border border-border bg-card-alt px-4 py-3 text-sm text-muted">
         Map view requires <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to be configured (see{" "}

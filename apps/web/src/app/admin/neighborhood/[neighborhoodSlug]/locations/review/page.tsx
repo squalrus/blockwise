@@ -175,7 +175,7 @@ export default function LocationReviewPage() {
       </a>
       <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Review Places</h2>
       <p className="text-sm text-muted">
-        Queries Google Places for the neighborhood's current boundary and lists anything not already a
+        Queries Google Places for the neighborhood&apos;s current boundary and lists anything not already a
         business or point of interest. This costs a real API call — run it deliberately, not on every visit.
       </p>
 
@@ -213,9 +213,9 @@ export default function LocationReviewPage() {
           ) : (
             <>
               <p className="text-sm text-muted">
-                No longer inside the neighborhood's boundary. Nothing is removed unless you check it below —
-                removing preserves check-in/points history and doesn't delete the row, but unlike hiding, it
-                won't reappear here even with hidden locations shown, and re-syncs the same place fresh if it's
+                No longer inside the neighborhood&apos;s boundary. Nothing is removed unless you check it below —
+                removing preserves check-in/points history and doesn&apos;t delete the row, but unlike hiding, it
+                won&apos;t reappear here even with hidden locations shown, and re-syncs the same place fresh if it&apos;s
                 ever back inside the boundary.
               </p>
               <ul className="flex flex-col gap-2">
@@ -244,7 +244,7 @@ export default function LocationReviewPage() {
             New entries ({state.report.new_candidates.length})
           </h3>
           {state.report.new_candidates.length === 0 ? (
-            <p className="text-sm text-muted">No new places found inside the neighborhood's boundary.</p>
+            <p className="text-sm text-muted">No new places found inside the neighborhood&apos;s boundary.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {state.report.new_candidates.map((candidate) => {

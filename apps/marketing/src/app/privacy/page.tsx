@@ -14,7 +14,7 @@ export default function PrivacyPage() {
     <LegalLayout title="Privacy Policy" updated={UPDATED}>
       <p>
         This Privacy Policy explains what information Spored collects, how we use it, and the choices you have. It
-        applies to our website and app (together, the "Service").
+        applies to our website and app (together, the &quot;Service&quot;).
       </p>
 
       <LegalSection title="1. Information we collect">
@@ -24,14 +24,14 @@ export default function PrivacyPage() {
           username, display name, and avatar.
         </p>
         <p>
-          <strong>Location data.</strong> Checking in at a business or point of interest requires your device's GPS
-          location at that moment, so we can confirm you're physically there. We don't track your location
+          <strong>Location data.</strong> Checking in at a business or point of interest requires your device&apos;s GPS
+          location at that moment, so we can confirm you&apos;re physically there. We don&apos;t track your location
           continuously or in the background — only at the moment you initiate a check-in.
         </p>
         <p>
           <strong>Usage data.</strong> We use Google Analytics (GA4) on both our marketing site and the app to
           understand aggregate traffic and feature usage — pageviews and, in the app, key actions like check-ins,
-          favorites, and coupon redemptions. This is separate from and doesn't include your precise check-in GPS
+          favorites, and coupon redemptions. This is separate from and doesn&apos;t include your precise check-in GPS
           coordinates.
         </p>
         <p>
@@ -59,20 +59,20 @@ export default function PrivacyPage() {
 
       <LegalSection title="3. Who we share it with">
         <p>
-          We don't sell your personal information. We share data with service providers who help us run Spored,
+          We don&apos;t sell your personal information. We share data with service providers who help us run Spored,
           under obligations to protect it — including Supabase (authentication and database hosting), Google
           (sign-in, Analytics, and delivering push notifications to Chrome/Android devices via Firebase Cloud
           Messaging), Apple (delivering push notifications to Safari/iOS devices), and Netlify (hosting). These
-          push delivery services see the encrypted notification envelope and your device's push endpoint, not
+          push delivery services see the encrypted notification envelope and your device&apos;s push endpoint, not
           your account details. Other users can see information tied to your profile
-          according to your visibility setting (public or private) — for example, a public profile's badges,
+          according to your visibility setting (public or private) — for example, a public profile&apos;s badges,
           check-in count, and neighbor count are visible to others; private profiles are not. New accounts default
           to public; you can switch to private at any time from Account settings.
         </p>
         <p>
-          If your profile is public and you're the most frequent visitor to a business, point of interest, or
-          neighborhood within a rolling 60-day window, your username is shown to other users on that place's or
-          neighborhood's "Top Cap" sign. Private profiles are never named this way.
+          If your profile is public and you&apos;re the most frequent visitor to a business, point of interest, or
+          neighborhood within a rolling 60-day window, your username is shown to other users on that place&apos;s or
+          neighborhood&apos;s &quot;Top Cap&quot; sign. Private profiles are never named this way.
         </p>
       </LegalSection>
 
@@ -97,27 +97,27 @@ export default function PrivacyPage() {
           <li>Edit your profile information or change your visibility setting at any time from Account settings;</li>
           <li>Delete your account, which removes your personal information as described above;</li>
           <li>Disable push notifications at any time from Account settings, which removes your subscription; and</li>
-          <li>Decline location permission, though this means you won't be able to check in.</li>
+          <li>Decline location permission, though this means you won&apos;t be able to check in.</li>
         </ul>
       </LegalSection>
 
       <LegalSection title="7. Children's privacy">
         <p>
-          Spored isn't directed at children under 13, and we don't knowingly collect personal information from
-          them. If you believe a child has provided us with personal information, contact us and we'll remove it.
+          Spored isn&apos;t directed at children under 13, and we don&apos;t knowingly collect personal information from
+          them. If you believe a child has provided us with personal information, contact us and we&apos;ll remove it.
         </p>
       </LegalSection>
 
       <LegalSection title="8. Security">
         <p>
           We use reasonable technical and organizational measures to protect your information. No method of
-          transmission or storage is completely secure, so we can't guarantee absolute security.
+          transmission or storage is completely secure, so we can&apos;t guarantee absolute security.
         </p>
       </LegalSection>
 
       <LegalSection title="9. Changes to this policy">
         <p>
-          We may update this Privacy Policy from time to time. If we make material changes, we'll update the date
+          We may update this Privacy Policy from time to time. If we make material changes, we&apos;ll update the date
           at the top of this page.
         </p>
       </LegalSection>

@@ -34,7 +34,7 @@ export default function NeighborhoodPageDemoPage() {
 
         <div className="flex flex-col gap-6">
           <section className="flex flex-col gap-2">
-            <h2 className="font-heading text-lg font-extrabold text-foreground">Today's events</h2>
+            <h2 className="font-heading text-lg font-extrabold text-foreground">Today&apos;s events</h2>
             <ul className="flex flex-col gap-2.5">
               {SAMPLE_NEIGHBORHOOD_EVENTS.map((e) => (
                 <EventListItem key={e.id} event={e} showSource={false} actions={<FollowEventButton eventId={e.id} />} />

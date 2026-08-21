@@ -113,7 +113,6 @@ export default function BusinessAdminLayout({ children }: { children: React.Reac
       setState({ status: "ready", venue, user });
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;
@@ -165,6 +164,7 @@ export default function BusinessAdminLayout({ children }: { children: React.Reac
 
   async function handleLogOut() {
     await logOut();
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate hard reload: logOut() only clears the Supabase session + one cached-user variable, not every mounted component's own local state, so a client-side router.push() here could leave stale "still logged in" UI behind
     window.location.href = "/";
   }
 

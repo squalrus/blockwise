@@ -64,7 +64,6 @@ export default function NeighborhoodAdminOverviewPage() {
         });
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;
@@ -191,7 +190,7 @@ export default function NeighborhoodAdminOverviewPage() {
               <a href={`/admin/neighborhood/${slug}/events`} className="font-bold text-brand-amber hover:underline">
                 events
               </a>{" "}
-              tab for what's coming up.
+              tab for what&apos;s coming up.
             </p>
           </section>
         </div>

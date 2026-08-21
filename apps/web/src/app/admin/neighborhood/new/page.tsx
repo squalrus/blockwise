@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { BoundaryPreviewReport, CreateNeighborhoodResponse, GeoJsonPolygon } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
@@ -57,7 +58,6 @@ export default function NewNeighborhoodPage() {
       setAccess(user.is_super_admin ? "allowed" : "forbidden");
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkAccess();
     return () => {
       cancelled = true;
@@ -155,9 +155,9 @@ export default function NewNeighborhoodPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 font-sans sm:p-16">
-      <a href="/admin/neighborhood" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
+      <Link href="/admin/neighborhood" className="text-sm font-bold text-brand-purple hover:text-brand-orange">
         ← Neighborhood admin
-      </a>
+      </Link>
 
       <h1 className="font-heading text-xl font-extrabold text-foreground">New neighborhood</h1>
 

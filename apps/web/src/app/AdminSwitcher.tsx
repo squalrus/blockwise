@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { AppUser, ClaimedVenueSummary, NeighborhoodAdminSummary } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
@@ -44,7 +45,6 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
       setVenues(venuesRes.ok ? await venuesRes.json() : []);
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;
@@ -114,12 +114,12 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
                 </a>
               ))}
               {user.is_super_admin && (
-                <a
+                <Link
                   href="/admin/neighborhood/new"
                   className="block rounded-lg px-2.5 py-1.5 text-[13px] font-bold text-brand-purple hover:bg-card-alt"
                 >
                   + New neighborhood
-                </a>
+                </Link>
               )}
             </div>
           )}

@@ -48,7 +48,6 @@ export default function NeighborhoodBoundaryPage() {
       setLoadState({ status: "ready", boundary });
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

@@ -46,7 +46,6 @@ export function NeighborhoodsSection() {
       setState({ status: "ready", signedIn: user !== null, neighborhoods: await res.json() });
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

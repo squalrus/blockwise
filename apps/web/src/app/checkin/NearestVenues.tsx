@@ -15,7 +15,6 @@ const NEAREST_LIMIT = 7;
 
 type State =
   | { status: "loading" }
-  | { status: "no_neighborhood" }
   | { status: "ready"; venues: VenueListItem[] }
   | { status: "error" };
 
@@ -52,10 +51,7 @@ export function NearestVenues({
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!neighborhoodId || !neighborhoodSlug) {
-      setState({ status: "no_neighborhood" });
-      return;
-    }
+    if (!neighborhoodId || !neighborhoodSlug) return;
 
     let cancelled = false;
 
@@ -102,7 +98,6 @@ export function NearestVenues({
       }
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;
@@ -113,15 +108,11 @@ export function NearestVenues({
   // geolocation lookup below -- both run before this ever leaves "loading",
   // so keeping the mark on screen here avoids a blank gap between the
   // /checkin page's own loader handing off and this one finishing.
-  if (state.status === "loading") {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <MushroomLoader size={72} />
-      </div>
-    );
-  }
-
-  if (state.status === "no_neighborhood") {
+  // Derived straight from props rather than routed through the async state
+  // machine below -- known synchronously with no fetch involved, so this
+  // also skips the one-frame "loading" flash the old effect-driven version
+  // had before it could set this status.
+  if (!neighborhoodId || !neighborhoodSlug) {
     return (
       <p className="text-sm text-muted">
         Join a neighborhood on the{" "}
@@ -130,6 +121,14 @@ export function NearestVenues({
         </Link>{" "}
         to see nearby venues to check in to.
       </p>
+    );
+  }
+
+  if (state.status === "loading") {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <MushroomLoader size={72} />
+      </div>
     );
   }
 
