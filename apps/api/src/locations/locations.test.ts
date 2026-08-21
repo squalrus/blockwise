@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { VenueEnrichmentCache } from "@blockwise/types";
+import type { VenueAnalytics, VenueEnrichmentCache } from "@blockwise/types";
 import type { EnrichmentRepository, UpsertEnrichmentInput } from "../enrichment/repository";
 import type { PlaceDetailsClient, RawPlaceDetails } from "../places/client";
 import {
@@ -143,6 +143,17 @@ class FakeLocationRepository implements LocationRepository {
 
   async deleteLocation(locationId: string): Promise<void> {
     this.locations = this.locations.filter((l) => l.id !== locationId);
+  }
+
+  async getAnalytics(locationId: string, days: number): Promise<VenueAnalytics> {
+    return {
+      venue_id: locationId,
+      days,
+      checkins_over_time: [],
+      activity_by_type: [],
+      checkins_by_day_of_week: [],
+      coupon_claims_over_time: [],
+    };
   }
 }
 

@@ -2553,6 +2553,22 @@ export function createApp() {
     }
   });
 
+  // Analytics tab (charts/breakdowns of activity for this venue) -- mirrors
+  // GET /neighborhood-admin/neighborhoods/:id/analytics: ?days= clamped to
+  // [1, 90], defaulting to 30, backed by a single get_venue_analytics RPC
+  // covering all four charts.
+  app.get("/business/venues/:id/analytics", venueOwnerGate, async (req, res) => {
+    try {
+      const rawDays = Number(req.query.days);
+      const days = Number.isFinite(rawDays) ? Math.min(Math.max(Math.trunc(rawDays), 1), 90) : 30;
+      const analytics = await getLocationRepository().getAnalytics(req.params.id, days);
+      res.json(analytics);
+    } catch (err) {
+      console.error(`GET /business/venues/${req.params.id}/analytics failed:`, err);
+      res.status(500).json({ error: "Failed to load venue analytics" });
+    }
+  });
+
   app.patch("/business/venues/:id/social-links", venueOwnerGate, async (req, res) => {
     const socialLinks = parseSocialLinks(req.body?.social_links);
     if (!socialLinks) {

@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.70.0] — 2026-08-21
+
+### Added
+
+- **An Analytics tab in the business-admin sidebar**, mirroring the neighborhood-admin Analytics tab shipped earlier the same day: charts and breakdowns of a single venue's own activity, with the same 7/30/90-day range toggle. Check-ins over time and an activity-by-type count (check-ins/favorites/challenge completions) carry over directly from the neighborhood version; the neighborhood-only locations-by-category breakdown and top-venues leaderboard don't apply to a single venue, so this tab substitutes a check-ins-by-day-of-week chart (which days this venue is busiest) and a coupon-claims-over-time chart (offer performance) instead. Backed by a single `get_venue_analytics` Postgres function (`?days=` clamped 1-90), plus a new `point_event_venue_id_idx` index since `point_event` previously only indexed by neighborhood. (`supabase/migrations/20260821020000_venue_analytics_fn.sql`, `packages/types/src/index.ts`, `apps/api/src/locations/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/business/[venueId]/analytics/`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`, `docs/url-map.md`)
+
 ## [0.69.0] — 2026-08-21
 
 ### Added

@@ -3,6 +3,7 @@ import type {
   LocationMayor,
   RecentVisitorMushroom,
   SocialLinks,
+  VenueAnalytics,
   VenueEnrichmentCache,
   VenueListItem,
   VenueStatus,
@@ -149,4 +150,9 @@ export interface LocationRepository {
   // instead when true.
   hasDependentActivity(locationId: string): Promise<boolean>;
   deleteLocation(locationId: string): Promise<void>;
+  // Business-admin Analytics tab (mirrors NeighborhoodRepository.getAnalytics)
+  // -- a single RPC call, since checkins-over-time/activity-by-type/
+  // checkins-by-day-of-week/coupon-claims-over-time are always requested
+  // together by that one tab.
+  getAnalytics(locationId: string, days: number): Promise<VenueAnalytics>;
 }
