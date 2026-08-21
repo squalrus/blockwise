@@ -299,8 +299,8 @@ The goal is one backend, one data model, and as much shared logic as practical �
 - Feature flags (e.g., LaunchDarkly or a simple in-house flag table) let you ship challenge/badge features to web first and roll out to mobile once store review clears, without branching the backend.
 
 **Observability (both platforms)**
-- Shared error tracking shipped (BACKLOG.md Ref 104, v0.70.1) — rolled on Postgres (`error_log`/`request_log` tables, a super-admin Monitoring tab) rather than a third-party service like Sentry, covering web + Express API today. Extending to a future React Native app ([Ref 1](../BACKLOG.md#native-apps-react-native)) so a bug surfaced on any platform shows up in the same triage view is still open.
-- API-level request volume/latency metrics shipped alongside error tracking in the same cut (per-request logging + a Monitoring tab chart). Cache hit rate on `VenueEnrichmentCache` specifically is not yet tracked.
+- Shared error tracking shipped (BACKLOG.md Ref 104, v0.71.0) — rolled on Postgres (`error_log`/`request_log` tables, a super-admin Monitoring tab) rather than a third-party service like Sentry, covering web + Express API today. Extending to a future React Native app ([Ref 1](../BACKLOG.md#native-apps-react-native)) so a bug surfaced on any platform shows up in the same triage view is still open.
+- API-level request volume/latency metrics shipped alongside error tracking in the same cut (per-request logging + a Monitoring tab chart), plus DB-level query latency via Postgres's own `pg_stat_statements` extension and self-instrumented outbound Google Places API call volume/errors (`InstrumentedPlacesClient`) — both self-rolled rather than pulling from Google Cloud Monitoring, avoiding a new vendor credential. Cache hit rate on `VenueEnrichmentCache` specifically is not yet tracked.
 
 ---
 

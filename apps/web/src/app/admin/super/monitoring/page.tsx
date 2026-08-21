@@ -12,6 +12,9 @@ import { RequestVolumeChart } from "./RequestVolumeChart";
 import { LatencyChart } from "./LatencyChart";
 import { StatusCodeBreakdownStats } from "./StatusCodeBreakdownStats";
 import { SlowestRoutesTable } from "./SlowestRoutesTable";
+import { SlowQueriesTable } from "./SlowQueriesTable";
+import { PlacesApiCallsChart } from "./PlacesApiCallsChart";
+import { PlacesApiByEndpointStats } from "./PlacesApiByEndpointStats";
 
 type State =
   | { status: "loading" }
@@ -63,7 +66,9 @@ export default function MonitoringPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-heading text-4xl font-extrabold">Monitoring</h1>
-          <p className="mt-1 text-[15px] text-body-text">Errors and request activity across the API and web app.</p>
+          <p className="mt-1 text-[15px] text-body-text">
+            Errors, request activity, DB query latency, and outbound Google Places API calls.
+          </p>
         </div>
         <div className="flex gap-1.5">
           {RANGE_OPTIONS.map((opt) => (
@@ -126,6 +131,25 @@ export default function MonitoringPage() {
           <section className="rounded-3xl border border-border bg-card p-6">
             <h2 className="mb-3.5 font-heading text-lg font-extrabold">Slowest routes</h2>
             <SlowestRoutesTable routes={state.analytics.slowest_routes} />
+          </section>
+
+          <section className="rounded-3xl border border-border bg-card p-6 lg:col-span-2">
+            <h2 className="mb-3.5 font-heading text-lg font-extrabold">Slowest queries</h2>
+            <p className="mb-3 text-xs text-muted">
+              DB-level latency (pg_stat_statements) — pairs with slowest routes above to tell whether a slow
+              route is slow because of the app or the query.
+            </p>
+            <SlowQueriesTable queries={state.analytics.slowest_queries} />
+          </section>
+
+          <section className="rounded-3xl border border-border bg-card p-6 lg:col-span-2">
+            <h2 className="mb-3.5 font-heading text-lg font-extrabold">Google Places API calls</h2>
+            <PlacesApiCallsChart data={state.analytics.places_api_calls_over_time} />
+          </section>
+
+          <section className="rounded-3xl border border-border bg-card p-6 lg:col-span-2">
+            <h2 className="mb-3.5 font-heading text-lg font-extrabold">Places API calls by endpoint</h2>
+            <PlacesApiByEndpointStats data={state.analytics.places_api_by_endpoint} />
           </section>
         </div>
       )}

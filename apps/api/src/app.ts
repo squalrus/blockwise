@@ -136,6 +136,7 @@ import {
   type PlacesTextSearchClient,
 } from "./places/client";
 import { isValidPolygon } from "./places/geo";
+import { InstrumentedPlacesClient } from "./places/instrumentedClient";
 import { investigateMissingLocation } from "./places/investigate";
 import { MockPlacesClient } from "./places/mockClient";
 import { previewNeighborhoodBoundary } from "./places/preview";
@@ -277,7 +278,12 @@ const PUBLIC_PATH_PREFIX = /^\/api(?=\/|$)/;
 // preview route's Nearby Search calls.
 function getPlacesClient(): GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  return apiKey ? new LivePlacesClient(apiKey) : new MockPlacesClient();
+  // Only the real client is instrumented (BACKLOG.md Ref 104 follow-up) --
+  // MockPlacesClient calls never hit Google, so logging them would just be
+  // local-dev noise on the Monitoring tab.
+  return apiKey
+    ? new InstrumentedPlacesClient(new LivePlacesClient(apiKey), getMonitoringRepository)
+    : new MockPlacesClient();
 }
 
 // Constructed lazily (on first request) rather than at createApp() time --
