@@ -1394,4 +1394,88 @@ export interface UserChallengeProgress extends ChallengeProgress {
   neighborhood_name: string;
 }
 
+// Super-admin Monitoring tab (BACKLOG.md Ref 104): one combined shape --
+// get_monitoring_analytics returns most of these sub-arrays together in a
+// single RPC call (mirroring NeighborhoodAnalytics/VenueAnalytics above);
+// slowest_queries comes from a second, separately-privileged RPC
+// (get_slow_queries) that SupabaseMonitoringRepository.getAnalytics merges
+// in before returning, so callers still only see one method/one shape.
+export interface MonitoringDailyCount {
+  date: string; // 'YYYY-MM-DD'
+  count: number;
+}
+
+export interface MonitoringErrorsBySource {
+  source: "api" | "web";
+  count: number;
+}
+
+export interface MonitoringRecentError {
+  id: string;
+  source: "api" | "web";
+  message: string;
+  stack: string | null;
+  context: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface MonitoringLatencyByDay {
+  date: string; // 'YYYY-MM-DD'
+  avg_ms: number;
+  p95_ms: number;
+}
+
+export interface MonitoringStatusCodeBreakdown {
+  status_class: "2xx" | "3xx" | "4xx" | "5xx";
+  count: number;
+}
+
+export interface MonitoringSlowestRoute {
+  path: string;
+  avg_ms: number;
+  request_count: number;
+}
+
+// DB-level query latency (pg_stat_statements, get_slow_queries RPC) --
+// pairs with MonitoringSlowestRoute's Express-level latency so a slow route
+// can be traced to "the app" vs. "the query."
+export interface MonitoringSlowQuery {
+  query: string;
+  calls: number;
+  mean_exec_time: number;
+  total_exec_time: number;
+}
+
+// Self-instrumented outbound Google Places API calls (InstrumentedPlacesClient
+// wraps LivePlacesClient) -- not pulled from Google Cloud Monitoring, so this
+// reflects what our server attempted, not GCP's own quota/cost accounting.
+export interface MonitoringPlacesApiByEndpoint {
+  endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia";
+  count: number;
+  error_count: number;
+}
+
+export interface MonitoringAnalytics {
+  days: number;
+  errors_over_time: MonitoringDailyCount[];
+  errors_by_source: MonitoringErrorsBySource[];
+  recent_errors: MonitoringRecentError[];
+  request_volume_over_time: MonitoringDailyCount[];
+  latency_over_time: MonitoringLatencyByDay[];
+  status_code_breakdown: MonitoringStatusCodeBreakdown[];
+  slowest_routes: MonitoringSlowestRoute[];
+  slowest_queries: MonitoringSlowQuery[];
+  places_api_calls_over_time: MonitoringDailyCount[];
+  places_api_by_endpoint: MonitoringPlacesApiByEndpoint[];
+}
+
+// POST /monitoring/client-errors: the web app's React error boundaries
+// (error.tsx/global-error.tsx) and window.onerror/unhandledrejection
+// listener both report through this one shape.
+export interface ReportClientErrorRequest {
+  message: string;
+  stack?: string;
+  context?: Record<string, unknown>;
+}
+
 export * from "./mushroom";

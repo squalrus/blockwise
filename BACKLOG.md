@@ -70,8 +70,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | --- | --- | --- | --- | --- | --- |
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 95 | [Dev instance of the app (Netlify and Supabase)](#dev-instance-of-the-app-netlify-and-supabase) | improvement | L | H | — |
-| 104 | [Monitoring and error tracking](#monitoring-and-error-tracking) | improvement | L | M | — |
-| 91 | [Custom 404 page](#custom-404-page) | feature | S | L | — |
 | 105 | [Additional app themes within brand guidelines](#additional-app-themes-within-brand-guidelines) | feature | M | L | — |
 
 ### Marketing
@@ -306,14 +304,6 @@ No open limitations.
 **Why** — Mobile is the primary long-term surface (free/unlimited Google Maps SDK, push notifications, in-person coupon redemption) but follows the web app so the API/data model is proven out first, per the user's direction to prioritize web for rapid dev.
 **Notes:** `apps/mobile` in the same monorepo, consuming the same `packages/api-client` and `packages/types` as web (project plan §10.3). Target feature parity with the web consumer experience (map, check-ins, announcements, challenges) once those web milestones land — this is a parity build, not a redesign.
 
-#### Custom 404 page
-
-**Ref:** 91
-**Type:** feature
-**Depends:** —
-**Why** — Next.js's default not-found page is generic and off-brand; every other page in the app follows Spored's mushroom/nav visual language, so a mismatched 404 breaks that consistency at exactly the moment a user is already lost.
-**Notes:** Add `apps/web/src/app/not-found.tsx`, styled to match the rest of the site (MushroomLogo, nav-consistent typography), with a link back to `/`. Small, self-contained — no API/schema changes.
-
 #### Dev instance of the app (Netlify and Supabase)
 
 **Ref:** 95
@@ -321,14 +311,6 @@ No open limitations.
 **Depends:** —
 **Why** — A persistent staging environment enables safe testing and debugging of changes before they reach production users, and a formal approval/promotion workflow prevents accidental releases and gives visibility into what's going live.
 **Notes:** Set up parallel Netlify and Supabase instances (or use Supabase preview branches) mirroring the production setup. Hide the dev site from users and search engines via `robots.txt` disallow, meta tags, and/or a basic auth gate. Configure Netlify to auto-deploy commits to a dev branch (e.g. `main-dev` or `staging`) or trigger via GitHub Actions. Create a promotion mechanism — either a manual Netlify deployment trigger (promoting a dev build to prod) or a GitHub Actions workflow requiring explicit approval (via `workflow_dispatch` or a review/check) before promoting. Open questions: should this coexist with Netlify's per-PR preview deploys (different purposes — per-branch preview for each PR, vs. persistent shared dev for manual testing), or replace them? Should dev share a Supabase project/database or use a completely separate one for true isolation?
-
-#### Monitoring and error tracking
-
-**Ref:** 104
-**Type:** improvement
-**Depends:** —
-**Why** — Today the only visibility into a production failure is whatever the handler happened to `console.error` (123 call sites in `apps/api/src/app.ts` alone, one ad hoc try/catch per route with no shared error middleware or `process.on("unhandledRejection"/"uncaughtException")` handler) landing in Netlify's own function logs — not searchable, not alertable, and gone once Netlify's retention window passes. The web app has no client-side error capture at all: a React render crash or an uncaught exception in the browser is invisible unless a user happens to report it. The CI/CD pipeline (shipped v0.68.1) already earmarked Sentry as a "can follow" item once there's more surface area to justify it — this is that piece, split out on its own since it's valuable independent of the CI/CD work itself and project-plan.md §10.4's Observability section calls it out as its own concern (shared error tracking across web/backend/future mobile, API-level request volume and cache-hit-rate metrics).
-**Notes:** Two paths, per the request: (1) a third-party service — Sentry is what the project plan already assumes, and covers web + Express API + a future React Native app ([Ref 1](#native-apps-react-native)) in one project with source-mapped stack traces and alerting essentially out of the box; free tier is likely sufficient at current scale. (2) Roll-your-own — a Postgres error/log table plus a Slack or push-notification alert reusing the existing super-admin alert pattern (`notifySuperAdminsOfSignup`/`notifySuperAdminsOfFeedback` in `pushSubscriptions.ts`) avoids a new vendor dependency but means building search, retention, and alerting from scratch. Recommend starting with Sentry given the effort gap, unless cost or vendor lock-in is a specific concern — revisit rolling a custom solution only if that changes. Either path needs: a shared Express error-handling middleware plus top-level `unhandledRejection`/`uncaughtException` handlers in `apps/api` (neither exists today), a Next.js error boundary + client-side capture in `apps/web`, and basic API request/latency logging (project plan's "request volume, cache hit rate on `VenueEnrichmentCache`").
 
 #### Additional app themes within brand guidelines
 

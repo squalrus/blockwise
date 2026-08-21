@@ -3,6 +3,7 @@ import Script from "next/script";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { baloo2, jetbrainsMono, nunito } from "@blockwise/ui";
 import { SITE_URL } from "@/lib/siteUrl";
+import { ClientErrorReporter } from "./ClientErrorReporter";
 import { ServiceWorkerRegistration } from "./ServiceWorkerRegistration";
 import { SiteChrome } from "./SiteChrome";
 import "./globals.css";
@@ -72,6 +73,7 @@ export default function RootLayout({
           {THEME_INIT_SCRIPT}
         </Script>
         <ServiceWorkerRegistration />
+        <ClientErrorReporter />
         <SiteChrome>{children}</SiteChrome>
       </body>
       {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (

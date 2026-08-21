@@ -13,6 +13,7 @@ import type {
   NeighborhoodSummary,
   OnboardingChecklist,
   ProfileVisibility,
+  ReportClientErrorRequest,
   SocialLinks,
   SocialPlatform,
   VenueDashboardSummary,
@@ -135,6 +136,7 @@ import {
   type PlacesTextSearchClient,
 } from "./places/client";
 import { isValidPolygon } from "./places/geo";
+import { InstrumentedPlacesClient } from "./places/instrumentedClient";
 import { investigateMissingLocation } from "./places/investigate";
 import { MockPlacesClient } from "./places/mockClient";
 import { previewNeighborhoodBoundary } from "./places/preview";
@@ -162,6 +164,9 @@ import {
 import { SupabaseLocationRepository } from "./locations/supabaseRepository";
 import { getMushroomCollectionForUser, revealMushroomCollectionEntry } from "./mushroomCollection/collection";
 import { SupabaseMushroomCollectionRepository } from "./mushroomCollection/supabaseRepository";
+import { installErrorLogging } from "./monitoring/errorLogging";
+import { requestLoggingMiddleware } from "./monitoring/requestLogging";
+import { SupabaseMonitoringRepository } from "./monitoring/supabaseRepository";
 import {
   notifyConnectionsOfCheckin,
   notifyNeighborhoodAdminsOfMissingVenue,
@@ -273,7 +278,12 @@ const PUBLIC_PATH_PREFIX = /^\/api(?=\/|$)/;
 // preview route's Nearby Search calls.
 function getPlacesClient(): GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  return apiKey ? new LivePlacesClient(apiKey) : new MockPlacesClient();
+  // Only the real client is instrumented (BACKLOG.md Ref 104 follow-up) --
+  // MockPlacesClient calls never hit Google, so logging them would just be
+  // local-dev noise on the Monitoring tab.
+  return apiKey
+    ? new InstrumentedPlacesClient(new LivePlacesClient(apiKey), getMonitoringRepository)
+    : new MockPlacesClient();
 }
 
 // Constructed lazily (on first request) rather than at createApp() time --
@@ -473,8 +483,21 @@ function getNeighborhoodMemberRepository(): SupabaseNeighborhoodMemberRepository
   return neighborhoodMemberRepository;
 }
 
+let monitoringRepository: SupabaseMonitoringRepository | undefined;
+function getMonitoringRepository(): SupabaseMonitoringRepository {
+  monitoringRepository ??= new SupabaseMonitoringRepository(getSupabaseClient());
+  return monitoringRepository;
+}
+
 export function createApp() {
   const app = express();
+
+  // BACKLOG.md Ref 104: wraps console.error (every existing "<label>
+  // failed:", err call site already follows that convention) so API errors
+  // land in error_log without touching each of ~120 call sites, plus catches
+  // whatever a route's own try/catch doesn't. Installed once per process,
+  // not per request.
+  installErrorLogging(getMonitoringRepository);
 
   const adminGate = requireAdmin(getSupabaseClient, getAuthRepository, getNeighborhoodAdminRepository);
   const venueOwnerGate = requireVenueOwner(getSupabaseClient, getAuthRepository, getClaimRepository);
@@ -491,6 +514,11 @@ export function createApp() {
     next();
   });
 
+  // BACKLOG.md Ref 104: backs the Monitoring tab's request-volume/latency
+  // charts, one row per request -- mounted after the path-prefix stripping
+  // above so req.path already matches what every route handler sees.
+  app.use(requestLoggingMiddleware(getMonitoringRepository));
+
   app.use(express.json());
 
   app.get("/health", (_req, res) => {
@@ -500,6 +528,29 @@ export function createApp() {
       timestamp: new Date().toISOString(),
     };
     res.json(body);
+  });
+
+  // Web app's error boundaries and window.onerror/unhandledrejection
+  // listener report through here (BACKLOG.md Ref 104) -- public, no auth,
+  // since a client error can happen before a visitor is signed in at all.
+  app.post("/monitoring/client-errors", async (req, res) => {
+    const { message, stack, context } = (req.body ?? {}) as Partial<ReportClientErrorRequest>;
+    if (typeof message !== "string" || message.length === 0) {
+      res.status(400).json({ error: "message is required" });
+      return;
+    }
+    try {
+      await getMonitoringRepository().logError({
+        source: "web",
+        message,
+        stack: typeof stack === "string" ? stack : null,
+        context: context && typeof context === "object" ? context : null,
+      });
+      res.status(204).end();
+    } catch (err) {
+      console.error("POST /monitoring/client-errors failed:", err);
+      res.status(500).json({ error: "Failed to log client error" });
+    }
   });
 
   // Public location detail page (BACKLOG.md Ref 46/59) -- serves both
@@ -2256,6 +2307,22 @@ export function createApp() {
     } catch (err) {
       console.error("GET /admin/users failed:", err);
       res.status(500).json({ error: "Failed to list users" });
+    }
+  });
+
+  // Super-admin Monitoring tab (BACKLOG.md Ref 104) -- ?days= clamped to
+  // [1, 90], defaulting to 7 (errors/requests are noisier day-to-day than
+  // neighborhood/venue analytics, so a shorter default window), backed by a
+  // single get_monitoring_analytics RPC covering all six charts.
+  app.get("/admin/monitoring/analytics", superAdminGate, async (req, res) => {
+    try {
+      const rawDays = Number(req.query.days);
+      const days = Number.isFinite(rawDays) ? Math.min(Math.max(Math.trunc(rawDays), 1), 90) : 7;
+      const analytics = await getMonitoringRepository().getAnalytics(days);
+      res.json(analytics);
+    } catch (err) {
+      console.error("GET /admin/monitoring/analytics failed:", err);
+      res.status(500).json({ error: "Failed to load monitoring analytics" });
     }
   });
 
