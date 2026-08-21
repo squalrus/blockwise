@@ -859,6 +859,40 @@ export interface NeighborhoodAnalytics {
   top_venues: NeighborhoodAnalyticsTopVenue[];
 }
 
+// Business-admin Analytics tab (mirrors NeighborhoodAnalytics above): one
+// combined shape since get_venue_analytics returns all four together in a
+// single RPC call. locations_by_category_group/top_venues don't have a
+// venue-scoped equivalent, so checkins_by_day_of_week and
+// coupon_claims_over_time take their place instead.
+export interface VenueAnalyticsDailyCheckins {
+  date: string; // 'YYYY-MM-DD'
+  count: number;
+}
+
+export interface VenueAnalyticsActivityByType {
+  event_type: "checkin" | "favorite" | "challenge_completion";
+  count: number;
+}
+
+export interface VenueAnalyticsDayOfWeekCheckins {
+  day_of_week: number; // 0 (Sunday) - 6 (Saturday), matching Postgres extract(dow)
+  count: number;
+}
+
+export interface VenueAnalyticsCouponClaims {
+  date: string; // 'YYYY-MM-DD'
+  count: number;
+}
+
+export interface VenueAnalytics {
+  venue_id: string;
+  days: number;
+  checkins_over_time: VenueAnalyticsDailyCheckins[];
+  activity_by_type: VenueAnalyticsActivityByType[];
+  checkins_by_day_of_week: VenueAnalyticsDayOfWeekCheckins[];
+  coupon_claims_over_time: VenueAnalyticsCouponClaims[];
+}
+
 // Admin portal boundary drawing (BACKLOG.md Ref 8, project plan §12.6).
 
 export interface NeighborhoodBoundary {

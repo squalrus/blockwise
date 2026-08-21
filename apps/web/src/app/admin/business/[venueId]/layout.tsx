@@ -17,7 +17,7 @@ type State =
   | { status: "ready"; venue: ClaimedVenueSummary; user: AppUser }
   | { status: "error"; message: string };
 
-type TabKey = "overview" | "events" | "coupons";
+type TabKey = "overview" | "events" | "coupons" | "analytics";
 
 const TABS: { key: TabKey; href: string; label: string; icon: (props: { className?: string }) => React.ReactNode }[] = [
   {
@@ -60,6 +60,18 @@ const TABS: { key: TabKey; href: string; label: string; icon: (props: { classNam
           strokeLinejoin="round"
         />
         <circle cx="13.5" cy="6.5" r="1.5" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: "analytics",
+    href: "/analytics",
+    label: "Analytics",
+    icon: ({ className }) => (
+      <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
+        <rect x="3" y="11" width="3.5" height="6" rx="1" fill="currentColor" opacity="0.55" />
+        <rect x="8.25" y="6" width="3.5" height="11" rx="1" fill="currentColor" />
+        <rect x="13.5" y="2.5" width="3.5" height="14.5" rx="1" fill="currentColor" opacity="0.8" />
       </svg>
     ),
   },

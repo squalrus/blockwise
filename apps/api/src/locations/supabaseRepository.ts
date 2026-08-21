@@ -4,6 +4,7 @@ import type {
   MushroomCustomization,
   RecentVisitorMushroom,
   SocialLinks,
+  VenueAnalytics,
   VenueEnrichmentCache,
   VenueListItem,
 } from "@blockwise/types";
@@ -440,5 +441,15 @@ export class SupabaseLocationRepository implements LocationRepository {
   async deleteLocation(locationId: string): Promise<void> {
     const { error } = await this.supabase.from("venue").delete().eq("id", locationId);
     if (error) throw new Error(`deleteLocation failed: ${error.message}`);
+  }
+
+  async getAnalytics(locationId: string, days: number): Promise<VenueAnalytics> {
+    const { data, error } = await this.supabase.rpc("get_venue_analytics", {
+      p_venue_id: locationId,
+      p_days: days,
+    });
+
+    if (error) throw new Error(`getAnalytics failed: ${error.message}`);
+    return data as VenueAnalytics;
   }
 }
