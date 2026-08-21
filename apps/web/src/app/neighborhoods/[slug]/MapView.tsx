@@ -126,7 +126,6 @@ export function MapView({ venues }: { venues: VenueListItem[] }) {
       cancelled = true;
       clusterer?.clearMarkers();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-init only when the venue set or color mode actually changes
   }, [venues, mode, apiKey]);
 
   if (!apiKey) {

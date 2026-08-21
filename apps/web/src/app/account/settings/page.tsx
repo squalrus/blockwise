@@ -47,7 +47,6 @@ export default function AccountSettingsPage() {
       setState({ status: "ready", user, neighborhoods: await res.json() });
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

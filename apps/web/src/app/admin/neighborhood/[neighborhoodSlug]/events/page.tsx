@@ -54,7 +54,6 @@ export default function NeighborhoodEventsPage() {
       }
       setState({ status: "ready", summary: await res.json() });
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     run();
     return () => {
       cancelled = true;

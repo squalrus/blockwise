@@ -129,7 +129,6 @@ export default function SuperAdminFeedbackPage() {
       setState({ status: "ready", submissions: await res.json() });
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

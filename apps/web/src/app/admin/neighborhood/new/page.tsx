@@ -58,7 +58,6 @@ export default function NewNeighborhoodPage() {
       setAccess(user.is_super_admin ? "allowed" : "forbidden");
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkAccess();
     return () => {
       cancelled = true;

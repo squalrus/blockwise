@@ -51,7 +51,6 @@ export default function SuperAdminCategoryTaxonomyPage() {
       setState({ status: "ready", categories: await res.json() });
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

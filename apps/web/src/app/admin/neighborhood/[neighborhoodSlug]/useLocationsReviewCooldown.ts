@@ -24,7 +24,6 @@ export function useLocationsReviewCooldown(neighborhoodId: string): LocationsRev
       setStatus(await res.json());
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

@@ -87,7 +87,6 @@ export default function NeighborhoodAdminLocationsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadLocations(search);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [neighborhoodId]);

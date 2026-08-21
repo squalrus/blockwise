@@ -49,7 +49,6 @@ export function InstallPrompt() {
     setDismissed(false);
 
     if (isIos()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberately deferred past hydration, see comment above
       setShowIosBanner(true);
       return;
     }

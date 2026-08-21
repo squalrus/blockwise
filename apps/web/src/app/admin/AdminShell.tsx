@@ -55,7 +55,6 @@ export function AdminShell({ switcherCurrent, user, tabs, viewPublicHref, onLogO
       setHomeNeighborhood(neighborhoods.find((n) => n.is_primary) ?? null);
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

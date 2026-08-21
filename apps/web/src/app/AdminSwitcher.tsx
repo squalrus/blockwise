@@ -45,7 +45,6 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
       setVenues(venuesRes.ok ? await venuesRes.json() : []);
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

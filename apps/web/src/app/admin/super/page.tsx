@@ -40,7 +40,6 @@ export default function SuperAdminOverviewPage() {
       setState({ status: "ready", users: await usersRes.json(), feedback: await feedbackRes.json() });
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

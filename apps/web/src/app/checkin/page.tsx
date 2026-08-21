@@ -56,7 +56,6 @@ export default function CheckinPage() {
       setSelectedNeighborhoodSlug(active?.slug ?? null);
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;

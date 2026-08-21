@@ -61,7 +61,6 @@ export default function AdminLandingPage() {
       }
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       cancelled = true;
