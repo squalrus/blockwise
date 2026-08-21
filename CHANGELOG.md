@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.69.0] — 2026-08-21
+
+### Added
+
+- **An Analytics tab in the neighborhood-admin sidebar** — charts and breakdowns of the neighborhood's locations and activity: check-ins over time (7/30/90-day range toggle), a locations-by-category breakdown, a top-10 venues by check-ins leaderboard, and an activity-by-type count (check-ins/favorites/challenge completions). Backed by a single `get_neighborhood_analytics` Postgres function (`?days=` clamped 1-90) rather than four separate round trips, since all four charts are always requested together by this one tab. First charting library in the repo: Recharts, used for the check-ins-over-time and locations-by-category charts; the leaderboard and activity counts are plain HTML meter bars and stat tiles instead, since a categorical color palette isn't the right encoding for either. (`supabase/migrations/20260821010000_neighborhood_analytics_fn.sql`, `packages/types/src/index.ts`, `apps/api/src/neighborhoods/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/analytics/`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `docs/url-map.md`)
+
 ## [0.68.1] — 2026-08-20
 
 ### Added

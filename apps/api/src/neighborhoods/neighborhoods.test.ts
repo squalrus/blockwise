@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GeoJsonPolygon, SocialLinks } from "@blockwise/types";
+import type { GeoJsonPolygon, NeighborhoodAnalytics, SocialLinks } from "@blockwise/types";
 import {
   createNeighborhood,
   getNeighborhoodBoundary,
@@ -98,6 +98,17 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
     };
     this.boundaries.set(id, boundary);
     return boundary;
+  }
+
+  async getAnalytics(id: string, days: number): Promise<NeighborhoodAnalytics> {
+    return {
+      neighborhood_id: id,
+      days,
+      checkins_over_time: [],
+      activity_by_type: [],
+      locations_by_category_group: [],
+      top_venues: [],
+    };
   }
 
   async markLocationsReviewed(id: string, reviewedAt: string): Promise<void> {

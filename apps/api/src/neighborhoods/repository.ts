@@ -1,4 +1,4 @@
-import type { GeoJsonPolygon, SocialLinks } from "@blockwise/types";
+import type { GeoJsonPolygon, NeighborhoodAnalytics, SocialLinks } from "@blockwise/types";
 
 export interface NeighborhoodRecord {
   id: string;
@@ -97,6 +97,10 @@ export interface NeighborhoodRepository {
   // Admin portal boundary drawing (BACKLOG.md Ref 8, project plan §12.6).
   getBoundary(id: string): Promise<NeighborhoodBoundaryRecord | null>;
   updateBoundary(id: string, boundaryGeojson: GeoJsonPolygon): Promise<NeighborhoodBoundaryRecord>;
+  // Analytics tab (charts/breakdowns of locations + activity) -- a single
+  // RPC call, since check-ins-over-time/activity-by-type/locations-by-
+  // category-group/top-venues are always requested together by that one tab.
+  getAnalytics(id: string, days: number): Promise<NeighborhoodAnalytics>;
   createNeighborhood(input: CreateNeighborhoodInput): Promise<CreatedNeighborhood>;
   // Stamps the 24h "Reimport Locations" cooldown (BACKLOG.md) the moment a
   // location review actually queries Google Places -- takes an explicit
