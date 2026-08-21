@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.71.0] — 2026-08-21
+
+### Added
+
+- **Monitoring and error tracking, rolled on Postgres rather than a third-party service** (BACKLOG.md Ref 104), surfaced on a new "Monitoring" tab in the super-admin sidebar: errors-over-time and errors-by-source charts, an expandable recent-errors list (with stack traces), request-volume and latency (avg/p95) charts, a status-code breakdown, and a slowest-routes leaderboard, all on a 24h/7d/30d range toggle backed by a single `get_monitoring_analytics` Postgres function. API-side error capture wraps `console.error` itself (`apps/api/src/monitoring/errorLogging.ts`) so every one of the ~120 existing `"<label> failed:", err` call sites across `app.ts` now also persists a row to a new `error_log` table, without touching each site individually — plus new `process.on("unhandledRejection"/"uncaughtException")` handlers, neither of which existed before. Request volume/latency are logged per-request to a new `request_log` table via a single Express middleware. Web-side: new `error.tsx`/`global-error.tsx` React error boundaries (Next.js convention, neither existed before) and a `ClientErrorReporter` (`window.onerror`/`unhandledrejection` listener) both report to a new public `POST /monitoring/client-errors` endpoint, so a render crash or an uncaught browser error is now captured even for a signed-out visitor. (`supabase/migrations/20260821030000_monitoring.sql`, `supabase/migrations/20260821040000_monitoring_analytics_fn.sql`, `packages/types/src/index.ts`, `apps/api/src/monitoring/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/super/monitoring/`, `apps/web/src/app/admin/super/layout.tsx`, `apps/web/src/app/error.tsx`, `apps/web/src/app/global-error.tsx`, `apps/web/src/app/ClientErrorReporter.tsx`, `apps/web/src/lib/reportClientError.ts`, `apps/web/src/app/layout.tsx`, `docs/url-map.md`)
+- **A custom, on-brand 404 page** (BACKLOG.md Ref 91), replacing Next.js's generic default not-found page with one that matches the rest of the site's mushroom/nav visual language, plus a link back home. (`apps/web/src/app/not-found.tsx`)
+
 ## [0.70.0] — 2026-08-21
 
 ### Added

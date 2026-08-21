@@ -1394,4 +1394,63 @@ export interface UserChallengeProgress extends ChallengeProgress {
   neighborhood_name: string;
 }
 
+// Super-admin Monitoring tab (BACKLOG.md Ref 104): one combined shape since
+// get_monitoring_analytics returns all six sub-arrays together in a single
+// RPC call, mirroring NeighborhoodAnalytics/VenueAnalytics above.
+export interface MonitoringDailyCount {
+  date: string; // 'YYYY-MM-DD'
+  count: number;
+}
+
+export interface MonitoringErrorsBySource {
+  source: "api" | "web";
+  count: number;
+}
+
+export interface MonitoringRecentError {
+  id: string;
+  source: "api" | "web";
+  message: string;
+  stack: string | null;
+  context: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface MonitoringLatencyByDay {
+  date: string; // 'YYYY-MM-DD'
+  avg_ms: number;
+  p95_ms: number;
+}
+
+export interface MonitoringStatusCodeBreakdown {
+  status_class: "2xx" | "3xx" | "4xx" | "5xx";
+  count: number;
+}
+
+export interface MonitoringSlowestRoute {
+  path: string;
+  avg_ms: number;
+  request_count: number;
+}
+
+export interface MonitoringAnalytics {
+  days: number;
+  errors_over_time: MonitoringDailyCount[];
+  errors_by_source: MonitoringErrorsBySource[];
+  recent_errors: MonitoringRecentError[];
+  request_volume_over_time: MonitoringDailyCount[];
+  latency_over_time: MonitoringLatencyByDay[];
+  status_code_breakdown: MonitoringStatusCodeBreakdown[];
+  slowest_routes: MonitoringSlowestRoute[];
+}
+
+// POST /monitoring/client-errors: the web app's React error boundaries
+// (error.tsx/global-error.tsx) and window.onerror/unhandledrejection
+// listener both report through this one shape.
+export interface ReportClientErrorRequest {
+  message: string;
+  stack?: string;
+  context?: Record<string, unknown>;
+}
+
 export * from "./mushroom";

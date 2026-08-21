@@ -299,8 +299,8 @@ The goal is one backend, one data model, and as much shared logic as practical â
 - Feature flags (e.g., LaunchDarkly or a simple in-house flag table) let you ship challenge/badge features to web first and roll out to mobile once store review clears, without branching the backend.
 
 **Observability (both platforms)**
-- Shared error tracking (e.g., Sentry, which supports web + React Native + backend in one project) so a bug surfaced on web and mobile shows up in the same triage view.
-- API-level logging/metrics (request volume, cache hit rate on `VenueEnrichmentCache`) shared across all client types since they hit the same backend.
+- Shared error tracking shipped (BACKLOG.md Ref 104, v0.70.1) â€” rolled on Postgres (`error_log`/`request_log` tables, a super-admin Monitoring tab) rather than a third-party service like Sentry, covering web + Express API today. Extending to a future React Native app ([Ref 1](../BACKLOG.md#native-apps-react-native)) so a bug surfaced on any platform shows up in the same triage view is still open.
+- API-level request volume/latency metrics shipped alongside error tracking in the same cut (per-request logging + a Monitoring tab chart). Cache hit rate on `VenueEnrichmentCache` specifically is not yet tracked.
 
 ---
 

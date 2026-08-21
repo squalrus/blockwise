@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const UPDATED = "August 16, 2026";
+const UPDATED = "August 21, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -44,6 +44,11 @@ export default function PrivacyPage() {
           <strong>Push notification subscriptions.</strong> If you enable notifications, your browser generates a
           push subscription (an endpoint URL and encryption keys) for your device, which we store so we can send
           you notifications. Disabling notifications or clearing your browsing data removes it.
+        </p>
+        <p>
+          <strong>Error diagnostics.</strong> If the app or website encounters an unexpected error, we log a
+          technical description of it — the error message, a stack trace, and the page URL where it happened — so
+          we can find and fix it. This diagnostic log isn&apos;t linked to your account.
         </p>
       </LegalSection>
 
