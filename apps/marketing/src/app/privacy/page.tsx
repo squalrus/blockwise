@@ -20,8 +20,8 @@ export default function PrivacyPage() {
       <LegalSection title="1. Information we collect">
         <p>
           <strong>Account information.</strong> When you sign up, we collect an email address and password, or —
-          if you sign in with Google — the name, email, and profile photo Google shares with us. You can also set a
-          username, display name, and avatar.
+          if you sign in with Google or Microsoft — the name, email, and profile photo that provider shares with
+          us. You can also set a username, display name, and avatar.
         </p>
         <p>
           <strong>Location data.</strong> Checking in at a business or point of interest requires your device&apos;s GPS
@@ -67,9 +67,9 @@ export default function PrivacyPage() {
           We don&apos;t sell your personal information. We share data with service providers who help us run Spored,
           under obligations to protect it — including Supabase (authentication and database hosting), Google
           (sign-in, Analytics, and delivering push notifications to Chrome/Android devices via Firebase Cloud
-          Messaging), Apple (delivering push notifications to Safari/iOS devices), and Netlify (hosting). These
-          push delivery services see the encrypted notification envelope and your device&apos;s push endpoint, not
-          your account details. Other users can see information tied to your profile
+          Messaging), Microsoft (sign-in), Apple (delivering push notifications to Safari/iOS devices), and Netlify
+          (hosting). These push delivery services see the encrypted notification envelope and your device&apos;s push
+          endpoint, not your account details. Other users can see information tied to your profile
           according to your visibility setting (public or private) — for example, a public profile&apos;s badges,
           check-in count, and neighbor count are visible to others; private profiles are not. New accounts default
           to public; you can switch to private at any time from Account settings.

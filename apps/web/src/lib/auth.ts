@@ -105,6 +105,19 @@ export async function signInWithGoogle(accountType?: AccountType): Promise<void>
   if (error) throw new Error(error.message);
 }
 
+// Same shape as signInWithGoogle -- Supabase's azure provider handles
+// "Sign in with Microsoft" (personal + work/school accounts) once an Azure
+// app registration is configured in the Supabase dashboard.
+export async function signInWithMicrosoft(accountType?: AccountType): Promise<void> {
+  if (accountType) window.localStorage.setItem(PENDING_ACCOUNT_TYPE_KEY, accountType);
+
+  const { error } = await getBrowserSupabaseClient().auth.signInWithOAuth({
+    provider: "azure",
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  if (error) throw new Error(error.message);
+}
+
 // Shared by /auth/callback for both the Google OAuth redirect and the
 // email-confirmation link (see emailRedirectTo in signUp above). Neither
 // case tells us up front whether this is a first-time signup or a repeat

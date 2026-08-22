@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.72.0] — 2026-08-22
+
+### Added
+
+- **"Continue with Microsoft" sign-in**, alongside the existing Google option, for both login and signup (BACKLOG.md Ref 72) — the server-side auth path already reads the provider generically off `app_metadata`, so this is client-side only: a new Supabase `azure` OAuth call and button. Privacy policy updated to name Microsoft alongside Google as a sign-in data source and subprocessor. (`packages/ui/src/MicrosoftIcon.tsx`, `apps/web/src/lib/auth.ts`, `apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `apps/marketing/public/.well-known/microsoft-identity-association.json`)
+
 ## [0.71.1] — 2026-08-21
 
 ### Fixed

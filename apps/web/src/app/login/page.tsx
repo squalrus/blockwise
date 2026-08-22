@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GoogleIcon, MushroomLoader } from "@blockwise/ui";
-import { getCurrentUser, logIn, signInWithGoogle } from "@/lib/auth";
+import { GoogleIcon, MicrosoftIcon, MushroomLoader } from "@blockwise/ui";
+import { getCurrentUser, logIn, signInWithGoogle, signInWithMicrosoft } from "@/lib/auth";
 
 type Status = { state: "idle" | "submitting" | "error"; message?: string };
 
@@ -56,6 +56,15 @@ export default function LoginPage() {
     }
   }
 
+  async function handleMicrosoftSignIn() {
+    setStatus({ state: "submitting" });
+    try {
+      await signInWithMicrosoft();
+    } catch (err) {
+      setStatus({ state: "error", message: err instanceof Error ? err.message : "Microsoft sign-in failed" });
+    }
+  }
+
   if (authCheck !== "signed_out") {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -76,6 +85,16 @@ export default function LoginPage() {
       >
         <GoogleIcon />
         Continue with Google
+      </button>
+
+      <button
+        type="button"
+        onClick={handleMicrosoftSignIn}
+        disabled={status.state === "submitting"}
+        className="flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-bold text-foreground disabled:opacity-50 hover:bg-card-alt"
+      >
+        <MicrosoftIcon />
+        Continue with Microsoft
       </button>
 
       <div className="flex items-center gap-3 text-xs text-muted">
