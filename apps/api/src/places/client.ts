@@ -130,11 +130,13 @@ export class LivePlacesClient implements GooglePlacesClient, PlaceDetailsClient,
   constructor(private readonly apiKey: string) {}
 
   async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
-    // reviewsSort=newest -- the venue page shows only the latest few reviews
-    // (EnrichmentReviews.tsx), so "latest" should mean newest-first rather
-    // than Google's default "most relevant" ordering.
+    // Places API (New) has no query param for review order (unlike the
+    // legacy API's reviews_sort) -- it always returns Google's "most
+    // relevant" ordering. The venue page wants newest-first (see
+    // EnrichmentReviews.tsx), so that sort happens client-side in
+    // enrichment/refresh.ts's mapPlaceDetails instead.
     const response = await fetch(
-      `https://places.googleapis.com/v1/places/${placeId}?reviewsSort=newest`,
+      `https://places.googleapis.com/v1/places/${placeId}`,
       {
         headers: {
           "X-Goog-Api-Key": this.apiKey,
