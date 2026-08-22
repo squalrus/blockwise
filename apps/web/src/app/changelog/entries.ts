@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.71.1", date: "2026-08-21", summary: "Fixed venue/POI enrichment refresh, which was failing against Google's Places API on every call" },
   { version: "0.71.0", date: "2026-08-21", summary: "Monitoring tab for super admins -- error tracking, request volume/latency, DB query latency, and Google Places API call charts, rolled on our own Postgres tables rather than a third-party service; also a custom on-brand 404 page" },
   { version: "0.70.0", date: "2026-08-21", summary: "Analytics tab for business admins -- check-ins over time, a check-ins-by-day-of-week chart, and coupon claims over time for their venue" },
   { version: "0.69.0", date: "2026-08-21", summary: "Analytics tab for neighborhood admins -- check-ins over time, a locations-by-category breakdown, and a top-venues leaderboard" },

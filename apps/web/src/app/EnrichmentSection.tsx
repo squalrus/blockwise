@@ -146,9 +146,10 @@ export function EnrichmentReviews({ enrichment }: { enrichment: VenueEnrichmentC
       </div>
       {enrichment.reviews.length > 0 && (
         <ul className="flex flex-col gap-2">
-          {/* Latest 3 -- reviewsSort=newest at fetch time (places/client.ts)
-              means this slice really is the most recent, not just the first
-              3 of whatever order Google returned. */}
+          {/* Latest 3 -- reviews are sorted newest-first server-side
+              (enrichment/refresh.ts's mapPlaceDetails) since the Places API
+              has no request param for review order, so this slice really is
+              the most recent, not just the first 3 of Google's own order. */}
           {enrichment.reviews.slice(0, 3).map((review, index) => {
             const author = review.author_name ?? "Neighbor";
             const accent = avatarAccentFor(author);

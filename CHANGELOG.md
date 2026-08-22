@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.71.1] — 2026-08-21
+
+### Fixed
+
+- **Venue/POI enrichment refresh was failing outright against Google's Places API** with a 400 `INVALID_ARGUMENT` ("Unknown name \"reviewsSort\"") on every call, since the New Places API's `places.get` endpoint has no query parameter for review ordering (that was a legacy-API-only param) — reviews are now sorted newest-first client-side after fetching instead, preserving the "Latest 3" behavior on the venue page. (`apps/api/src/places/client.ts`, `apps/api/src/enrichment/refresh.ts`, `apps/web/src/app/EnrichmentSection.tsx`)
+
 ## [0.71.0] — 2026-08-21
 
 ### Added

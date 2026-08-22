@@ -13,12 +13,22 @@ export function isStale(fetchedAt: string, now: number, ttlMs: number): boolean 
 function mapPlaceDetails(details: RawPlaceDetails) {
   return {
     rating: details.rating ?? null,
-    reviews: (details.reviews ?? []).map((review) => ({
-      rating: review.rating ?? null,
-      text: review.text?.text ?? null,
-      author_name: review.authorAttribution?.displayName ?? null,
-      published_at: review.publishTime ?? null,
-    })),
+    // Places API (New) returns reviews in its own "most relevant" order with
+    // no way to request newest-first (places/client.ts) -- sort here so the
+    // venue page's "Latest 3" (EnrichmentReviews.tsx) really is the most
+    // recent. Reviews without a publishTime sort last.
+    reviews: [...(details.reviews ?? [])]
+      .sort((a, b) => {
+        const aTime = a.publishTime ? new Date(a.publishTime).getTime() : -Infinity;
+        const bTime = b.publishTime ? new Date(b.publishTime).getTime() : -Infinity;
+        return bTime - aTime;
+      })
+      .map((review) => ({
+        rating: review.rating ?? null,
+        text: review.text?.text ?? null,
+        author_name: review.authorAttribution?.displayName ?? null,
+        published_at: review.publishTime ?? null,
+      })),
     priceTier: details.priceLevel ?? null,
     photoRefs: (details.photos ?? []).map((photo) => photo.name),
     phone: details.nationalPhoneNumber ?? null,
