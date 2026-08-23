@@ -186,6 +186,11 @@ export function ActivityFeed({ items, emptyMessage }: { items: ActivityItem[]; e
                     </span>
                   )}
                 </p>
+                {item.points_earned != null && item.points_earned > 0 && (
+                  <span className="shrink-0 rounded-full bg-brand-green/15 px-2 py-0.5 text-[10px] font-extrabold text-brand-green">
+                    +{item.points_earned} pts
+                  </span>
+                )}
                 <RowTimestamp occurredAt={item.occurred_at} />
               </div>
             ))}

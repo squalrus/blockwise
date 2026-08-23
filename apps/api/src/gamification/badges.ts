@@ -33,10 +33,17 @@ function isRelevant(rule: BadgeRuleRecord, categoryId: string | undefined, kind:
     case "category_milestone":
       return rule.categoryId === categoryId;
     case "poi_milestone":
+    case "poi_rank_reached":
       return kind === "poi";
+    case "business_rank_reached":
+      return kind === "business";
     case "daily_distinct_venues":
     case "same_venue_repeat_in_day":
     case "level_reached":
+    // Any check-in in the neighborhood could change who's ranked #1 there,
+    // not just one at this specific venue -- always re-checked, mirroring
+    // level_reached.
+    case "neighborhood_rank_reached":
       return true;
     // Never affected by a check-in -- evaluated separately, after a
     // connection is accepted (see evaluateBadgesForNeighborCount below).
@@ -54,7 +61,14 @@ function isRelevant(rule: BadgeRuleRecord, categoryId: string | undefined, kind:
 
 async function progressForRule(
   rule: BadgeRuleRecord,
-  input: { userId: string; venueId: string; dayStart: string; dayEnd: string; totalPoints: number },
+  input: {
+    userId: string;
+    venueId: string;
+    neighborhoodId: string;
+    dayStart: string;
+    dayEnd: string;
+    totalPoints: number;
+  },
   repository: GamificationRepository
 ): Promise<number> {
   switch (rule.ruleType) {
@@ -77,6 +91,13 @@ async function progressForRule(
       });
     case "level_reached":
       return computeLevel(input.totalPoints).level;
+    // Boolean progress against a threshold that's always 1 (see
+    // BadgeRuleType's doc comment) -- 1 if currently ranked #1, else 0.
+    case "business_rank_reached":
+    case "poi_rank_reached":
+      return (await repository.isTopVisitorForVenue(input.venueId, input.userId)) ? 1 : 0;
+    case "neighborhood_rank_reached":
+      return (await repository.isTopVisitorForNeighborhood(input.neighborhoodId, input.userId)) ? 1 : 0;
     // Unreachable -- isRelevant above filters these rule types out of every
     // checkin-triggered call before progressForRule is ever invoked with them.
     case "neighbor_count_reached":
@@ -94,6 +115,7 @@ export async function evaluateBadgesAfterCheckin(
   input: {
     userId: string;
     venueId: string;
+    neighborhoodId: string;
     categoryId?: string;
     kind: LocationKind;
     checkedInAt: string;
@@ -114,7 +136,7 @@ export async function evaluateBadgesAfterCheckin(
 
     const progress = await progressForRule(
       rule,
-      { userId: input.userId, venueId: input.venueId, dayStart, dayEnd, totalPoints },
+      { userId: input.userId, venueId: input.venueId, neighborhoodId: input.neighborhoodId, dayStart, dayEnd, totalPoints },
       repository
     );
     if (progress < rule.threshold) continue;

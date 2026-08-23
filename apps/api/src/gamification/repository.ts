@@ -117,7 +117,18 @@ export type BadgeRuleType =
   // combined (BACKLOG.md Ref 98/101) -- evaluated after any kind of
   // collection event, not after a check-in specifically (see
   // evaluateBadgesForCollectionCount in badges.ts).
-  | "collection_milestone";
+  | "collection_milestone"
+  // Ranked #1 by 60-day check-in count ("Top Caps", checkins/checkin.ts's
+  // rankRecentVisitors/RECENT_VISITOR_WINDOW_MS) at a business, at a POI, or
+  // across an entire neighborhood -- three separate rule types (rather than
+  // one generic "rank_reached" plus a kind/scope column) mirroring how
+  // category_milestone/poi_milestone are already split rather than unified.
+  // threshold is always 1 for these (isTopVisitorForVenue/
+  // isTopVisitorForNeighborhood are boolean, not a count to compare against a
+  // configurable N), kept only for schema consistency with every other rule.
+  | "business_rank_reached"
+  | "poi_rank_reached"
+  | "neighborhood_rank_reached";
 
 export interface BadgeRuleRecord {
   id: string;
@@ -279,4 +290,16 @@ export interface GamificationRepository {
     startsAt: string;
     endsAt: string;
   }): Promise<number>;
+
+  // Progress metric for business_rank_reached/poi_rank_reached -- is this
+  // user currently the #1 ranked visitor (by 60-day check-in count) at this
+  // venue, regardless of the venue's own privacy/naming (unlike the "Top
+  // Caps" badge cluster's display, which only *names* a public visitor,
+  // earning this badge doesn't require being publicly nameable).
+  isTopVisitorForVenue(venueId: string, userId: string): Promise<boolean>;
+
+  // Progress metric for neighborhood_rank_reached -- same idea as
+  // isTopVisitorForVenue, scoped to every venue in the neighborhood combined
+  // instead of one venue.
+  isTopVisitorForNeighborhood(neighborhoodId: string, userId: string): Promise<boolean>;
 }

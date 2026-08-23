@@ -61,6 +61,7 @@ export async function awardCheckinRewards(
     {
       userId: checkin.userId,
       venueId: checkin.venueId,
+      neighborhoodId: context.neighborhoodId,
       categoryId: context.categoryId ?? undefined,
       kind: context.kind,
       checkedInAt: checkin.checkedInAt,

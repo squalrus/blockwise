@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PoweredByGoogle } from "@blockwise/ui";
-import { EnrichmentAbout } from "../../../EnrichmentSection";
+import { apiUrl } from "@/lib/api";
+import { EnrichmentAbout, EnrichmentPhotos } from "../../../EnrichmentSection";
 import { getLocation } from "../layout";
 
 export async function generateMetadata({
@@ -12,9 +13,10 @@ export async function generateMetadata({
   return { alternates: { canonical: `/location/${id}/about` } };
 }
 
-// About tab (BACKLOG.md Ref 101 redesign) -- Google Places enrichment
-// (price/hours/phone/website/atmosphere), shown for business-kind locations
-// and any POI with a google_place_id, mirroring the layout's photo-strip gate.
+// About tab (BACKLOG.md Ref 101 redesign) -- the photo strip (moved here
+// from the shared layout so it's not repeated chrome on every tab) leads,
+// then Google Places enrichment (price/hours/phone/website/atmosphere),
+// shown for business-kind locations and any POI with a google_place_id.
 export default async function LocationAboutPage({
   params,
 }: {
@@ -28,6 +30,13 @@ export default async function LocationAboutPage({
 
   return (
     <div className="flex flex-col gap-2.5">
+      {(isBusiness || location.google_place_id) && (
+        <EnrichmentPhotos
+          enrichment={location.enrichment}
+          photoUrl={(index) => apiUrl(`/locations/${location.id}/photo?index=${index}`)}
+          alt={location.name}
+        />
+      )}
       <EnrichmentAbout
         enrichment={location.enrichment}
         emptyLabel={

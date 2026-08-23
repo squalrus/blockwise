@@ -36,6 +36,7 @@ function record(overrides: Partial<ActivityRecord>): ActivityRecord {
     otherUserDisplayName: null,
     otherUserUsername: null,
     otherUserVisibility: null,
+    pointsEarned: 10,
     occurredAt: "2026-07-10T12:00:00.000Z",
     ...overrides,
   };

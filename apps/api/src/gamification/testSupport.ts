@@ -345,6 +345,37 @@ export class FakeGamificationRepository implements GamificationRepository {
         c.checkedInAt <= input.endsAt
     ).length;
   }
+
+  // Ranks distinct visitors by check-in count (ties broken by most recent),
+  // mirroring checkins/checkin.ts's rankRecentVisitors -- kept as a small
+  // local helper rather than importing that function here, since the real
+  // window-cutoff filtering (RECENT_VISITOR_WINDOW_MS) doesn't matter for
+  // these tests' purposes and duplicating just the ranking arithmetic keeps
+  // this fake dependency-free like the rest of the file.
+  private topVisitor(checkins: { userId: string; checkedInAt: string }[]): string | undefined {
+    const counts = new Map<string, { count: number; mostRecent: string }>();
+    for (const c of checkins) {
+      const existing = counts.get(c.userId);
+      counts.set(c.userId, {
+        count: (existing?.count ?? 0) + 1,
+        mostRecent: existing && existing.mostRecent > c.checkedInAt ? existing.mostRecent : c.checkedInAt,
+      });
+    }
+    return [...counts.entries()].sort(
+      (a, b) => b[1].count - a[1].count || b[1].mostRecent.localeCompare(a[1].mostRecent)
+    )[0]?.[0];
+  }
+
+  async isTopVisitorForVenue(venueId: string, userId: string): Promise<boolean> {
+    return this.topVisitor(this.checkins.filter((c) => c.venueId === venueId)) === userId;
+  }
+
+  async isTopVisitorForNeighborhood(neighborhoodId: string, userId: string): Promise<boolean> {
+    return (
+      this.topVisitor(this.checkins.filter((c) => this.locations.get(c.venueId)?.neighborhoodId === neighborhoodId)) ===
+      userId
+    );
+  }
 }
 
 export function makeBadge(overrides: Partial<BadgeRecord> = {}): BadgeRecord {

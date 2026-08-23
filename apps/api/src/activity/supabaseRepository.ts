@@ -15,6 +15,7 @@ type ActorEmbed = { display_name: string | null; username: string | null; visibi
 interface PointEventRow {
   id: string;
   event_type: string;
+  points: number;
   created_at: string;
   venue_id: string | null;
   venue: { name: string } | { name: string }[] | null;
@@ -40,7 +41,7 @@ interface EventFollowRow {
 }
 
 const POINT_EVENT_COLUMNS =
-  "id, event_type, created_at, venue_id, venue:venue_id(name), challenge:challenge_id(title), " +
+  "id, event_type, points, created_at, venue_id, venue:venue_id(name), challenge:challenge_id(title), " +
   "user:user_id!inner(display_name, username, visibility), neighbor_user_id, neighbor:neighbor_user_id(display_name, username, visibility)";
 const USER_BADGE_COLUMNS =
   "id, awarded_at, badge:badge_id(name, icon), user:user_id!inner(display_name, username, visibility)";
@@ -73,6 +74,7 @@ function fromPointEventRow(row: PointEventRow): ActivityRecord {
     otherUserDisplayName: neighbor?.display_name ?? null,
     otherUserUsername: neighbor?.username ?? null,
     otherUserVisibility: neighbor?.visibility ?? (row.event_type === "neighbor_connection" ? "private" : null),
+    pointsEarned: row.points,
     occurredAt: row.created_at,
   };
 }
@@ -97,6 +99,7 @@ function fromUserBadgeRow(row: UserBadgeRow): ActivityRecord {
     otherUserDisplayName: null,
     otherUserUsername: null,
     otherUserVisibility: null,
+    pointsEarned: null,
     occurredAt: row.awarded_at,
   };
 }
@@ -123,6 +126,7 @@ function fromEventFollowRow(row: EventFollowRow): ActivityRecord | null {
     otherUserDisplayName: null,
     otherUserUsername: null,
     otherUserVisibility: null,
+    pointsEarned: null,
     occurredAt: row.created_at,
   };
 }

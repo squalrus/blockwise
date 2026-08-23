@@ -1,11 +1,34 @@
 import Link from "next/link";
-import type { AppUser, PublicUserProfile } from "@blockwise/types";
+import type { ActivityItem, AppUser, PublicUserProfile } from "@blockwise/types";
 import { ProfileSummaryCard } from "../../../account/ProfileSummaryCard";
-import { BadgeIcon } from "../../../BadgeIcon";
-import { CheckinTimeline } from "../../../CheckinTimeline";
+import { ActivityFeed } from "../../../ActivityFeed";
 import { JoinNeighborhoodButton } from "../../../neighborhoods/[slug]/JoinNeighborhoodButton";
+import { BadgesSection } from "../../../profile/[username]/BadgesSection";
+import { ChallengesSection } from "../../../profile/[username]/ChallengesSection";
 import { NeighborRequestButton } from "../../../profile/[username]/NeighborRequestButton";
+import { TopCapsSection } from "../../../profile/[username]/TopCapsSection";
 import { SAMPLE_PROFILE } from "../demoData";
+
+// Mirrors toCheckinActivity in profile/[username]/page.tsx.
+function toCheckinActivity(profile: PublicUserProfile): ActivityItem[] {
+  return profile.recent_checkins.map((checkin, index): ActivityItem => ({
+    id: `${checkin.venue_id}-${checkin.checked_in_at}-${index}`,
+    type: "checkin",
+    actor_name: profile.display_name ?? profile.username,
+    actor_username: profile.username,
+    venue_id: checkin.venue_id,
+    venue_name: checkin.name,
+    badge_name: null,
+    badge_icon: null,
+    challenge_title: null,
+    event_id: null,
+    event_title: null,
+    other_user_name: null,
+    other_user_username: null,
+    points_earned: null,
+    occurred_at: checkin.checked_in_at,
+  }));
+}
 
 // Mirrors toCardUser in profile/[username]/page.tsx -- a public profile only
 // ever exposes this subset of AppUser, so the card is fed the same
@@ -67,61 +90,16 @@ export default function ProfilePageDemoPage() {
           </p>
         </div>
 
+        <TopCapsSection topCaps={profile.top_caps} />
+
         <section className="flex flex-col gap-2.5">
-          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Latest badge</h2>
-          {profile.badges.length === 0 ? (
-            <p className="text-sm text-muted">No badges earned yet.</p>
-          ) : (
-            (() => {
-              const latest = profile.badges[0];
-              return (
-                <div className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3.5">
-                  <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border-[3px] border-foreground bg-brand-purple text-2xl">
-                    <BadgeIcon icon={latest.badge.icon} name={latest.badge.name} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-foreground">{latest.badge.name}</p>
-                    {latest.badge.description && (
-                      <p className="mt-0.5 text-xs text-body-text">{latest.badge.description}</p>
-                    )}
-                    <p className="mt-1 text-[11px] font-bold text-muted">
-                      Unlocked {new Date(latest.awarded_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              );
-            })()
-          )}
+          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Badges</h2>
+          <BadgesSection badges={profile.badges} />
         </section>
 
         <section className="flex flex-col gap-2.5">
-          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Latest challenge</h2>
-          {profile.challenges.length === 0 ? (
-            <p className="text-sm text-muted">No challenges completed yet.</p>
-          ) : (
-            (() => {
-              const latest = profile.challenges[0];
-              return (
-                <div className="rounded-2xl bg-card-alt px-4 py-3.5 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="font-extrabold text-foreground">{latest.title}</span>
-                      {latest.description && <p className="mt-1 text-body-text">{latest.description}</p>}
-                    </div>
-                    {latest.badge && (
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-brand-purple text-lg">
-                        <BadgeIcon icon={latest.badge.icon} name={latest.badge.name} />
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1.5 text-xs font-bold text-muted">
-                    {latest.neighborhood_name} · +{latest.points_reward} pts · Completed{" "}
-                    {new Date(latest.completed_at).toLocaleString()}
-                  </p>
-                </div>
-              );
-            })()
-          )}
+          <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Challenges</h2>
+          <ChallengesSection challenges={profile.challenges} />
         </section>
 
         <section className="flex flex-col gap-2.5">
@@ -155,7 +133,7 @@ export default function ProfilePageDemoPage() {
 
         <section className="flex flex-col gap-2.5">
           <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Recent check-ins</h2>
-          <CheckinTimeline checkins={profile.recent_checkins} emptyMessage="No check-ins yet." />
+          <ActivityFeed items={toCheckinActivity(profile)} emptyMessage="No check-ins yet." />
         </section>
       </div>
     </section>

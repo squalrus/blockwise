@@ -15,8 +15,8 @@ export default function CollectionCardDemoPage() {
       <div>
         <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">Collection card</h1>
         <p className="mt-1 text-sm text-muted">
-          CollectionCard, as rendered on /account's collection tab. Click a card to preview CollectionDetailModal's
-          matching treatment.
+          CollectionCard, as rendered on /account&apos;s collection tab. Click a card to preview
+          CollectionDetailModal&apos;s matching treatment.
         </p>
       </div>
 

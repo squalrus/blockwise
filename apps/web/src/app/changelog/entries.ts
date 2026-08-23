@@ -13,6 +13,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   { version: "0.78.0", date: "2026-08-23", summary: "Colored ring + corner glyph badges distinguish business/POI/neighborhood icons and collection cards at a glance" },
+  { version: "0.77.0", date: "2026-08-23", summary: "Public profile redesign with a Top Caps section and share button, three new \"Top Cap\" leaderboard badges, activity points shown in every feed, a venue leaderboard on the neighborhood Leaderboard tab, and level badges through level 20" },
   { version: "0.76.0", date: "2026-08-23", summary: "Location page redesign with a route-per-tab bar (Spore Feed, About, Reviews, Coupons, Events, and a new Leaderboard tab), plus \"Top Caps\" and an \"Open now\" pill for business/POI pages" },
   { version: "0.75.0", date: "2026-08-23", summary: "Neighborhood page redesign with \"Top Caps\" (top 3 recent visitors, shown on the leaderboard alongside lifetime points), plus neighborhoods are now a collectible forager species" },
   { version: "0.74.1", date: "2026-08-22", summary: "Account page redesign -- level-progress ring on the profile card, a divided stat strip, underline tabs, playing-card-styled collection, and day-grouped activity feeds" },

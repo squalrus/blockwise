@@ -50,17 +50,19 @@ export function ChallengesView({ neighborhoodSlug }: { neighborhoodSlug: string 
     return <p className="text-sm text-muted">No challenges running right now.</p>;
   }
 
-  // Same grouping/ordering as the account page's Challenges tab: in-progress
-  // (most percent-complete first) above completed above not-yet-started --
-  // unlike the account page, not-started challenges aren't excluded here,
-  // since this view is browsing what's available in the neighborhood rather
-  // than a personal roll-up of engaged-with challenges.
+  // In-progress (most percent-complete first) above not-yet-started above
+  // completed -- unlike the account page's own Challenges tab, not-started
+  // challenges aren't excluded here, since this view is browsing what's
+  // available in the neighborhood rather than a personal roll-up of
+  // engaged-with challenges. Not-started ranks above completed since it's
+  // the more actionable group -- something to go start -- while completed is
+  // done and mainly there for the record.
   const inProgress = status.challenges
     .filter((c) => !c.completed && c.progress_count > 0)
     .sort((a, b) => b.progress_count / b.target_count - a.progress_count / a.target_count);
-  const completed = status.challenges.filter((c) => c.completed);
   const notStarted = status.challenges.filter((c) => !c.completed && c.progress_count === 0);
-  const groupCount = [inProgress, completed, notStarted].filter((g) => g.length > 0).length;
+  const completed = status.challenges.filter((c) => c.completed);
+  const groupCount = [inProgress, notStarted, completed].filter((g) => g.length > 0).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -70,16 +72,16 @@ export function ChallengesView({ neighborhoodSlug }: { neighborhoodSlug: string 
           <ChallengeList challenges={inProgress} />
         </div>
       )}
-      {completed.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {groupCount > 1 && <h2 className="text-xs font-extrabold text-muted">Completed</h2>}
-          <ChallengeList challenges={completed} />
-        </div>
-      )}
       {notStarted.length > 0 && (
         <div className="flex flex-col gap-2">
           {groupCount > 1 && <h2 className="text-xs font-extrabold text-muted">Not started</h2>}
           <ChallengeList challenges={notStarted} />
+        </div>
+      )}
+      {completed.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {groupCount > 1 && <h2 className="text-xs font-extrabold text-muted">Completed</h2>}
+          <ChallengeList challenges={completed} />
         </div>
       )}
     </div>

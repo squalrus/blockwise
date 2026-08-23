@@ -1,4 +1,4 @@
-import type { MushroomConfig, RecentVisitorMushroom, TopVisitor } from "./mushroom";
+import type { MushroomConfig, RecentVisitorMushroom, TopVenue, TopVisitor } from "./mushroom";
 
 export interface HealthCheckResponse {
   status: "ok";
@@ -746,6 +746,13 @@ export interface NeighborhoodProfile {
   // cluster next to the mosaic -- empty if there are no public, named
   // visitors within the window.
   top_visitors: TopVisitor[];
+  // Location leaderboard counterpart to top_visitors -- same rolling 60-day
+  // window and same rankRecentVisitors ranking, just grouped by venue_id
+  // instead of user_id, for the neighborhood Leaderboard tab's "which places
+  // are busiest" section. Unlike top_visitors, never filtered for privacy
+  // (venues have no visibility setting), so this is always the true top 3 by
+  // visit count.
+  top_venues: TopVenue[];
 }
 
 // Neighborhood membership (BACKLOG.md "Neighborhoods on landing page and user
@@ -801,6 +808,34 @@ export interface PublicUserProfile {
   // request-based neighbor check ProfileDetails.tsx applies to
   // badges/neighborhoods/check-ins.
   neighbor_mushrooms: MushroomConfig[];
+  // Reverse "Top Caps" lookup (BACKLOG.md Ref 94/101's rank-1/2/3 badge
+  // cluster, normally shown *on* a venue/neighborhood card) -- every venue
+  // this user has visited within the rolling 60-day window, or neighborhood
+  // they belong to, where they currently rank in that place's own top 3 by
+  // visit count. `id` is the venue_id or neighborhood_id; `slug` is set only
+  // for a neighborhood entry (venues link via `/location/:id`, neighborhoods
+  // via `/neighborhoods/:slug`). Sorted best-rank-first.
+  top_caps: ProfileTopCap[];
+}
+
+export interface ProfileTopCap {
+  kind: "venue" | "neighborhood";
+  id: string;
+  slug?: string;
+  name: string;
+  rank: number;
+  visit_count: number;
+}
+
+// GET /me/connections/mutual/:username -- how many of the caller's own
+// accepted neighbors are *also* an accepted neighbor of the target user, a
+// trust signal shown before the caller has connected with them (BACKLOG.md
+// "Connect with other users" follow-up). Deliberately just a count, not the
+// overlapping identities themselves, even though the caller could see who
+// those mutual neighbors are on their own /account/neighbors -- keeps this
+// endpoint from doubling as a way to enumerate a stranger's connections.
+export interface MutualNeighborsSummary {
+  count: number;
 }
 
 // BACKLOG.md Ref 14/33 "Connect with other users" / "Friends/neighbors on
@@ -1368,6 +1403,14 @@ export interface ActivityItem {
   // a friend-of-a-friend's Spore Feed).
   other_user_name: string | null;
   other_user_username: string | null;
+  // Set for "checkin" / "favorite" / "challenge_completion" /
+  // "neighbor_connection" rows -- each is sourced 1:1 from a `point_event`
+  // row (apps/api's activity/supabaseRepository.ts), so the points it
+  // awarded is already on hand. null for "badge" (a free unlock, not itself
+  // a point event) and "event_follow" (not currently a point-earning action
+  // at all -- see points.ts's CHECKIN_POINTS/FAVORITE_POINTS/
+  // NEIGHBOR_CONNECTION_POINTS, no event-follow equivalent exists).
+  points_earned: number | null;
   occurred_at: string;
 }
 

@@ -8,6 +8,27 @@ User-visible changes, newest first. Follows [Keep a Changelog](https://keepachan
 
 - **Type badges for business, POI, and neighborhood icons**: the identity tile on business/POI/neighborhood pages now shows a colored ring (amber/purple/green) plus a small corner glyph (storefront/map-pin/leaf) so the three read as distinct from each other and from a person's avatar at a glance — previously business and POI shared an identical plain orange tile. The same system extends to the account Collection tab: each card's thin inner frame now recolors by source type with a matching corner glyph (plus a new person glyph for species collected from a neighbor), replacing the old species-initial corner marks. (`apps/web/src/app/EntityTile.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/account/(tabs)/collection/`, `apps/api/src/mushroomCollection/`, `packages/types/src/index.ts`)
 
+## [0.77.0] — 2026-08-23
+
+### Added
+
+- **Public profile page visual redesign** with activity tabs matching the Account page layout: mutual-neighbor count before connecting, a share/copy-link button visible on your own profile, Top Caps section showing where you rank #1 by 60-day check-ins across venues and neighborhoods, and paginated badges/challenges sections (10 items visible with a "Show X more" button). Recent check-ins now render via the day-grouped ActivityFeed instead of the old Timeline, with optional activity points display. (`apps/web/src/app/profile/[username]/`, `apps/web/src/app/profile/[username]/BadgesSection.tsx`, `apps/web/src/app/profile/[username]/ChallengesSection.tsx`, `apps/web/src/app/profile/[username]/TopCapsSection.tsx`, `apps/web/src/app/profile/[username]/ShareProfileButton.tsx`, `apps/api/src/app.ts`)
+- **Three new "Top Cap" badges** for ranking #1 by 60-day check-in count: Business Top Cap (ranked #1 at a business), Landmark Top Cap (ranked #1 at a POI), and Neighborhood Top Cap (ranked #1 across an entire neighborhood), evaluated on every check-in alongside the existing badge rule engine. (`apps/api/src/gamification/`, `supabase/migrations/20260823020000_rank_reached_badges.sql`)
+- **Activity points tracking** in all feeds: each point-earning activity now shows a "+N pts" pill if it contributed to the user's score, sourced from the `point_event` table rather than recalculated. (`apps/web/src/app/ActivityFeed.tsx`, `apps/api/src/activity/supabaseRepository.ts`, `packages/types/src/index.ts`)
+- **Location leaderboard on the neighborhood Leaderboard tab**, showing the top venues by 60-day check-in count alongside the Top Caps (users) and Lifetime points sections, with links to each venue's detail page. (`apps/web/src/app/neighborhoods/[slug]/leaderboard/page.tsx`, `apps/api/src/checkins/supabaseRepository.ts`, `packages/types/src/index.ts`)
+- **Level badges through level 20**, extending the existing level-reached tier ladder (v0.50.0 shipped levels 1–10) to accommodate higher-level players and growing community point totals. (`supabase/migrations/20260823010000_level_20_badges.sql`)
+- **Tiered badge hiding until earned** for ladders that gate features (Collection `forager_`, Levels `level_`, Neighbors `good_neighbor_`, Daily Venues `day_tripper_`), so players see only badges they've earned plus the next tier to unlock, rather than preview all future tiers. (`apps/web/src/app/account/(tabs)/badges/page.tsx`)
+
+### Changed
+
+- **Neighborhood challenges section reordered** to surface actionable challenges first: In progress → Not started → Completed, matching the prioritization on the account Challenges tab (v0.74.1). (`apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+- **Location photo strip moved to the About tab** instead of always showing on load, reducing initial page scroll and keeping the photo strip content alongside the description (About) rather than separated into the summary section. (`apps/web/src/app/location/[id]/layout.tsx`, `apps/web/src/app/location/[id]/about/page.tsx`)
+- **Recent check-ins now use ActivityFeed** instead of the deprecated Timeline component, for consistent day-grouped, avatar-per-row styling across all feeds (Spore Feed, My Activity, neighborhood Spore Feed). (`apps/web/src/app/ActivityFeed.tsx`, `apps/api/src/activity/supabaseRepository.ts`)
+
+### Removed
+
+- **`Timeline.tsx` and `CheckinTimeline.tsx`** are now fully unused after ActivityFeed migration and have been deleted. (`apps/web/src/app/`)
+
 ## [0.76.0] — 2026-08-23
 
 ### Added
