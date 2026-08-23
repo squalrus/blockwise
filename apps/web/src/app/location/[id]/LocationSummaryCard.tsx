@@ -1,5 +1,6 @@
 import type { SocialLinks, VenueDetail } from "@blockwise/types";
 import { MushroomLogo } from "@blockwise/ui";
+import { EntityTile } from "../../EntityTile";
 import { MushroomField } from "../../MushroomField";
 import { pinColorFor, shapeFor } from "../../PlaceListItem";
 import { SlideToCheckIn } from "../../SlideToCheckIn";
@@ -58,10 +59,12 @@ export function LocationSummaryCard({
               venue/POI list across the app, so this place's icon reads as
               the same place wherever it's shown. items-start (not
               items-center) on the row above keeps this pinned to the top
-              even when the name/address wrap to two lines. */}
-          <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl bg-brand-orange/[0.16]">
-            <MushroomLogo size={34} shape={shapeFor(location.id)} capColor={pinColorFor(location.id)} stemClassName="text-muted-strong" />
-          </span>
+              even when the name/address wrap to two lines. The tile's ring
+              and corner chip mark business vs. POI (previously identical
+              orange tiles for both) -- the mushroom mark itself is unchanged. */}
+          <EntityTile kind={isBusiness ? "business" : "poi"}>
+            <MushroomLogo size={38} shape={shapeFor(location.id)} capColor={pinColorFor(location.id)} stemClassName="text-muted-strong" />
+          </EntityTile>
           <div>
             <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
               {location.name}

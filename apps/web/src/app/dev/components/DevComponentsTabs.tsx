@@ -10,6 +10,7 @@ const GROUPS: { label: string | null; items: { key: string; label: string }[] }[
       { key: "/profile-card", label: "Profile card" },
       { key: "/neighborhood-card", label: "Neighborhood card" },
       { key: "/location-card", label: "Location card" },
+      { key: "/collection-card", label: "Collection card" },
       { key: "/place-list-item", label: "Venue row" },
     ],
   },

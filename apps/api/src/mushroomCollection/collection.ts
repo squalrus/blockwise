@@ -9,6 +9,7 @@ function toEntry(item: MushroomCollectionListItem): MushroomCollectionEntry {
     source_id: item.sourceId,
     source_name: item.sourceName,
     source_slug: item.sourceSlug,
+    location_kind: item.locationKind,
     species_name: mushroomSpeciesName(item.sourceId),
     mushroom: mushroomConfigForSpecies(item.sourceId),
     quantity: item.quantity,

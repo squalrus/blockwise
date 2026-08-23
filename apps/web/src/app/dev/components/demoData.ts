@@ -5,6 +5,7 @@ import type {
   CheckinRewardsSummary,
   CompletedChallengeSummary,
   Event,
+  MushroomCollectionEntry,
   MushroomConfig,
   NeighborhoodProfile,
   OpenNowLocation,
@@ -15,7 +16,7 @@ import type {
   UserPointsSummary,
   VenueDetail,
 } from "@blockwise/types";
-import { mushroomConfigForUser } from "@blockwise/types";
+import { mushroomConfigForSpecies, mushroomConfigForUser, mushroomSpeciesName } from "@blockwise/types";
 import type { NeighborState } from "../../profile/[username]/NeighborRequestButton";
 import type { CheckinStatus } from "../../useCheckIn";
 
@@ -650,3 +651,79 @@ export const SAMPLE_PROFILE: PublicUserProfile = {
     { kind: "neighborhood", id: "demo-sample-neighborhood", slug: "greenwood-sample", name: "Greenwood", rank: 2, visit_count: 22 },
   ],
 };
+
+function collectionEntry(
+  overrides: Partial<MushroomCollectionEntry> & Pick<MushroomCollectionEntry, "id" | "source_type" | "source_id" | "source_name">
+): MushroomCollectionEntry {
+  return {
+    source_slug: null,
+    location_kind: null,
+    species_name: mushroomSpeciesName(overrides.source_id),
+    mushroom: mushroomConfigForSpecies(overrides.source_id),
+    quantity: 1,
+    first_collected_at: NOW,
+    revealed: true,
+    ...overrides,
+  };
+}
+
+// Collection card (CollectionCard, as rendered on /account's collection tab)
+// -- one entry per source_type, plus a checkin whose venue kind couldn't be
+// resolved, so the type ring/chip's "untyped" fallback is also visible.
+export const COLLECTION_ENTRIES: { label: string; entry: MushroomCollectionEntry }[] = [
+  {
+    label: "Checkin -- business",
+    entry: collectionEntry({
+      id: "demo-collection-business",
+      source_type: "checkin",
+      source_id: "demo-species-business",
+      source_name: "Uma Clinic",
+      location_kind: "business",
+      quantity: 10,
+    }),
+  },
+  {
+    label: "Checkin -- point of interest",
+    entry: collectionEntry({
+      id: "demo-collection-poi",
+      source_type: "checkin",
+      source_id: "demo-species-poi",
+      source_name: "Phinney Station",
+      location_kind: "poi",
+      quantity: 8,
+    }),
+  },
+  {
+    label: "Neighborhood",
+    entry: collectionEntry({
+      id: "demo-collection-neighborhood",
+      source_type: "neighborhood",
+      source_id: "demo-species-neighborhood",
+      source_name: "Greenwood",
+      source_slug: "greenwood",
+      quantity: 5,
+    }),
+  },
+  {
+    label: "Connection -- with a neighbor",
+    entry: collectionEntry({
+      id: "demo-collection-connection",
+      source_type: "connection",
+      source_id: "demo-species-connection",
+      source_name: "Morgan Lee",
+      source_slug: "morganlee",
+      quantity: 3,
+    }),
+  },
+  {
+    label: "Checkin -- legacy row, venue kind unresolved (no ring/chip)",
+    entry: collectionEntry({
+      id: "demo-collection-legacy",
+      source_type: "checkin",
+      source_id: "demo-species-legacy",
+      source_name: "Old Venue",
+      location_kind: null,
+      quantity: 1,
+    }),
+  },
+];

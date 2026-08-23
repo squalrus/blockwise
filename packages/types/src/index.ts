@@ -292,6 +292,11 @@ export interface MushroomCollectionEntry {
   // /neighborhoods/[slug]) -- null for "checkin", which links via source_id
   // itself (/location/[source_id]) and needs no separate field.
   source_slug: string | null;
+  // Business vs. POI, for a "checkin" source only -- null for "connection"/
+  // "neighborhood" (neither has a LocationKind) and for a "checkin" whose
+  // venue kind couldn't be resolved. Lets the collection UI mark a card's
+  // type the same way EntityTile does on a venue/neighborhood's own page.
+  location_kind: LocationKind | null;
   species_name: string;
   mushroom: MushroomConfig;
   quantity: number;

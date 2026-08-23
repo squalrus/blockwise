@@ -1,3 +1,5 @@
+import type { LocationKind } from "@blockwise/types";
+
 export type MushroomCollectionSourceType = "checkin" | "connection" | "neighborhood";
 
 // GET /me/collection listing (BACKLOG.md Ref 98/101) -- source-joined so the
@@ -15,6 +17,10 @@ export interface MushroomCollectionListItem {
   // /neighborhoods/[slug]). Null for "checkin" (sourceId is already the
   // venue's own id/route in that case).
   sourceSlug: string | null;
+  // Business vs. POI for a "checkin" row (see MushroomCollectionEntry's own
+  // location_kind field) -- null for "connection"/"neighborhood" rows and
+  // for a "checkin" whose venue kind couldn't be resolved.
+  locationKind: LocationKind | null;
   quantity: number;
   firstCollectedAt: string;
   // Null until the user taps to flip the tile over on the Collection tab

@@ -1,5 +1,6 @@
 import type { NeighborhoodProfile, SocialLinks } from "@blockwise/types";
 import { MushroomLogo } from "@blockwise/ui";
+import { EntityTile } from "../../EntityTile";
 import { MushroomField } from "../../MushroomField";
 
 const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
@@ -43,12 +44,13 @@ export function NeighborhoodSummaryCard({
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3.5">
           {/* Neighborhood identity mark (BACKLOG.md Ref 101 redesign): an
-              enoki cluster on a green tile, distinguishing the neighborhood
-              header from a person's avatar-led card (ProfileSummaryCard) or
-              a location's plain title. */}
-          <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl bg-brand-green/[0.18]">
-            <MushroomLogo size={34} shape="enoki" capColor="var(--brand-green)" stemClassName="text-muted-strong" />
-          </span>
+              enoki cluster on a green tile with a leaf corner chip,
+              distinguishing the neighborhood header from a person's
+              avatar-led card (ProfileSummaryCard) or a location's business/
+              POI tile (LocationSummaryCard). */}
+          <EntityTile kind="neighborhood">
+            <MushroomLogo size={38} shape="enoki" capColor="var(--brand-green)" stemClassName="text-muted-strong" />
+          </EntityTile>
           <div>
             <h1 className="font-heading text-3xl font-extrabold tracking-tight text-foreground">
               {neighborhood.name}

@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { MushroomCollectionEntry } from "@blockwise/types";
 import { MushroomMark, hashSeed, mulberry32 } from "@blockwise/ui";
+import { CardTypeMark } from "./CardTypeMark";
 import { CornerMark } from "./CornerMark";
+import { CARD_BORDER_CLASS, cardKindForEntry } from "./entityKind";
 import { sourceLabel } from "./sourceLabel";
 
 // How far (px) a drag has to travel before it counts as a swipe rather than
@@ -105,6 +107,7 @@ function SpecimenCard({
         ? `/neighborhoods/${entry.source_slug}`
         : `/profile/${entry.source_slug}`;
   const canLinkSource = entry.source_type === "checkin" || entry.source_slug !== null;
+  const kind = cardKindForEntry(entry);
 
   return (
     <div
@@ -114,8 +117,15 @@ function SpecimenCard({
         transition: animateRotation ? `transform ${SLIDE_TRANSITION_MS}ms ease` : "none",
       }}
     >
-      <span aria-hidden className="pointer-events-none absolute inset-2.5 rounded-xl border-[1.5px] border-foreground/10" />
-      <CornerMark initial={entry.species_name.charAt(0)} shape={entry.mushroom.shape} size={13} />
+      <span
+        aria-hidden
+        className={`pointer-events-none absolute inset-2.5 rounded-xl border-[1.5px] ${kind ? CARD_BORDER_CLASS[kind] : "border-foreground/10"}`}
+      />
+      {kind ? (
+        <CardTypeMark kind={kind} />
+      ) : (
+        <CornerMark initial={entry.species_name.charAt(0)} shape={entry.mushroom.shape} size={13} />
+      )}
       <span className="absolute top-4 right-5 font-mono text-[9px] font-medium text-muted">
         No. {String(index + 1).padStart(2, "0")}
       </span>

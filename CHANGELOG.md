@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.78.0] — 2026-08-23
+
+### Added
+
+- **Type badges for business, POI, and neighborhood icons**: the identity tile on business/POI/neighborhood pages now shows a colored ring (amber/purple/green) plus a small corner glyph (storefront/map-pin/leaf) so the three read as distinct from each other and from a person's avatar at a glance — previously business and POI shared an identical plain orange tile. The same system extends to the account Collection tab: each card's thin inner frame now recolors by source type with a matching corner glyph (plus a new person glyph for species collected from a neighbor), replacing the old species-initial corner marks. (`apps/web/src/app/EntityTile.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/account/(tabs)/collection/`, `apps/api/src/mushroomCollection/`, `packages/types/src/index.ts`)
+
 ## [0.77.0] — 2026-08-23
 
 ### Added

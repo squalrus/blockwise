@@ -6,8 +6,10 @@ import { MushroomLoader, MushroomMark, mushroomOutline } from "@blockwise/ui";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useAccountRefresh } from "../../AccountContext";
+import { CardTypeMark } from "./CardTypeMark";
 import { CollectionDetailModal } from "./CollectionDetailModal";
 import { CornerMark } from "./CornerMark";
+import { CARD_BORDER_CLASS, cardKindForEntry } from "./entityKind";
 import { sourceLabel } from "./sourceLabel";
 
 type State =
@@ -31,15 +33,23 @@ async function load(setState: (state: State) => void) {
 // The revealed-species "card front" -- shared by an already-revealed grid
 // tile (rendered plain) and CollectionTile's flip back face (which wraps
 // this in its own rotateY(180deg), see below). Laid out like a playing
-// card: corner index marks (top-left, bottom-right-rotated), a qty pill,
-// the mark centered in a soft circle, name/source pinned at the bottom.
-function CollectionCard({ entry }: { entry: MushroomCollectionEntry }) {
-  const initial = entry.species_name.charAt(0);
+// card: a top-left corner mark, a qty pill, the mark centered in a soft
+// circle, name/source pinned at the bottom. Deliberately no bottom-right
+// corner mark (dropped along with CornerMark's own `rotated` mirror) -- a
+// long source name sitting just above that corner collided with it.
+export function CollectionCard({ entry }: { entry: MushroomCollectionEntry }) {
+  const kind = cardKindForEntry(entry);
   return (
     <div className="relative flex aspect-[5/7] w-full flex-col items-center justify-between overflow-hidden rounded-2xl border border-border bg-card px-2.5 py-3.5 shadow-sm">
-      <span aria-hidden className="pointer-events-none absolute inset-1.5 rounded-lg border border-foreground/10" />
-      <CornerMark initial={initial} shape={entry.mushroom.shape} />
-      <CornerMark initial={initial} shape={entry.mushroom.shape} rotated />
+      <span
+        aria-hidden
+        className={`pointer-events-none absolute inset-1.5 rounded-lg border-[1.5px] ${kind ? CARD_BORDER_CLASS[kind] : "border-foreground/10"}`}
+      />
+      {kind ? (
+        <CardTypeMark kind={kind} />
+      ) : (
+        <CornerMark initial={entry.species_name.charAt(0)} shape={entry.mushroom.shape} />
+      )}
       {entry.quantity > 1 && (
         <span className="absolute top-3.5 right-3.5 rounded-full bg-brand-orange px-1.5 py-0.5 text-[10px] font-extrabold text-on-accent">
           {entry.quantity}x
