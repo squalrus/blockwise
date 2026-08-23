@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { EventFollowRecord, EventFollowRepository, FollowedEvent } from "./repository";
+import type { EventFollowRecord, EventFollowRepository, FollowedEvent, PendingEventReminder } from "./repository";
 
 function toRecord(row: { id: string; user_id: string; event_id: string; created_at: string }): EventFollowRecord {
   return {
@@ -112,5 +112,66 @@ export class SupabaseEventFollowRepository implements EventFollowRepository {
         followedAt: row.followedAt,
       }))
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }
+
+  async listPendingEventReminders(windowStart: string, windowEnd: string): Promise<PendingEventReminder[]> {
+    const { data, error } = await this.supabase
+      .from("event_follow")
+      .select(
+        "id, user_id, event:event_id!inner(id, title, start_time, status, venue_id, venue:venue_id(name))"
+      )
+      .is("notified_at", null)
+      .eq("event.status", "active")
+      .gte("event.start_time", windowStart)
+      .lte("event.start_time", windowEnd);
+
+    if (error) throw new Error(`listPendingEventReminders failed: ${error.message}`);
+
+    type JoinedEvent = {
+      id: string;
+      title: string;
+      start_time: string;
+      status: "active" | "hidden";
+      venue_id: string | null;
+      venue: { name: string } | { name: string }[] | null;
+    };
+
+    const rows = (data ?? [])
+      .map((row) => ({
+        followId: row.id as string,
+        userId: row.user_id as string,
+        event: single(row.event as JoinedEvent | JoinedEvent[] | null),
+      }))
+      .filter((row): row is { followId: string; userId: string; event: JoinedEvent } => row.event !== null);
+
+    const byEvent = new Map<string, PendingEventReminder>();
+    for (const row of rows) {
+      let reminder = byEvent.get(row.event.id);
+      if (!reminder) {
+        reminder = {
+          eventId: row.event.id,
+          eventTitle: row.event.title,
+          venueId: row.event.venue_id,
+          venueName: single(row.event.venue)?.name ?? null,
+          startTime: row.event.start_time,
+          follows: [],
+        };
+        byEvent.set(row.event.id, reminder);
+      }
+      reminder.follows.push({ followId: row.followId, userId: row.userId });
+    }
+
+    return [...byEvent.values()];
+  }
+
+  async markEventRemindersSent(followIds: string[]): Promise<void> {
+    if (followIds.length === 0) return;
+
+    const { error } = await this.supabase
+      .from("event_follow")
+      .update({ notified_at: new Date().toISOString() })
+      .in("id", followIds);
+
+    if (error) throw new Error(`markEventRemindersSent failed: ${error.message}`);
   }
 }

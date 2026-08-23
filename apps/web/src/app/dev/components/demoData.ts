@@ -124,6 +124,13 @@ function profileUser(overrides: Partial<AppUser> & Pick<AppUser, "id" | "display
     created_at: NOW,
     is_neighborhood_admin: false,
     is_super_admin: false,
+    notification_preferences: {
+      checkins: true,
+      connection_requests: true,
+      connection_accepted: true,
+      event_reminders: true,
+      new_coupons: true,
+    },
     ...overrides,
   };
 }

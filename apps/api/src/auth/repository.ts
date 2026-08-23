@@ -1,4 +1,4 @@
-import type { AccountType, AvatarStyle, MushroomCustomization, ProfileVisibility } from "@blockwise/types";
+import type { AccountType, AvatarStyle, MushroomCustomization, NotificationPreferences, ProfileVisibility } from "@blockwise/types";
 
 export interface AppUserRecord {
   id: string;
@@ -13,6 +13,7 @@ export interface AppUserRecord {
   username: string | null;
   visibility: ProfileVisibility;
   createdAt: string;
+  notificationPreferences: NotificationPreferences;
 }
 
 export interface UpdateProfileInput {
@@ -30,6 +31,10 @@ export interface UpdateProfileInput {
   mushroomCustomization?: MushroomCustomization | null;
   username?: string | null;
   visibility?: ProfileVisibility;
+  // Typed as a patch, but by the time updateProfile (auth.ts) passes this to
+  // the repository it's already merged with the existing stored value into a
+  // complete object -- the repository just writes it through as-is.
+  notificationPreferences?: Partial<NotificationPreferences>;
 }
 
 export interface CompleteSignupInput {
@@ -71,4 +76,11 @@ export interface AuthRepository {
   // visibility) -- only ever called for the caller's own row (requireAuthUser
   // resolves req.appUser from the caller's own token), never another user's.
   updateProfile(userId: string, input: UpdateProfileInput): Promise<AppUserRecord>;
+  // Batched lookup backing the push fan-out helpers in pushSubscriptions.ts
+  // (BACKLOG.md Ref 102 follow-up) -- filters a candidate recipient list
+  // down to users who still want a given category of push. Missing entries
+  // (shouldn't happen given the column's default, but not guaranteed for a
+  // caller passing a stale/deleted id) are the caller's responsibility to
+  // treat as opted-in, same as the column default.
+  getNotificationPreferences(userIds: string[]): Promise<Map<string, NotificationPreferences>>;
 }

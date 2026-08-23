@@ -1,6 +1,13 @@
-import type { CreatePushSubscriptionRequest, PushSubscriptionKeys, PushSubscriptionRecord as PushSubscriptionDto } from "@blockwise/types";
+import type {
+  CreatePushSubscriptionRequest,
+  NotificationPreferences,
+  PushSubscriptionKeys,
+  PushSubscriptionRecord as PushSubscriptionDto,
+} from "@blockwise/types";
 import type { NeighborhoodAdminRepository, SuperAdminRepository } from "../admin/repository";
+import type { AuthRepository } from "../auth/repository";
 import type { ConnectionRepository } from "../connections/repository";
+import type { FavoriteRepository } from "../favorites/repository";
 import type { PushSubscriptionRecord, PushSubscriptionRepository } from "./repository";
 import type { PushPayload, PushSender } from "./webPushSender";
 
@@ -95,6 +102,21 @@ export async function sendPushToUsers(
   return summary;
 }
 
+// BACKLOG.md Ref 102 follow-up: narrows a candidate recipient list down to
+// users who haven't opted out of the given category on /account/settings.
+// Shared by every notify* trigger below that has a per-user recipient
+// (rather than a role-scoped one like the super/neighborhood-admin alerts,
+// which stay ungated -- those are operational, not personal preferences).
+export async function filterByNotificationPreference(
+  userIds: string[],
+  category: keyof NotificationPreferences,
+  authRepository: AuthRepository
+): Promise<string[]> {
+  if (userIds.length === 0) return [];
+  const preferences = await authRepository.getNotificationPreferences(userIds);
+  return userIds.filter((id) => preferences.get(id)?.[category] !== false);
+}
+
 // BACKLOG.md Ref 91: the first real trigger into sendPushToUsers above,
 // fired after a successful check-in. Notifies every one of the
 // checking-in user's *accepted* connections -- not filtered by the
@@ -107,10 +129,15 @@ export async function notifyConnectionsOfCheckin(
   checkin: { displayName: string | null; venueName: string; venueId: string },
   connectionRepository: ConnectionRepository,
   subscriptionRepository: PushSubscriptionRepository,
-  sender: PushSender
+  sender: PushSender,
+  authRepository: AuthRepository
 ): Promise<SendPushSummary> {
   const connections = await connectionRepository.listConnectionsForUser(checkinUserId, "accepted");
-  const neighborUserIds = connections.map((c) => c.user.id);
+  const neighborUserIds = await filterByNotificationPreference(
+    connections.map((c) => c.user.id),
+    "checkins",
+    authRepository
+  );
   if (neighborUserIds.length === 0) {
     return { sent: 0, pruned: 0, failed: 0 };
   }
@@ -217,8 +244,14 @@ export async function notifyUserOfConnectionRequest(
   recipientUserId: string,
   requesterDisplayName: string | null,
   subscriptionRepository: PushSubscriptionRepository,
-  sender: PushSender
+  sender: PushSender,
+  authRepository: AuthRepository
 ): Promise<SendPushSummary> {
+  const enabled = await filterByNotificationPreference([recipientUserId], "connection_requests", authRepository);
+  if (enabled.length === 0) {
+    return { sent: 0, pruned: 0, failed: 0 };
+  }
+
   const name = requesterDisplayName ?? "A neighbor";
   return sendPushToUsers(
     [recipientUserId],
@@ -233,12 +266,45 @@ export async function notifyUserOfConnectionRequest(
 // mutual-interest auto-accept branch (BACKLOG.md Ref 14/33's connections.ts
 // sendConnectionRequest) -- so the wording stays neutral about which side
 // took the accepting action rather than claiming a specific one did.
+// BACKLOG.md Ref 102 follow-up: fired after POST /business/venues/:id/coupons
+// creates a coupon, alerting every user who favorites that venue (favoriting
+// is the follow relationship, per coupons.ts's listActiveCouponsForVenues
+// comment) that something new is available there.
+export async function notifyFavoritersOfNewCoupon(
+  venueId: string,
+  venueName: string,
+  couponTitle: string,
+  favoriteRepository: FavoriteRepository,
+  subscriptionRepository: PushSubscriptionRepository,
+  sender: PushSender,
+  authRepository: AuthRepository
+): Promise<SendPushSummary> {
+  const favoriterUserIds = await favoriteRepository.listUserIdsFavoritingVenue(venueId);
+  const enabledUserIds = await filterByNotificationPreference(favoriterUserIds, "new_coupons", authRepository);
+  if (enabledUserIds.length === 0) {
+    return { sent: 0, pruned: 0, failed: 0 };
+  }
+
+  return sendPushToUsers(
+    enabledUserIds,
+    { title: "New coupon", body: `${venueName} just launched "${couponTitle}"`, url: `/location/${venueId}` },
+    subscriptionRepository,
+    sender
+  );
+}
+
 export async function notifyUserOfConnectionAccepted(
   targetUserId: string,
   otherDisplayName: string | null,
   subscriptionRepository: PushSubscriptionRepository,
-  sender: PushSender
+  sender: PushSender,
+  authRepository: AuthRepository
 ): Promise<SendPushSummary> {
+  const enabled = await filterByNotificationPreference([targetUserId], "connection_accepted", authRepository);
+  if (enabled.length === 0) {
+    return { sent: 0, pruned: 0, failed: 0 };
+  }
+
   const name = otherDisplayName ?? "A neighbor";
   return sendPushToUsers(
     [targetUserId],

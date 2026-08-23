@@ -381,6 +381,23 @@ export interface MushroomCustomization {
   spotShape: string;
 }
 
+// BACKLOG.md Ref 102 follow-up: per-category push opt-outs, surfaced as
+// individual toggles on the Notifications section of /account/settings
+// (NotificationToggle is the master browser-permission switch; these gate
+// which categories still send once that switch is on). Every category
+// defaults true so an existing account's behavior doesn't change until they
+// explicitly opt out of something. Deliberately excludes the admin-only
+// pushes (new signup, feedback, missing-venue reports) -- those are
+// operational alerts tied to a role, not a personal preference.
+export interface NotificationPreferences {
+  checkins: boolean;
+  connection_requests: boolean;
+  connection_accepted: boolean;
+  event_reminders: boolean;
+  // A followed (favorited) venue launches a new coupon.
+  new_coupons: boolean;
+}
+
 export interface AppUser {
   id: string;
   account_type: AccountType;
@@ -405,6 +422,7 @@ export interface AppUser {
   // "Reimport Locations" cooldown and, for now, is the only role that can
   // create a brand-new neighborhood at all.
   is_super_admin: boolean;
+  notification_preferences: NotificationPreferences;
 }
 
 export interface UpdateProfileRequest {
@@ -413,6 +431,9 @@ export interface UpdateProfileRequest {
   mushroom_customization?: MushroomCustomization | null;
   username?: string | null;
   visibility?: ProfileVisibility;
+  // Partial -- only the categories present are changed, mirroring the rest
+  // of this request shape's "omitted means unchanged" semantics.
+  notification_preferences?: Partial<NotificationPreferences>;
 }
 
 export interface CompleteSignupRequest {

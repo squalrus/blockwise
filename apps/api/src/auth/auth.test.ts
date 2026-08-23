@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { completeLogin, completeSignup, promoteToBusiness, updateProfile } from "./auth";
 import { UsernameTakenError } from "./repository";
 import type { AppUserRecord, AuthRepository, CompleteSignupInput, UpdateProfileInput } from "./repository";
+import type { NotificationPreferences } from "@blockwise/types";
 import type { VerifiedAuthUser } from "./verifyToken";
 
 // In-memory fake, mirroring the pattern used for CheckinRepository/
@@ -32,6 +33,13 @@ class FakeAuthRepository implements AuthRepository {
       username: null,
       visibility: "public",
       createdAt: new Date().toISOString(),
+      notificationPreferences: {
+        checkins: true,
+        connection_requests: true,
+        connection_accepted: true,
+        event_reminders: true,
+        new_coupons: true,
+      },
     };
     this.users.push(created);
     return created;
@@ -53,7 +61,16 @@ class FakeAuthRepository implements AuthRepository {
     if ("mushroomCustomization" in input) user.mushroomCustomization = input.mushroomCustomization ?? null;
     if ("username" in input) user.username = input.username ?? null;
     if ("visibility" in input) user.visibility = input.visibility!;
+    if ("notificationPreferences" in input) {
+      user.notificationPreferences = input.notificationPreferences as NotificationPreferences;
+    }
     return user;
+  }
+
+  async getNotificationPreferences(userIds: string[]): Promise<Map<string, NotificationPreferences>> {
+    return new Map(
+      this.users.filter((u) => userIds.includes(u.id)).map((u) => [u.id, u.notificationPreferences])
+    );
   }
 }
 
@@ -219,6 +236,21 @@ describe("updateProfile", () => {
     await updateProfile(user1, { username: "janedoe" }, repo);
 
     await expect(updateProfile(user2, { username: "janedoe" }, repo)).rejects.toThrow(UsernameTakenError);
+  });
+
+  it("merges a notification preference patch instead of replacing the whole object (BACKLOG.md Ref 102 follow-up)", async () => {
+    const repo = new FakeAuthRepository();
+    const user = await completeSignup(VERIFIED, "consumer", repo);
+
+    const updated = await updateProfile(user, { notificationPreferences: { checkins: false } }, repo);
+
+    expect(updated.notificationPreferences).toEqual({
+      checkins: false,
+      connection_requests: true,
+      connection_accepted: true,
+      event_reminders: true,
+      new_coupons: true,
+    });
   });
 });
 

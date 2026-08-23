@@ -31,3 +31,8 @@
   for = "/service-worker.js"
   [headers.values]
     Cache-Control = "no-cache"
+
+# BACKLOG.md Ref 102: event-reminders.ts is a scheduled (cron) function, the
+# first one in this repo -- its cadence is declared via its own `config`
+# export (Netlify Functions v2 convention) rather than a
+# `[functions."event-reminders"]` block here.

@@ -11,6 +11,7 @@ import type {
   NeighborhoodDashboardSummary,
   NeighborhoodProfile,
   NeighborhoodSummary,
+  NotificationPreferences,
   OnboardingChecklist,
   ProfileVisibility,
   ReportClientErrorRequest,
@@ -169,6 +170,7 @@ import { requestLoggingMiddleware } from "./monitoring/requestLogging";
 import { SupabaseMonitoringRepository } from "./monitoring/supabaseRepository";
 import {
   notifyConnectionsOfCheckin,
+  notifyFavoritersOfNewCoupon,
   notifyNeighborhoodAdminsOfMissingVenue,
   notifySuperAdminsOfFeedback,
   notifySuperAdminsOfSignup,
@@ -190,6 +192,15 @@ const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
 const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "private"];
+// BACKLOG.md Ref 102 follow-up: the valid keys of NotificationPreferences,
+// used to validate PATCH /me/profile's notification_preferences patch.
+const NOTIFICATION_PREFERENCE_KEYS: (keyof NotificationPreferences)[] = [
+  "checkins",
+  "connection_requests",
+  "connection_accepted",
+  "event_reminders",
+  "new_coupons",
+];
 // BACKLOG.md Ref 94 "Mushroom size reflects recent check-in activity" -- how
 // many distinct recent visitors a neighborhood profile's mosaic surfaces at
 // once, mirroring locations/supabaseRepository.ts's venue-scoped
@@ -1041,7 +1052,8 @@ export function createApp() {
                 { displayName: req.appUser!.displayName, venueName: venue.name, venueId: venue.id },
                 getConnectionRepository(),
                 getPushSubscriptionRepository(),
-                getWebPushSender()
+                getWebPushSender(),
+                getAuthRepository()
               );
             }
           } catch (err) {
@@ -1503,7 +1515,8 @@ export function createApp() {
     "/me/profile",
     requireAuthUser(getSupabaseClient, getAuthRepository),
     async (req, res) => {
-      const { display_name, avatar_style, mushroom_customization, username, visibility } = req.body ?? {};
+      const { display_name, avatar_style, mushroom_customization, username, visibility, notification_preferences } =
+        req.body ?? {};
       if (display_name !== undefined && display_name !== null && typeof display_name !== "string") {
         res.status(400).json({ error: "display_name must be a string or null" });
         return;
@@ -1537,6 +1550,24 @@ export function createApp() {
         res.status(400).json({ error: `visibility must be one of ${PROFILE_VISIBILITIES.join(", ")}` });
         return;
       }
+      if (notification_preferences !== undefined) {
+        if (typeof notification_preferences !== "object" || notification_preferences === null) {
+          res.status(400).json({ error: "notification_preferences must be an object" });
+          return;
+        }
+        for (const [key, value] of Object.entries(notification_preferences)) {
+          if (!NOTIFICATION_PREFERENCE_KEYS.includes(key as keyof NotificationPreferences)) {
+            res.status(400).json({
+              error: `notification_preferences keys must be one of ${NOTIFICATION_PREFERENCE_KEYS.join(", ")}`,
+            });
+            return;
+          }
+          if (typeof value !== "boolean") {
+            res.status(400).json({ error: `notification_preferences.${key} must be a boolean` });
+            return;
+          }
+        }
+      }
 
       try {
         const updated = await updateProfile(
@@ -1547,6 +1578,7 @@ export function createApp() {
             ...(mushroom_customization !== undefined && { mushroomCustomization: mushroom_customization }),
             ...(username !== undefined && { username }),
             ...(visibility !== undefined && { visibility }),
+            ...(notification_preferences !== undefined && { notificationPreferences: notification_preferences }),
           },
           getAuthRepository()
         );
@@ -1612,7 +1644,8 @@ export function createApp() {
               otherUserId,
               req.appUser!.displayName,
               getPushSubscriptionRepository(),
-              getWebPushSender()
+              getWebPushSender(),
+              getAuthRepository()
             );
           } catch (err) {
             console.error("notifyUserOfConnectionAccepted failed:", err);
@@ -1623,7 +1656,8 @@ export function createApp() {
               result.connection.recipientId,
               req.appUser!.displayName,
               getPushSubscriptionRepository(),
-              getWebPushSender()
+              getWebPushSender(),
+              getAuthRepository()
             );
           } catch (err) {
             console.error("notifyUserOfConnectionRequest failed:", err);
@@ -2020,7 +2054,8 @@ export function createApp() {
             result.connection.requesterId,
             req.appUser!.displayName,
             getPushSubscriptionRepository(),
-            getWebPushSender()
+            getWebPushSender(),
+            getAuthRepository()
           );
         } catch (err) {
           console.error("notifyUserOfConnectionAccepted failed:", err);
@@ -2735,6 +2770,29 @@ export function createApp() {
         res.status(400).json({ error: "end_at must be after start_at" });
         return;
       }
+
+      // BACKLOG.md Ref 102 follow-up: notify this venue's favoriters.
+      // Awaited before the response (not fired-and-forgotten after it) for
+      // the same Netlify/Lambda reason as notifyConnectionsOfCheckin -- the
+      // container can freeze as soon as res.json() completes -- but a
+      // failure here is swallowed, since the coupon itself already succeeded.
+      try {
+        const venue = await getLocationRepository().getLocationById(req.params.id);
+        if (venue) {
+          await notifyFavoritersOfNewCoupon(
+            req.params.id,
+            venue.name,
+            title,
+            getFavoriteRepository(),
+            getPushSubscriptionRepository(),
+            getWebPushSender(),
+            getAuthRepository()
+          );
+        }
+      } catch (err) {
+        console.error(`notifyFavoritersOfNewCoupon (venue ${req.params.id}) failed:`, err);
+      }
+
       res.status(201).json(result.coupon);
     } catch (err) {
       console.error(`POST /business/venues/${req.params.id}/coupons failed:`, err);

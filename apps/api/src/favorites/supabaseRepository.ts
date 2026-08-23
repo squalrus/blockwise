@@ -98,4 +98,11 @@ export class SupabaseFavoriteRepository implements FavoriteRepository {
     if (error) throw new Error(`countFavoritesForVenue failed: ${error.message}`);
     return count ?? 0;
   }
+
+  async listUserIdsFavoritingVenue(venueId: string): Promise<string[]> {
+    const { data, error } = await this.supabase.from("favorite").select("user_id").eq("venue_id", venueId);
+
+    if (error) throw new Error(`listUserIdsFavoritingVenue failed: ${error.message}`);
+    return (data ?? []).map((row) => row.user_id as string);
+  }
 }
