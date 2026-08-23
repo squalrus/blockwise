@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { followEvent, getEventFollowStatus, unfollowEvent } from "./eventFollow";
-import type { EventFollowRecord, EventFollowRepository, FollowedEvent } from "./repository";
+import type { EventFollowRecord, EventFollowRepository, FollowedEvent, PendingEventReminder } from "./repository";
 
 // In-memory fake, mirroring FakeFavoriteRepository in favorites/favorite.test.ts.
 class FakeEventFollowRepository implements EventFollowRepository {
@@ -35,6 +35,12 @@ class FakeEventFollowRepository implements EventFollowRepository {
   async listFollowedEventsForUser(_userId: string): Promise<FollowedEvent[]> {
     return [];
   }
+
+  async listPendingEventReminders(_windowStart: string, _windowEnd: string): Promise<PendingEventReminder[]> {
+    return [];
+  }
+
+  async markEventRemindersSent(_followIds: string[]): Promise<void> {}
 }
 
 describe("followEvent", () => {

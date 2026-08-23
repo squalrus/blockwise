@@ -2,6 +2,14 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.74.0] — 2026-08-22
+
+### Added
+
+- **Push notification when a followed event starts** (BACKLOG.md Ref 102), firing ~15 minutes ahead via a new Netlify scheduled function (`event-reminders.ts`, every 5 minutes) — the first time-based (rather than request-driven) push trigger in this repo. A 30-minute grace window covers a delayed sweep, and a new `event_follow.notified_at` column prevents re-notifying the same follower for the same event. (`apps/api/netlify/functions/event-reminders.ts`, `apps/api/src/eventFollows/eventReminders.ts`, `apps/api/src/eventFollows/repository.ts`, `apps/api/src/eventFollows/supabaseRepository.ts`, `supabase/migrations/20260822010000_event_follow_reminder_notified_at.sql`, `apps/web/netlify.toml`)
+- **Per-category push notification toggles on Account Settings**, replacing the previous all-or-nothing push switch with individual opt-outs for neighbor check-ins, connection requests, connection accepted, event reminders, and new coupons at a favorited venue — all default-on so existing behavior is unchanged until a user opts out. Backed by a new `notification_preferences` jsonb column on `app_user`, merged (not replaced) on each `PATCH /me/profile` update so toggling one category leaves the others untouched. (`apps/web/src/app/NotificationPreferencesToggles.tsx`, `apps/web/src/app/account/settings/page.tsx`, `apps/api/src/auth/`, `apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `packages/types/src/index.ts`, `supabase/migrations/20260822020000_notification_preferences.sql`)
+- **Push notification when a favorited venue launches a new coupon**, notifying every user who favorites that venue as soon as a business creates one (`POST /business/venues/:id/coupons`) — gated by the new "new coupons" preference above. (`apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `apps/api/src/favorites/repository.ts`, `apps/api/src/favorites/supabaseRepository.ts`, `apps/api/src/app.ts`)
+
 ## [0.73.0] — 2026-08-22
 
 ### Added

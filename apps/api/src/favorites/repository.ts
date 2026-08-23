@@ -27,4 +27,8 @@ export interface FavoriteRepository {
   // -- there's no separate "follow" table, favoriting a venue is the follow
   // relationship.
   countFavoritesForVenue(venueId: string): Promise<number>;
+  // The reverse of listFavoriteVenuesForUser -- who to notify when a
+  // business launches a new coupon at this venue (BACKLOG.md Ref 102
+  // follow-up).
+  listUserIdsFavoritingVenue(venueId: string): Promise<string[]>;
 }

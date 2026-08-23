@@ -7,6 +7,7 @@ import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomSection } from "../MushroomSection";
+import { NotificationPreferencesToggles } from "../../NotificationPreferencesToggles";
 import { NotificationToggle } from "../../NotificationToggle";
 import { ProfileForm } from "../ProfileForm";
 import { ThemeToggle } from "../../ThemeToggle";
@@ -136,6 +137,7 @@ export default function AccountSettingsPage() {
               <span className="text-muted">Get push notifications on this device.</span>
               <NotificationToggle />
             </div>
+            <NotificationPreferencesToggles user={state.user} onSaved={handleProfileSaved} />
           </section>
 
           <section className="flex flex-col gap-2.5">

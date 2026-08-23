@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AccountType, AvatarStyle, MushroomCustomization, ProfileVisibility } from "@blockwise/types";
+import type { AccountType, AvatarStyle, MushroomCustomization, NotificationPreferences, ProfileVisibility } from "@blockwise/types";
 import type { AppUserRecord, AuthRepository, CompleteSignupInput, UpdateProfileInput } from "./repository";
 import { UsernameTakenError } from "./repository";
 
 const USER_COLUMNS =
-  "id, account_type, auth_user_id, auth_provider, email, display_name, avatar_url, avatar_style, mushroom_customization, username, visibility, created_at";
+  "id, account_type, auth_user_id, auth_provider, email, display_name, avatar_url, avatar_style, mushroom_customization, username, visibility, created_at, notification_preferences";
 
 // Postgres unique_violation.
 const UNIQUE_VIOLATION = "23505";
@@ -22,6 +22,7 @@ function toRecord(row: {
   username: string | null;
   visibility: ProfileVisibility;
   created_at: string;
+  notification_preferences: NotificationPreferences;
 }): AppUserRecord {
   return {
     id: row.id,
@@ -36,6 +37,7 @@ function toRecord(row: {
     username: row.username,
     visibility: row.visibility,
     createdAt: row.created_at,
+    notificationPreferences: row.notification_preferences,
   };
 }
 
@@ -100,6 +102,7 @@ export class SupabaseAuthRepository implements AuthRepository {
     if ("mushroomCustomization" in input) patch.mushroom_customization = input.mushroomCustomization;
     if ("username" in input) patch.username = input.username;
     if ("visibility" in input) patch.visibility = input.visibility;
+    if ("notificationPreferences" in input) patch.notification_preferences = input.notificationPreferences;
 
     const { data, error } = await this.supabase
       .from("app_user")
@@ -113,5 +116,19 @@ export class SupabaseAuthRepository implements AuthRepository {
       throw new Error(`updateProfile failed: ${error.message}`);
     }
     return toRecord(data);
+  }
+
+  async getNotificationPreferences(userIds: string[]): Promise<Map<string, NotificationPreferences>> {
+    if (userIds.length === 0) return new Map();
+
+    const { data, error } = await this.supabase
+      .from("app_user")
+      .select("id, notification_preferences")
+      .in("id", userIds);
+
+    if (error) throw new Error(`getNotificationPreferences failed: ${error.message}`);
+    return new Map(
+      (data ?? []).map((row) => [row.id as string, row.notification_preferences as NotificationPreferences])
+    );
   }
 }

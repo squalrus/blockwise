@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.74.0", date: "2026-08-22", summary: "Push notification when a followed event is starting soon, plus per-category notification toggles (including new coupons at a favorited venue) in Account Settings" },
   { version: "0.73.0", date: "2026-08-22", summary: "Marketing homepage revamp — sprouting mushroom decorations, notifications and collection sections, and a matching 404 page" },
   { version: "0.72.0", date: "2026-08-22", summary: "Added \"Continue with Microsoft\" sign-in alongside Google, for both login and signup" },
   { version: "0.71.1", date: "2026-08-21", summary: "Fixed venue/POI enrichment refresh, which was failing against Google's Places API on every call" },

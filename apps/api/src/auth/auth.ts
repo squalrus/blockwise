@@ -16,6 +16,7 @@ export function toAppUser(record: AppUserRecord, isNeighborhoodAdmin: boolean, i
     created_at: record.createdAt,
     is_neighborhood_admin: isNeighborhoodAdmin,
     is_super_admin: isSuperAdmin,
+    notification_preferences: record.notificationPreferences,
   };
 }
 
@@ -73,6 +74,12 @@ export async function updateProfile(
     patch.username = trimmed ? trimmed : null;
   }
   if ("visibility" in input) patch.visibility = input.visibility;
+  // Merged against the existing stored value, not replaced -- toggling one
+  // category off shouldn't silently reset every other category to its
+  // default (BACKLOG.md Ref 102 follow-up).
+  if ("notificationPreferences" in input) {
+    patch.notificationPreferences = { ...user.notificationPreferences, ...input.notificationPreferences };
+  }
 
   return repository.updateProfile(user.id, patch);
 }

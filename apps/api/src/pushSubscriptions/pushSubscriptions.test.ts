@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   notifyConnectionsOfCheckin,
+  notifyFavoritersOfNewCoupon,
   notifySuperAdminsOfFeedback,
   notifySuperAdminsOfSignup,
   notifyUserOfConnectionAccepted,
@@ -11,9 +12,11 @@ import {
 } from "./pushSubscriptions";
 import type { PushSubscriptionRecord, PushSubscriptionRepository } from "./repository";
 import type { PushPayload, PushSender, SendResult } from "./webPushSender";
-import type { PushSubscriptionKeys } from "@blockwise/types";
+import type { NotificationPreferences, PushSubscriptionKeys } from "@blockwise/types";
 import type { ConnectionListItem, ConnectionRepository, ConnectionStatus, UserConnectionRecord } from "../connections/repository";
 import type { SuperAdminRepository } from "../admin/repository";
+import type { AppUserRecord, AuthRepository, CompleteSignupInput, UpdateProfileInput } from "../auth/repository";
+import type { FavoriteRecord, FavoriteRepository, FavoriteVenue } from "../favorites/repository";
 
 // In-memory fake, mirroring FakeConnectionRepository below.
 class FakeSuperAdminRepository implements SuperAdminRepository {
@@ -119,6 +122,69 @@ class FakePushSubscriptionRepository implements PushSubscriptionRepository {
 
   async listForUsers(userIds: string[]): Promise<PushSubscriptionRecord[]> {
     return this.subscriptions.filter((s) => userIds.includes(s.userId));
+  }
+}
+
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  checkins: true,
+  connection_requests: true,
+  connection_accepted: true,
+  event_reminders: true,
+  new_coupons: true,
+};
+
+// Minimal fake, mirroring FakeAuthRepository in auth/auth.test.ts -- only
+// getNotificationPreferences is exercised by the notify* gating tests here.
+class FakeAuthRepository implements AuthRepository {
+  constructor(private readonly overrides: Record<string, NotificationPreferences> = {}) {}
+
+  async getByAuthUserId(): Promise<AppUserRecord | null> {
+    throw new Error("not implemented");
+  }
+  async getByUsername(): Promise<AppUserRecord | null> {
+    throw new Error("not implemented");
+  }
+  async completeSignup(_input: CompleteSignupInput): Promise<AppUserRecord> {
+    throw new Error("not implemented");
+  }
+  async updateAccountType(): Promise<AppUserRecord> {
+    throw new Error("not implemented");
+  }
+  async updateProfile(_userId: string, _input: UpdateProfileInput): Promise<AppUserRecord> {
+    throw new Error("not implemented");
+  }
+
+  async getNotificationPreferences(userIds: string[]): Promise<Map<string, NotificationPreferences>> {
+    return new Map(userIds.map((id) => [id, this.overrides[id] ?? DEFAULT_PREFERENCES]));
+  }
+}
+
+// In-memory fake, mirroring FakeFavoriteRepository in favorites/favorite.test.ts
+// -- only listUserIdsFavoritingVenue is exercised by notifyFavoritersOfNewCoupon.
+class FakeFavoriteRepository implements FavoriteRepository {
+  constructor(private readonly favoriterUserIds: string[] = []) {}
+
+  async venueExists(): Promise<boolean> {
+    throw new Error("not implemented");
+  }
+  async getFavorite(): Promise<FavoriteRecord | null> {
+    throw new Error("not implemented");
+  }
+  async createFavorite(): Promise<FavoriteRecord> {
+    throw new Error("not implemented");
+  }
+  async deleteFavorite(): Promise<void> {
+    throw new Error("not implemented");
+  }
+  async listFavoriteVenuesForUser(): Promise<FavoriteVenue[]> {
+    throw new Error("not implemented");
+  }
+  async countFavoritesForVenue(): Promise<number> {
+    throw new Error("not implemented");
+  }
+
+  async listUserIdsFavoritingVenue(_venueId: string): Promise<string[]> {
+    return this.favoriterUserIds;
   }
 }
 
@@ -247,7 +313,8 @@ describe("notifyConnectionsOfCheckin", () => {
       { displayName: "Alex", venueName: "Diesel Fuel Coffee", venueId: "venue-1" },
       connectionRepo,
       pushRepo,
-      sender
+      sender,
+      new FakeAuthRepository()
     );
 
     expect(summary).toEqual({ sent: 2, pruned: 0, failed: 0 });
@@ -268,7 +335,8 @@ describe("notifyConnectionsOfCheckin", () => {
       { displayName: null, venueName: "Herkimer Coffee", venueId: "venue-2" },
       connectionRepo,
       pushRepo,
-      sender
+      sender,
+      new FakeAuthRepository()
     );
 
     expect(sender.sent).toEqual([
@@ -286,11 +354,34 @@ describe("notifyConnectionsOfCheckin", () => {
       { displayName: "Alex", venueName: "Herkimer Coffee", venueId: "venue-3" },
       connectionRepo,
       pushRepo,
-      sender
+      sender,
+      new FakeAuthRepository()
     );
 
     expect(summary).toEqual({ sent: 0, pruned: 0, failed: 0 });
     expect(sender.sent).toHaveLength(0);
+  });
+
+  it("skips a connection who opted out of check-in notifications", async () => {
+    const connectionRepo = new FakeConnectionRepository({
+      "user-1": [connectionTo("neighbor-1"), connectionTo("neighbor-2")],
+    });
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "neighbor-1", endpoint: "https://push.example/a", keys: KEYS });
+    await pushRepo.upsertSubscription({ userId: "neighbor-2", endpoint: "https://push.example/b", keys: KEYS });
+    const sender = new FakePushSender();
+    const authRepo = new FakeAuthRepository({ "neighbor-1": { ...DEFAULT_PREFERENCES, checkins: false } });
+
+    const summary = await notifyConnectionsOfCheckin(
+      "user-1",
+      { displayName: "Alex", venueName: "Diesel Fuel Coffee", venueId: "venue-1" },
+      connectionRepo,
+      pushRepo,
+      sender,
+      authRepo
+    );
+
+    expect(summary).toEqual({ sent: 1, pruned: 0, failed: 0 });
   });
 });
 
@@ -404,7 +495,7 @@ describe("notifyUserOfConnectionRequest", () => {
     await pushRepo.upsertSubscription({ userId: "recipient-1", endpoint: "https://push.example/a", keys: KEYS });
     const sender = new FakePushSender();
 
-    const summary = await notifyUserOfConnectionRequest("recipient-1", "Alex", pushRepo, sender);
+    const summary = await notifyUserOfConnectionRequest("recipient-1", "Alex", pushRepo, sender, new FakeAuthRepository());
 
     expect(summary).toEqual({ sent: 1, pruned: 0, failed: 0 });
     expect(sender.sent).toEqual([{ title: "New neighbor request", body: "Alex wants to connect", url: "/account/neighbors" }]);
@@ -415,11 +506,23 @@ describe("notifyUserOfConnectionRequest", () => {
     await pushRepo.upsertSubscription({ userId: "recipient-1", endpoint: "https://push.example/a", keys: KEYS });
     const sender = new FakePushSender();
 
-    await notifyUserOfConnectionRequest("recipient-1", null, pushRepo, sender);
+    await notifyUserOfConnectionRequest("recipient-1", null, pushRepo, sender, new FakeAuthRepository());
 
     expect(sender.sent).toEqual([
       { title: "New neighbor request", body: "A neighbor wants to connect", url: "/account/neighbors" },
     ]);
+  });
+
+  it("does nothing when the recipient opted out of connection requests", async () => {
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "recipient-1", endpoint: "https://push.example/a", keys: KEYS });
+    const sender = new FakePushSender();
+    const authRepo = new FakeAuthRepository({ "recipient-1": { ...DEFAULT_PREFERENCES, connection_requests: false } });
+
+    const summary = await notifyUserOfConnectionRequest("recipient-1", "Alex", pushRepo, sender, authRepo);
+
+    expect(summary).toEqual({ sent: 0, pruned: 0, failed: 0 });
+    expect(sender.sent).toHaveLength(0);
   });
 });
 
@@ -429,7 +532,7 @@ describe("notifyUserOfConnectionAccepted", () => {
     await pushRepo.upsertSubscription({ userId: "requester-1", endpoint: "https://push.example/a", keys: KEYS });
     const sender = new FakePushSender();
 
-    const summary = await notifyUserOfConnectionAccepted("requester-1", "Alex", pushRepo, sender);
+    const summary = await notifyUserOfConnectionAccepted("requester-1", "Alex", pushRepo, sender, new FakeAuthRepository());
 
     expect(summary).toEqual({ sent: 1, pruned: 0, failed: 0 });
     expect(sender.sent).toEqual([
@@ -442,10 +545,88 @@ describe("notifyUserOfConnectionAccepted", () => {
     await pushRepo.upsertSubscription({ userId: "requester-1", endpoint: "https://push.example/a", keys: KEYS });
     const sender = new FakePushSender();
 
-    await notifyUserOfConnectionAccepted("requester-1", null, pushRepo, sender);
+    await notifyUserOfConnectionAccepted("requester-1", null, pushRepo, sender, new FakeAuthRepository());
 
     expect(sender.sent).toEqual([
       { title: "New neighbor connection", body: "You and A neighbor are now connected", url: "/account/neighbors" },
     ]);
+  });
+
+  it("does nothing when the target opted out of connection-accepted notifications", async () => {
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "requester-1", endpoint: "https://push.example/a", keys: KEYS });
+    const sender = new FakePushSender();
+    const authRepo = new FakeAuthRepository({ "requester-1": { ...DEFAULT_PREFERENCES, connection_accepted: false } });
+
+    const summary = await notifyUserOfConnectionAccepted("requester-1", "Alex", pushRepo, sender, authRepo);
+
+    expect(summary).toEqual({ sent: 0, pruned: 0, failed: 0 });
+    expect(sender.sent).toHaveLength(0);
+  });
+});
+
+describe("notifyFavoritersOfNewCoupon", () => {
+  it("sends a push to every venue favoriter", async () => {
+    const favoriteRepo = new FakeFavoriteRepository(["fan-1", "fan-2"]);
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "fan-1", endpoint: "https://push.example/a", keys: KEYS });
+    await pushRepo.upsertSubscription({ userId: "fan-2", endpoint: "https://push.example/b", keys: KEYS });
+    const sender = new FakePushSender([{ status: "sent" }, { status: "sent" }]);
+
+    const summary = await notifyFavoritersOfNewCoupon(
+      "venue-1",
+      "Diesel Fuel Coffee",
+      "20% off",
+      favoriteRepo,
+      pushRepo,
+      sender,
+      new FakeAuthRepository()
+    );
+
+    expect(summary).toEqual({ sent: 2, pruned: 0, failed: 0 });
+    expect(sender.sent).toEqual([
+      { title: "New coupon", body: 'Diesel Fuel Coffee just launched "20% off"', url: "/location/venue-1" },
+      { title: "New coupon", body: 'Diesel Fuel Coffee just launched "20% off"', url: "/location/venue-1" },
+    ]);
+  });
+
+  it("does nothing when the venue has no favoriters", async () => {
+    const favoriteRepo = new FakeFavoriteRepository([]);
+    const pushRepo = new FakePushSubscriptionRepository();
+    const sender = new FakePushSender();
+
+    const summary = await notifyFavoritersOfNewCoupon(
+      "venue-1",
+      "Diesel Fuel Coffee",
+      "20% off",
+      favoriteRepo,
+      pushRepo,
+      sender,
+      new FakeAuthRepository()
+    );
+
+    expect(summary).toEqual({ sent: 0, pruned: 0, failed: 0 });
+    expect(sender.sent).toHaveLength(0);
+  });
+
+  it("skips a favoriter who opted out of new-coupon notifications", async () => {
+    const favoriteRepo = new FakeFavoriteRepository(["fan-1", "fan-2"]);
+    const pushRepo = new FakePushSubscriptionRepository();
+    await pushRepo.upsertSubscription({ userId: "fan-1", endpoint: "https://push.example/a", keys: KEYS });
+    await pushRepo.upsertSubscription({ userId: "fan-2", endpoint: "https://push.example/b", keys: KEYS });
+    const sender = new FakePushSender();
+    const authRepo = new FakeAuthRepository({ "fan-1": { ...DEFAULT_PREFERENCES, new_coupons: false } });
+
+    const summary = await notifyFavoritersOfNewCoupon(
+      "venue-1",
+      "Diesel Fuel Coffee",
+      "20% off",
+      favoriteRepo,
+      pushRepo,
+      sender,
+      authRepo
+    );
+
+    expect(summary).toEqual({ sent: 1, pruned: 0, failed: 0 });
   });
 });

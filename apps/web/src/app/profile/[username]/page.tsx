@@ -34,6 +34,13 @@ function toCardUser(profile: PublicUserProfile): AppUser {
     created_at: profile.joined_at,
     is_neighborhood_admin: false,
     is_super_admin: false,
+    notification_preferences: {
+      checkins: true,
+      connection_requests: true,
+      connection_accepted: true,
+      event_reminders: true,
+      new_coupons: true,
+    },
   };
 }
 
