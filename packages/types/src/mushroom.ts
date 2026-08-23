@@ -254,3 +254,16 @@ export interface LocationMayor {
   username: string | null;
   displayName: string | null;
 }
+
+// Named top-N visitors by visitCount within the mosaic's rolling window
+// ("Top Caps" badge cluster next to the neighborhood mosaic) -- generalizes
+// LocationMayor from just the single top visitor to however many of the
+// ranked visitors resolved to a public profile with a name, still in ranked
+// order. Unlike LocationMayor, a private/nameless visitor is skipped rather
+// than blanking the whole list, since these badges aren't paired 1:1 with a
+// specific mushroom's size the way the Mayor sign is.
+export interface TopVisitor {
+  username: string | null;
+  displayName: string | null;
+  visitCount: number;
+}

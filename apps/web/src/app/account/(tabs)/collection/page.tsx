@@ -8,6 +8,7 @@ import { clientApiUrl } from "@/lib/clientApi";
 import { useAccountRefresh } from "../../AccountContext";
 import { CollectionDetailModal } from "./CollectionDetailModal";
 import { CornerMark } from "./CornerMark";
+import { sourceLabel } from "./sourceLabel";
 
 type State =
   | { status: "loading" }
@@ -53,9 +54,7 @@ function CollectionCard({ entry }: { entry: MushroomCollectionEntry }) {
         <span className="line-clamp-1 font-heading text-[13px] leading-tight font-extrabold text-foreground">
           {entry.species_name}
         </span>
-        <span className="line-clamp-1 font-mono text-[9px] text-muted">
-          {entry.source_type === "checkin" ? entry.source_name : `with ${entry.source_name}`}
-        </span>
+        <span className="line-clamp-1 font-mono text-[9px] text-muted">{sourceLabel(entry)}</span>
       </span>
     </div>
   );
@@ -169,7 +168,8 @@ export default function CollectionPage() {
   if (state.entries.length === 0) {
     return (
       <p className="text-sm text-muted">
-        No mushrooms collected yet -- check in at a venue or connect with a neighbor to discover your first species.
+        No mushrooms collected yet -- check in at a venue, join a neighborhood, or connect with a neighbor to
+        discover your first species.
       </p>
     );
   }

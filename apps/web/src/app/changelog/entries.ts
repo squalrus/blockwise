@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.75.0", date: "2026-08-23", summary: "Neighborhood page redesign with \"Top Caps\" (top 3 recent visitors, shown on the leaderboard alongside lifetime points), plus neighborhoods are now a collectible forager species" },
   { version: "0.74.1", date: "2026-08-22", summary: "Account page redesign -- level-progress ring on the profile card, a divided stat strip, underline tabs, playing-card-styled collection, and day-grouped activity feeds" },
   { version: "0.74.0", date: "2026-08-22", summary: "Push notification when a followed event is starting soon, plus per-category notification toggles (including new coupons at a favorited venue) in Account Settings" },
   { version: "0.73.0", date: "2026-08-22", summary: "Marketing homepage revamp — sprouting mushroom decorations, notifications and collection sections, and a matching 404 page" },

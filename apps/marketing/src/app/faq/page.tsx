@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
-const UPDATED = "August 18, 2026";
+const UPDATED = "August 22, 2026";
 
 function Question({ q, children }: { q: string; children: React.ReactNode }) {
   return (
@@ -63,19 +63,23 @@ export default function FaqPage() {
         </Question>
         <Question q="What do points, badges, and the leaderboard do?">
           Every check-in earns you points. Points unlock badges as you explore, and your running total puts
-          you on your neighborhood&apos;s leaderboard, which resets each season.
+          you on your neighborhood&apos;s leaderboard (lifetime points, resets each season) — a different
+          ranking from Top Caps below, which tracks recent visit frequency rather than points.
         </Question>
-        <Question q="What are the mushrooms on a business, POI, or neighborhood page?">
+        <Question q="What are the mushrooms on a business, POI, or neighborhood page, and what are Top Caps?">
           Each place and neighborhood grows its own little mushroom patch — one mushroom per distinct visitor
-          over the last 60 days, sized by how often they&apos;ve checked in. Whoever&apos;s checked in the most
-          gets a &ldquo;Top Cap&rdquo; sign next to the patch naming them, shown only if their profile is
-          public.
+          over the last 60 days, sized by how often they&apos;ve checked in. A neighborhood page also shows
+          &ldquo;Top Caps&rdquo;: badges naming its 3 most frequent recent visitors and how many times each
+          checked in. A business or point of interest page instead shows just its single most frequent
+          visitor, as a &ldquo;Top Cap&rdquo; sign next to the patch. Either way, only public profiles are
+          named.
         </Question>
         <Question q="What is the Collection tab?">
-          Every venue you check into and every neighbor you connect with has its own unique mushroom
-          &ldquo;species,&rdquo; discovered the first time you check in there or connect with them. Your
-          account&apos;s Collection tab shows every species you&apos;ve found so far — revisiting a place or
-          reconnecting with someone bumps that entry&apos;s count instead of adding a duplicate.
+          Every venue you check into, every neighborhood you join, and every neighbor you connect with has its
+          own unique mushroom &ldquo;species,&rdquo; discovered the first time you check in, join, or connect.
+          Your account&apos;s Collection tab shows every species you&apos;ve found so far — revisiting a place,
+          rejoining a neighborhood, or reconnecting with someone bumps that entry&apos;s count instead of
+          adding a duplicate.
         </Question>
       </LegalSection>
 
@@ -109,8 +113,9 @@ export default function FaqPage() {
       <LegalSection title="Privacy and your account">
         <Question q="Can other users see my check-ins or activity?">
           Only if your profile is public. New accounts default to public (badges, check-in count, neighbor
-          count, and — if you&apos;re the top visitor somewhere — a &ldquo;Top Cap&rdquo; sign are visible to
-          others), but you can switch to private at any time from Account settings. See our{" "}
+          count, and — if you&apos;re among the most frequent recent visitors somewhere — a &ldquo;Top
+          Cap&rdquo; sign or &ldquo;Top Caps&rdquo; badge are visible to others), but you can switch to
+          private at any time from Account settings. See our{" "}
           <Link href="/privacy" className="font-bold">
             Privacy Policy
           </Link>{" "}

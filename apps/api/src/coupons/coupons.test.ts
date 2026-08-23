@@ -145,7 +145,7 @@ class FakeCheckinRepository implements CheckinRepository {
   }
 
   async listRecentVisitorMushroomsForNeighborhood(): Promise<NeighborhoodVisitorMosaic> {
-    return { mushrooms: [], mayor: null };
+    return { mushrooms: [], topVisitors: [] };
   }
 }
 

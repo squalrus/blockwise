@@ -1,4 +1,4 @@
-import type { LocationMayor, MushroomConfig, RecentVisitorMushroom } from "./mushroom";
+import type { LocationMayor, MushroomConfig, RecentVisitorMushroom, TopVisitor } from "./mushroom";
 
 export interface HealthCheckResponse {
   status: "ok";
@@ -252,23 +252,25 @@ export interface FavoriteVenueSummary {
   created_at: string;
 }
 
-// GET /me/collection (BACKLOG.md Ref 98) -- a collected mushroom "species",
-// one per venue checked into or neighbor connected with. mushroom/
-// species_name are derived (mushroomConfigForSpecies/mushroomSpeciesName in
-// ./mushroom), not stored -- source_name is the only piece that needs a
-// join (venue.name, or the other user's display name). The API always sends
-// the full look/name even when `revealed` is false -- "reveal" is a
-// client-side flip-card delight moment (POST /me/collection/:id/reveal just
-// persists that it happened), not a server-side spoiler gate.
+// GET /me/collection (BACKLOG.md Ref 98/101) -- a collected mushroom
+// "species", one per venue checked into, neighbor connected with, or
+// neighborhood joined. mushroom/species_name are derived
+// (mushroomConfigForSpecies/mushroomSpeciesName in ./mushroom), not stored --
+// source_name is the only piece that needs a join (venue.name, the other
+// user's display name, or neighborhood.name). The API always sends the full
+// look/name even when `revealed` is false -- "reveal" is a client-side
+// flip-card delight moment (POST /me/collection/:id/reveal just persists
+// that it happened), not a server-side spoiler gate.
 export interface MushroomCollectionEntry {
   id: string;
-  source_type: "checkin" | "connection";
+  source_type: "checkin" | "connection" | "neighborhood";
   source_id: string;
   source_name: string;
-  // Only set when source_type is "connection" -- lets the collection detail
-  // view link to /profile/[username] (the venue case links via source_id
-  // itself, /location/[source_id], so it needs no separate field).
-  source_username: string | null;
+  // The route param for source_type "connection" (a username, for
+  // /profile/[username]) or "neighborhood" (a slug, for
+  // /neighborhoods/[slug]) -- null for "checkin", which links via source_id
+  // itself (/location/[source_id]) and needs no separate field.
+  source_slug: string | null;
   species_name: string;
   mushroom: MushroomConfig;
   quantity: number;
@@ -714,10 +716,10 @@ export interface NeighborhoodProfile {
   // the mosaic (MushroomField's distinctMushrooms mode). Most-visits-first,
   // tie-broken by most recent; excludes visits outside the window.
   recent_checkin_mushrooms: RecentVisitorMushroom[];
-  // The identity behind recent_checkin_mushrooms[0] (the biggest mushroom),
-  // for the "Mayor" sign next to the mosaic -- null if there's no top
-  // visitor or their profile isn't public.
-  mayor: LocationMayor | null;
+  // Up to the top 3 named visitors by visitCount, for the "Top Caps" badge
+  // cluster next to the mosaic -- empty if there are no public, named
+  // visitors within the window.
+  top_visitors: TopVisitor[];
 }
 
 // Neighborhood membership (BACKLOG.md "Neighborhoods on landing page and user

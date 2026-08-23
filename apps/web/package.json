@@ -1,6 +1,6 @@
 {
   "name": "@blockwise/web",
-  "version": "0.74.1",
+  "version": "0.75.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

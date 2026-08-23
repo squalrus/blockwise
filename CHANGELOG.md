@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.75.0] — 2026-08-23
+
+### Added
+
+- **"Top Caps"**: a neighborhood page now shows up to 3 named badges for its most frequent visitors over the last 60 days (falling through to the next-ranked visitor if one is private or unnamed, rather than skipping the whole cluster), alongside the existing single-visitor "Mayor" sign on business/POI pages. The leaderboard tab now shows two clearly-labeled, separately-ranked sections — "Top Caps · most check-ins, last 60 days" above "Lifetime points" — since the two rank by different things (recent visit frequency vs. all-time points). (`apps/api/src/checkins/checkin.ts`, `apps/api/src/checkins/repository.ts`, `apps/api/src/checkins/supabaseRepository.ts`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/neighborhoods/[slug]/leaderboard/page.tsx`, `packages/types/src/index.ts`, `packages/types/src/mushroom.ts`)
+- **Neighborhoods are now a collectible forager species**: joining a neighborhood unlocks its own mushroom "species" in your account's Collection tab, same as checking in at a venue or connecting with a neighbor — rejoining after leaving bumps the count instead of duplicating. Existing memberships were retroactively backfilled (unrevealed, so existing accounts get to flip through them like any other newly-found species). (`apps/api/src/app.ts`, `apps/api/src/mushroomCollection/`, `apps/web/src/app/account/(tabs)/collection/`, `packages/types/src/index.ts`, `supabase/migrations/20260822030000_mushroom_collection_neighborhood.sql`, `supabase/migrations/20260822040000_backfill_neighborhood_collection.sql`)
+
+### Changed
+
+- **Neighborhood page visual redesign**: the summary card gains a neighborhood mark icon and a divided 4-column stat strip (mirroring the Account page's stat tiles), and the tab bar switches from pill to underline style to match the Account redesign (v0.74.1). (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `apps/web/src/app/globals.css`)
+- **FAQ and Privacy Policy** updated to explain Top Caps (both the neighborhood 3-badge and business/POI single-sign forms) and the neighborhood collection species, alongside the existing venue/neighbor collection explanation. (`apps/marketing/src/app/faq/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`)
+
 ## [0.74.1] — 2026-08-22
 
 ### Changed
