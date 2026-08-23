@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { MushroomLogo, MushroomMark } from "@blockwise/ui";
-import type { SpotShape } from "@blockwise/ui";
+import type { MushroomShape, SpotShape } from "@blockwise/ui";
 import { APP_URL } from "@/lib/appUrl";
 import { SITE_URL } from "@/lib/siteUrl";
 import { MarketingNav } from "./MarketingNav";
 import { MarketingFooter } from "./MarketingFooter";
+import { SeamSprouts } from "./SeamSprouts";
 
 export const metadata: Metadata = {
   title: "Spored — Hyperlocal neighborhood discovery",
@@ -141,15 +142,6 @@ export default function Home() {
           />
         </svg>
 
-        <Spore size={30} color={PURPLE} spotCount={2} spotShape="ring" stalk={INK} className="absolute left-[8%] top-[22%]" style={{ animation: "float-spore 5s ease-in-out infinite" }} />
-        <Spore size={22} color={AMBER} spotCount={4} spotShape="star" stalk={INK} className="absolute right-[12%] top-[16%]" style={{ animation: "float-spore 4.5s ease-in-out infinite 0.6s" }} />
-        <Spore size={20} color={GREEN} spotCount={3} spotShape="circle" stalk={INK} className="absolute right-[6%] top-[52%]" style={{ animation: "float-spore 6s ease-in-out infinite 1.2s" }} />
-        <Spore size={14} color={ORANGE} spotCount={1} spotShape="sparks" stalk={INK} className="absolute left-[20%] top-[8%]" style={{ animation: "float-spore 4.2s ease-in-out infinite 0.3s" }} />
-        <Spore size={38} color={GREEN} spotCount={5} spotShape="triangle" stalk={INK} className="absolute left-[3%] top-[68%]" style={{ animation: "float-spore 6.5s ease-in-out infinite 0.9s" }} />
-        <Spore size={17} color={PURPLE} spotCount={3} spotShape="cross" stalk={INK} className="absolute right-[22%] top-[6%]" style={{ animation: "float-spore 5.3s ease-in-out infinite 1.5s" }} />
-        <Spore size={26} color={AMBER} spotCount={2} spotShape="circle" stalk={INK} className="absolute right-[28%] top-[62%]" style={{ animation: "float-spore 4.8s ease-in-out infinite 0.4s" }} />
-        <Spore size={12} color={ORANGE} spotCount={6} spotShape="star" stalk={INK} className="absolute left-[15%] top-[78%]" style={{ animation: "float-spore 5.8s ease-in-out infinite 1.1s" }} />
-
         <div className="relative mx-auto max-w-6xl text-center">
           <div
             className="inline-flex items-center gap-2 rounded-full px-[18px] py-2 text-[13px] font-extrabold"
@@ -236,6 +228,8 @@ export default function Home() {
         </div>
       </div>
 
+      <SeamSprouts seed={1} />
+
       {/* HOW IT WORKS */}
       <div id="how" className="px-5 py-14 md:px-6 md:py-[90px]" style={{ background: INK }}>
         <div className="mx-auto max-w-5xl">
@@ -260,14 +254,14 @@ export default function Home() {
               {
                 color: AMBER,
                 title: "2. Earn & discover",
-                body: "Every check-in earns points and badges, and surfaces what else is nearby — new spots, events, and neighbors.",
+                body: "Every check-in earns points and badges, and adds a new species to your mushroom collection — while surfacing what else is nearby: new spots, events, and neighbors.",
                 spotCount: 5,
                 spotShape: "star" as SpotShape,
               },
               {
                 color: PURPLE,
                 title: "3. Connect & compete",
-                body: "Follow neighbors and events, and climb your neighborhood's leaderboard as you explore.",
+                body: "Follow neighbors and events, tackle neighborhood challenges, and climb your neighborhood's leaderboard as you explore.",
                 spotCount: 4,
                 spotShape: "ring" as SpotShape,
               },
@@ -296,8 +290,9 @@ export default function Home() {
               Every neighbor competes.
             </div>
             <div className="mt-4 max-w-[460px] text-[15px] leading-[1.6]" style={{ color: "#6B5744" }}>
-              Points, levels, and badges turn errands into a friendly rivalry — Founder badges for early
-              sporers, streaks for regulars, and a leaderboard that resets each season.
+              Points, levels, badges, and neighborhood challenges turn errands into a friendly rivalry —
+              Founder badges for early sporers, streaks for regulars, and a leaderboard that resets each
+              season.
             </div>
             <div className="mt-[26px] flex flex-wrap gap-7">
               {[
@@ -359,6 +354,8 @@ export default function Home() {
         </div>
       </div>
 
+      <SeamSprouts seed={3} />
+
       {/* EVENTS TEASER */}
       <div className="px-5 py-14 md:px-6 md:py-[90px]" style={{ background: INK }}>
         <div className="mx-auto grid max-w-5xl grid-cols-1 items-center gap-12 md:grid-cols-[1.1fr_1fr]">
@@ -417,6 +414,115 @@ export default function Home() {
         </div>
       </div>
 
+      {/* NOTIFICATIONS TEASER */}
+      <div className="px-5 py-14 md:px-6 md:py-[90px]">
+        <div className="mx-auto grid max-w-5xl grid-cols-1 items-center gap-12 md:grid-cols-[1.1fr_1fr]">
+          <div>
+            <div className="font-heading text-[28px] leading-[1.15] font-extrabold md:text-[38px]" style={{ color: INK }}>
+              Know when your neighbors are out and about.
+            </div>
+            <div className="mt-4 max-w-[460px] text-[15px] leading-[1.6]" style={{ color: "#6B5744" }}>
+              Turn on notifications and you&apos;ll hear about it the moment it happens — a neighbor
+              checking in nearby, a connection request, a badge you just unlocked. No feed to babysit.
+            </div>
+          </div>
+          <div className="rounded-3xl p-[26px]" style={{ background: "#F5E8D3" }}>
+            <div className="mb-3.5 font-heading text-[15px] font-extrabold" style={{ color: INK }}>
+              🔔 Notifications
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {[
+                { name: "Nora", venue: "74th St Ale House", time: "2m ago" },
+                { name: "Marcus", venue: "Diesel Fuel Coffee", time: "18m ago" },
+              ].map((n) => (
+                <div key={n.name} className="flex items-start gap-3 rounded-2xl px-4 py-3" style={{ background: CREAM }}>
+                  <MushroomLogo size={22} capColor={ORANGE} stemClassName="text-[#2B1B12]" />
+                  <div className="flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div className="text-[12.5px] font-extrabold" style={{ color: INK }}>
+                        Neighbor check-in
+                      </div>
+                      <div className="text-[10.5px] font-bold whitespace-nowrap" style={{ color: "#8A7761" }}>
+                        {n.time}
+                      </div>
+                    </div>
+                    <div className="mt-0.5 text-[12.5px] font-bold" style={{ color: "#4A3B2C" }}>
+                      {n.name} checked in at {n.venue}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <SeamSprouts seed={5} />
+
+      {/* COLLECTION & CUSTOMIZE TEASER */}
+      <div className="px-5 py-14 md:px-6 md:py-[90px]" style={{ background: INK }}>
+        <div className="mx-auto grid max-w-5xl grid-cols-1 items-center gap-12 md:grid-cols-[1.1fr_1fr]">
+          <div>
+            <div
+              className="font-heading text-[28px] leading-[1.15] font-extrabold md:text-[38px]"
+              style={{ color: "#F5E8D3" }}
+            >
+              Every mushroom is one of a kind.
+              <br />
+              So is yours.
+            </div>
+            <div className="mt-4 max-w-[460px] text-[15px] leading-[1.6]" style={{ color: "#C9B8A0" }}>
+              Checking in somewhere new, or connecting with a neighbor for the first time, can unlock a
+              mushroom species you&apos;ve never seen for your Forager collection.
+            </div>
+            <div className="mt-[22px] flex flex-col gap-3.5">
+              {[
+                { icon: "🍄", text: "Discover unique species from first-ever check-ins and new neighbor connections" },
+                { icon: "🎨", text: "Customize your own mushroom — shape, cap, spots, and color are all yours to choose" },
+              ].map((item) => (
+                <div key={item.text} className="flex items-start gap-3">
+                  <span className="text-lg">{item.icon}</span>
+                  <span className="text-sm font-bold" style={{ color: "#C9B8A0" }}>
+                    {item.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-3xl p-[26px]" style={{ background: "#382A1E" }}>
+            <div className="mb-3.5 font-heading text-[15px] font-extrabold" style={{ color: "#F5E8D3" }}>
+              🍄 Your collection — 5 of 8 discovered
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { revealed: true, shape: "button" as MushroomShape, cap: ORANGE, spotShape: "circle" as SpotShape, spotCount: 3 },
+                { revealed: true, shape: "chanterelle" as MushroomShape, cap: AMBER, spotShape: "star" as SpotShape, spotCount: 2 },
+                { revealed: false },
+                { revealed: true, shape: "oyster" as MushroomShape, cap: PURPLE, spotShape: "sparks" as SpotShape, spotCount: 4 },
+                { revealed: false },
+                { revealed: true, shape: "morel" as MushroomShape, cap: GREEN, spotShape: "triangle" as SpotShape, spotCount: 5 },
+                { revealed: true, shape: "puffball" as MushroomShape, cap: ORANGE, spotShape: "ring" as SpotShape, spotCount: 1 },
+                { revealed: false },
+              ].map((tile, i) => (
+                <div
+                  key={i}
+                  className="flex aspect-square flex-col items-center justify-center rounded-2xl"
+                  style={{ background: tile.revealed ? CREAM : "#241B15" }}
+                >
+                  {tile.revealed ? (
+                    <MushroomMark size={40} shape={tile.shape} cap={tile.cap} stalk={INK} spotShape={tile.spotShape} spotCount={tile.spotCount} />
+                  ) : (
+                    <span className="font-heading text-lg font-extrabold" style={{ color: "#5C493A" }}>
+                      ?
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* NEIGHBORHOOD MAP / COVERAGE */}
       <div id="neighborhoods" className="px-5 py-14 md:px-6 md:py-[90px]" style={{ background: "#DCEBD3" }}>
         <div className="mx-auto max-w-5xl">
@@ -425,8 +531,8 @@ export default function Home() {
               Now piloting in Phinneywood
             </div>
             <div className="mx-auto mt-2.5 max-w-[560px] text-[15px]" style={{ color: "#4A3B2C" }}>
-              Spored is live in one neighborhood so far — Phinneywood, in Seattle. Want it growing on your
-              block too? Reach out and let&apos;s start one.
+              Spored is live in Phinneywood, Seattle — with more Seattle neighborhoods launching soon. Want
+              to help bring it to yours? Reach out and let&apos;s grow it together.
             </div>
           </div>
 
@@ -466,7 +572,7 @@ export default function Home() {
               See Phinneywood
             </PillButton>
             <PillButton href="mailto:hello@tryspored.com" variant="outline-dark">
-              Start your own neighborhood
+              Help us launch the next one
             </PillButton>
           </div>
         </div>
@@ -545,26 +651,22 @@ export default function Home() {
         </div>
       </div>
 
+      <SeamSprouts seed={8} />
+
       {/* FINAL CTA */}
       <div className="relative overflow-hidden px-5 py-14 text-center md:px-6 md:py-[90px]" style={{ background: INK }}>
-        <Spore size={26} color={AMBER} spotCount={3} spotShape="sparks" className="absolute left-[10%] top-[24%]" style={{ animation: "float-spore 5.5s ease-in-out infinite" }} />
-        <Spore size={22} color={PURPLE} spotCount={2} spotShape="triangle" className="absolute right-[12%] top-[60%]" style={{ animation: "float-spore 4.8s ease-in-out infinite 0.8s" }} />
-        <Spore size={13} color={ORANGE} spotCount={2} spotShape="circle" className="absolute left-[22%] top-[68%]" style={{ animation: "float-spore 4.3s ease-in-out infinite 0.2s" }} />
-        <Spore size={34} color={GREEN} spotCount={5} spotShape="star" className="absolute left-[4%] top-[62%]" style={{ animation: "float-spore 6.2s ease-in-out infinite 1.4s" }} />
-        <Spore size={16} color={PURPLE} spotCount={1} spotShape="ring" className="absolute right-[26%] top-[20%]" style={{ animation: "float-spore 5s ease-in-out infinite 0.6s" }} />
-        <Spore size={20} color={AMBER} spotCount={4} spotShape="cross" className="absolute right-[6%] top-[30%]" style={{ animation: "float-spore 6.8s ease-in-out infinite 1.1s" }} />
         <div className="font-heading text-[28px] font-extrabold md:text-[38px]" style={{ color: "#F5E8D3" }}>
           Ready to spore up your block?
         </div>
         <div className="mt-3 text-[15px]" style={{ color: "#C9B8A0" }}>
-          Free to join. Now piloting in Phinneywood, Seattle.
+          Free to join. Now piloting in Phinneywood, Seattle — more neighborhoods coming soon.
         </div>
         <div className="mt-[26px] flex flex-wrap justify-center gap-3.5">
           <PillButton href={`${APP_URL}/signup`} variant="solid">
             Sign up
           </PillButton>
           <PillButton href="mailto:hello@tryspored.com" variant="outline-light">
-            Start your own neighborhood
+            Help us launch the next one
           </PillButton>
         </div>
       </div>
