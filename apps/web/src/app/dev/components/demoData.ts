@@ -10,6 +10,7 @@ import type {
   OpenNowLocation,
   PublicUserProfile,
   RecentVisitorMushroom,
+  TopVenue,
   TopVisitor,
   UserPointsSummary,
   VenueDetail,
@@ -42,6 +43,10 @@ function recentVisitor(seed: string, visitCount: number): RecentVisitorMushroom 
 // matching the biggest entries in that same fixture's recentVisitor(...) list.
 function topVisitor(username: string, displayName: string | null, visitCount: number): TopVisitor {
   return { username, displayName, visitCount };
+}
+
+function topVenue(venueId: string, name: string, visitCount: number): TopVenue {
+  return { venueId, name, visitCount };
 }
 
 function badge(overrides: Partial<Badge> & Pick<Badge, "id" | "code" | "name" | "icon">): Badge {
@@ -213,6 +218,7 @@ function neighborhood(overrides: Partial<NeighborhoodProfile> & Pick<Neighborhoo
     checkin_count: 0,
     recent_checkin_mushrooms: [],
     top_visitors: [],
+    top_venues: [],
     ...overrides,
   };
 }
@@ -468,6 +474,7 @@ export const SAMPLE_LOCATION_ACTIVITY: ActivityItem[] = [
     event_title: null,
     other_user_name: null,
     other_user_username: null,
+    points_earned: 10,
     occurred_at: new Date(Date.now() - 2 * 3600000).toISOString(),
   },
   {
@@ -484,6 +491,7 @@ export const SAMPLE_LOCATION_ACTIVITY: ActivityItem[] = [
     event_title: null,
     other_user_name: null,
     other_user_username: null,
+    points_earned: 10,
     occurred_at: new Date(Date.now() - 26 * 3600000).toISOString(),
   },
 ];
@@ -563,6 +571,11 @@ export const SAMPLE_NEIGHBORHOOD: NeighborhoodProfile = neighborhood({
     topVisitor("ravik", "Ravi K", 5),
     topVisitor("avap", "Ava P", 2),
   ],
+  top_venues: [
+    topVenue("demo-sample-location", "Diesel Fuel Coffee", 14),
+    topVenue("demo-sample-poi", "Greenwood Water Tower", 9),
+    topVenue("demo-sample-location-2", "Original Bakery", 6),
+  ],
 });
 
 export const SAMPLE_NEIGHBORHOOD_EVENTS: Event[] = [
@@ -632,4 +645,8 @@ export const SAMPLE_PROFILE: PublicUserProfile = {
   points_summary: { points: 940, level: 9, points_into_level: 90, points_to_next_level: 10 },
   neighbor_count: 19,
   neighbor_mushrooms: Array.from({ length: 19 }, (_, i) => neighborMushroom(`demo-profile-neighbor-${i}`)),
+  top_caps: [
+    { kind: "venue", id: "demo-sample-location", name: "Diesel Fuel Coffee", rank: 1, visit_count: 14 },
+    { kind: "neighborhood", id: "demo-sample-neighborhood", slug: "greenwood-sample", name: "Greenwood", rank: 2, visit_count: 22 },
+  ],
 };

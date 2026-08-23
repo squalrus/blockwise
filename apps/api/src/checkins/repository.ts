@@ -1,4 +1,4 @@
-import type { RecentVisitorMushroom, TopVisitor } from "@blockwise/types";
+import type { RecentVisitorMushroom, TopVenue, TopVisitor } from "@blockwise/types";
 
 export interface LocationCoords {
   id: string;
@@ -71,4 +71,8 @@ export interface CheckinRepository {
     neighborhoodId: string,
     limit: number
   ): Promise<NeighborhoodVisitorMosaic>;
+  // Neighborhood Leaderboard tab's location leaderboard (top_venues) --
+  // same rolling window as listRecentVisitorMushroomsForNeighborhood, but
+  // ranking this neighborhood's own venues by visit count instead of users.
+  listTopVenuesForNeighborhood(neighborhoodId: string, limit: number): Promise<TopVenue[]>;
 }

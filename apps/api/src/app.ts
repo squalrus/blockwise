@@ -13,6 +13,7 @@ import type {
   NeighborhoodSummary,
   NotificationPreferences,
   OnboardingChecklist,
+  ProfileTopCap,
   ProfileVisibility,
   ReportClientErrorRequest,
   SocialLinks,
@@ -37,7 +38,7 @@ import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from 
 import { UsernameTakenError } from "./auth/repository";
 import { SupabaseAuthRepository } from "./auth/supabaseRepository";
 import { verifyAccessToken } from "./auth/verifyToken";
-import { performCheckin, toMushroomConfig } from "./checkins/checkin";
+import { RECENT_VISITOR_WINDOW_MS, TOP_VISITORS_LIMIT, performCheckin, toMushroomConfig } from "./checkins/checkin";
 import { SupabaseCheckinRepository } from "./checkins/supabaseRepository";
 import {
   claimCoupon,
@@ -785,13 +786,14 @@ export function createApp() {
         return;
       }
 
-      const [pois, venueCount, poiCount, memberCount, checkinCount, visitorMosaic] = await Promise.all([
+      const [pois, venueCount, poiCount, memberCount, checkinCount, visitorMosaic, topVenues] = await Promise.all([
         listLocationsForNeighborhood(neighborhood.id, getLocationRepository(), "poi"),
         getLocationRepository().countActiveLocationsForNeighborhood(neighborhood.id, "business"),
         getLocationRepository().countActiveLocationsForNeighborhood(neighborhood.id, "poi"),
         getNeighborhoodMemberRepository().countMembersForNeighborhood(neighborhood.id),
         getCheckinRepository().countCheckinsForNeighborhood(neighborhood.id),
         getCheckinRepository().listRecentVisitorMushroomsForNeighborhood(neighborhood.id, RECENT_CHECKIN_MOSAIC_LIMIT),
+        getCheckinRepository().listTopVenuesForNeighborhood(neighborhood.id, TOP_VISITORS_LIMIT),
       ]);
       const profile: NeighborhoodProfile = {
         id: neighborhood.id,
@@ -808,6 +810,7 @@ export function createApp() {
         checkin_count: checkinCount,
         recent_checkin_mushrooms: visitorMosaic.mushrooms,
         top_visitors: visitorMosaic.topVisitors,
+        top_venues: topVenues,
       };
       res.json(profile);
     } catch (err) {
@@ -2152,6 +2155,74 @@ export function createApp() {
     }
   );
 
+  // Reverse "Top Caps" lookup for GET /users/:username below -- among the
+  // venues this user has actually visited within the rolling 60-day window
+  // (RECENT_VISITOR_WINDOW_MS) and every neighborhood they belong to, which
+  // ones currently rank them in that place's own top 3 by visit count
+  // (TOP_VISITORS_LIMIT). Bounded to MAX_TOP_CAP_VENUE_CANDIDATES
+  // most-visited-by-this-user venues, sorted by their own visit count within
+  // the window, so a very active profile doesn't trigger one
+  // venue-leaderboard query pair per distinct venue it's ever visited --
+  // fine at pilot scale (mirrors the handler's own existing 8-way Promise.all
+  // fan-out), revisit if that cap starts missing real Top Caps for heavy
+  // users. Neighborhood membership lists are typically tiny (1-5 rows) so no
+  // equivalent cap is needed there. `username` is required (not just
+  // user.id) since resolveTopVisitors/listRecentVisitorMushroomsForNeighborhood
+  // name ranked visitors by username, never by id.
+  const MAX_TOP_CAP_VENUE_CANDIDATES = 8;
+  async function resolveProfileTopCaps(
+    username: string | null,
+    checkins: { venueId: string; name: string; checkedInAt: string }[],
+    neighborhoods: { neighborhood_id: string; slug: string; name: string }[]
+  ): Promise<ProfileTopCap[]> {
+    if (!username) return [];
+
+    const windowStart = Date.now() - RECENT_VISITOR_WINDOW_MS;
+    const venueVisits = new Map<string, { name: string; count: number }>();
+    for (const c of checkins) {
+      if (new Date(c.checkedInAt).getTime() < windowStart) continue;
+      const entry = venueVisits.get(c.venueId);
+      if (entry) entry.count += 1;
+      else venueVisits.set(c.venueId, { name: c.name, count: 1 });
+    }
+    const candidateVenues = [...venueVisits.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, MAX_TOP_CAP_VENUE_CANDIDATES);
+
+    const [venueCaps, neighborhoodCaps] = await Promise.all([
+      Promise.all(
+        candidateVenues.map(async ([venueId, info]): Promise<ProfileTopCap | null> => {
+          const leaderboard = await getVenueLeaderboard(venueId, getLocationRepository(), TOP_VISITORS_LIMIT);
+          const rank = leaderboard.findIndex((v) => v.username === username);
+          if (rank === -1) return null;
+          return { kind: "venue", id: venueId, name: info.name, rank: rank + 1, visit_count: leaderboard[rank].visitCount };
+        })
+      ),
+      Promise.all(
+        neighborhoods.map(async (n): Promise<ProfileTopCap | null> => {
+          const { topVisitors } = await getCheckinRepository().listRecentVisitorMushroomsForNeighborhood(
+            n.neighborhood_id,
+            TOP_VISITORS_LIMIT
+          );
+          const rank = topVisitors.findIndex((v) => v.username === username);
+          if (rank === -1) return null;
+          return {
+            kind: "neighborhood",
+            id: n.neighborhood_id,
+            slug: n.slug,
+            name: n.name,
+            rank: rank + 1,
+            visit_count: topVisitors[rank].visitCount,
+          };
+        })
+      ),
+    ]);
+
+    return [...venueCaps, ...neighborhoodCaps]
+      .filter((cap): cap is ProfileTopCap => cap !== null)
+      .sort((a, b) => a.rank - b.rank || b.visit_count - a.visit_count);
+  }
+
   // BACKLOG.md "Public user profiles": the username-keyed public counterpart
   // to /me/profile, mirroring how GET /neighborhoods/:slug is the public
   // lookup alongside the id-keyed neighborhood-admin routes. Returns 404 for
@@ -2164,8 +2235,7 @@ export function createApp() {
   // themselves stay private; only /me/collection lists them). neighbor_count
   // is likewise a plain count (BACKLOG.md Ref 14/33) -- the connections
   // themselves stay private to the two parties, only /me/connections lists
-  // them. `badges`/`challenges` are full lists like their /me/ equivalents
-  // (the profile page itself only surfaces the latest of each).
+  // them. `badges`/`challenges` are full lists like their /me/ equivalents.
   app.get("/users/:username", async (req, res) => {
     try {
       const user = await getAuthRepository().getByUsername(req.params.username.toLowerCase());
@@ -2192,6 +2262,7 @@ export function createApp() {
       const neighborMushrooms = connections.map((c) =>
         resolveMushroomConfig(c.user.id, toMushroomConfig(c.user.mushroomCustomization))
       );
+      const topCaps = await resolveProfileTopCaps(user.username, checkins, neighborhoods);
 
       res.json({
         username: user.username,
@@ -2214,12 +2285,47 @@ export function createApp() {
         points_summary: pointsSummary,
         neighbor_count: neighborCount,
         neighbor_mushrooms: neighborMushrooms,
+        top_caps: topCaps,
       });
     } catch (err) {
       console.error(`GET /users/${req.params.username} failed:`, err);
       res.status(500).json({ error: "Failed to load user profile" });
     }
   });
+
+  // GET /me/connections' "trust signal before connecting" counterpart: how
+  // many of the caller's own accepted neighbors are also an accepted
+  // neighbor of :username. getUserIdByUsername (not
+  // getAuthRepository().getByUsername) since ConnectionRepository is
+  // self-contained by design (see its own interface comment) and this route
+  // needs nothing else about the target account -- an unknown username or
+  // the caller's own username both just resolve to a 0 count rather than a
+  // distinct error, since neither is a real "mutual neighbors" answer worth
+  // a special-cased response.
+  app.get(
+    "/me/connections/mutual/:username",
+    requireAuthUser(getSupabaseClient, getAuthRepository),
+    async (req, res) => {
+      try {
+        const targetId = await getConnectionRepository().getUserIdByUsername(req.params.username.toLowerCase());
+        if (!targetId || targetId === req.appUser!.id) {
+          res.json({ count: 0 });
+          return;
+        }
+
+        const [viewerConnections, targetConnections] = await Promise.all([
+          getConnectionRepository().listConnectionsForUser(req.appUser!.id, "accepted"),
+          getConnectionRepository().listConnectionsForUser(targetId, "accepted"),
+        ]);
+        const targetNeighborIds = new Set(targetConnections.map((c) => c.user.id));
+        const count = viewerConnections.filter((c) => targetNeighborIds.has(c.user.id)).length;
+        res.json({ count });
+      } catch (err) {
+        console.error(`GET /me/connections/mutual/${req.params.username} failed:`, err);
+        res.status(500).json({ error: "Failed to compute mutual neighbors" });
+      }
+    }
+  );
 
   // README §5: claim submission requires a signed-in account (BACKLOG.md
   // Ref 32) -- ties every claim to a specific account for follow-up and

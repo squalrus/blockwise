@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 import type { VenueDetail } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { SITE_URL } from "@/lib/siteUrl";
-import { EnrichmentPhotos } from "../../EnrichmentSection";
 import { ClaimBusinessForm } from "./ClaimBusinessForm";
 import { FavoriteButton } from "./FavoriteButton";
 import { LocationSummaryCard } from "./LocationSummaryCard";
@@ -64,8 +63,8 @@ function locationJsonLd(location: VenueDetail): Record<string, unknown> | null {
   };
 }
 
-// BACKLOG.md Ref 101 redesign: shared chrome (back link, summary card, photo
-// strip, tab bar, claim form) for the location detail page's tabs -- Spore
+// BACKLOG.md Ref 101 redesign: shared chrome (back link, summary card, tab
+// bar, claim form) for the location detail page's tabs -- Spore
 // Feed (page.tsx, default)/About/Reviews/Coupons/Events/Leaderboard, each
 // its own route (mirroring /neighborhoods/[slug]'s layout+subnav split, not
 // /account's former in-page tab state) so a specific tab is directly
@@ -101,14 +100,6 @@ export default async function LocationLayout({
       </Link>
 
       <LocationSummaryCard location={location} favoriteAction={<FavoriteButton venueId={location.id} />} />
-
-      {(isBusiness || location.google_place_id) && (
-        <EnrichmentPhotos
-          enrichment={location.enrichment}
-          photoUrl={(index) => apiUrl(`/locations/${location.id}/photo?index=${index}`)}
-          alt={location.name}
-        />
-      )}
 
       <LocationTabs locationId={location.id} isBusiness={isBusiness} enrichment={location.enrichment} />
 

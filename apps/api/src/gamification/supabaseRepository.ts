@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LocationKind } from "@blockwise/types";
+import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors } from "../checkins/checkin";
 import type {
   AwardPointsInput,
   BadgeRecord,
@@ -111,6 +112,12 @@ interface UserChallengeCompletionRow {
 }
 
 const UNIQUE_VIOLATION = "23505";
+
+// Safety bound on the raw rows fetched for isTopVisitorForVenue/
+// isTopVisitorForNeighborhood's ranking query -- mirrors
+// checkins/supabaseRepository.ts's own RECENT_VISITOR_QUERY_LIMIT (not
+// exported from there, so duplicated rather than reached across modules).
+const RECENT_VISITOR_QUERY_LIMIT = 2000;
 
 export class SupabaseGamificationRepository implements GamificationRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -506,5 +513,43 @@ export class SupabaseGamificationRepository implements GamificationRepository {
 
     if (error) throw new Error(`countCheckinsForVenueBetween failed: ${error.message}`);
     return count ?? 0;
+  }
+
+  async isTopVisitorForVenue(venueId: string, userId: string): Promise<boolean> {
+    const windowStart = new Date(Date.now() - RECENT_VISITOR_WINDOW_MS).toISOString();
+    const { data, error } = await this.supabase
+      .from("checkin")
+      .select("user_id, checked_in_at")
+      .eq("venue_id", venueId)
+      .gte("checked_in_at", windowStart)
+      .order("checked_in_at", { ascending: false })
+      .limit(RECENT_VISITOR_QUERY_LIMIT);
+
+    if (error) throw new Error(`isTopVisitorForVenue failed: ${error.message}`);
+
+    const ranked = rankRecentVisitors(
+      (data ?? []).map((row) => ({ userId: row.user_id as string, checkedInAt: row.checked_in_at as string })),
+      1
+    );
+    return ranked[0]?.userId === userId;
+  }
+
+  async isTopVisitorForNeighborhood(neighborhoodId: string, userId: string): Promise<boolean> {
+    const windowStart = new Date(Date.now() - RECENT_VISITOR_WINDOW_MS).toISOString();
+    const { data, error } = await this.supabase
+      .from("checkin")
+      .select("user_id, checked_in_at, venue:venue_id!inner(neighborhood_id)")
+      .eq("venue.neighborhood_id", neighborhoodId)
+      .gte("checked_in_at", windowStart)
+      .order("checked_in_at", { ascending: false })
+      .limit(RECENT_VISITOR_QUERY_LIMIT);
+
+    if (error) throw new Error(`isTopVisitorForNeighborhood failed: ${error.message}`);
+
+    const ranked = rankRecentVisitors(
+      (data ?? []).map((row) => ({ userId: row.user_id as string, checkedInAt: row.checked_in_at as string })),
+      1
+    );
+    return ranked[0]?.userId === userId;
   }
 }

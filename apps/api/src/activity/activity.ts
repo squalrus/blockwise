@@ -33,6 +33,7 @@ function toActivityItem(record: ActivityRecord): ActivityItem {
     event_title: record.eventTitle,
     other_user_name: otherUserName(record),
     other_user_username: record.otherUserVisibility === "public" ? record.otherUserUsername : null,
+    points_earned: record.pointsEarned,
     occurred_at: record.occurredAt,
   };
 }

@@ -18,7 +18,7 @@ describe("evaluateBadgesAfterCheckin", () => {
     for (let i = 1; i <= 4; i++) {
       repo.checkins.push({ userId: "user-1", venueId: `venue-${i}`, checkedInAt: NOON_JULY_15 });
       const awarded = await evaluateBadgesAfterCheckin(
-        { userId: "user-1", venueId: `venue-${i}`, categoryId: "cat-coffee", kind: "business", checkedInAt: NOON_JULY_15 },
+        { userId: "user-1", venueId: `venue-${i}`, neighborhoodId: "n1", categoryId: "cat-coffee", kind: "business", checkedInAt: NOON_JULY_15 },
         repo
       );
       expect(awarded).toHaveLength(0);
@@ -27,7 +27,7 @@ describe("evaluateBadgesAfterCheckin", () => {
     repo.locations.set("venue-5", { neighborhoodId: "n1", categoryId: "cat-coffee", kind: "business" });
     repo.checkins.push({ userId: "user-1", venueId: "venue-5", checkedInAt: NOON_JULY_15 });
     const awarded = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "venue-5", categoryId: "cat-coffee", kind: "business", checkedInAt: NOON_JULY_15 },
+      { userId: "user-1", venueId: "venue-5", neighborhoodId: "n1", categoryId: "cat-coffee", kind: "business", checkedInAt: NOON_JULY_15 },
       repo
     );
 
@@ -45,7 +45,7 @@ describe("evaluateBadgesAfterCheckin", () => {
 
     repo.checkins.push({ userId: "user-1", venueId: "venue-coffee", checkedInAt: NOON_JULY_15 });
     const awarded = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "venue-coffee", categoryId: "cat-coffee", kind: "business", checkedInAt: NOON_JULY_15 },
+      { userId: "user-1", venueId: "venue-coffee", neighborhoodId: "n1", categoryId: "cat-coffee", kind: "business", checkedInAt: NOON_JULY_15 },
       repo
     );
 
@@ -63,7 +63,7 @@ describe("evaluateBadgesAfterCheckin", () => {
 
     repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOON_JULY_15 });
     const awarded = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "poi-1", kind: "poi", checkedInAt: NOON_JULY_15 },
+      { userId: "user-1", venueId: "poi-1", neighborhoodId: "n1", kind: "poi", checkedInAt: NOON_JULY_15 },
       repo
     );
 
@@ -80,7 +80,7 @@ describe("evaluateBadgesAfterCheckin", () => {
 
     repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: NOON_JULY_15 });
     const awarded = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "venue-1", categoryId: "cat-coffee", kind: "business", checkedInAt: NOON_JULY_15 },
+      { userId: "user-1", venueId: "venue-1", neighborhoodId: "n1", categoryId: "cat-coffee", kind: "business", checkedInAt: NOON_JULY_15 },
       repo
     );
 
@@ -102,14 +102,14 @@ describe("evaluateBadgesAfterCheckin", () => {
       { userId: "user-1", venueId: "venue-2", checkedInAt: "2026-07-15T10:00:00.000Z" }
     );
     const notYet = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "venue-2", kind: "business", checkedInAt: "2026-07-15T10:00:00.000Z" },
+      { userId: "user-1", venueId: "venue-2", neighborhoodId: "n1", kind: "business", checkedInAt: "2026-07-15T10:00:00.000Z" },
       repo
     );
     expect(notYet).toHaveLength(0);
 
     repo.checkins.push({ userId: "user-1", venueId: "venue-3", checkedInAt: "2026-07-15T22:00:00.000Z" });
     const awarded = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "venue-3", kind: "business", checkedInAt: "2026-07-15T22:00:00.000Z" },
+      { userId: "user-1", venueId: "venue-3", neighborhoodId: "n1", kind: "business", checkedInAt: "2026-07-15T22:00:00.000Z" },
       repo
     );
 
@@ -128,7 +128,7 @@ describe("evaluateBadgesAfterCheckin", () => {
     repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: "2026-07-14T23:00:00.000Z" });
     repo.checkins.push({ userId: "user-1", venueId: "venue-2", checkedInAt: "2026-07-15T01:00:00.000Z" });
     const awarded = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "venue-2", kind: "business", checkedInAt: "2026-07-15T01:00:00.000Z" },
+      { userId: "user-1", venueId: "venue-2", neighborhoodId: "n1", kind: "business", checkedInAt: "2026-07-15T01:00:00.000Z" },
       repo
     );
 
@@ -145,14 +145,14 @@ describe("evaluateBadgesAfterCheckin", () => {
 
     repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: "2026-07-15T08:00:00.000Z" });
     const first = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "venue-1", kind: "business", checkedInAt: "2026-07-15T08:00:00.000Z" },
+      { userId: "user-1", venueId: "venue-1", neighborhoodId: "n1", kind: "business", checkedInAt: "2026-07-15T08:00:00.000Z" },
       repo
     );
     expect(first).toHaveLength(0);
 
     repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: "2026-07-15T18:00:00.000Z" });
     const second = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "venue-1", kind: "business", checkedInAt: "2026-07-15T18:00:00.000Z" },
+      { userId: "user-1", venueId: "venue-1", neighborhoodId: "n1", kind: "business", checkedInAt: "2026-07-15T18:00:00.000Z" },
       repo
     );
 
@@ -177,7 +177,7 @@ describe("evaluateBadgesAfterCheckin", () => {
 
     repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: NOON_JULY_15 });
     const awarded = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "venue-1", kind: "business", checkedInAt: NOON_JULY_15 },
+      { userId: "user-1", venueId: "venue-1", neighborhoodId: "n1", kind: "business", checkedInAt: NOON_JULY_15 },
       repo
     );
 
@@ -194,16 +194,130 @@ describe("evaluateBadgesAfterCheckin", () => {
     repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOON_JULY_15 });
 
     const first = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "poi-1", kind: "poi", checkedInAt: NOON_JULY_15 },
+      { userId: "user-1", venueId: "poi-1", neighborhoodId: "n1", kind: "poi", checkedInAt: NOON_JULY_15 },
       repo
     );
     expect(first).toHaveLength(1);
 
     repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOON_JULY_15 });
     const second = await evaluateBadgesAfterCheckin(
-      { userId: "user-1", venueId: "poi-1", kind: "poi", checkedInAt: NOON_JULY_15 },
+      { userId: "user-1", venueId: "poi-1", neighborhoodId: "n1", kind: "poi", checkedInAt: NOON_JULY_15 },
       repo
     );
     expect(second).toHaveLength(0);
+  });
+
+  it("awards a business_rank_reached badge once the check-in makes the user the #1 ranked visitor there", async () => {
+    const repo = new FakeGamificationRepository();
+    const badge = makeBadge({ id: "badge-business-top-cap", code: "business_top_cap" });
+    repo.badgeRules.push(
+      makeBadgeRule({ id: "rule-business-top-cap", badgeId: badge.id, badge, ruleType: "business_rank_reached", threshold: 1 })
+    );
+    repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: null, kind: "business" });
+    repo.checkins.push({ userId: "user-2", venueId: "venue-1", checkedInAt: "2026-07-14T00:00:00.000Z" });
+    repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: NOON_JULY_15 });
+
+    // Tied 1-1 with user-2, but user-1's check-in is more recent -- rankRecentVisitors'
+    // tie-break (mirrored by the fake's topVisitor helper) makes user-1 #1.
+    const awarded = await evaluateBadgesAfterCheckin(
+      { userId: "user-1", venueId: "venue-1", neighborhoodId: "n1", kind: "business", checkedInAt: NOON_JULY_15 },
+      repo
+    );
+
+    expect(awarded.map((b) => b.id)).toEqual(["badge-business-top-cap"]);
+  });
+
+  it("does not award business_rank_reached while another visitor still outranks the user", async () => {
+    const repo = new FakeGamificationRepository();
+    const badge = makeBadge({ id: "badge-business-top-cap", code: "business_top_cap" });
+    repo.badgeRules.push(
+      makeBadgeRule({ id: "rule-business-top-cap", badgeId: badge.id, badge, ruleType: "business_rank_reached", threshold: 1 })
+    );
+    repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: null, kind: "business" });
+    repo.checkins.push({ userId: "user-2", venueId: "venue-1", checkedInAt: "2026-07-14T00:00:00.000Z" });
+    repo.checkins.push({ userId: "user-2", venueId: "venue-1", checkedInAt: "2026-07-14T01:00:00.000Z" });
+    repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: NOON_JULY_15 });
+
+    const awarded = await evaluateBadgesAfterCheckin(
+      { userId: "user-1", venueId: "venue-1", neighborhoodId: "n1", kind: "business", checkedInAt: NOON_JULY_15 },
+      repo
+    );
+
+    expect(awarded).toHaveLength(0);
+  });
+
+  it("does not evaluate a business_rank_reached rule from a POI check-in", async () => {
+    const repo = new FakeGamificationRepository();
+    const badge = makeBadge({ id: "badge-business-top-cap", code: "business_top_cap" });
+    repo.badgeRules.push(
+      makeBadgeRule({ id: "rule-business-top-cap", badgeId: badge.id, badge, ruleType: "business_rank_reached", threshold: 1 })
+    );
+    repo.locations.set("poi-1", { neighborhoodId: "n1", categoryId: null, kind: "poi" });
+    repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOON_JULY_15 });
+
+    const awarded = await evaluateBadgesAfterCheckin(
+      { userId: "user-1", venueId: "poi-1", neighborhoodId: "n1", kind: "poi", checkedInAt: NOON_JULY_15 },
+      repo
+    );
+
+    expect(awarded).toHaveLength(0);
+  });
+
+  it("awards a poi_rank_reached badge once the check-in makes the user the #1 ranked visitor there", async () => {
+    const repo = new FakeGamificationRepository();
+    const badge = makeBadge({ id: "badge-poi-top-cap", code: "poi_top_cap" });
+    repo.badgeRules.push(
+      makeBadgeRule({ id: "rule-poi-top-cap", badgeId: badge.id, badge, ruleType: "poi_rank_reached", threshold: 1 })
+    );
+    repo.locations.set("poi-1", { neighborhoodId: "n1", categoryId: null, kind: "poi" });
+    repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOON_JULY_15 });
+
+    const awarded = await evaluateBadgesAfterCheckin(
+      { userId: "user-1", venueId: "poi-1", neighborhoodId: "n1", kind: "poi", checkedInAt: NOON_JULY_15 },
+      repo
+    );
+
+    expect(awarded.map((b) => b.id)).toEqual(["badge-poi-top-cap"]);
+  });
+
+  it("awards a neighborhood_rank_reached badge once the user ranks #1 across the whole neighborhood", async () => {
+    const repo = new FakeGamificationRepository();
+    const badge = makeBadge({ id: "badge-neighborhood-top-cap", code: "neighborhood_top_cap" });
+    repo.badgeRules.push(
+      makeBadgeRule({ id: "rule-neighborhood-top-cap", badgeId: badge.id, badge, ruleType: "neighborhood_rank_reached", threshold: 1 })
+    );
+    repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: null, kind: "business" });
+    repo.locations.set("venue-2", { neighborhoodId: "n1", categoryId: null, kind: "business" });
+    repo.checkins.push({ userId: "user-2", venueId: "venue-1", checkedInAt: "2026-07-14T00:00:00.000Z" });
+    repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: "2026-07-14T01:00:00.000Z" });
+    repo.checkins.push({ userId: "user-1", venueId: "venue-2", checkedInAt: NOON_JULY_15 });
+
+    // user-1 has 2 check-ins across the neighborhood's venues, user-2 has 1 --
+    // ranked #1 overall even though venue-2 alone is only a single visit.
+    const awarded = await evaluateBadgesAfterCheckin(
+      { userId: "user-1", venueId: "venue-2", neighborhoodId: "n1", kind: "business", checkedInAt: NOON_JULY_15 },
+      repo
+    );
+
+    expect(awarded.map((b) => b.id)).toEqual(["badge-neighborhood-top-cap"]);
+  });
+
+  it("does not award neighborhood_rank_reached while another visitor still outranks the user", async () => {
+    const repo = new FakeGamificationRepository();
+    const badge = makeBadge({ id: "badge-neighborhood-top-cap", code: "neighborhood_top_cap" });
+    repo.badgeRules.push(
+      makeBadgeRule({ id: "rule-neighborhood-top-cap", badgeId: badge.id, badge, ruleType: "neighborhood_rank_reached", threshold: 1 })
+    );
+    repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: null, kind: "business" });
+    repo.checkins.push({ userId: "user-2", venueId: "venue-1", checkedInAt: "2026-07-14T00:00:00.000Z" });
+    repo.checkins.push({ userId: "user-2", venueId: "venue-1", checkedInAt: "2026-07-14T01:00:00.000Z" });
+    repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: NOON_JULY_15 });
+
+    const awarded = await evaluateBadgesAfterCheckin(
+      { userId: "user-1", venueId: "venue-1", neighborhoodId: "n1", kind: "business", checkedInAt: NOON_JULY_15 },
+      repo
+    );
+
+    expect(awarded).toHaveLength(0);
   });
 });

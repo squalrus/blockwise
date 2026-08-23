@@ -24,6 +24,11 @@ export interface ActivityRecord {
   otherUserDisplayName: string | null;
   otherUserUsername: string | null;
   otherUserVisibility: ProfileVisibility | null;
+  // Set only for a row sourced from `point_event` (checkin/favorite/
+  // challenge_completion/neighbor_connection) -- see ActivityItem's own
+  // points_earned doc comment (packages/types) for why badge/event_follow
+  // rows never have one.
+  pointsEarned: number | null;
   occurredAt: string;
 }
 
