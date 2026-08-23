@@ -14,6 +14,18 @@ type State =
   // `badges` (earned) to render locked placeholders too.
   | { status: "ready"; badges: UserBadge[]; badgeCatalog: Badge[] };
 
+// Tiered badge code prefixes excluded from the locked preview below --
+// unlike a single one-off badge (e.g. "back_for_seconds"), previewing every
+// tier of one of these ladders would be noise rather than a helpful "what's
+// next" hint: forager_ (collection_milestone, 10 through 1000, ~28 badges),
+// level_ (level_reached, 1 through 20, 20260823010000_level_20_badges.sql),
+// good_neighbor_ (neighbor_count_reached, 1 through 50), and day_tripper_
+// (daily_distinct_venues, 5 through 50). All four are still shown normally,
+// alongside everything else, once actually earned (state.badges below isn't
+// filtered) -- and still flash in the check-in "unlocked" popup
+// (CheckinResultCard.tsx) the moment they're earned.
+const HIDDEN_UNTIL_EARNED_PREFIXES = ["forager_", "level_", "good_neighbor_", "day_tripper_"];
+
 async function load(setState: (state: State) => void) {
   const token = await getAccessToken();
   const headers = { Authorization: `Bearer ${token}` };
@@ -54,14 +66,9 @@ export default function BadgesPage() {
   }
 
   const earnedIds = new Set(state.badges.map((b) => b.badge.id));
-  // BACKLOG.md Ref 98: the forager collection_milestone tier (10 through
-  // 1000, ~28 badges) is excluded from the locked preview -- unlike the
-  // rest of the catalog, previewing every tier here would be noise rather
-  // than a helpful "what's next" hint. Still shown normally, alongside
-  // everything else, once actually earned (state.badges above isn't
-  // filtered) -- and still flashes in the check-in "unlocked" popup
-  // (CheckinResultCard.tsx) the moment it's earned.
-  const locked = state.badgeCatalog.filter((b) => !earnedIds.has(b.id) && !b.code.startsWith("forager_"));
+  const locked = state.badgeCatalog.filter(
+    (b) => !earnedIds.has(b.id) && !HIDDEN_UNTIL_EARNED_PREFIXES.some((prefix) => b.code.startsWith(prefix))
+  );
 
   if (state.badges.length === 0 && locked.length === 0) {
     return <p className="text-sm text-muted">No badges yet -- complete a neighborhood challenge to earn one.</p>;

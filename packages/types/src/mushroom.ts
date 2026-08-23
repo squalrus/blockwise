@@ -253,3 +253,14 @@ export interface TopVisitor {
   displayName: string | null;
   visitCount: number;
 }
+
+// Location leaderboard counterpart to TopVisitor -- ranks venues instead of
+// users within the same rolling 60-day window, for the neighborhood
+// Leaderboard tab's "which places are busiest" section
+// (NeighborhoodProfile.top_venues). Venues have no visibility setting, so
+// unlike TopVisitor this is never filtered for privacy.
+export interface TopVenue {
+  venueId: string;
+  name: string;
+  visitCount: number;
+}

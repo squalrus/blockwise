@@ -25,8 +25,6 @@ export default function PoiPageDemoPage() {
           favoriteAction={<FavoriteButton venueId={location.id} mockFavorited={false} />}
         />
 
-        <EnrichmentPhotos enrichment={location.enrichment} photoUrl={() => ""} alt={location.name} />
-
         <LocationTabs locationId={location.id} isBusiness={false} enrichment={location.enrichment} />
 
         <div className="flex flex-col gap-6">
@@ -37,10 +35,13 @@ export default function PoiPageDemoPage() {
 
           <div>
             <p className="mb-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">About</p>
-            <EnrichmentAbout
-              enrichment={location.enrichment}
-              emptyLabel="No enrichment data available for this point of interest."
-            />
+            <div className="flex flex-col gap-2.5">
+              <EnrichmentPhotos enrichment={location.enrichment} photoUrl={() => ""} alt={location.name} />
+              <EnrichmentAbout
+                enrichment={location.enrichment}
+                emptyLabel="No enrichment data available for this point of interest."
+              />
+            </div>
           </div>
 
           <div>

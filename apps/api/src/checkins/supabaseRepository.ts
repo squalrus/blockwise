@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MushroomCustomization, TopVisitor } from "@blockwise/types";
+import type { MushroomCustomization, TopVenue, TopVisitor } from "@blockwise/types";
 import { resolveMushroomConfig } from "@blockwise/types";
 import {
   RECENT_VISITOR_WINDOW_MS,
@@ -209,5 +209,46 @@ export class SupabaseCheckinRepository implements CheckinRepository {
     const topVisitors: TopVisitor[] = resolveTopVisitors(ranked, candidatesById, TOP_VISITORS_LIMIT);
 
     return { mushrooms, topVisitors };
+  }
+
+  // Neighborhood Leaderboard tab's location leaderboard -- same rolling
+  // window and query shape as listRecentVisitorMushroomsForNeighborhood
+  // above, but grouped by venue_id instead of user_id (rankRecentVisitors is
+  // agnostic to what its `userId` field actually identifies, so it's reused
+  // as-is rather than duplicating the ranking logic for venues). No
+  // visibility filter -- venues aren't private, unlike resolveTopVisitors'
+  // per-candidate visitor gate.
+  async listTopVenuesForNeighborhood(neighborhoodId: string, limit: number): Promise<TopVenue[]> {
+    const windowStart = new Date(Date.now() - RECENT_VISITOR_WINDOW_MS).toISOString();
+    const { data, error } = await this.supabase
+      .from("checkin")
+      .select("venue_id, checked_in_at, venue:venue_id!inner(name, neighborhood_id)")
+      .eq("venue.neighborhood_id", neighborhoodId)
+      .gte("checked_in_at", windowStart)
+      .order("checked_in_at", { ascending: false })
+      .limit(RECENT_VISITOR_QUERY_LIMIT);
+
+    if (error) throw new Error(`listTopVenuesForNeighborhood failed: ${error.message}`);
+
+    const rows = (data ?? []) as unknown as {
+      venue_id: string;
+      checked_in_at: string;
+      venue: { name: string } | { name: string }[] | null;
+    }[];
+
+    const ranked = rankRecentVisitors(
+      rows.map((row) => ({ userId: row.venue_id, checkedInAt: row.checked_in_at })),
+      limit
+    );
+
+    const nameByVenueId = new Map(
+      rows.map((row) => [row.venue_id, (Array.isArray(row.venue) ? row.venue[0] : row.venue)?.name ?? "Unknown venue"])
+    );
+
+    return ranked.map(({ userId: venueId, visitCount }) => ({
+      venueId,
+      name: nameByVenueId.get(venueId) ?? "Unknown venue",
+      visitCount,
+    }));
   }
 }

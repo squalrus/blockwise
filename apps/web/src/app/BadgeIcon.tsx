@@ -22,6 +22,7 @@ const ICONS: Record<string, string> = {
   calendar: "📅",
   megaphone: "📣",
   wrench: "🔧",
+  crown: "👑",
 };
 
 const FALLBACK_ICON = "🏅";

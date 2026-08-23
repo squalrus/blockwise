@@ -41,8 +41,6 @@ export default function LocationPageDemoPage() {
           favoriteAction={<FavoriteButton venueId={location.id} mockFavorited />}
         />
 
-        <EnrichmentPhotos enrichment={location.enrichment} photoUrl={() => ""} alt={location.name} />
-
         <LocationTabs locationId={location.id} isBusiness enrichment={location.enrichment} />
 
         <div className="flex flex-col gap-6">
@@ -53,7 +51,10 @@ export default function LocationPageDemoPage() {
 
           <div>
             <p className="mb-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">About</p>
-            <EnrichmentAbout enrichment={location.enrichment} emptyLabel="No enrichment data available for this venue." />
+            <div className="flex flex-col gap-2.5">
+              <EnrichmentPhotos enrichment={location.enrichment} photoUrl={() => ""} alt={location.name} />
+              <EnrichmentAbout enrichment={location.enrichment} emptyLabel="No enrichment data available for this venue." />
+            </div>
           </div>
 
           <div>
