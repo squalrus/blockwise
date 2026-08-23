@@ -209,9 +209,9 @@ describe("evaluateBadgesAfterCheckin", () => {
 
   it("awards a business_rank_reached badge once the check-in makes the user the #1 ranked visitor there", async () => {
     const repo = new FakeGamificationRepository();
-    const badge = makeBadge({ id: "badge-business-mayor", code: "business_mayor" });
+    const badge = makeBadge({ id: "badge-business-top-cap", code: "business_top_cap" });
     repo.badgeRules.push(
-      makeBadgeRule({ id: "rule-business-mayor", badgeId: badge.id, badge, ruleType: "business_rank_reached", threshold: 1 })
+      makeBadgeRule({ id: "rule-business-top-cap", badgeId: badge.id, badge, ruleType: "business_rank_reached", threshold: 1 })
     );
     repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: null, kind: "business" });
     repo.checkins.push({ userId: "user-2", venueId: "venue-1", checkedInAt: "2026-07-14T00:00:00.000Z" });
@@ -224,14 +224,14 @@ describe("evaluateBadgesAfterCheckin", () => {
       repo
     );
 
-    expect(awarded.map((b) => b.id)).toEqual(["badge-business-mayor"]);
+    expect(awarded.map((b) => b.id)).toEqual(["badge-business-top-cap"]);
   });
 
   it("does not award business_rank_reached while another visitor still outranks the user", async () => {
     const repo = new FakeGamificationRepository();
-    const badge = makeBadge({ id: "badge-business-mayor", code: "business_mayor" });
+    const badge = makeBadge({ id: "badge-business-top-cap", code: "business_top_cap" });
     repo.badgeRules.push(
-      makeBadgeRule({ id: "rule-business-mayor", badgeId: badge.id, badge, ruleType: "business_rank_reached", threshold: 1 })
+      makeBadgeRule({ id: "rule-business-top-cap", badgeId: badge.id, badge, ruleType: "business_rank_reached", threshold: 1 })
     );
     repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: null, kind: "business" });
     repo.checkins.push({ userId: "user-2", venueId: "venue-1", checkedInAt: "2026-07-14T00:00:00.000Z" });
@@ -248,9 +248,9 @@ describe("evaluateBadgesAfterCheckin", () => {
 
   it("does not evaluate a business_rank_reached rule from a POI check-in", async () => {
     const repo = new FakeGamificationRepository();
-    const badge = makeBadge({ id: "badge-business-mayor", code: "business_mayor" });
+    const badge = makeBadge({ id: "badge-business-top-cap", code: "business_top_cap" });
     repo.badgeRules.push(
-      makeBadgeRule({ id: "rule-business-mayor", badgeId: badge.id, badge, ruleType: "business_rank_reached", threshold: 1 })
+      makeBadgeRule({ id: "rule-business-top-cap", badgeId: badge.id, badge, ruleType: "business_rank_reached", threshold: 1 })
     );
     repo.locations.set("poi-1", { neighborhoodId: "n1", categoryId: null, kind: "poi" });
     repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOON_JULY_15 });
@@ -265,9 +265,9 @@ describe("evaluateBadgesAfterCheckin", () => {
 
   it("awards a poi_rank_reached badge once the check-in makes the user the #1 ranked visitor there", async () => {
     const repo = new FakeGamificationRepository();
-    const badge = makeBadge({ id: "badge-poi-mayor", code: "poi_mayor" });
+    const badge = makeBadge({ id: "badge-poi-top-cap", code: "poi_top_cap" });
     repo.badgeRules.push(
-      makeBadgeRule({ id: "rule-poi-mayor", badgeId: badge.id, badge, ruleType: "poi_rank_reached", threshold: 1 })
+      makeBadgeRule({ id: "rule-poi-top-cap", badgeId: badge.id, badge, ruleType: "poi_rank_reached", threshold: 1 })
     );
     repo.locations.set("poi-1", { neighborhoodId: "n1", categoryId: null, kind: "poi" });
     repo.checkins.push({ userId: "user-1", venueId: "poi-1", checkedInAt: NOON_JULY_15 });
@@ -277,14 +277,14 @@ describe("evaluateBadgesAfterCheckin", () => {
       repo
     );
 
-    expect(awarded.map((b) => b.id)).toEqual(["badge-poi-mayor"]);
+    expect(awarded.map((b) => b.id)).toEqual(["badge-poi-top-cap"]);
   });
 
   it("awards a neighborhood_rank_reached badge once the user ranks #1 across the whole neighborhood", async () => {
     const repo = new FakeGamificationRepository();
-    const badge = makeBadge({ id: "badge-neighborhood-mayor", code: "neighborhood_mayor" });
+    const badge = makeBadge({ id: "badge-neighborhood-top-cap", code: "neighborhood_top_cap" });
     repo.badgeRules.push(
-      makeBadgeRule({ id: "rule-neighborhood-mayor", badgeId: badge.id, badge, ruleType: "neighborhood_rank_reached", threshold: 1 })
+      makeBadgeRule({ id: "rule-neighborhood-top-cap", badgeId: badge.id, badge, ruleType: "neighborhood_rank_reached", threshold: 1 })
     );
     repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: null, kind: "business" });
     repo.locations.set("venue-2", { neighborhoodId: "n1", categoryId: null, kind: "business" });
@@ -299,14 +299,14 @@ describe("evaluateBadgesAfterCheckin", () => {
       repo
     );
 
-    expect(awarded.map((b) => b.id)).toEqual(["badge-neighborhood-mayor"]);
+    expect(awarded.map((b) => b.id)).toEqual(["badge-neighborhood-top-cap"]);
   });
 
   it("does not award neighborhood_rank_reached while another visitor still outranks the user", async () => {
     const repo = new FakeGamificationRepository();
-    const badge = makeBadge({ id: "badge-neighborhood-mayor", code: "neighborhood_mayor" });
+    const badge = makeBadge({ id: "badge-neighborhood-top-cap", code: "neighborhood_top_cap" });
     repo.badgeRules.push(
-      makeBadgeRule({ id: "rule-neighborhood-mayor", badgeId: badge.id, badge, ruleType: "neighborhood_rank_reached", threshold: 1 })
+      makeBadgeRule({ id: "rule-neighborhood-top-cap", badgeId: badge.id, badge, ruleType: "neighborhood_rank_reached", threshold: 1 })
     );
     repo.locations.set("venue-1", { neighborhoodId: "n1", categoryId: null, kind: "business" });
     repo.checkins.push({ userId: "user-2", venueId: "venue-1", checkedInAt: "2026-07-14T00:00:00.000Z" });
