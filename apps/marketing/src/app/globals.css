@@ -27,3 +27,32 @@ a {
     transform: translateY(-10px);
   }
 }
+
+/* SeamSprouts.tsx: mushrooms sprouting up out of a brown/ink section's
+   ground as the page scrolls. Starts fully collapsed and sunk below its
+   resting spot; once revealed, grows upward once and then stays put --
+   deliberately a one-shot emergence, not an idle loop, so it reads as
+   "grew out of the ground" rather than drifting/floating in place. */
+.seam-sprout-hidden {
+  opacity: 0;
+  transform: scale(0) translateY(10px);
+}
+
+@keyframes seam-sprout-grow {
+  0% {
+    opacity: 0;
+    transform: scale(0) translateY(10px);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.08) translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.seam-sprout-grow {
+  animation: seam-sprout-grow 520ms ease-out both;
+}

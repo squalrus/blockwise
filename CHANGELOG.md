@@ -2,6 +2,14 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.73.0] — 2026-08-22
+
+### Added
+
+- **A custom, on-brand 404 page for the marketing site**, matching `apps/web`'s existing one (same copy, MushroomLogo, link back home) but restyled with the marketing site's fixed hex palette and wrapped in its own `MarketingNav`/`MarketingFooter` chrome, replacing Next.js's generic default. (`apps/marketing/src/app/not-found.tsx`, `docs/url-map.md`)
+- **Two new marketing homepage sections** covering features the homepage previously didn't mention: a Notifications teaser (push notifications for neighbor check-ins, using the real notification copy format) and a Collection & customize teaser (the Forager mushroom collection and mushroom profile customization). Existing sections got copy touch-ups to mention neighborhood challenges and the mushroom collection alongside points/badges, and the neighborhood-coverage copy now reflects "more Seattle neighborhoods launching soon" instead of "let's start one." (`apps/marketing/src/app/page.tsx`)
+- **A `SeamSprouts` component**: decorative mushrooms now sprout up out of the ground at the boundary between a section and the brown/ink section below it, growing in with a staggered one-shot animation (via `IntersectionObserver`) as the visitor scrolls, then holding still — replacing the previous ambient "floating" spore decorations that were only in the Hero and Final CTA sections. Deterministic per-seam mushroom variety (shape/color/spot pattern) via a seeded PRNG, since the page is statically prerendered; respects `prefers-reduced-motion`. (`apps/marketing/src/app/SeamSprouts.tsx`, `apps/marketing/src/app/globals.css`, `apps/marketing/src/app/page.tsx`)
+
 ## [0.72.0] — 2026-08-22
 
 ### Added

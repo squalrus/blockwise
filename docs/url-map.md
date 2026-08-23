@@ -116,6 +116,7 @@ Deployed separately at `tryspored.com` (apps/web is `app.tryspored.com`). Fully 
 ```text
 apps/marketing/src/app/
 ├── page.tsx                                       / — P — marketing homepage (hero, how-it-works, leaderboard teaser, events teaser, neighborhood map, business pitch, final CTA)
+├── not-found.tsx                                  Next.js convention — on-brand 404 page (MushroomLogo, matching typography, link back to /), same content as apps/web's not-found.tsx restyled with marketing's fixed hex palette and wrapped in MarketingNav/MarketingFooter
 ├── robots.ts                                       /robots.txt — P — allows all, points at /sitemap.xml
 ├── sitemap.ts                                      /sitemap.xml — P — static route list (home, brand, faq, terms, privacy)
 ├── MarketingNav.tsx                                (shared component, no route — sticky nav used by every marketing page)
