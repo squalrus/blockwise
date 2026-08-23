@@ -25,19 +25,34 @@ export function TabNav({
   activeKey,
   getHref,
   onSelect,
+  variant = "pill",
 }: {
   items: TabNavItem[];
   activeKey: string;
   getHref?: (key: string) => string;
   onSelect?: (key: string) => void;
+  // "underline" (account page redesign): no pill background, a bottom-border
+  // indicator instead -- opt-in per caller so every other TabNav consumer
+  // (NeighborhoodTabs, etc.) keeps today's pill look unchanged.
+  variant?: "pill" | "underline";
 }) {
+  const navClassName =
+    variant === "underline"
+      ? "sticky top-0 z-10 -mx-4 flex gap-1 overflow-x-auto border-b-2 border-border bg-background px-4 pb-0.5 text-sm sm:-mx-16 sm:px-16"
+      : "sticky top-0 z-10 -mx-4 flex gap-2 overflow-x-auto bg-background px-4 py-2 text-sm sm:-mx-16 sm:px-16";
+
   return (
-    <nav className="sticky top-0 z-10 -mx-4 flex gap-2 overflow-x-auto bg-background px-4 py-2 text-sm sm:-mx-16 sm:px-16">
+    <nav className={navClassName}>
       {items.map((item) => {
         const active = item.key === activeKey;
-        const className = `flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 font-extrabold whitespace-nowrap ${
-          active ? "bg-foreground text-on-accent" : "bg-card-alt text-muted"
-        }`;
+        const className =
+          variant === "underline"
+            ? `flex shrink-0 items-center gap-1.5 border-b-[3px] px-3 py-2.5 font-extrabold whitespace-nowrap ${
+                active ? "border-brand-orange text-foreground" : "border-transparent text-muted"
+              }`
+            : `flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 font-extrabold whitespace-nowrap ${
+                active ? "bg-foreground text-on-accent" : "bg-card-alt text-muted"
+              }`;
 
         if (getHref) {
           return (

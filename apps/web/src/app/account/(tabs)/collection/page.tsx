@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { MushroomCollectionEntry, MushroomShape } from "@blockwise/types";
-import { MushroomLoader, MushroomMark, hashSeed, mulberry32 } from "@blockwise/ui";
+import type { MushroomCollectionEntry } from "@blockwise/types";
+import { MushroomLoader, MushroomMark, mushroomOutline } from "@blockwise/ui";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useAccountRefresh } from "../../AccountContext";
 import { CollectionDetailModal } from "./CollectionDetailModal";
+import { CornerMark } from "./CornerMark";
 
 type State =
   | { status: "loading" }
@@ -26,66 +27,55 @@ async function load(setState: (state: State) => void) {
   setState({ status: "ready", entries: await res.json() });
 }
 
-// The actual collected-species content -- shared by an already-revealed
-// grid tile (rendered plain, no transform) and CollectionTile's flip back
-// face (which wraps this in its own rotateY(180deg), see below).
-function RevealedContent({ entry }: { entry: MushroomCollectionEntry }) {
+// The revealed-species "card front" -- shared by an already-revealed grid
+// tile (rendered plain) and CollectionTile's flip back face (which wraps
+// this in its own rotateY(180deg), see below). Laid out like a playing
+// card: corner index marks (top-left, bottom-right-rotated), a qty pill,
+// the mark centered in a soft circle, name/source pinned at the bottom.
+function CollectionCard({ entry }: { entry: MushroomCollectionEntry }) {
+  const initial = entry.species_name.charAt(0);
   return (
-    <div className="flex h-33 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl bg-card-alt px-2 py-3.5 text-center">
-      <div className="relative">
-        <MushroomMark {...entry.mushroom} size={56} outline />
-        {entry.quantity > 1 && (
-          <span className="absolute -right-1.5 -bottom-1 rounded-full bg-brand-orange px-1.5 py-0.5 text-[10px] font-extrabold text-on-accent">
-            {entry.quantity}x
-          </span>
-        )}
-      </div>
-      <p className="line-clamp-1 text-xs font-extrabold text-foreground">{entry.species_name}</p>
-      <p className="line-clamp-1 text-[11px] text-muted">
-        {entry.source_type === "checkin" ? entry.source_name : `with ${entry.source_name}`}
-      </p>
+    <div className="relative flex aspect-[5/7] w-full flex-col items-center justify-between overflow-hidden rounded-2xl border border-border bg-card px-2.5 py-3.5 shadow-sm">
+      <span aria-hidden className="pointer-events-none absolute inset-1.5 rounded-lg border border-foreground/10" />
+      <CornerMark initial={initial} shape={entry.mushroom.shape} />
+      <CornerMark initial={initial} shape={entry.mushroom.shape} rotated />
+      {entry.quantity > 1 && (
+        <span className="absolute top-3.5 right-3.5 rounded-full bg-brand-orange px-1.5 py-0.5 text-[10px] font-extrabold text-on-accent">
+          {entry.quantity}x
+        </span>
+      )}
+      <span className="relative flex flex-1 items-center justify-center">
+        <span className="flex h-21 w-21 items-center justify-center rounded-full bg-background/60">
+          <MushroomMark {...entry.mushroom} size={64} outline />
+        </span>
+      </span>
+      <span className="relative flex max-w-full flex-col items-center gap-0.5 text-center">
+        <span className="line-clamp-1 font-heading text-[13px] leading-tight font-extrabold text-foreground">
+          {entry.species_name}
+        </span>
+        <span className="line-clamp-1 font-mono text-[9px] text-muted">
+          {entry.source_type === "checkin" ? entry.source_name : `with ${entry.source_name}`}
+        </span>
+      </span>
     </div>
   );
 }
 
-// Deterministic "grunge" look for the reveal card back's warm-paper texture
-// -- reuses the same hashSeed/mulberry32 PRNG a species' own mushroom look is
-// generated with (packages/types/src/mushroom.ts), seeded off the entry id
-// so every unrevealed tile's watermark shapes/stains are stable across
-// re-renders but distinct from its neighbors, like individually worn cards
-// rather than one stamped-out template. realShape is excluded from the pool
-// (and shapeB from ever repeating shapeA) so the "mystery" silhouettes can
-// never coincidentally give away -- or double up on -- the actual species.
-const WATERMARK_SHAPES: MushroomShape[] = ["chanterelle", "parasol", "morel", "puffball", "shiitake", "oyster"];
-
-function grungeLook(id: string, realShape: MushroomShape) {
-  const rnd = mulberry32(hashSeed(id));
-  const pick = <T,>(options: T[]) => options[Math.floor(rnd() * options.length)];
-  const pool = WATERMARK_SHAPES.filter((shape) => shape !== realShape);
-  const shapeA = pick(pool);
-  const shapeB = pick(pool.filter((shape) => shape !== shapeA));
-  return {
-    shapeA,
-    shapeB,
-    rotA: -30 + Math.round(rnd() * 16),
-    rotB: 10 + Math.round(rnd() * 18),
-    grainSeed: Math.floor(rnd() * 1000),
-    stain1: { x: 8 + rnd() * 22, y: 58 + rnd() * 30, o: 0.16 + rnd() * 0.1 },
-    stain2: { x: 62 + rnd() * 26, y: 4 + rnd() * 24, o: 0.12 + rnd() * 0.08 },
-  };
-}
-
-// An SVG fractal-noise filter as a data URI -- the standard self-contained
-// "film grain" trick (no image asset to ship/fetch), layered with
-// mix-blend-mode so it reads as paper fiber texture instead of literal
-// static. `seed` varies per entry so tiles don't share one visible tiling.
-function grainTextureUrl(seed: number) {
-  const svg =
-    `<svg xmlns='http://www.w3.org/2000/svg'><filter id='n'>` +
-    `<feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='${seed}' stitchTiles='stitch'/>` +
-    `</filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`;
+// The unrevealed card back's diamond-tile lattice -- a faint, fixed brand
+// pattern (not per-entry seeded, unlike the old grunge/stain treatment it
+// replaces: every card back looks the same, like the reverse of a real deck
+// of cards). Built once at module scope from mushroomOutline("button")
+// (packages/ui's pure path-data helper, the same source MushroomMark itself
+// draws from) rather than duplicating its path constants here.
+const LATTICE_TILE_URL = (() => {
+  const outline = mushroomOutline("button");
+  const faint = "rgba(43,27,18,0.09)";
+  const stalk = outline.stalkD
+    ? `<path d="${outline.stalkD}" fill="${faint}"/>`
+    : `<rect x="40" y="52" width="20" height="34" rx="10" fill="${faint}"/>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 100 100'>${stalk}<path d="${outline.capD}" fill="${faint}"/></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-}
+})();
 
 // A newly-collected, not-yet-revealed species (BACKLOG.md Ref 98 follow-up)
 // -- the API already sends the full look/name (see MushroomCollectionEntry's
@@ -99,7 +89,6 @@ function grainTextureUrl(seed: number) {
 function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry; onRevealed: () => void }) {
   const [flipped, setFlipped] = useState(false);
   const [revealing, setRevealing] = useState(false);
-  const look = grungeLook(entry.id, entry.mushroom.shape);
 
   async function reveal() {
     if (flipped || revealing) return;
@@ -130,43 +119,26 @@ function CollectionTile({ entry, onRevealed }: { entry: MushroomCollectionEntry;
           flipped ? "[transform:rotateY(180deg)]" : ""
         }`}
       >
-        <div className="relative col-start-1 row-start-1 flex h-33 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl bg-card-alt px-2 py-3.5 text-center shadow-[inset_0_0_18px_rgba(43,27,18,0.22)] [backface-visibility:hidden]">
-          {/* Warm-paper grunge: a seeded film-grain texture plus two seeded
-              age-stain blobs (grungeLook/grainTextureUrl above), so every
-              unrevealed card reads as its own worn specimen card. multiply
-              darkens toward the stain/grain color on light paper;
-              soft-light keeps it visible without just muddying dark paper. */}
-          <div
+        <div className="relative col-start-1 row-start-1 flex aspect-[5/7] w-full flex-col items-center justify-center gap-2.5 overflow-hidden rounded-2xl border border-border bg-card-alt shadow-[inset_0_0_16px_rgba(43,27,18,0.14)] [backface-visibility:hidden]">
+          <span
             aria-hidden
-            className="pointer-events-none absolute inset-0 mix-blend-multiply opacity-40 dark:mix-blend-soft-light dark:opacity-70"
-            style={{ backgroundImage: grainTextureUrl(look.grainSeed), backgroundSize: "140px 140px" }}
+            className="pointer-events-none absolute inset-[13px] rounded-[5px]"
+            style={{ backgroundImage: `${LATTICE_TILE_URL},${LATTICE_TILE_URL}`, backgroundSize: "40px 40px, 40px 40px", backgroundPosition: "0 0, 20px 20px" }}
           />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 mix-blend-multiply dark:mix-blend-soft-light"
-            style={{
-              backgroundImage: `radial-gradient(ellipse 60% 45% at ${look.stain1.x}% ${look.stain1.y}%, rgba(43,27,18,${look.stain1.o}), transparent 70%), radial-gradient(ellipse 55% 40% at ${look.stain2.x}% ${look.stain2.y}%, rgba(43,27,18,${look.stain2.o}), transparent 70%)`,
-            }}
-          />
-          {/* Bigger silhouettes hinting "a mushroom is in here" without giving
-              away which one -- currentColor + a low-opacity wrapper so the
-              tint follows --foreground's per-theme flip (dark ink on light
-              paper, light ink on dark paper) instead of a hardcoded color. */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 text-foreground opacity-[0.16]">
-            <div className="absolute -top-4 -left-5" style={{ transform: `rotate(${look.rotA}deg)` }}>
-              <MushroomMark shape={look.shapeA} cap="currentColor" stalk="currentColor" spotCount={0} size={68} />
-            </div>
-            <div className="absolute -right-5 -bottom-5" style={{ transform: `rotate(${look.rotB}deg)` }}>
-              <MushroomMark shape={look.shapeB} cap="currentColor" stalk="currentColor" spotCount={0} size={62} />
-            </div>
-          </div>
-          <span className="relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-brand-purple bg-brand-purple text-2xl font-extrabold text-on-accent shadow-[0_2px_4px_rgba(43,27,18,0.3)]">
-            ?
+          <span aria-hidden className="pointer-events-none absolute inset-1.5 rounded-lg border-[1.5px] border-foreground/25" />
+          <span aria-hidden className="pointer-events-none absolute inset-2.5 rounded-md border border-foreground/[0.14]" />
+          <CornerMark shape="button" />
+          <CornerMark shape="button" rotated />
+          <span className="relative flex h-15 w-15 items-center justify-center rounded-full bg-brand-purple shadow-[0_2px_5px_rgba(43,27,18,0.3)]">
+            <span aria-hidden className="absolute inset-1 rounded-full border-[1.5px] border-dashed border-card/70" />
+            <span className="font-heading text-2xl leading-none font-extrabold text-on-accent">?</span>
           </span>
-          <p className="relative text-[11px] font-extrabold text-foreground">Tap to reveal</p>
+          <p className="relative font-mono text-[9px] font-medium tracking-[0.12em] text-foreground uppercase">
+            Tap to reveal
+          </p>
         </div>
         <div className="col-start-1 row-start-1 [backface-visibility:hidden] [transform:rotateY(180deg)]">
-          <RevealedContent entry={entry} />
+          <CollectionCard entry={entry} />
         </div>
       </button>
     </div>
@@ -233,7 +205,7 @@ export default function CollectionPage() {
               onClick={() => setDetailIndex(revealedEntries.findIndex((e) => e.id === entry.id))}
               className="w-full text-left"
             >
-              <RevealedContent entry={entry} />
+              <CollectionCard entry={entry} />
             </button>
           ) : (
             <CollectionTile key={entry.id} entry={entry} onRevealed={handleRevealed} />

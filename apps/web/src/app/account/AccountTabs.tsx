@@ -37,5 +37,5 @@ export function AccountTabs({ unrevealedCollectionCount = 0 }: { unrevealedColle
   );
   const activeKey = tabs.find((tab) => pathname === `/account${tab.key}`)?.key ?? "";
 
-  return <TabNav items={tabs} activeKey={activeKey} getHref={(key) => `/account${key}`} />;
+  return <TabNav items={tabs} activeKey={activeKey} getHref={(key) => `/account${key}`} variant="underline" />;
 }
