@@ -1,4 +1,4 @@
-import type { LocationMayor, RecentVisitorMushroom } from "@blockwise/types";
+import type { RecentVisitorMushroom, TopVisitor } from "@blockwise/types";
 
 export interface LocationCoords {
   id: string;
@@ -31,9 +31,10 @@ export interface CheckinVenue {
 
 export interface NeighborhoodVisitorMosaic {
   mushrooms: RecentVisitorMushroom[];
-  // The identity behind mushrooms[0] (the "Mayor"/"Top Cap" sign next to the
-  // mosaic) -- null if there's no top visitor or their profile isn't public.
-  mayor: LocationMayor | null;
+  // Up to the top 3 named visitors by visitCount, for the "Top Caps" badge
+  // cluster next to the mosaic -- empty if there are no public, named
+  // visitors within the window.
+  topVisitors: TopVisitor[];
 }
 
 // Abstracts persistence so the geofence/cooldown decision (checkin.ts) can be

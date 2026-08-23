@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { MushroomCollectionEntry } from "@blockwise/types";
 import { MushroomMark, hashSeed, mulberry32 } from "@blockwise/ui";
 import { CornerMark } from "./CornerMark";
+import { sourceLabel } from "./sourceLabel";
 
 // How far (px) a drag has to travel before it counts as a swipe rather than
 // snapping back -- SlideTrack.tsx's SLIDE_COMPLETE_THRESHOLD is a fraction
@@ -97,8 +98,13 @@ function SpecimenCard({
   rotationDeg: number;
   animateRotation: boolean;
 }) {
-  const sourceHref = entry.source_type === "checkin" ? `/location/${entry.source_id}` : `/profile/${entry.source_username}`;
-  const canLinkSource = entry.source_type === "checkin" || entry.source_username !== null;
+  const sourceHref =
+    entry.source_type === "checkin"
+      ? `/location/${entry.source_id}`
+      : entry.source_type === "neighborhood"
+        ? `/neighborhoods/${entry.source_slug}`
+        : `/profile/${entry.source_slug}`;
+  const canLinkSource = entry.source_type === "checkin" || entry.source_slug !== null;
 
   return (
     <div
@@ -134,7 +140,7 @@ function SpecimenCard({
           value={
             canLinkSource ? (
               <Link href={sourceHref} className="text-brand-purple hover:text-brand-orange">
-                {entry.source_type === "checkin" ? entry.source_name : `with ${entry.source_name}`}
+                {sourceLabel(entry)}
               </Link>
             ) : (
               `with ${entry.source_name}`

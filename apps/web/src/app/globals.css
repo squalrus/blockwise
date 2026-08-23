@@ -46,6 +46,11 @@
   --wood: #9c6b3f;
   --wood-dark: #4a2f1a;
   --wood-text: #f4e4c8;
+  /* 2nd/3rd-place rank badges (leaderboard rows, "Top Caps" cluster) -- a
+     silver/bronze pair alongside --brand-amber's 1st-place gold, so a
+     ranked list reads as a medal podium rather than one repeated accent. */
+  --rank-silver: #d8d3c8;
+  --rank-bronze: #e3a578;
   color-scheme: light;
 }
 
@@ -70,6 +75,8 @@
   --color-wood: var(--wood);
   --color-wood-dark: var(--wood-dark);
   --color-wood-text: var(--wood-text);
+  --color-rank-silver: var(--rank-silver);
+  --color-rank-bronze: var(--rank-bronze);
   --font-sans: var(--font-nunito);
   --font-heading: var(--font-baloo);
   --font-mono: var(--font-jetbrains-mono);
@@ -99,6 +106,8 @@
     --brand-amber: #ffc65c;
     --brand-green: #6bbf5e;
     --brand-purple: #b98af2;
+    --rank-silver: #8a8272;
+    --rank-bronze: #c9835a;
     color-scheme: dark;
   }
 }
@@ -121,6 +130,8 @@
   --brand-amber: #ffc65c;
   --brand-green: #6bbf5e;
   --brand-purple: #b98af2;
+  --rank-silver: #8a8272;
+  --rank-bronze: #c9835a;
   color-scheme: dark;
 }
 

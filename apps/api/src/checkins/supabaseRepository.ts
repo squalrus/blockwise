@@ -1,7 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { LocationMayor, MushroomCustomization } from "@blockwise/types";
+import type { MushroomCustomization, TopVisitor } from "@blockwise/types";
 import { resolveMushroomConfig } from "@blockwise/types";
-import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors, resolveMayor, toMushroomConfig } from "./checkin";
+import {
+  RECENT_VISITOR_WINDOW_MS,
+  TOP_VISITORS_LIMIT,
+  rankRecentVisitors,
+  resolveTopVisitors,
+  toMushroomConfig,
+} from "./checkin";
 import type {
   CheckinRecord,
   CheckinRepository,
@@ -169,7 +175,7 @@ export class SupabaseCheckinRepository implements CheckinRepository {
       (data ?? []).map((row) => ({ userId: row.user_id, checkedInAt: row.checked_in_at })),
       limit
     );
-    if (ranked.length === 0) return { mushrooms: [], mayor: null };
+    if (ranked.length === 0) return { mushrooms: [], topVisitors: [] };
 
     const { data: users, error: usersError } = await this.supabase
       .from("app_user")
@@ -190,7 +196,7 @@ export class SupabaseCheckinRepository implements CheckinRepository {
       visitCount,
     }));
 
-    const mayorCandidatesById = new Map(
+    const candidatesById = new Map(
       (users ?? []).map((u) => [
         u.id as string,
         {
@@ -200,8 +206,8 @@ export class SupabaseCheckinRepository implements CheckinRepository {
         },
       ])
     );
-    const mayor: LocationMayor | null = resolveMayor(ranked, mayorCandidatesById);
+    const topVisitors: TopVisitor[] = resolveTopVisitors(ranked, candidatesById, TOP_VISITORS_LIMIT);
 
-    return { mushrooms, mayor };
+    return { mushrooms, topVisitors };
   }
 }

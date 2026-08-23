@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const UPDATED = "August 21, 2026";
+const UPDATED = "August 22, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -75,9 +75,11 @@ export default function PrivacyPage() {
           to public; you can switch to private at any time from Account settings.
         </p>
         <p>
-          If your profile is public and you&apos;re the most frequent visitor to a business, point of interest, or
-          neighborhood within a rolling 60-day window, your username is shown to other users on that place&apos;s or
-          neighborhood&apos;s &quot;Top Cap&quot; sign. Private profiles are never named this way.
+          If your profile is public and you&apos;re among the 3 most frequent recent visitors (within a rolling
+          60-day window) to a neighborhood, your username and visit count are shown to other users on that
+          neighborhood&apos;s &quot;Top Caps&quot; badges. For a business or point of interest, only the single most
+          frequent visitor is named this way, on that place&apos;s &quot;Top Cap&quot; sign. Private profiles are
+          never named this way.
         </p>
       </LegalSection>
 

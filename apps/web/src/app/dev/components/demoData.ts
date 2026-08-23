@@ -10,6 +10,7 @@ import type {
   OpenNowLocation,
   PublicUserProfile,
   RecentVisitorMushroom,
+  TopVisitor,
   UserPointsSummary,
   VenueDetail,
 } from "@blockwise/types";
@@ -41,6 +42,13 @@ function recentVisitor(seed: string, visitCount: number): RecentVisitorMushroom 
 // call below so the sign matches the biggest mushroom in the fixture.
 function mayor(username: string, displayName: string | null = null): LocationMayor {
   return { username, displayName };
+}
+
+// The named top-N visitors behind a neighborhood mosaic's "Top Caps" badge
+// cluster -- like mayor() above but paired with each badge's own visitCount
+// rather than just the single top visitor.
+function topVisitor(username: string, displayName: string | null, visitCount: number): TopVisitor {
+  return { username, displayName, visitCount };
 }
 
 function badge(overrides: Partial<Badge> & Pick<Badge, "id" | "code" | "name" | "icon">): Badge {
@@ -211,7 +219,7 @@ function neighborhood(overrides: Partial<NeighborhoodProfile> & Pick<Neighborhoo
     member_count: 0,
     checkin_count: 0,
     recent_checkin_mushrooms: [],
-    mayor: null,
+    top_visitors: [],
     ...overrides,
   };
 }
@@ -241,7 +249,13 @@ export const NEIGHBORHOOD_CARDS: { label: string; neighborhood: NeighborhoodProf
         recentVisitor("demo-visitor-5", 1),
         recentVisitor("demo-visitor-6", 1),
       ],
-      mayor: mayor("ravik", "Ravi K"),
+      // BACKLOG.md Ref 94/101 "Top Caps" badge cluster: top 3 by visitCount,
+      // matching the mosaic entries above.
+      top_visitors: [
+        topVisitor("ravik", "Ravi K", 14),
+        topVisitor("avap", "Ava P", 6),
+        topVisitor("samk", "Sam K", 3),
+      ],
     }),
     joined: false,
   },
@@ -496,7 +510,11 @@ export const SAMPLE_NEIGHBORHOOD: NeighborhoodProfile = neighborhood({
     recentVisitor("demo-sample-visitor-3", 2),
     recentVisitor("demo-sample-visitor-4", 1),
   ],
-  mayor: mayor("morganlee"),
+  top_visitors: [
+    topVisitor("morganlee", "Morgan Lee", 11),
+    topVisitor("ravik", "Ravi K", 5),
+    topVisitor("avap", "Ava P", 2),
+  ],
 });
 
 export const SAMPLE_NEIGHBORHOOD_EVENTS: Event[] = [

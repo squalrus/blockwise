@@ -5,6 +5,7 @@ import type {
   MushroomCustomization,
   MushroomShape,
   SpotShape,
+  TopVisitor,
 } from "@blockwise/types";
 import { haversineMeters } from "../places/geo";
 import type { CheckinRecord, CheckinRepository } from "./repository";
@@ -87,6 +88,33 @@ export function resolveMayor(
   if (!user.displayName && !user.username) return null;
 
   return { username: user.username, displayName: user.displayName };
+}
+
+// How many ranked visitors the "Top Caps" badge cluster shows next to the
+// neighborhood mosaic.
+export const TOP_VISITORS_LIMIT = 3;
+
+// Generalizes resolveMayor above to a top-N list for the "Top Caps" badge
+// cluster: same public-profile-with-a-name filter, but applied per-candidate
+// along the ranked order rather than stopping at the first entry, so one
+// private or nameless visitor only skips their own slot instead of blanking
+// the whole list. Safe to fall through here (unlike resolveMayor) because
+// these badges show each visitor's own name next to their own visitCount,
+// not a shared mushroom whose size would then mismatch the name beside it.
+export function resolveTopVisitors(
+  ranked: { userId: string; visitCount: number }[],
+  usersById: Map<string, MayorCandidateUser>,
+  limit: number
+): TopVisitor[] {
+  const visitors: TopVisitor[] = [];
+  for (const { userId, visitCount } of ranked) {
+    if (visitors.length >= limit) break;
+    const user = usersById.get(userId);
+    if (!user || user.visibility !== "public") continue;
+    if (!user.displayName && !user.username) continue;
+    visitors.push({ username: user.username, displayName: user.displayName, visitCount });
+  }
+  return visitors;
 }
 
 // README §4 Phase 1: "GPS geofence check-in (radius check against

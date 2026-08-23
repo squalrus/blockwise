@@ -25,9 +25,19 @@ const TABS = [
 // additionally skips the router's default scroll-to-top on navigation,
 // since jumping to top on every tab click reads as a full page reload even
 // when it isn't one.
+//
+// variant="underline" (BACKLOG.md Ref 101 redesign) matches the Account
+// page's tab bar, which switched first (v0.74.1).
 export function NeighborhoodTabs({ slug }: { slug: string }) {
   const pathname = usePathname();
   const activeKey = TABS.find((tab) => pathname === `/neighborhoods/${slug}${tab.key}`)?.key ?? "";
 
-  return <TabNav items={TABS} activeKey={activeKey} getHref={(key) => `/neighborhoods/${slug}${key}`} />;
+  return (
+    <TabNav
+      items={TABS}
+      activeKey={activeKey}
+      getHref={(key) => `/neighborhoods/${slug}${key}`}
+      variant="underline"
+    />
+  );
 }

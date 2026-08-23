@@ -780,7 +780,7 @@ export function createApp() {
         member_count: memberCount,
         checkin_count: checkinCount,
         recent_checkin_mushrooms: visitorMosaic.mushrooms,
-        mayor: visitorMosaic.mayor,
+        top_visitors: visitorMosaic.topVisitors,
       };
       res.json(profile);
     } catch (err) {
@@ -912,6 +912,31 @@ export function createApp() {
           res.status(404).json({ error: "Neighborhood not found" });
           return;
         }
+
+        // BACKLOG.md Ref 101: forager collection -- collects this
+        // neighborhood's own mushroom "species" each time it's freshly
+        // joined (a repeat POST while already a member is "already_joined",
+        // not "created", so it doesn't double-count), then checks
+        // collection_milestone badges only when this call actually grew the
+        // collection. Not surfaced in the join response, mirroring
+        // awardNeighborConnectionRewards's own collection recording, which
+        // isn't either.
+        if (result.status === "created") {
+          try {
+            const userId = req.appUser!.id;
+            const isNewSpecies = await getMushroomCollectionRepository().recordNeighborhoodCollection(
+              userId,
+              req.params.id
+            );
+            if (isNewSpecies) {
+              const collectionCount = await getMushroomCollectionRepository().countCollectionForUser(userId);
+              await evaluateBadgesForCollectionCount(userId, collectionCount, getGamificationRepository());
+            }
+          } catch (err) {
+            console.error(`recordNeighborhoodCollection (neighborhood ${req.params.id}) failed:`, err);
+          }
+        }
+
         res.status(result.status === "created" ? 201 : 200).json(result.membership);
       } catch (err) {
         console.error(`POST /neighborhoods/${req.params.id}/join failed:`, err);

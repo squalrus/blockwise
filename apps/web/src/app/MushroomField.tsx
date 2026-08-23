@@ -1,4 +1,4 @@
-import type { MushroomCustomization } from "@blockwise/types";
+import type { MushroomCustomization, TopVisitor } from "@blockwise/types";
 import { MushroomMark, hashSeed, mulberry32, mushroomConfigForUser, resolveMushroomConfig } from "@blockwise/ui";
 import type { MushroomConfig, MushroomShape, SpotShape } from "@blockwise/ui";
 
@@ -58,6 +58,45 @@ function MayorSign({ label }: { label: string }) {
   );
 }
 
+// Rank-1/2/3 badge fill, matching the leaderboard tab's medal colors so the
+// two ranked-visitor surfaces (this cluster and /neighborhoods/[slug]/leaderboard)
+// read as the same podium language even though they rank by different
+// metrics (visitCount here, points there).
+const RANK_BADGE_CLASSES = ["bg-brand-amber", "bg-rank-silver", "bg-rank-bronze"];
+
+// The neighborhood mosaic's "Top Caps" badge cluster (BACKLOG.md Ref 94/101
+// redesign) -- up to 3 small pills naming the most frequent visitors within
+// the mosaic's rolling window, stacked bottom-right over the field. Replaces
+// the single wooden MayorSign for neighborhood cards (still used as-is for
+// location cards, which only resolve one named visitor); unlike MayorSign,
+// these aren't paired to any one mushroom's size, so a private/nameless
+// visitor further down the ranking is simply absent rather than blanking a
+// slot -- resolveTopVisitors (apps/api) already did that filtering
+// server-side.
+function TopCapsBadges({ visitors }: { visitors: TopVisitor[] }) {
+  if (visitors.length === 0) return null;
+  return (
+    <div
+      className="absolute right-2 bottom-2 z-10 flex gap-1.5"
+      title="Top Caps — most check-ins in the last 60 days"
+    >
+      {visitors.map((visitor, i) => (
+        <span
+          key={visitor.username ?? visitor.displayName ?? i}
+          className="flex items-center gap-1.5 rounded-full bg-card py-0.5 pr-2.5 pl-1 text-[10px] font-extrabold text-foreground shadow-sm"
+        >
+          <span
+            className={`flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] text-ink ${RANK_BADGE_CLASSES[i]}`}
+          >
+            {i + 1}
+          </span>
+          {visitor.displayName ?? visitor.username} · {visitor.visitCount}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // A growing patch of mushrooms along the bottom edge of a profile summary
 // card -- shared by the account (grows with level), neighborhood, and
 // location cards (both grow with check-in count) so all three visibly
@@ -103,9 +142,13 @@ function MayorSign({ label }: { label: string }) {
 //
 // `mayorLabel` (BACKLOG.md Ref 94's "Mayor"/"Top Cap") stakes a small
 // wooden sign in the field naming the top-ranked mosaic visitor, when the
-// caller resolved one (VenueDetail.mayor / NeighborhoodProfile.mayor) --
-// omitted for the account card's own-growth field, which has no "mayor" of
-// one person's own patch.
+// caller resolved one (VenueDetail.mayor) -- omitted for the account card's
+// own-growth field, which has no "mayor" of one person's own patch.
+//
+// `topVisitors` (BACKLOG.md Ref 101 redesign) renders the newer "Top Caps"
+// badge cluster instead -- up to 3 named visitors rather than just the one --
+// used by the neighborhood card (NeighborhoodProfile.top_visitors) in place
+// of mayorLabel; a caller should pass one or the other, never both.
 export function MushroomField({
   seed,
   count,
@@ -116,6 +159,7 @@ export function MushroomField({
   visitCounts,
   ownCount = 0,
   mayorLabel,
+  topVisitors,
 }: {
   seed: string;
   count: number;
@@ -126,6 +170,7 @@ export function MushroomField({
   visitCounts?: number[];
   ownCount?: number;
   mayorLabel?: string | null;
+  topVisitors?: TopVisitor[];
 }) {
   const mushroomCount = Math.min(Math.max(Math.floor(count), 0), MAX_MUSHROOMS);
   if (mushroomCount === 0) return null;
@@ -182,6 +227,7 @@ export function MushroomField({
           );
         })}
         {mayorLabel && <MayorSign label={mayorLabel} />}
+        {topVisitors && <TopCapsBadges visitors={topVisitors} />}
       </div>
     </div>
   );

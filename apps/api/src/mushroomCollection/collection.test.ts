@@ -16,7 +16,11 @@ class FakeMushroomCollectionRepository implements MushroomCollectionRepository {
     return this.record("connection", connectionUserId, `User ${connectionUserId}`);
   }
 
-  private record(sourceType: "checkin" | "connection", sourceId: string, sourceName: string): boolean {
+  async recordNeighborhoodCollection(userId: string, neighborhoodId: string): Promise<boolean> {
+    return this.record("neighborhood", neighborhoodId, `Neighborhood ${neighborhoodId}`);
+  }
+
+  private record(sourceType: "checkin" | "connection" | "neighborhood", sourceId: string, sourceName: string): boolean {
     const existing = this.items.find((i) => i.sourceType === sourceType && i.sourceId === sourceId);
     if (existing) {
       existing.quantity += 1;
@@ -27,7 +31,8 @@ class FakeMushroomCollectionRepository implements MushroomCollectionRepository {
       sourceType,
       sourceId,
       sourceName,
-      sourceUsername: sourceType === "connection" ? `user-${sourceId}` : null,
+      sourceSlug:
+        sourceType === "connection" ? `user-${sourceId}` : sourceType === "neighborhood" ? `hood-${sourceId}` : null,
       quantity: 1,
       firstCollectedAt: new Date().toISOString(),
       revealedAt: null,
@@ -80,6 +85,17 @@ describe("getMushroomCollectionForUser", () => {
     expect(entries).toHaveLength(2);
     expect(entries.find((e) => e.source_id === "venue-1")?.quantity).toBe(2);
     expect(entries.find((e) => e.source_id === "user-2")?.quantity).toBe(1);
+  });
+
+  it("collects a neighborhood's own species when joined, bumping on rejoin", async () => {
+    const repo = new FakeMushroomCollectionRepository();
+    await repo.recordNeighborhoodCollection("user-1", "hood-1");
+    await repo.recordNeighborhoodCollection("user-1", "hood-1");
+
+    const [entry] = await getMushroomCollectionForUser("user-1", repo);
+    expect(entry.source_type).toBe("neighborhood");
+    expect(entry.source_id).toBe("hood-1");
+    expect(entry.quantity).toBe(2);
   });
 
   it("a connection's collected species differs from that same user's own avatar", async () => {

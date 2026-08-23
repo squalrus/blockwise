@@ -6,30 +6,46 @@ import type {
 } from "./repository";
 
 const LIST_COLUMNS =
-  "id, venue_id, connection_user_id, quantity, first_collected_at, revealed_at, venue:venue_id (name), connection_user:connection_user_id (username, display_name)";
+  "id, venue_id, connection_user_id, neighborhood_id, quantity, first_collected_at, revealed_at, venue:venue_id (name), connection_user:connection_user_id (username, display_name), neighborhood:neighborhood_id (name, slug)";
 
 type ListRow = {
   id: string;
   venue_id: string | null;
   connection_user_id: string | null;
+  neighborhood_id: string | null;
   quantity: number;
   first_collected_at: string;
   revealed_at: string | null;
   venue: { name: string } | null;
   connection_user: { username: string | null; display_name: string | null } | null;
+  neighborhood: { name: string; slug: string } | null;
 };
 
 function toListItem(row: ListRow): MushroomCollectionListItem {
-  const sourceType: MushroomCollectionSourceType = row.venue_id ? "checkin" : "connection";
+  const sourceType: MushroomCollectionSourceType = row.venue_id
+    ? "checkin"
+    : row.connection_user_id
+      ? "connection"
+      : "neighborhood";
+  const sourceId = (row.venue_id ?? row.connection_user_id ?? row.neighborhood_id) as string;
+  const sourceName =
+    sourceType === "checkin"
+      ? (row.venue?.name ?? "Unknown venue")
+      : sourceType === "connection"
+        ? (row.connection_user?.display_name ?? row.connection_user?.username ?? "A neighbor")
+        : (row.neighborhood?.name ?? "Unknown neighborhood");
+  const sourceSlug =
+    sourceType === "connection"
+      ? (row.connection_user?.username ?? null)
+      : sourceType === "neighborhood"
+        ? (row.neighborhood?.slug ?? null)
+        : null;
   return {
     id: row.id,
     sourceType,
-    sourceId: (sourceType === "checkin" ? row.venue_id : row.connection_user_id) as string,
-    sourceName:
-      sourceType === "checkin"
-        ? (row.venue?.name ?? "Unknown venue")
-        : (row.connection_user?.display_name ?? row.connection_user?.username ?? "A neighbor"),
-    sourceUsername: sourceType === "connection" ? (row.connection_user?.username ?? null) : null,
+    sourceId,
+    sourceName,
+    sourceSlug,
     quantity: row.quantity,
     firstCollectedAt: row.first_collected_at,
     revealedAt: row.revealed_at,
@@ -39,11 +55,11 @@ function toListItem(row: ListRow): MushroomCollectionListItem {
 export class SupabaseMushroomCollectionRepository implements MushroomCollectionRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
-  // No unique constraint spans both venue_id and connection_user_id
+  // No unique constraint spans venue_id/connection_user_id/neighborhood_id
   // together, so a plain select-then-write (mirroring
   // favorites/supabaseRepository.ts) rather than an upsert -- each caller
-  // targets exactly one column, the other is left null by the table's own
-  // check constraint.
+  // targets exactly one column, the other two are left null by the table's
+  // own check constraint.
   async recordVenueCollection(userId: string, venueId: string): Promise<boolean> {
     return this.recordCollection(userId, "venue_id", venueId);
   }
@@ -52,9 +68,13 @@ export class SupabaseMushroomCollectionRepository implements MushroomCollectionR
     return this.recordCollection(userId, "connection_user_id", connectionUserId);
   }
 
+  async recordNeighborhoodCollection(userId: string, neighborhoodId: string): Promise<boolean> {
+    return this.recordCollection(userId, "neighborhood_id", neighborhoodId);
+  }
+
   private async recordCollection(
     userId: string,
-    column: "venue_id" | "connection_user_id",
+    column: "venue_id" | "connection_user_id" | "neighborhood_id",
     targetId: string
   ): Promise<boolean> {
     const { data: existing, error: selectError } = await this.supabase

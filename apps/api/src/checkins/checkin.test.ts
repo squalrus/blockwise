@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { MushroomCustomization } from "@blockwise/types";
 import { resolveMushroomConfig } from "@blockwise/types";
-import { evaluateCheckin, performCheckin, rankRecentVisitors, resolveMayor, toMushroomConfig } from "./checkin";
+import {
+  TOP_VISITORS_LIMIT,
+  evaluateCheckin,
+  performCheckin,
+  rankRecentVisitors,
+  resolveMayor,
+  resolveTopVisitors,
+  toMushroomConfig,
+} from "./checkin";
 import type {
   CheckinRecord,
   CheckinRepository,
@@ -175,7 +183,7 @@ class FakeCheckinRepository implements CheckinRepository {
       mushroom: resolveMushroomConfig(userId, toMushroomConfig(this.mushroomCustomizations.get(userId) ?? null)),
       visitCount,
     }));
-    return { mushrooms, mayor: resolveMayor(ranked, this.users) };
+    return { mushrooms, topVisitors: resolveTopVisitors(ranked, this.users, TOP_VISITORS_LIMIT) };
   }
 }
 
@@ -323,5 +331,65 @@ describe("resolveMayor", () => {
 
   it("returns null when there are no ranked visitors", () => {
     expect(resolveMayor([], new Map())).toBeNull();
+  });
+});
+
+describe("resolveTopVisitors", () => {
+  it("names the top-ranked visitors in order when their profiles are public", () => {
+    const ranked = [
+      { userId: "user-1", visitCount: 5 },
+      { userId: "user-2", visitCount: 3 },
+      { userId: "user-3", visitCount: 1 },
+    ];
+    const users = new Map([
+      ["user-1", { username: "topvisitor", displayName: "Top Visitor", visibility: "public" }],
+      ["user-2", { username: "second", displayName: "Second Visitor", visibility: "public" }],
+      ["user-3", { username: "third", displayName: "Third Visitor", visibility: "public" }],
+    ]);
+
+    expect(resolveTopVisitors(ranked, users, 3)).toEqual([
+      { username: "topvisitor", displayName: "Top Visitor", visitCount: 5 },
+      { username: "second", displayName: "Second Visitor", visitCount: 3 },
+      { username: "third", displayName: "Third Visitor", visitCount: 1 },
+    ]);
+  });
+
+  it("skips a private or nameless visitor rather than blanking the whole list", () => {
+    const ranked = [
+      { userId: "user-1", visitCount: 5 },
+      { userId: "user-2", visitCount: 3 },
+      { userId: "user-3", visitCount: 2 },
+      { userId: "user-4", visitCount: 1 },
+    ];
+    const users = new Map([
+      ["user-1", { username: "topvisitor", displayName: "Top Visitor", visibility: "private" }],
+      ["user-2", { username: "second", displayName: "Second Visitor", visibility: "public" }],
+      ["user-3", { username: null, displayName: null, visibility: "public" }],
+      ["user-4", { username: "fourth", displayName: "Fourth Visitor", visibility: "public" }],
+    ]);
+
+    expect(resolveTopVisitors(ranked, users, 3)).toEqual([
+      { username: "second", displayName: "Second Visitor", visitCount: 3 },
+      { username: "fourth", displayName: "Fourth Visitor", visitCount: 1 },
+    ]);
+  });
+
+  it("stops at the given limit", () => {
+    const ranked = [
+      { userId: "user-1", visitCount: 5 },
+      { userId: "user-2", visitCount: 3 },
+    ];
+    const users = new Map([
+      ["user-1", { username: "topvisitor", displayName: "Top Visitor", visibility: "public" }],
+      ["user-2", { username: "second", displayName: "Second Visitor", visibility: "public" }],
+    ]);
+
+    expect(resolveTopVisitors(ranked, users, 1)).toEqual([
+      { username: "topvisitor", displayName: "Top Visitor", visitCount: 5 },
+    ]);
+  });
+
+  it("returns an empty array when there are no ranked visitors", () => {
+    expect(resolveTopVisitors([], new Map(), TOP_VISITORS_LIMIT)).toEqual([]);
   });
 });
