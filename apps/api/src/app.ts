@@ -30,7 +30,7 @@ import { requireAdmin } from "./admin/requireAdmin";
 import { requireNeighborhoodAdmin } from "./admin/requireNeighborhoodAdmin";
 import { requireSuperAdmin } from "./admin/requireSuperAdmin";
 import { SupabaseNeighborhoodAdminRepository, SupabaseSuperAdminRepository } from "./admin/supabaseRepository";
-import { listActivityForUsers, listMyActivity, listRecentActivity } from "./activity/activity";
+import { listActivityForUsers, listMyActivity, listRecentActivity, listVenueActivity } from "./activity/activity";
 import { SupabaseActivityRepository } from "./activity/supabaseRepository";
 import { completeLogin, completeSignup, promoteToBusiness, toAppUser, updateProfile } from "./auth/auth";
 import { attachOptionalAuthUser, requireAuthUser, requireBusinessAccount } from "./auth/requireAuthUser";
@@ -148,6 +148,7 @@ import {
   deleteLocationForNeighborhood,
   getLocationDetailWithFreshEnrichment,
   getLocationForNeighborhood,
+  getVenueLeaderboard,
   listAssignableCategories,
   listLocationListItemsForNeighborhood,
   listLocationsForNeighborhood,
@@ -701,6 +702,32 @@ export function createApp() {
     } catch (err) {
       console.error(`GET /venues/${req.params.id}/events failed:`, err);
       res.status(500).json({ error: "Failed to list events" });
+    }
+  });
+
+  // Location detail page's Spore Feed tab (BACKLOG.md Ref 101 redesign) --
+  // this venue's own check-ins, newest first (unlike the neighborhood-wide
+  // Spore feed, a single venue's feed is check-ins only).
+  app.get("/venues/:id/activity", async (req, res) => {
+    try {
+      const activity = await listVenueActivity(req.params.id, getActivityRepository());
+      res.json(activity);
+    } catch (err) {
+      console.error(`GET /venues/${req.params.id}/activity failed:`, err);
+      res.status(500).json({ error: "Failed to load activity" });
+    }
+  });
+
+  // Location detail page's Leaderboard tab (BACKLOG.md Ref 101 redesign) --
+  // the same visitCount ranking as VenueDetail.top_visitors (the mosaic's
+  // 3-badge podium), at a higher limit.
+  app.get("/venues/:id/leaderboard", async (req, res) => {
+    try {
+      const leaderboard = await getVenueLeaderboard(req.params.id, getLocationRepository());
+      res.json(leaderboard);
+    } catch (err) {
+      console.error(`GET /venues/${req.params.id}/leaderboard failed:`, err);
+      res.status(500).json({ error: "Failed to load leaderboard" });
     }
   });
 

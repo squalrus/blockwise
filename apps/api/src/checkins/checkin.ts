@@ -1,6 +1,5 @@
 import type {
   Checkin,
-  LocationMayor,
   MushroomConfig,
   MushroomCustomization,
   MushroomShape,
@@ -68,39 +67,22 @@ export interface MayorCandidateUser {
   visibility: string;
 }
 
-// The "Mayor" sign next to a mosaic (BACKLOG.md Ref 94) names the top-ranked
-// visitor -- position 0 of an already most-visits-first `ranked` list -- but
-// only when that visitor opted into a public profile, the same visibility
-// gate the neighborhood leaderboard applies. Deliberately does NOT fall
-// through to the next-ranked visitor when the top one is private: the sign
-// sits next to the *biggest* mushroom in the mosaic, so naming anyone other
-// than that top visitor would mismatch what's drawn beside it -- better to
-// show no sign than a wrong one.
-export function resolveMayor(
-  ranked: { userId: string; visitCount: number }[],
-  usersById: Map<string, MayorCandidateUser>
-): LocationMayor | null {
-  const top = ranked[0];
-  if (!top) return null;
-
-  const user = usersById.get(top.userId);
-  if (!user || user.visibility !== "public") return null;
-  if (!user.displayName && !user.username) return null;
-
-  return { username: user.username, displayName: user.displayName };
-}
-
 // How many ranked visitors the "Top Caps" badge cluster shows next to the
-// neighborhood mosaic.
+// neighborhood/location mosaic.
 export const TOP_VISITORS_LIMIT = 3;
 
-// Generalizes resolveMayor above to a top-N list for the "Top Caps" badge
-// cluster: same public-profile-with-a-name filter, but applied per-candidate
-// along the ranked order rather than stopping at the first entry, so one
-// private or nameless visitor only skips their own slot instead of blanking
-// the whole list. Safe to fall through here (unlike resolveMayor) because
-// these badges show each visitor's own name next to their own visitCount,
-// not a shared mushroom whose size would then mismatch the name beside it.
+// How many ranked visitors the location detail page's Leaderboard tab shows
+// (GET /venues/:id/leaderboard) -- the same visitCount ranking as
+// TOP_VISITORS_LIMIT's badge cluster, just further down the same list rather
+// than only the podium.
+export const VENUE_LEADERBOARD_LIMIT = 10;
+
+// Resolves a top-N list for the "Top Caps" badge cluster (and the venue
+// Leaderboard tab, at a higher limit): only names a visitor who opted into a
+// public profile with a name set, same visibility gate the neighborhood
+// leaderboard applies -- applied per-candidate along the ranked order rather
+// than stopping at the first entry, so one private or nameless visitor only
+// skips their own slot instead of blanking the whole list.
 export function resolveTopVisitors(
   ranked: { userId: string; visitCount: number }[],
   usersById: Map<string, MayorCandidateUser>,

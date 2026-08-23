@@ -3,7 +3,7 @@ import { FollowEventButton } from "../../../FollowEventButton";
 import { JoinNeighborhoodButton } from "../../../neighborhoods/[slug]/JoinNeighborhoodButton";
 import { NeighborhoodSummaryCard } from "../../../neighborhoods/[slug]/NeighborhoodSummaryCard";
 import { NeighborhoodTabs } from "../../../neighborhoods/[slug]/NeighborhoodTabs";
-import { PlaceListItem } from "../../../PlaceListItem";
+import { OpenNowRow } from "../../../neighborhoods/[slug]/today/OpenNowRow";
 import { SAMPLE_NEIGHBORHOOD, SAMPLE_NEIGHBORHOOD_EVENTS, SAMPLE_OPEN_NOW } from "../demoData";
 
 // Full sample neighborhood page, mirroring layout.tsx + today/page.tsx (the
@@ -47,12 +47,7 @@ export default function NeighborhoodPageDemoPage() {
             <ul className="flex flex-col gap-2">
               {SAMPLE_OPEN_NOW.map((location) => (
                 <li key={location.id}>
-                  <PlaceListItem
-                    href={`/location/${location.id}`}
-                    id={location.id}
-                    name={location.name}
-                    subtitle={location.category_name ?? (location.kind === "poi" ? "Point of interest" : "")}
-                  />
+                  <OpenNowRow location={location} />
                 </li>
               ))}
             </ul>

@@ -116,4 +116,29 @@ describe("getHappeningNow", () => {
     expect(result.open_now).toHaveLength(1);
     expect(result.open_now[0].id).toBe("open-venue");
   });
+
+  it("includes each open location's formatted closing time", async () => {
+    const events = new FakeEventRepository([]);
+    const enrichment = new FakeEnrichmentRepository([
+      {
+        id: "open-venue",
+        name: "Herkimer Coffee",
+        kind: "business",
+        categoryName: "Coffee Shop",
+        hours: ["Friday: 9:00 AM – 5:00 PM"],
+      },
+      {
+        id: "open-24h-venue",
+        name: "Late Night Diner",
+        kind: "business",
+        categoryName: "Restaurant",
+        hours: ["Friday: Open 24 hours"],
+      },
+    ]);
+
+    const result = await getHappeningNow("neighborhood-1", events, enrichment, new Date("2026-07-10T14:00:00"));
+
+    expect(result.open_now.find((l) => l.id === "open-venue")?.closes_at).toBe("5 PM");
+    expect(result.open_now.find((l) => l.id === "open-24h-venue")?.closes_at).toBeNull();
+  });
 });

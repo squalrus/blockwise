@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
-const UPDATED = "August 22, 2026";
+const UPDATED = "August 23, 2026";
 
 function Question({ q, children }: { q: string; children: React.ReactNode }) {
   return (
@@ -68,11 +68,10 @@ export default function FaqPage() {
         </Question>
         <Question q="What are the mushrooms on a business, POI, or neighborhood page, and what are Top Caps?">
           Each place and neighborhood grows its own little mushroom patch — one mushroom per distinct visitor
-          over the last 60 days, sized by how often they&apos;ve checked in. A neighborhood page also shows
-          &ldquo;Top Caps&rdquo;: badges naming its 3 most frequent recent visitors and how many times each
-          checked in. A business or point of interest page instead shows just its single most frequent
-          visitor, as a &ldquo;Top Cap&rdquo; sign next to the patch. Either way, only public profiles are
-          named.
+          over the last 60 days, sized by how often they&apos;ve checked in. Every business, POI, and
+          neighborhood page also shows &ldquo;Top Caps&rdquo;: badges naming its 3 most frequent recent
+          visitors and how many times each checked in. A business or POI page&apos;s Leaderboard tab extends
+          that same ranking further down the list. Only public profiles are named.
         </Question>
         <Question q="What is the Collection tab?">
           Every venue you check into, every neighborhood you join, and every neighbor you connect with has its
@@ -114,7 +113,7 @@ export default function FaqPage() {
         <Question q="Can other users see my check-ins or activity?">
           Only if your profile is public. New accounts default to public (badges, check-in count, neighbor
           count, and — if you&apos;re among the most frequent recent visitors somewhere — a &ldquo;Top
-          Cap&rdquo; sign or &ldquo;Top Caps&rdquo; badge are visible to others), but you can switch to
+          Caps&rdquo; badge are visible to others), but you can switch to
           private at any time from Account settings. See our{" "}
           <Link href="/privacy" className="font-bold">
             Privacy Policy

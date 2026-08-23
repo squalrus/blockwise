@@ -40,4 +40,10 @@ export interface ActivityRepository {
   // rather than a neighborhood -- no neighborhood dimension at all, since a
   // neighbor connection isn't itself neighborhood-scoped.
   listActivityForUsers(userIds: string[], limit: number): Promise<ActivityRecord[]>;
+  // Location detail page's Spore Feed tab (BACKLOG.md Ref 101 redesign) --
+  // just this one venue's own check-ins, newest first (unlike
+  // listRecentActivity's neighborhood-wide mix of activity types, a single
+  // venue's feed is check-ins only, matching what a visitor can actually do
+  // at one specific place).
+  listActivityForVenue(venueId: string, limit: number): Promise<ActivityRecord[]>;
 }

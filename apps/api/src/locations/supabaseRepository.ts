@@ -1,15 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
-  LocationMayor,
   MushroomCustomization,
   RecentVisitorMushroom,
   SocialLinks,
+  TopVisitor,
   VenueAnalytics,
   VenueEnrichmentCache,
   VenueListItem,
 } from "@blockwise/types";
 import { resolveMushroomConfig } from "@blockwise/types";
-import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors, resolveMayor, toMushroomConfig } from "../checkins/checkin";
+import {
+  RECENT_VISITOR_WINDOW_MS,
+  TOP_VISITORS_LIMIT,
+  rankRecentVisitors,
+  resolveTopVisitors,
+  toMushroomConfig,
+} from "../checkins/checkin";
 import type {
   CategoryRecord,
   CreateLocationInput,
@@ -226,7 +232,7 @@ export class SupabaseLocationRepository implements LocationRepository {
     );
 
     let recentCheckinMushrooms: RecentVisitorMushroom[] = [];
-    let mayor: LocationMayor | null = null;
+    let topVisitors: TopVisitor[] = [];
     if (ranked.length > 0) {
       const { data: users, error: usersError } = await this.supabase
         .from("app_user")
@@ -245,7 +251,7 @@ export class SupabaseLocationRepository implements LocationRepository {
         visitCount,
       }));
 
-      const mayorCandidatesById = new Map(
+      const visitorCandidatesById = new Map(
         (users ?? []).map((u) => [
           u.id as string,
           {
@@ -255,7 +261,7 @@ export class SupabaseLocationRepository implements LocationRepository {
           },
         ])
       );
-      mayor = resolveMayor(ranked, mayorCandidatesById);
+      topVisitors = resolveTopVisitors(ranked, visitorCandidatesById, TOP_VISITORS_LIMIT);
     }
 
     return {
@@ -276,7 +282,7 @@ export class SupabaseLocationRepository implements LocationRepository {
       checkinCount: checkinCount ?? 0,
       favoriteCount: favoriteCount ?? 0,
       recentCheckinMushrooms,
-      mayor,
+      topVisitors,
     };
   }
 
@@ -451,5 +457,45 @@ export class SupabaseLocationRepository implements LocationRepository {
 
     if (error) throw new Error(`getAnalytics failed: ${error.message}`);
     return data as VenueAnalytics;
+  }
+
+  async getVenueLeaderboard(locationId: string, limit: number): Promise<TopVisitor[]> {
+    const windowStart = new Date(Date.now() - RECENT_VISITOR_WINDOW_MS).toISOString();
+    const { data: recentCheckins, error: recentCheckinsError } = await this.supabase
+      .from("checkin")
+      .select("user_id, checked_in_at")
+      .eq("venue_id", locationId)
+      .gte("checked_in_at", windowStart)
+      .order("checked_in_at", { ascending: false })
+      .limit(RECENT_CHECKIN_SNAPSHOT_QUERY_LIMIT);
+
+    if (recentCheckinsError) throw new Error(`getVenueLeaderboard failed: ${recentCheckinsError.message}`);
+
+    const ranked = rankRecentVisitors(
+      (recentCheckins ?? []).map((row) => ({ userId: row.user_id, checkedInAt: row.checked_in_at })),
+      limit
+    );
+    if (ranked.length === 0) return [];
+
+    const { data: users, error: usersError } = await this.supabase
+      .from("app_user")
+      .select("id, username, display_name, visibility")
+      .in(
+        "id",
+        ranked.map((r) => r.userId)
+      );
+    if (usersError) throw new Error(`getVenueLeaderboard (users) failed: ${usersError.message}`);
+
+    const visitorCandidatesById = new Map(
+      (users ?? []).map((u) => [
+        u.id as string,
+        {
+          username: u.username as string | null,
+          displayName: u.display_name as string | null,
+          visibility: u.visibility as string,
+        },
+      ])
+    );
+    return resolveTopVisitors(ranked, visitorCandidatesById, limit);
   }
 }

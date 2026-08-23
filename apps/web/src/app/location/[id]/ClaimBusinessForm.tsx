@@ -12,11 +12,21 @@ type Status = { state: "idle" | "submitting" | "submitted" | "error"; message?: 
 // Ref 32); verification itself stays manual/admin review (see
 // /admin/claims) rather than an automated phone/email OTP flow, since no
 // SMS/email provider is wired into this project yet.
+//
+// Collapsed by default behind a dashed-circle "+" row, matching
+// MissingVenueRow's "Missing a venue?" pattern (BACKLOG.md Ref 101 redesign)
+// -- most visitors to a location page aren't its owner, so the full form
+// shouldn't eat space across the location tabs until someone actually taps
+// in.
 export function ClaimBusinessForm({ venueId }: { venueId: string }) {
   // undefined = still checking; null = signed out.
   const [user, setUser] = useState<AppUser | null | undefined>(undefined);
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const [contactMethod, setContactMethod] = useState<BusinessClaimContactMethod>("email");
+  // Collapsed by default (mirrors MissingVenueRow's "Missing a venue?" row)
+  // so the claim form doesn't eat real estate across every business's
+  // location tabs when most visitors aren't the owner.
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +77,6 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
   }
 
   if (user === undefined) return null;
-  if (user === null) return <SignInPrompt message="to claim this business." />;
 
   if (status.state === "submitted") {
     return (
@@ -75,6 +84,32 @@ export function ClaimBusinessForm({ venueId }: { venueId: string }) {
         <p className="font-bold text-foreground">
           Claim submitted — we&apos;ll review it and follow up using the contact info you provided.
         </p>
+      </div>
+    );
+  }
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="flex items-center gap-3 rounded-2xl bg-card-alt px-4 py-3.5 text-left text-sm"
+      >
+        <span
+          className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 border-dashed border-muted text-xs font-extrabold text-muted"
+          aria-hidden="true"
+        >
+          +
+        </span>
+        <span className="font-extrabold text-foreground">Own this business?</span>
+      </button>
+    );
+  }
+
+  if (user === null) {
+    return (
+      <div className="rounded-2xl bg-card-alt px-6 py-4">
+        <SignInPrompt message="to claim this business." />
       </div>
     );
   }

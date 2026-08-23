@@ -1,7 +1,7 @@
 // Shared icon-label-over-big-number stat tile (originally module-local to
 // admin/neighborhood/[neighborhoodSlug]/page.tsx's Overview tab; extracted so
 // admin/business/[venueId]/BusinessVenueDashboard.tsx's Overview can use the
-// identical tile instead of its own smaller StatCard.tsx boxes).
+// identical tile instead of its own smaller boxed tiles).
 export function StatTile({
   icon,
   label,

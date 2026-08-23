@@ -1,12 +1,14 @@
 import { PoweredByGoogle } from "@blockwise/ui";
+import { ActivityFeed } from "../../../ActivityFeed";
 import { EnrichmentAbout, EnrichmentPhotos, EnrichmentReviews } from "../../../EnrichmentSection";
 import { FavoriteButton } from "../../../location/[id]/FavoriteButton";
 import { LocationSummaryCard } from "../../../location/[id]/LocationSummaryCard";
+import { LocationTabs } from "../../../location/[id]/LocationTabs";
 import { SAMPLE_POI_LOCATION } from "../demoData";
 
 // Full sample POI page -- same shell as location-page, minus the
-// business-only sections (coupons/events/claim), matching how
-// /location/[id]/page.tsx only renders those for location.kind === "business".
+// business-only tabs (Coupons/Events/claim form), matching how LocationTabs
+// and location/[id]/layout.tsx only render those for location.kind === "business".
 export default function PoiPageDemoPage() {
   const location = SAMPLE_POI_LOCATION;
 
@@ -18,21 +20,35 @@ export default function PoiPageDemoPage() {
       </div>
 
       <div className="flex flex-col gap-5 rounded-3xl border border-border bg-card p-4">
-        <EnrichmentPhotos enrichment={location.enrichment} photoUrl={() => ""} alt={location.name} />
-
         <LocationSummaryCard
           location={location}
           favoriteAction={<FavoriteButton venueId={location.id} mockFavorited={false} />}
         />
 
-        <EnrichmentAbout
-          enrichment={location.enrichment}
-          emptyLabel="No enrichment data available for this point of interest."
-        />
+        <EnrichmentPhotos enrichment={location.enrichment} photoUrl={() => ""} alt={location.name} />
 
-        <EnrichmentReviews enrichment={location.enrichment} />
+        <LocationTabs locationId={location.id} isBusiness={false} enrichment={location.enrichment} />
 
-        {location.enrichment && <PoweredByGoogle />}
+        <div className="flex flex-col gap-6">
+          <div>
+            <p className="mb-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">Spore Feed</p>
+            <ActivityFeed items={[]} emptyMessage="No check-ins yet." />
+          </div>
+
+          <div>
+            <p className="mb-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">About</p>
+            <EnrichmentAbout
+              enrichment={location.enrichment}
+              emptyLabel="No enrichment data available for this point of interest."
+            />
+          </div>
+
+          <div>
+            <p className="mb-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">Reviews</p>
+            <EnrichmentReviews enrichment={location.enrichment} />
+            {location.enrichment && <PoweredByGoogle />}
+          </div>
+        </div>
       </div>
     </section>
   );

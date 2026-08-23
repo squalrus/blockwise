@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { VenueAnalytics, VenueEnrichmentCache } from "@blockwise/types";
+import type { TopVisitor, VenueAnalytics, VenueEnrichmentCache } from "@blockwise/types";
 import type { EnrichmentRepository, UpsertEnrichmentInput } from "../enrichment/repository";
 import type { PlaceDetailsClient, RawPlaceDetails } from "../places/client";
 import {
@@ -7,6 +7,7 @@ import {
   deleteLocationForNeighborhood,
   getLocationDetailWithFreshEnrichment,
   getLocationForNeighborhood,
+  getVenueLeaderboard,
   listAssignableCategories,
   listLocationListItemsForNeighborhood,
   listLocationsForNeighborhood,
@@ -155,6 +156,12 @@ class FakeLocationRepository implements LocationRepository {
       coupon_claims_over_time: [],
     };
   }
+
+  leaderboard: TopVisitor[] = [];
+
+  async getVenueLeaderboard(_locationId: string, limit: number): Promise<TopVisitor[]> {
+    return this.leaderboard.slice(0, limit);
+  }
 }
 
 function makeBusiness(overrides: Partial<LocationRecord> = {}): LocationRecord {
@@ -290,7 +297,7 @@ const BASE_DETAIL: LocationDetailRecord = {
   checkinCount: 3,
   favoriteCount: 2,
   recentCheckinMushrooms: [],
-  mayor: null,
+  topVisitors: [],
 };
 
 describe("getLocationDetailWithFreshEnrichment", () => {
@@ -338,10 +345,10 @@ describe("getLocationDetailWithFreshEnrichment", () => {
     expect(result?.recent_checkin_mushrooms).toEqual([visitor]);
   });
 
-  it("passes through the resolved Mayor for the sign next to the mosaic", async () => {
+  it("passes through the resolved top visitors for the mosaic's Top Caps badges", async () => {
     const repo = new FakeLocationRepository();
-    const mayor = { username: "topvisitor", displayName: "Top Visitor" };
-    repo.detail = { ...BASE_DETAIL, mayor };
+    const topVisitors: TopVisitor[] = [{ username: "topvisitor", displayName: "Top Visitor", visitCount: 5 }];
+    repo.detail = { ...BASE_DETAIL, topVisitors };
 
     const result = await getLocationDetailWithFreshEnrichment(
       "location-1",
@@ -350,7 +357,28 @@ describe("getLocationDetailWithFreshEnrichment", () => {
       new FakePlacesClient()
     );
 
-    expect(result?.mayor).toEqual(mayor);
+    expect(result?.top_visitors).toEqual(topVisitors);
+  });
+
+  it("derives open_status from the fetched enrichment's hours", async () => {
+    const repo = new FakeLocationRepository();
+    repo.detail = BASE_DETAIL;
+    const placesClient = new FakePlacesClient();
+    placesClient.response = {
+      ...placesClient.response,
+      regularOpeningHours: { weekdayDescriptions: ["Monday: 9:00 AM – 5:00 PM"] },
+    };
+
+    // 2026-07-06 is a Monday; 2pm falls within the 9am-5pm window above.
+    const result = await getLocationDetailWithFreshEnrichment(
+      "location-1",
+      repo,
+      new FakeEnrichmentRepository(),
+      placesClient,
+      new Date("2026-07-06T14:00:00")
+    );
+
+    expect(result?.open_status).toEqual({ open: true, time: "5 PM" });
   });
 
   it("skips enrichment when the location has no google_place_id", async () => {
@@ -511,5 +539,19 @@ describe("listAssignableCategories", () => {
     const repo = new FakeLocationRepository();
     const options = await listAssignableCategories(repo);
     expect(options).toEqual([{ id: "coffee-shop", name: "Coffee Shop", group_name: "Food & Drink" }]);
+  });
+});
+
+describe("getVenueLeaderboard", () => {
+  it("returns the repository's ranked visitors, capped at the given limit", async () => {
+    const repo = new FakeLocationRepository();
+    repo.leaderboard = [
+      { username: "topvisitor", displayName: "Top Visitor", visitCount: 17 },
+      { username: "second", displayName: "Second Visitor", visitCount: 6 },
+    ];
+
+    const result = await getVenueLeaderboard("location-1", repo, 1);
+
+    expect(result).toEqual([{ username: "topvisitor", displayName: "Top Visitor", visitCount: 17 }]);
   });
 });

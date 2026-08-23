@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOpenNow } from "./hours";
+import { isOpenNow, resolveOpenStatus } from "./hours";
 
 const HOURS = [
   "Sunday: Closed",
@@ -44,5 +44,40 @@ describe("isOpenNow", () => {
 
   it("returns false for an unparseable line", () => {
     expect(isOpenNow(["Monday: by appointment"], new Date("2026-07-06T14:00:00"))).toBe(false);
+  });
+});
+
+describe("resolveOpenStatus", () => {
+  it("returns the closing time, formatted, while open", () => {
+    expect(resolveOpenStatus(HOURS, new Date("2026-07-06T14:00:00"))).toEqual({ open: true, time: "5 PM" }); // Monday
+  });
+
+  it("returns the opening time, formatted, before today's window opens", () => {
+    expect(resolveOpenStatus(HOURS, new Date("2026-07-06T08:00:00"))).toEqual({ open: false, time: "9 AM" }); // Monday
+  });
+
+  it("returns the opening time, formatted, after today's window ends", () => {
+    expect(resolveOpenStatus(HOURS, new Date("2026-07-06T18:00:00"))).toEqual({ open: false, time: "9 AM" }); // Monday
+  });
+
+  it("formats a time with minutes rather than dropping them", () => {
+    const hours = ["Monday: 9:30 AM – 5:15 PM"];
+    expect(resolveOpenStatus(hours, new Date("2026-07-06T14:00:00"))).toEqual({ open: true, time: "5:15 PM" });
+  });
+
+  it("treats a 'Closed' line as closed with no boundary time", () => {
+    expect(resolveOpenStatus(HOURS, new Date("2026-07-05T14:00:00"))).toEqual({ open: false, time: null }); // Sunday
+  });
+
+  it("treats an 'Open 24 hours' line as open with no boundary time", () => {
+    expect(resolveOpenStatus(HOURS, new Date("2026-07-04T02:00:00"))).toEqual({ open: true, time: null }); // Saturday
+  });
+
+  it("returns null when there's no line for today", () => {
+    expect(resolveOpenStatus(["Monday: 9:00 AM – 5:00 PM"], new Date("2026-07-07T14:00:00"))).toBeNull(); // Tuesday
+  });
+
+  it("returns null for an unparseable line", () => {
+    expect(resolveOpenStatus(["Monday: by appointment"], new Date("2026-07-06T14:00:00"))).toBeNull();
   });
 });

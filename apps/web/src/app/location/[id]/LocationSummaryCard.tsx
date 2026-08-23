@@ -1,7 +1,8 @@
 import type { SocialLinks, VenueDetail } from "@blockwise/types";
+import { MushroomLogo } from "@blockwise/ui";
 import { MushroomField } from "../../MushroomField";
+import { pinColorFor, shapeFor } from "../../PlaceListItem";
 import { SlideToCheckIn } from "../../SlideToCheckIn";
-import { StatCard } from "../../StatCard";
 
 const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
   { key: "instagram", label: "Instagram" },
@@ -10,6 +11,21 @@ const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
   { key: "facebook", label: "Facebook" },
   { key: "website", label: "Website" },
 ];
+
+// BACKLOG.md Ref 101 redesign: divided stat strip, mirroring
+// NeighborhoodSummaryCard's own StatTile -- flat text over a border-t rule
+// instead of separate boxed StatCard tiles, so the header card reads as one
+// continuous surface. Column count flexes (2 or 3) depending on whether a
+// rating is available, so `divider` is passed explicitly per caller rather
+// than inferred from position.
+function StatTile({ value, label, accent, divider }: { value: React.ReactNode; label: string; accent: string; divider?: boolean }) {
+  return (
+    <div className={`px-1 py-1 text-center ${divider ? "border-r border-border" : ""}`}>
+      <p className={`font-heading text-lg font-extrabold ${accent}`}>{value}</p>
+      <p className="text-[10.5px] font-bold text-muted">{label}</p>
+    </div>
+  );
+}
 
 // Extracted from the merged business/POI detail page (BACKLOG.md "POIs and
 // venues managed almost the same") so it can be rendered standalone in
@@ -31,15 +47,27 @@ export function LocationSummaryCard({
   favoriteAction?: React.ReactNode;
 }) {
   const isBusiness = location.kind === "business";
+  const hasRating = location.enrichment?.rating != null;
 
   return (
     <div className="flex flex-col gap-2.5 overflow-hidden rounded-2xl bg-card-alt px-5 pt-4 pb-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
-            {location.name}
-          </h1>
-          <p className="mt-1 text-[12.5px] font-bold text-muted">{location.address}</p>
+        <div className="flex items-start gap-3.5">
+          {/* Venue identity mark (BACKLOG.md Ref 101 redesign): the same
+              deterministic per-id pin shape/color PlaceListItem uses in every
+              venue/POI list across the app, so this place's icon reads as
+              the same place wherever it's shown. items-start (not
+              items-center) on the row above keeps this pinned to the top
+              even when the name/address wrap to two lines. */}
+          <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl bg-brand-orange/[0.16]">
+            <MushroomLogo size={34} shape={shapeFor(location.id)} capColor={pinColorFor(location.id)} stemClassName="text-muted-strong" />
+          </span>
+          <div>
+            <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
+              {location.name}
+            </h1>
+            <p className="mt-1 text-[12.5px] font-bold text-muted">{location.address}</p>
+          </div>
         </div>
         {favoriteAction && <div className="flex shrink-0 items-center gap-2">{favoriteAction}</div>}
       </div>
@@ -52,8 +80,27 @@ export function LocationSummaryCard({
             </span>
           )
         ) : (
-          <span className="rounded-full border border-border bg-card px-2.5 py-1 text-xs font-extrabold text-muted-strong">
+          // Purple -- green (NeighborhoodSummaryCard's "Points of interest"
+          // stat accent) would clash with the favorited state of the
+          // favorite button right beside this pill, which is also green.
+          <span className="rounded-full bg-brand-purple px-2.5 py-1 text-xs font-extrabold text-on-accent">
             Point of interest
+          </span>
+        )}
+        {/* "Open now · until X" pill (BACKLOG.md Ref 101 redesign) --
+            open_status is computed server-side (apps/api's resolveOpenStatus)
+            from the same cached hours VenueHours parses in the About tab, so
+            this renders correctly on first paint with no client-side
+            recomputation to risk a hydration mismatch against. */}
+        {location.open_status && (
+          <span className="rounded-full border border-border bg-card px-2.5 py-1 text-xs font-extrabold text-muted-strong">
+            {location.open_status.open
+              ? location.open_status.time
+                ? `Open now · until ${location.open_status.time}`
+                : "Open now"
+              : location.open_status.time
+                ? `Closed · opens ${location.open_status.time}`
+                : "Closed"}
           </span>
         )}
       </div>
@@ -78,9 +125,17 @@ export function LocationSummaryCard({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2.5">
-        <StatCard value={location.checkin_count} label="Check-ins" accent="green" />
-        <StatCard value={location.favorite_count} label="Favorites" accent="orange" />
+      <div className={`grid ${hasRating ? "grid-cols-3" : "grid-cols-2"} border-t border-border pt-3.5`}>
+        <StatTile value={location.checkin_count} label="Check-ins" accent="text-brand-green" divider />
+        <StatTile
+          value={location.favorite_count}
+          label="Favorites"
+          accent="text-brand-orange"
+          divider={hasRating}
+        />
+        {hasRating && (
+          <StatTile value={`★ ${location.enrichment!.rating}`} label="Rating" accent="text-brand-amber" />
+        )}
       </div>
 
       <SlideToCheckIn locationId={location.id} />
@@ -88,8 +143,9 @@ export function LocationSummaryCard({
       {/* BACKLOG.md Ref 94: one mushroom per distinct visitor within the
           rolling 60-day window (not sqrt-scaled against the all-time total
           check-in stat above), each sized by that visitor's own visit count
-          within the window -- a "Mayor" mosaic of recent activity rather
-          than a compressed lifetime total. */}
+          within the window. BACKLOG.md Ref 101 redesign: topVisitors renders
+          the "Top Caps" badge cluster (up to 3 named visitors), mirroring
+          NeighborhoodSummaryCard. */}
       <MushroomField
         seed={location.id}
         count={location.recent_checkin_mushrooms.length}
@@ -97,7 +153,7 @@ export function LocationSummaryCard({
         distinctMushrooms
         mushrooms={location.recent_checkin_mushrooms.map((m) => m.mushroom)}
         visitCounts={location.recent_checkin_mushrooms.map((m) => m.visitCount)}
-        mayorLabel={location.mayor && (location.mayor.displayName ?? location.mayor.username)}
+        topVisitors={location.top_visitors}
       />
     </div>
   );

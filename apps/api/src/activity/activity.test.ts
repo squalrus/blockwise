@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listActivityForUsers, listMyActivity, listRecentActivity } from "./activity";
+import { listActivityForUsers, listMyActivity, listRecentActivity, listVenueActivity } from "./activity";
 import type { ActivityRecord, ActivityRepository } from "./repository";
 
 class FakeActivityRepository implements ActivityRepository {
@@ -11,6 +11,10 @@ class FakeActivityRepository implements ActivityRepository {
 
   async listActivityForUsers(userIds: string[], limit: number): Promise<ActivityRecord[]> {
     return this.records.filter((r) => userIds.includes(r.actorUsername ?? "")).slice(0, limit);
+  }
+
+  async listActivityForVenue(venueId: string, limit: number): Promise<ActivityRecord[]> {
+    return this.records.filter((r) => r.venueId === venueId).slice(0, limit);
   }
 }
 
@@ -126,6 +130,24 @@ describe("listActivityForUsers", () => {
     ]);
     const result = await listActivityForUsers(["casey"], repo);
     expect(result[0]).toMatchObject({ other_user_name: "a neighbor", other_user_username: null });
+  });
+});
+
+describe("listVenueActivity", () => {
+  it("returns only check-ins at the given venue", async () => {
+    const repo = new FakeActivityRepository([
+      record({ venueId: "venue-1" }),
+      record({ id: "activity-2", venueId: "venue-2" }),
+    ]);
+    const result = await listVenueActivity("venue-1", repo);
+    expect(result).toHaveLength(1);
+    expect(result[0].venue_id).toBe("venue-1");
+  });
+
+  it("masks a private actor as 'A user'", async () => {
+    const repo = new FakeActivityRepository([record({ venueId: "venue-1", actorVisibility: "private" })]);
+    const result = await listVenueActivity("venue-1", repo);
+    expect(result[0].actor_name).toBe("A user");
   });
 });
 
