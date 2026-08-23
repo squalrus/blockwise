@@ -2,6 +2,14 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.74.1] — 2026-08-22
+
+### Changed
+
+- **Account page visual redesign**: the profile card's avatar now sits inside a circular level-progress ring with an "LV N" pill instead of a separate progress bar, the header text condenses to one line ("`{points} pts · {pointsToNext} pts to Level {level+1}`"), and the six stat tiles (Collection/Check-ins/Points/Badges/Challenges/Neighbors) become a single divided 6-column strip instead of individually-backgrounded tiles. The account page's tab bar switches to an underline style (other tab bars, e.g. a neighborhood's, keep the existing pill style). (`apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/TabNav.tsx`, `apps/web/src/app/account/AccountTabs.tsx`)
+- **Collection tab restyled as playing cards**: each collected species now renders with corner index marks (initial + tiny mushroom glyph, top-left and bottom-right), a centered soft-circle mark backdrop, and a qty badge; the not-yet-revealed card back gets a fixed diamond-lattice pattern replacing the old per-entry seeded grunge texture. The detail modal gained labeled Shape/Spots/Collected/Found/Unlocked rows, a 5-card preload window (so swiping twice never mounts a card mid-swipe), and peeking neighbor cards that tilt like loose physical cards and straighten as they come into focus. (`apps/web/src/app/account/(tabs)/collection/page.tsx`, `apps/web/src/app/account/(tabs)/collection/CollectionDetailModal.tsx`, `apps/web/src/app/account/(tabs)/collection/CornerMark.tsx`)
+- **Spore Feed and My Activity feeds are now day-grouped**, showing an uppercase "Today"/"Yesterday"/date header above each day's rows instead of one flat dot-and-line timeline, with a small mushroom avatar per row (deterministic per actor) and a short clock time on the right. Shared by the neighborhood-wide Spore feed tab too. (`apps/web/src/app/ActivityFeed.tsx`)
+
 ## [0.74.0] — 2026-08-22
 
 ### Added

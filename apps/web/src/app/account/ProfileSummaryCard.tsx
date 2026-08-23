@@ -1,9 +1,17 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import Link from "next/link";
 import type { AppUser, MushroomConfig, UserPointsSummary } from "@blockwise/types";
 import { Avatar } from "../Avatar";
 import { MushroomField } from "../MushroomField";
-import { ProgressBar } from "../ProgressBar";
+
+// Ring geometry for the level-progress circle wrapped around the avatar
+// (BACKLOG.md Ref 47 redesign): a 68px ring with a 5px stroke, matching the
+// avatar's own visual weight -- the avatar sits inset 7px inside it (54px),
+// same proportions as the "LV N" badge overlapping its bottom edge.
+const RING_SIZE = 68;
+const RING_STROKE = 5;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 // BACKLOG.md Ref 47: profile summary card at the top of the account page --
 // avatar, level/points progress, and activity counts. Collection/Check-ins/
@@ -24,21 +32,36 @@ import { ProgressBar } from "../ProgressBar";
 // ProfileForm settings link already uses (unset entirely otherwise, same as
 // a private or username-less account viewing its own card).
 // href unset (Points, or any tile when linkToAccountTabs is false) renders
-// a plain div; otherwise a Link to that stat's own /account/* tab.
-function StatTile({ value, label, accent, href }: { value: number; label: string; accent: string; href?: string }) {
+// a plain div; otherwise a Link to that stat's own /account/* tab. `divider`
+// draws the vertical rule between columns in the redesign's flat 6-column
+// strip (every tile but the last).
+function StatTile({
+  value,
+  label,
+  accent,
+  href,
+  divider,
+}: {
+  value: number;
+  label: string;
+  accent: string;
+  href?: string;
+  divider?: boolean;
+}) {
   const content = (
     <>
       <p className={`font-heading text-lg font-extrabold ${accent}`}>{value}</p>
       <p className="text-[10.5px] font-bold text-muted">{label}</p>
     </>
   );
+  const className = `px-1 py-1 text-center transition-opacity hover:opacity-80 active:opacity-70 ${divider ? "border-r border-border" : ""}`;
 
   if (!href) {
-    return <div className="rounded-xl bg-card px-1.5 py-2.5">{content}</div>;
+    return <div className={className}>{content}</div>;
   }
 
   return (
-    <Link href={href} className="rounded-xl bg-card px-1.5 py-2.5 transition-opacity hover:opacity-80 active:opacity-70">
+    <Link href={href} className={className}>
       {content}
     </Link>
   );
@@ -75,46 +98,76 @@ export function ProfileSummaryCard({
 }) {
   const label = user.display_name ?? user.username ?? user.email ?? "You";
   const { points, level, points_into_level: pointsIntoLevel, points_to_next_level: pointsToNext } = pointsSummary;
-  const percent = (pointsIntoLevel / (pointsIntoLevel + pointsToNext)) * 100;
+  const percent = pointsIntoLevel / (pointsIntoLevel + pointsToNext);
+  const gradientId = useId();
 
   return (
     <div className="flex flex-col gap-4 overflow-hidden rounded-2xl bg-card-alt px-5 pt-4 pb-6">
       <div className="flex items-start justify-between gap-3.5">
         <div className="flex items-center gap-3.5">
-          <Avatar
-            avatarUrl={user.avatar_url}
-            avatarStyle={user.avatar_style}
-            mushroomCustomization={user.mushroom_customization}
-            seed={user.id}
-            label={label}
-            size={56}
-          />
+          <div className="relative shrink-0" style={{ width: RING_SIZE, height: RING_SIZE }}>
+            <svg
+              width={RING_SIZE}
+              height={RING_SIZE}
+              viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+              className="absolute inset-0 -rotate-90"
+              aria-hidden="true"
+            >
+              <circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                fill="none"
+                stroke="var(--border)"
+                strokeWidth={RING_STROKE}
+              />
+              <circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                fill="none"
+                stroke={`url(#${gradientId})`}
+                strokeWidth={RING_STROKE}
+                strokeLinecap="round"
+                strokeDasharray={`${RING_CIRCUMFERENCE * percent} ${RING_CIRCUMFERENCE}`}
+              />
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" style={{ stopColor: "var(--brand-green)" }} />
+                  <stop offset="100%" style={{ stopColor: "var(--brand-purple)" }} />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-[7px]">
+              <Avatar
+                avatarUrl={user.avatar_url}
+                avatarStyle={user.avatar_style}
+                mushroomCustomization={user.mushroom_customization}
+                seed={user.id}
+                label={label}
+                size={RING_SIZE - 14}
+              />
+            </div>
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-1.5 py-0.5 font-heading text-[10px] leading-tight font-extrabold whitespace-nowrap text-background">
+              LV {level}
+            </span>
+          </div>
           <div>
             <span className="font-heading text-xl font-extrabold text-foreground">{label}</span>
             <p className="mt-0.5 text-xs font-bold text-muted">
-              Level {level} forager · {points} pts
+              {points} pts · {pointsToNext} pts to Level {level + 1}
             </p>
           </div>
         </div>
         {action}
       </div>
 
-      <div>
-        <div className="flex justify-between text-[11.5px] font-extrabold text-muted">
-          <span>Level {level}</span>
-          <span>{pointsToNext} pts to Level {level + 1}</span>
-        </div>
-        <div className="mt-1.5">
-          <ProgressBar percent={percent} height={10} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <StatTile value={collectionCount} label="Collection" accent="text-brand-orange" href={linkToAccountTabs ? "/account/collection" : undefined} />
-        <StatTile value={checkinCount} label="Check-ins" accent="text-brand-green" href={linkToAccountTabs ? "/account/activity" : undefined} />
-        <StatTile value={points} label="Points" accent="text-brand-purple" />
-        <StatTile value={badgeCount} label="Badges" accent="text-brand-amber" href={linkToAccountTabs ? "/account/badges" : undefined} />
-        <StatTile value={challengeCount} label="Challenges" accent="text-brand-orange" href={linkToAccountTabs ? "/account/challenges" : undefined} />
+      <div className="grid grid-cols-6 border-t border-border pt-3.5">
+        <StatTile value={collectionCount} label="Collection" accent="text-brand-orange" href={linkToAccountTabs ? "/account/collection" : undefined} divider />
+        <StatTile value={checkinCount} label="Check-ins" accent="text-brand-green" href={linkToAccountTabs ? "/account/activity" : undefined} divider />
+        <StatTile value={points} label="Points" accent="text-brand-purple" divider />
+        <StatTile value={badgeCount} label="Badges" accent="text-brand-amber" href={linkToAccountTabs ? "/account/badges" : undefined} divider />
+        <StatTile value={challengeCount} label="Challenges" accent="text-brand-orange" href={linkToAccountTabs ? "/account/challenges" : undefined} divider />
         <StatTile value={neighborCount} label="Neighbors" accent="text-brand-purple" href={linkToAccountTabs ? "/account/neighbors" : undefined} />
       </div>
 
@@ -135,7 +188,6 @@ export function ProfileSummaryCard({
         distinctMushrooms
         ownCount={level}
         mushrooms={neighborMushrooms}
-        mayorLabel={user.display_name ?? user.username}
       />
     </div>
   );
