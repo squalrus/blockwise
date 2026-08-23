@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const UPDATED = "August 22, 2026";
+const UPDATED = "August 23, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -76,10 +76,10 @@ export default function PrivacyPage() {
         </p>
         <p>
           If your profile is public and you&apos;re among the 3 most frequent recent visitors (within a rolling
-          60-day window) to a neighborhood, your username and visit count are shown to other users on that
-          neighborhood&apos;s &quot;Top Caps&quot; badges. For a business or point of interest, only the single most
-          frequent visitor is named this way, on that place&apos;s &quot;Top Cap&quot; sign. Private profiles are
-          never named this way.
+          60-day window) to a business, point of interest, or neighborhood, your username and visit count are
+          shown to other users on that place&apos;s &quot;Top Caps&quot; badges. A business or point of interest
+          page&apos;s Leaderboard tab shows this same ranking further down the list (up to 10 visitors). Private
+          profiles are never named this way.
         </p>
       </LegalSection>
 

@@ -1,8 +1,8 @@
 import type {
   LocationKind,
-  LocationMayor,
   RecentVisitorMushroom,
   SocialLinks,
+  TopVisitor,
   VenueAnalytics,
   VenueEnrichmentCache,
   VenueListItem,
@@ -56,10 +56,10 @@ export interface LocationDetailRecord {
   // mosaic (MushroomField's distinctMushrooms mode). Most-visits-first,
   // tie-broken by most recent.
   recentCheckinMushrooms: RecentVisitorMushroom[];
-  // The identity behind recentCheckinMushrooms[0] (the "Mayor"/"Top Cap"
-  // sign next to the mosaic) -- null if there's no top visitor or their
-  // profile isn't public.
-  mayor: LocationMayor | null;
+  // Up to the top 3 named visitors by visitCount, for the "Top Caps" badge
+  // cluster next to the mosaic -- empty if there's no public, named visitor
+  // within the window.
+  topVisitors: TopVisitor[];
 }
 
 export interface CreateLocationInput {
@@ -155,4 +155,9 @@ export interface LocationRepository {
   // checkins-by-day-of-week/coupon-claims-over-time are always requested
   // together by that one tab.
   getAnalytics(locationId: string, days: number): Promise<VenueAnalytics>;
+  // Location detail page's Leaderboard tab (BACKLOG.md Ref 101 redesign) --
+  // the same visitCount ranking as getLocationDetail's topVisitors, at a
+  // higher limit (VENUE_LEADERBOARD_LIMIT) since the tab has room for more
+  // than just the mosaic's 3-badge podium.
+  getVenueLeaderboard(locationId: string, limit: number): Promise<TopVisitor[]>;
 }

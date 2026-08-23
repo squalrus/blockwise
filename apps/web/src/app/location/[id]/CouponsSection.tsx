@@ -12,7 +12,12 @@ type Status = { state: "loading" } | { state: "ready"; coupons: CouponWithClaim[
 // section) -- fully client-fetched (like FavoriteButton) rather than
 // server-rendered, since claim/eligibility state is per-viewer and the
 // server component has no auth context.
-export function CouponsSection({ venueId }: { venueId: string }) {
+//
+// `emptyMessage` (BACKLOG.md Ref 101 redesign's Coupons tab, LocationTabs.tsx)
+// renders a fallback line once loading resolves to zero coupons, rather than
+// the tab going silently blank -- omitted by default so this still renders
+// nothing while loading/on error, same as before the tab existed.
+export function CouponsSection({ venueId, emptyMessage }: { venueId: string; emptyMessage?: string }) {
   const [status, setStatus] = useState<Status>({ state: "loading" });
 
   useEffect(() => {
@@ -38,7 +43,10 @@ export function CouponsSection({ venueId }: { venueId: string }) {
     };
   }, [venueId]);
 
-  if (status.state !== "ready" || status.coupons.length === 0) return null;
+  if (status.state !== "ready") return null;
+  if (status.coupons.length === 0) {
+    return emptyMessage ? <p className="text-sm text-muted">{emptyMessage}</p> : null;
+  }
 
   return (
     <div>

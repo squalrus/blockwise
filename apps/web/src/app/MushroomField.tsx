@@ -31,48 +31,19 @@ function fieldLayout(seed: string, count: number): { leftPct: number; liftPx: nu
   }));
 }
 
-// A small hand-painted wooden sign staked in the mosaic, naming the "Mayor"
-// (BACKLOG.md Ref 94) -- nicknamed "Top Cap" for players -- the same
-// visitor whose mushroom renders biggest in the field beside it. Caller
-// (MushroomField below) only renders this when the server resolved a public
-// Mayor -- private profiles are excluded server-side, mirroring the
-// neighborhood leaderboard's own visibility rule -- so there's no empty or
-// broken sign to account for here. `role="img"` collapses the placard +
-// post into one glyph for screen readers, same pattern as BadgeIcon.
-function MayorSign({ label }: { label: string }) {
-  return (
-    <div
-      className="absolute top-0 right-1 z-10 flex -rotate-6 flex-col items-center"
-      role="img"
-      aria-label={`Top Cap: ${label}`}
-      title={`Top Cap: ${label}`}
-    >
-      <div
-        aria-hidden="true"
-        className="max-w-[64px] truncate rounded-[2px] border border-wood-dark bg-gradient-to-b from-wood to-wood-dark px-1.5 py-0.5 text-[8px] leading-none font-bold tracking-tight text-wood-text shadow-sm"
-      >
-        {label}
-      </div>
-      <div aria-hidden="true" className="h-3 w-[3px] bg-wood-dark" />
-    </div>
-  );
-}
-
 // Rank-1/2/3 badge fill, matching the leaderboard tab's medal colors so the
 // two ranked-visitor surfaces (this cluster and /neighborhoods/[slug]/leaderboard)
 // read as the same podium language even though they rank by different
 // metrics (visitCount here, points there).
 const RANK_BADGE_CLASSES = ["bg-brand-amber", "bg-rank-silver", "bg-rank-bronze"];
 
-// The neighborhood mosaic's "Top Caps" badge cluster (BACKLOG.md Ref 94/101
-// redesign) -- up to 3 small pills naming the most frequent visitors within
-// the mosaic's rolling window, stacked bottom-right over the field. Replaces
-// the single wooden MayorSign for neighborhood cards (still used as-is for
-// location cards, which only resolve one named visitor); unlike MayorSign,
-// these aren't paired to any one mushroom's size, so a private/nameless
-// visitor further down the ranking is simply absent rather than blanking a
-// slot -- resolveTopVisitors (apps/api) already did that filtering
-// server-side.
+// The neighborhood/location mosaic's "Top Caps" badge cluster (BACKLOG.md
+// Ref 94/101 redesign) -- up to 3 small pills naming the most frequent
+// visitors within the mosaic's rolling window, stacked bottom-right over
+// the field. Unlike the mosaic's own mushrooms, these aren't paired to any
+// one mushroom's size, so a private/nameless visitor further down the
+// ranking is simply absent rather than blanking a slot -- resolveTopVisitors
+// (apps/api) already did that filtering server-side.
 function TopCapsBadges({ visitors }: { visitors: TopVisitor[] }) {
   if (visitors.length === 0) return null;
   return (
@@ -140,15 +111,11 @@ function TopCapsBadges({ visitors }: { visitors: TopVisitor[] }) {
 // other. Defaults to 0, which reproduces the old all-mosaic behavior
 // unchanged for the neighborhood/location cards that don't pass it.
 //
-// `mayorLabel` (BACKLOG.md Ref 94's "Mayor"/"Top Cap") stakes a small
-// wooden sign in the field naming the top-ranked mosaic visitor, when the
-// caller resolved one (VenueDetail.mayor) -- omitted for the account card's
-// own-growth field, which has no "mayor" of one person's own patch.
-//
-// `topVisitors` (BACKLOG.md Ref 101 redesign) renders the newer "Top Caps"
-// badge cluster instead -- up to 3 named visitors rather than just the one --
-// used by the neighborhood card (NeighborhoodProfile.top_visitors) in place
-// of mayorLabel; a caller should pass one or the other, never both.
+// `topVisitors` (BACKLOG.md Ref 94/101) renders the "Top Caps" badge
+// cluster -- up to 3 named mosaic visitors by visitCount -- used by both the
+// neighborhood card (NeighborhoodProfile.top_visitors) and the location card
+// (VenueDetail.top_visitors); omitted for the account card's own-growth
+// field, which has no ranked visitors of one person's own patch.
 export function MushroomField({
   seed,
   count,
@@ -158,7 +125,6 @@ export function MushroomField({
   mushrooms,
   visitCounts,
   ownCount = 0,
-  mayorLabel,
   topVisitors,
 }: {
   seed: string;
@@ -169,7 +135,6 @@ export function MushroomField({
   mushrooms?: MushroomConfig[];
   visitCounts?: number[];
   ownCount?: number;
-  mayorLabel?: string | null;
   topVisitors?: TopVisitor[];
 }) {
   const mushroomCount = Math.min(Math.max(Math.floor(count), 0), MAX_MUSHROOMS);
@@ -226,7 +191,6 @@ export function MushroomField({
             </div>
           );
         })}
-        {mayorLabel && <MayorSign label={mayorLabel} />}
         {topVisitors && <TopCapsBadges visitors={topVisitors} />}
       </div>
     </div>

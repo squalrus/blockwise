@@ -1,10 +1,10 @@
 import type {
+  ActivityItem,
   AppUser,
   Badge,
   CheckinRewardsSummary,
   CompletedChallengeSummary,
   Event,
-  LocationMayor,
   MushroomConfig,
   NeighborhoodProfile,
   OpenNowLocation,
@@ -37,16 +37,9 @@ function recentVisitor(seed: string, visitCount: number): RecentVisitorMushroom 
   return { mushroom: mushroomConfigForUser(seed), visitCount };
 }
 
-// The identity behind a mosaic's top visitor (BACKLOG.md Ref 94's
-// "Mayor"/"Top Cap" sign) -- paired with that same entry's recentVisitor(...)
-// call below so the sign matches the biggest mushroom in the fixture.
-function mayor(username: string, displayName: string | null = null): LocationMayor {
-  return { username, displayName };
-}
-
-// The named top-N visitors behind a neighborhood mosaic's "Top Caps" badge
-// cluster -- like mayor() above but paired with each badge's own visitCount
-// rather than just the single top visitor.
+// The named top-N visitors behind a neighborhood/location mosaic's "Top
+// Caps" badge cluster -- paired with each badge's own visitCount, ideally
+// matching the biggest entries in that same fixture's recentVisitor(...) list.
 function topVisitor(username: string, displayName: string | null, visitCount: number): TopVisitor {
   return { username, displayName, visitCount };
 }
@@ -292,7 +285,8 @@ function venueDetail(overrides: Partial<VenueDetail> & Pick<VenueDetail, "id" | 
     neighborhood_name: "Greenwood",
     social_links: {},
     recent_checkin_mushrooms: [],
-    mayor: null,
+    top_visitors: [],
+    open_status: null,
     ...overrides,
   };
 }
@@ -318,8 +312,10 @@ export const LOCATION_CARDS: { label: string; location: VenueDetail; favorited: 
         recentVisitor("demo-visitor-10", 1),
         recentVisitor("demo-visitor-11", 1),
       ],
-      // Long display name, to check the sign's truncation.
-      mayor: mayor("alexandriamw", "Alexandria Montgomery-Whitfield"),
+      // Long display name, to check the badge's truncation.
+      top_visitors: [topVisitor("alexandriamw", "Alexandria Montgomery-Whitfield", 22)],
+      // "Closed" state, to check the pill reads correctly either way.
+      open_status: { open: false, time: "9 AM" },
       enrichment: {
         venue_id: "demo-location-1",
         source: "google",
@@ -378,7 +374,12 @@ export const SAMPLE_BUSINESS_LOCATION: VenueDetail = venueDetail({
     recentVisitor("demo-sample-location-visitor-3", 3),
     recentVisitor("demo-sample-location-visitor-4", 1),
   ],
-  mayor: mayor("avap", "Ava P"),
+  top_visitors: [
+    topVisitor("avap", "Ava P", 17),
+    topVisitor("marcust", "Marcus T", 6),
+    topVisitor("samk", "Sam K", 3),
+  ],
+  open_status: { open: true, time: "6 PM" },
   social_links: {
     instagram: "https://instagram.com/dieselfuelcoffee",
     website: "https://dieselfuelcoffee.example.com",
@@ -448,6 +449,53 @@ export const SAMPLE_LOCATION_EVENTS: Event[] = [
     location: null,
     status: "active",
   },
+];
+
+// Location detail page's Spore Feed tab (BACKLOG.md Ref 101 redesign) --
+// this venue's own check-ins, newest first.
+export const SAMPLE_LOCATION_ACTIVITY: ActivityItem[] = [
+  {
+    id: "demo-location-activity-1",
+    type: "checkin",
+    actor_name: "Ava P",
+    actor_username: "avap",
+    venue_id: "demo-sample-location",
+    venue_name: "Diesel Fuel Coffee",
+    badge_name: null,
+    badge_icon: null,
+    challenge_title: null,
+    event_id: null,
+    event_title: null,
+    other_user_name: null,
+    other_user_username: null,
+    occurred_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+  },
+  {
+    id: "demo-location-activity-2",
+    type: "checkin",
+    actor_name: "A user",
+    actor_username: null,
+    venue_id: "demo-sample-location",
+    venue_name: "Diesel Fuel Coffee",
+    badge_name: null,
+    badge_icon: null,
+    challenge_title: null,
+    event_id: null,
+    event_title: null,
+    other_user_name: null,
+    other_user_username: null,
+    occurred_at: new Date(Date.now() - 26 * 3600000).toISOString(),
+  },
+];
+
+// Location detail page's Leaderboard tab (BACKLOG.md Ref 101 redesign) -- the
+// same visitCount ranking as VenueDetail.top_visitors, at a higher limit.
+export const SAMPLE_LOCATION_LEADERBOARD: TopVisitor[] = [
+  topVisitor("avap", "Ava P", 17),
+  topVisitor("marcust", "Marcus T", 6),
+  topVisitor("samk", "Sam K", 3),
+  topVisitor("priyan", "Priya N", 2),
+  topVisitor("owend", "Owen D", 1),
 ];
 
 // Sample full POI page (as rendered on /location/[id])
@@ -535,9 +583,10 @@ export const SAMPLE_NEIGHBORHOOD_EVENTS: Event[] = [
 ];
 
 export const SAMPLE_OPEN_NOW: OpenNowLocation[] = [
-  { id: "demo-open-1", name: "Diesel Fuel Coffee", kind: "business", category_name: "Coffee & Tea" },
-  { id: "demo-open-2", name: "Original Bakery", kind: "business", category_name: "Bakery" },
-  { id: "demo-open-3", name: "Greenwood Water Tower", kind: "poi", category_name: null },
+  { id: "demo-open-1", name: "Diesel Fuel Coffee", kind: "business", category_name: "Coffee & Tea", closes_at: "6 PM" },
+  { id: "demo-open-2", name: "Original Bakery", kind: "business", category_name: "Bakery", closes_at: "5:30 PM" },
+  // No closing time -- a 24-hour location (BACKLOG.md Ref 101 redesign).
+  { id: "demo-open-3", name: "Greenwood Water Tower", kind: "poi", category_name: null, closes_at: null },
 ];
 
 // Sample full user profile page (as rendered on /profile/[username])

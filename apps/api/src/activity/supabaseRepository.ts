@@ -231,4 +231,18 @@ export class SupabaseActivityRepository implements ActivityRepository {
 
     return mergeAndSort(records, limit);
   }
+
+  async listActivityForVenue(venueId: string, limit: number): Promise<ActivityRecord[]> {
+    const { data, error } = await this.supabase
+      .from("point_event")
+      .select(POINT_EVENT_COLUMNS)
+      .eq("venue_id", venueId)
+      .eq("event_type", "checkin")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw new Error(`listActivityForVenue failed: ${error.message}`);
+
+    return ((data ?? []) as unknown as PointEventRow[]).map(fromPointEventRow);
+  }
 }

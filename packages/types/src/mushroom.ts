@@ -243,25 +243,11 @@ export interface RecentVisitorMushroom {
   visitCount: number;
 }
 
-// The identity behind the mosaic's single biggest mushroom (BACKLOG.md Ref
-// 94's "Mayor" mechanic) -- the top-ranked visitor by visitCount, surfaced
-// (unlike the mosaic's own anonymous mushrooms) for a small "Mayor" sign
-// next to the field. Null when there is no top visitor, or when that
-// visitor's profile isn't public (mirrors the neighborhood leaderboard's
-// same visibility gate, GET /neighborhoods/:slug/leaderboard) -- the sign
-// never names a private user.
-export interface LocationMayor {
-  username: string | null;
-  displayName: string | null;
-}
-
 // Named top-N visitors by visitCount within the mosaic's rolling window
-// ("Top Caps" badge cluster next to the neighborhood mosaic) -- generalizes
-// LocationMayor from just the single top visitor to however many of the
-// ranked visitors resolved to a public profile with a name, still in ranked
-// order. Unlike LocationMayor, a private/nameless visitor is skipped rather
-// than blanking the whole list, since these badges aren't paired 1:1 with a
-// specific mushroom's size the way the Mayor sign is.
+// ("Top Caps" badge cluster next to the neighborhood/location mosaic, and the
+// location detail page's Leaderboard tab at a higher limit) -- resolved in
+// ranked order, skipping a private or nameless visitor rather than blanking
+// the whole list or the slots after it.
 export interface TopVisitor {
   username: string | null;
   displayName: string | null;

@@ -1,4 +1,4 @@
-import type { LocationMayor, MushroomConfig, RecentVisitorMushroom, TopVisitor } from "./mushroom";
+import type { MushroomConfig, RecentVisitorMushroom, TopVisitor } from "./mushroom";
 
 export interface HealthCheckResponse {
   status: "ok";
@@ -186,10 +186,31 @@ export interface VenueDetail {
   // here" mosaic (MushroomField's distinctMushrooms mode). Most-visits-first,
   // tie-broken by most recent; excludes visits outside the window.
   recent_checkin_mushrooms: RecentVisitorMushroom[];
-  // The identity behind recent_checkin_mushrooms[0] (the biggest mushroom),
-  // for the "Mayor" sign next to the mosaic -- null if there's no top
-  // visitor or their profile isn't public.
-  mayor: LocationMayor | null;
+  // Up to the top 3 named visitors by visitCount, for the "Top Caps" badge
+  // cluster next to the mosaic (BACKLOG.md Ref 101 redesign, mirroring
+  // NeighborhoodProfile.top_visitors) -- empty if there are no public, named
+  // visitors within the window. The location detail page's Leaderboard tab
+  // fetches a separately-limited version of this same ranking via GET
+  // /venues/:id/leaderboard, rather than reusing this capped list.
+  top_visitors: TopVisitor[];
+  // "Open now · until X" pill (BACKLOG.md Ref 101 redesign) -- derived
+  // server-side from enrichment.hours (apps/api's resolveOpenStatus) rather
+  // than parsed client-side, so it's correct on first paint with no
+  // SSR/hydration mismatch risk. Null when there's no cached hours data to
+  // determine status from (no enrichment, or today has no parseable line).
+  open_status: VenueOpenStatus | null;
+}
+
+// Shared by VenueDetail.open_status and OpenNowLocation.closes_at above --
+// apps/api's resolveOpenStatus (apps/api/src/locations/hours.ts) is the only
+// place this is computed.
+export interface VenueOpenStatus {
+  open: boolean;
+  // Closing time (when open) or next opening time (when closed), formatted
+  // for display ("6 PM", "9:30 AM") -- null for a 24-hour location (open,
+  // nothing to show) or when hours don't specify a boundary for the closed
+  // case.
+  time: string | null;
 }
 
 // Business claiming + GPS check-in (BACKLOG.md, README §4/§5).
@@ -1353,6 +1374,10 @@ export interface OpenNowLocation {
   name: string;
   kind: LocationKind;
   category_name: string | null;
+  // "Open now · until X" pill (BACKLOG.md Ref 101 redesign) -- every row in
+  // this list is already known to be open (see getHappeningNow), so this is
+  // just the closing time, formatted; null for a 24-hour location.
+  closes_at: string | null;
 }
 
 export interface HappeningNow {

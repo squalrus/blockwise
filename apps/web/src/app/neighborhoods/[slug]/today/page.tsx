@@ -3,7 +3,7 @@ import type { HappeningNow, NeighborhoodProfile } from "@blockwise/types";
 import { apiUrl } from "@/lib/api";
 import { EventListItem } from "../../../EventListItem";
 import { FollowEventButton } from "../../../FollowEventButton";
-import { PlaceListItem } from "../../../PlaceListItem";
+import { OpenNowRow } from "./OpenNowRow";
 
 export async function generateMetadata({
   params,
@@ -69,12 +69,7 @@ export default async function NeighborhoodTodayPage({
           <ul className="flex flex-col gap-2">
             {happeningNow.open_now.map((location) => (
               <li key={location.id}>
-                <PlaceListItem
-                  href={`/location/${location.id}`}
-                  id={location.id}
-                  name={location.name}
-                  subtitle={location.category_name ?? (location.kind === "poi" ? "Point of interest" : "")}
-                />
+                <OpenNowRow location={location} />
               </li>
             ))}
           </ul>

@@ -2,7 +2,7 @@ import type { Event, HappeningNow } from "@blockwise/types";
 import type { EnrichmentRepository } from "../enrichment/repository";
 import type { EventRepository } from "../events/repository";
 import { listUpcomingEventsForNeighborhood } from "../events/events";
-import { isOpenNow } from "./hours";
+import { isOpenNow, resolveOpenStatus } from "./hours";
 
 // An event counts as "today" if its start/end range overlaps today's local
 // calendar day -- broader than a strict now-in-range check, so an event
@@ -39,11 +39,19 @@ export async function getHappeningNow(
     today_events: events.filter((event) => isToday(event, now)),
     open_now: openNowCandidates
       .filter((candidate) => isOpenNow(candidate.hours, now))
-      .map((candidate) => ({
-        id: candidate.id,
-        name: candidate.name,
-        kind: candidate.kind,
-        category_name: candidate.categoryName,
-      })),
+      .map((candidate) => {
+        // Already known open by the filter above, so `status` is always the
+        // `open: true` branch here -- resolveOpenStatus is only re-run to
+        // get its formatted closing time rather than duplicating that
+        // formatting logic.
+        const status = resolveOpenStatus(candidate.hours, now);
+        return {
+          id: candidate.id,
+          name: candidate.name,
+          kind: candidate.kind,
+          category_name: candidate.categoryName,
+          closes_at: status && status.open ? status.time : null,
+        };
+      }),
   };
 }

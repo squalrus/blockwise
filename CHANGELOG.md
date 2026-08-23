@@ -2,6 +2,24 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.76.0] — 2026-08-23
+
+### Added
+
+- **A dedicated Leaderboard tab on every business and POI page**, ranking its top 10 most frequent visitors within the rolling 60-day window (`GET /venues/:id/leaderboard`) — the same ranking behind the summary card's "Top Caps" badges, now with room to see further down the list. (`apps/api/src/locations/locations.ts`, `apps/api/src/checkins/checkin.ts`, `apps/web/src/app/location/[id]/leaderboard/page.tsx`)
+- **An "Open now · until X" pill** on business/POI pages and the neighborhood Today tab's Open Now list, computed server-side from cached hours so it renders correctly on first paint. (`apps/api/src/locations/hours.ts`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/today/OpenNowRow.tsx`)
+
+### Changed
+
+- **Location detail page redesigned into a route-per-tab bar** (Spore Feed / About / Reviews / Coupons / Events / Leaderboard), mirroring the Account and Neighborhood page redesigns — `location/[id]/` gained a shared `layout.tsx` (back link, summary card, photo strip, tab bar, claim form) with one route per tab instead of one long stacked page, so each tab is directly linkable and fetches only its own data. Spore Feed is a new per-venue check-in feed (`GET /venues/:id/activity`), replacing the old inline photo/about/reviews stack. (`apps/web/src/app/location/[id]/`, `apps/api/src/activity/`, `docs/url-map.md`)
+- **Business/POI pages now show the "Top Caps" 3-badge visitor cluster** (introduced for neighborhoods in v0.75.0) in place of the old single-visitor "Mayor" sign, for a consistent look across neighborhood, business, and POI pages. (`apps/api/src/checkins/checkin.ts`, `packages/types/src/mushroom.ts`, `apps/web/src/app/MushroomField.tsx`)
+- **Location summary card restyled** to match the Account/Neighborhood card language: a divided 2-or-3-column stat strip (adding a Rating column when available) replaces the old boxed check-in/favorite stat cards, and the card gains a deterministic per-venue identity icon. The claim-business prompt is now collapsed by default behind a "Own this business?" row instead of always showing the full form. (`apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/location/[id]/ClaimBusinessForm.tsx`, `apps/web/src/app/StatCard.tsx`)
+- **FAQ and Privacy Policy** updated to describe Top Caps on business/POI pages and the new Leaderboard tab, replacing the retired single-visitor "Mayor" language. (`apps/marketing/src/app/faq/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`)
+
+### Removed
+
+- **`StatCard.tsx`** and the pill-variant/in-page `onSelect` mode of `TabNav.tsx`, both now fully unused now that every stat display and tab bar in the app uses the newer divided-strip and route-driven-underline patterns respectively. (`apps/web/src/app/StatCard.tsx`, `apps/web/src/app/TabNav.tsx`)
+
 ## [0.75.0] — 2026-08-23
 
 ### Added

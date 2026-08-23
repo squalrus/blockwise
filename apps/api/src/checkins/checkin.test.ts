@@ -6,7 +6,6 @@ import {
   evaluateCheckin,
   performCheckin,
   rankRecentVisitors,
-  resolveMayor,
   resolveTopVisitors,
   toMushroomConfig,
 } from "./checkin";
@@ -299,38 +298,6 @@ describe("rankRecentVisitors", () => {
 
     const result = rankRecentVisitors(rows, 3);
     expect(result).toHaveLength(3);
-  });
-});
-
-describe("resolveMayor", () => {
-  it("names the top-ranked visitor when their profile is public", () => {
-    const ranked = [
-      { userId: "user-1", visitCount: 5 },
-      { userId: "user-2", visitCount: 2 },
-    ];
-    const users = new Map([
-      ["user-1", { username: "topvisitor", displayName: "Top Visitor", visibility: "public" }],
-      ["user-2", { username: "other", displayName: "Other", visibility: "public" }],
-    ]);
-
-    expect(resolveMayor(ranked, users)).toEqual({ username: "topvisitor", displayName: "Top Visitor" });
-  });
-
-  it("returns null rather than falling through when the top visitor's profile is private", () => {
-    const ranked = [
-      { userId: "user-1", visitCount: 5 },
-      { userId: "user-2", visitCount: 2 },
-    ];
-    const users = new Map([
-      ["user-1", { username: "topvisitor", displayName: "Top Visitor", visibility: "private" }],
-      ["user-2", { username: "other", displayName: "Other", visibility: "public" }],
-    ]);
-
-    expect(resolveMayor(ranked, users)).toBeNull();
-  });
-
-  it("returns null when there are no ranked visitors", () => {
-    expect(resolveMayor([], new Map())).toBeNull();
   });
 });
 

@@ -2,13 +2,16 @@ import type {
   CategoryOption,
   LocationKind,
   LocationListItem,
+  TopVisitor,
   Venue,
   VenueDetail,
   VenueStatus,
 } from "@blockwise/types";
+import { VENUE_LEADERBOARD_LIMIT } from "../checkins/checkin";
 import type { EnrichmentRepository } from "../enrichment/repository";
 import { getFreshEnrichment } from "../enrichment/refresh";
 import type { PlaceDetailsClient } from "../places/client";
+import { resolveOpenStatus } from "./hours";
 import type {
   CategoryRecord,
   CreateLocationInput,
@@ -120,7 +123,8 @@ export async function getLocationDetailWithFreshEnrichment(
   locationId: string,
   repository: LocationRepository,
   enrichmentRepository: EnrichmentRepository,
-  placesClient: PlaceDetailsClient
+  placesClient: PlaceDetailsClient,
+  now: Date = new Date()
 ): Promise<VenueDetail | null> {
   const record = await repository.getLocationDetail(locationId);
   if (!record) return null;
@@ -151,8 +155,24 @@ export async function getLocationDetailWithFreshEnrichment(
     neighborhood_name: record.neighborhoodName,
     social_links: record.socialLinks,
     recent_checkin_mushrooms: record.recentCheckinMushrooms,
-    mayor: record.mayor,
+    top_visitors: record.topVisitors,
+    // "Open now · until X" pill (BACKLOG.md Ref 101 redesign) -- derived
+    // from the enrichment's own hours rather than a separate query, same
+    // rolling data getHappeningNow already reads for the neighborhood
+    // Today tab's "Open now" list.
+    open_status: resolveOpenStatus(enrichment?.hours ?? [], now),
   };
+}
+
+// Location detail page's Leaderboard tab (BACKLOG.md Ref 101 redesign) --
+// the same visitCount ranking as VenueDetail.top_visitors, at a higher limit
+// since the tab has room for more than just the mosaic's 3-badge podium.
+export async function getVenueLeaderboard(
+  locationId: string,
+  repository: LocationRepository,
+  limit: number = VENUE_LEADERBOARD_LIMIT
+): Promise<TopVisitor[]> {
+  return repository.getVenueLeaderboard(locationId, limit);
 }
 
 export type UpdateLocationResult = { status: "updated"; location: Venue } | { status: "not_found" };

@@ -85,6 +85,18 @@ export async function listActivityForUsers(
 // profile's own /profile/:username page isn't even reachable. The
 // other-party name on a neighbor_connection row is left untouched -- that's
 // someone else's identity, still subject to their own visibility.
+// Location detail page's Spore Feed tab (BACKLOG.md Ref 101 redesign) -- a
+// single venue's own check-ins, newest first. actor_name is masked by
+// visibility the same way as every other activity feed in the app.
+export async function listVenueActivity(
+  venueId: string,
+  repository: ActivityRepository,
+  limit: number = DEFAULT_LIMIT
+): Promise<ActivityItem[]> {
+  const records = await repository.listActivityForVenue(venueId, limit);
+  return records.map(toActivityItem);
+}
+
 export async function listMyActivity(
   userId: string,
   displayName: string | null,

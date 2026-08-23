@@ -15,9 +15,11 @@ export function pinColorFor(id: string): string {
 
 // Deterministic per-id pin silhouette (Spored Shape Study), same idea as
 // pinColorFor above but salted separately so a place's shape and color don't
-// always move together. Every venue/POI list in the app renders through
-// this one component, so this is the only place a shape needs picking.
-function shapeFor(id: string): MushroomShape {
+// always move together. Exported alongside pinColorFor so LocationSummaryCard
+// can render the same mark as this place's own identity icon (BACKLOG.md
+// Ref 101 redesign) -- every other venue/POI list in the app still renders
+// through this one component.
+export function shapeFor(id: string): MushroomShape {
   let hash = 0;
   const salted = `${id}-shape`;
   for (let i = 0; i < salted.length; i++) hash = (hash * 31 + salted.charCodeAt(i)) | 0;
