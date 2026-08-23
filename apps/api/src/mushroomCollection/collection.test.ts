@@ -33,6 +33,7 @@ class FakeMushroomCollectionRepository implements MushroomCollectionRepository {
       sourceName,
       sourceSlug:
         sourceType === "connection" ? `user-${sourceId}` : sourceType === "neighborhood" ? `hood-${sourceId}` : null,
+      locationKind: sourceType === "checkin" ? "business" : null,
       quantity: 1,
       firstCollectedAt: new Date().toISOString(),
       revealedAt: null,

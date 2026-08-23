@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { LocationKind } from "@blockwise/types";
 import type {
   MushroomCollectionListItem,
   MushroomCollectionRepository,
@@ -6,7 +7,7 @@ import type {
 } from "./repository";
 
 const LIST_COLUMNS =
-  "id, venue_id, connection_user_id, neighborhood_id, quantity, first_collected_at, revealed_at, venue:venue_id (name), connection_user:connection_user_id (username, display_name), neighborhood:neighborhood_id (name, slug)";
+  "id, venue_id, connection_user_id, neighborhood_id, quantity, first_collected_at, revealed_at, venue:venue_id (name, kind), connection_user:connection_user_id (username, display_name), neighborhood:neighborhood_id (name, slug)";
 
 type ListRow = {
   id: string;
@@ -16,7 +17,7 @@ type ListRow = {
   quantity: number;
   first_collected_at: string;
   revealed_at: string | null;
-  venue: { name: string } | null;
+  venue: { name: string; kind: LocationKind } | null;
   connection_user: { username: string | null; display_name: string | null } | null;
   neighborhood: { name: string; slug: string } | null;
 };
@@ -46,6 +47,7 @@ function toListItem(row: ListRow): MushroomCollectionListItem {
     sourceId,
     sourceName,
     sourceSlug,
+    locationKind: sourceType === "checkin" ? (row.venue?.kind ?? null) : null,
     quantity: row.quantity,
     firstCollectedAt: row.first_collected_at,
     revealedAt: row.revealed_at,

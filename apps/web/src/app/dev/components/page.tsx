@@ -20,6 +20,11 @@ const SECTIONS: { label: string; items: { href: string; label: string; descripti
         description: "LocationSummaryCard states (business + POI), as rendered on /location/[id].",
       },
       {
+        href: "/dev/components/collection-card",
+        label: "Collection card",
+        description: "CollectionCard states, as rendered on /account's collection tab.",
+      },
+      {
         href: "/dev/components/place-list-item",
         label: "Venue row",
         description: "PlaceListItem + check-in slider states, as rendered on /checkin.",

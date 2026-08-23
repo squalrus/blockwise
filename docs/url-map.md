@@ -109,6 +109,7 @@ apps/web/src/app/
         ├── profile-card/page.tsx                       /dev/components/profile-card — ProfileSummaryCard states, NeighborRequestButton via mockNeighborState
         ├── neighborhood-card/page.tsx                  /dev/components/neighborhood-card — NeighborhoodSummaryCard states, JoinNeighborhoodButton via mockJoined
         ├── location-card/page.tsx                      /dev/components/location-card — LocationSummaryCard states (business + POI), FavoriteButton via mockFavorited
+        ├── collection-card/page.tsx                    /dev/components/collection-card — CollectionCard states (business/POI/neighborhood/connection type badges), click-through to CollectionDetailModal
         ├── place-list-item/page.tsx                    /dev/components/place-list-item — PlaceListItem + SlideToCheckIn states via mockResolution
         ├── location-page/page.tsx                      /dev/components/location-page — one full sample business location page, mirroring location/[id]/layout.tsx + every tab route's composition (LocationTabs renders for visual fidelity only, same non-clickable-tab caveat as neighborhood-page below; every tab's content is stacked inline instead of behind real navigation)
         ├── poi-page/page.tsx                            /dev/components/poi-page — one full sample POI page, mirroring location/[id]/layout.tsx's POI-kind branch (business-only tabs omitted)
