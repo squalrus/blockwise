@@ -906,6 +906,7 @@ export interface NeighborhoodDashboardSummary {
   social_links: SocialLinks;
   ical_feed_url: string | null;
   ical_synced_at: string | null;
+  status: NeighborhoodStatus;
 }
 
 // Neighborhood-admin Analytics tab: check-ins over time, activity-by-type

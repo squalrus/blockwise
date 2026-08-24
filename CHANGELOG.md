@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.79.0] — 2026-08-24
+
+### Added
+
+- **Admin action to activate a neighborhood**: an "Activate neighborhood" button on the neighborhood-admin Overview tab flips a neighborhood from `onboarding` to `active` (one-way), shown next to a Live/Onboarding status pill. `neighborhood.status` was previously write-only — set at creation and never read back anywhere — so there was no way to actually take a second neighborhood live. Gated to super admins, same as neighborhood creation itself. (`apps/api/src/neighborhoods/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/page.tsx`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Neighborhood slugs are now derived automatically** from name + city (e.g. `phinneywood-seattle`) instead of accepted as free-form text — the admin "create neighborhood" form's manual slug field is now a read-only preview, and the API derives its own copy server-side rather than trusting the client, so the format holds even against a direct API call. (`apps/web/src/app/admin/neighborhood/new/page.tsx`, `apps/api/src/neighborhoods/neighborhoods.ts`, `apps/api/src/app.ts`)
+- **Neighborhood creation form polish**: "State" relabeled to "State/territory"; Country and Timezone are now dropdowns (a short hardcoded country list, and the browser's full IANA timezone list via `Intl.supportedValuesOf`) instead of free text, preventing typos like malformed timezone strings. (`apps/web/src/app/admin/neighborhood/new/page.tsx`)
+
 ## [0.78.0] — 2026-08-23
 
 ### Added

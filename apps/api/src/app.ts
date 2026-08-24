@@ -113,6 +113,7 @@ import { awardCheckinRewards, awardNeighborConnectionRewards } from "./gamificat
 import { awardSqualrusConnectionBadge, SQUALRUS_BADGE_CODE } from "./gamification/squalrusBadge";
 import { SupabaseGamificationRepository } from "./gamification/supabaseRepository";
 import {
+  activateNeighborhood,
   createNeighborhood,
   getNeighborhoodBoundary,
   getNeighborhoodById,
@@ -2433,12 +2434,10 @@ export function createApp() {
   // with the existing-neighborhood boundary-redraw flow (BoundaryMap.tsx),
   // which any neighborhood admin should still be able to preview.
   app.post("/admin/neighborhoods", superAdminGate, async (req, res) => {
-    const { name, slug, city, state, country, timezone, boundary_geojson } = req.body ?? {};
+    const { name, city, state, country, timezone, boundary_geojson } = req.body ?? {};
     if (
       typeof name !== "string" ||
       !name.trim() ||
-      typeof slug !== "string" ||
-      !slug.trim() ||
       typeof city !== "string" ||
       !city.trim() ||
       typeof state !== "string" ||
@@ -2448,7 +2447,7 @@ export function createApp() {
       typeof timezone !== "string" ||
       !timezone.trim()
     ) {
-      res.status(400).json({ error: "name, slug, city, state, country, and timezone are required" });
+      res.status(400).json({ error: "name, city, state, country, and timezone are required" });
       return;
     }
     if (!isValidPolygon(boundary_geojson)) {
@@ -2458,7 +2457,7 @@ export function createApp() {
 
     try {
       const created = await createNeighborhood(
-        { name, slug, city, state, country, timezone, boundaryGeojson: boundary_geojson },
+        { name, city, state, country, timezone, boundaryGeojson: boundary_geojson },
         getNeighborhoodRepository()
       );
       // The creator has no standing admin row for this brand-new
@@ -2486,6 +2485,25 @@ export function createApp() {
       }
       console.error("POST /admin/neighborhoods failed:", err);
       res.status(500).json({ error: "Failed to create neighborhood" });
+    }
+  });
+
+  // BACKLOG.md Ref 107 / project plan §12.3 step 5: the "deliberate step"
+  // that takes a neighborhood live once its venue data is clean. Gated to
+  // superAdminGate like creation itself, not neighborhoodAdminGate -- a
+  // neighborhood admin can curate but shouldn't unilaterally decide the
+  // neighborhood is ready to appear in the public picker/geolocation match.
+  app.post("/admin/neighborhoods/:id/activate", superAdminGate, async (req, res) => {
+    try {
+      const result = await activateNeighborhood(req.params.id, getNeighborhoodRepository());
+      if (result.status === "not_found") {
+        res.status(404).json({ error: "Neighborhood not found" });
+        return;
+      }
+      res.json({ status: result.neighborhood.status });
+    } catch (err) {
+      console.error(`POST /admin/neighborhoods/${req.params.id}/activate failed:`, err);
+      res.status(500).json({ error: "Failed to activate neighborhood" });
     }
   });
 
@@ -3087,6 +3105,7 @@ export function createApp() {
           social_links: neighborhood.social_links,
           ical_feed_url: neighborhood.icalFeedUrl,
           ical_synced_at: neighborhood.icalSyncedAt,
+          status: neighborhood.status,
         };
         res.json(summary);
       } catch (err) {

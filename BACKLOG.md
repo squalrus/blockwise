@@ -28,13 +28,17 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 
 | Ref | Item | Type | Effort | Value | Depends |
 | --- | --- | --- | --- | --- | --- |
+| 112 | [Neighborhood onboarding checklist](#neighborhood-onboarding-checklist) | feature | M | H | — |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 84 | [Premium neighborhood tier: events and custom challenges](#premium-neighborhood-tier-events-and-custom-challenges) | feature | L | H | — |
+| 108 | [Split badges/challenges into app-wide vs neighborhood-specific scopes](#split-badgeschallenges-into-app-wide-vs-neighborhood-specific-scopes) | feature | L | H | — |
 | 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
 | 76 | [Self-serve neighborhood-admin invite/remove UI](#self-serve-neighborhood-admin-inviteremove-ui) | feature | M | M | — |
 | 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
+| 110 | [Two-step neighborhood creation: fields first, boundary required after](#two-step-neighborhood-creation-fields-first-boundary-required-after) | improvement | M | M | — |
+| 111 | [Improve boundary polygon drawing UX](#improve-boundary-polygon-drawing-ux) | improvement | M | M | — |
 | 77 | [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) | feature | L | M | — |
 | 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
 | 62 | ["New" badge for recently-launched neighborhoods](#new-badge-for-recently-launched-neighborhoods) | improvement | S | L | — |
@@ -167,6 +171,38 @@ No open limitations.
 **Depends:** —
 **Why** — The Locations tab (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`) is list-only today. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed a split list+map layout (color-coded markers per category, click-to-select syncing between list row and marker, a category legend) that was deliberately left out of the visual-only redesign pending a real map integration decision.
 **Notes:** No schema/API changes needed — `LocationListItem` already carries `lat`/`lng` for every row. Most likely adapts `BoundaryMap.tsx`'s existing Google Maps setup (already a dependency for the Boundary tab) for marker display instead of polygon editing, rather than introducing a second mapping library. Marker color should reuse the same category-group color mapping the redesigned list rows already use (`GROUP_COLORS` in `locations/page.tsx`).
+
+#### Neighborhood onboarding checklist
+
+**Ref:** 112
+**Type:** feature
+**Depends:** —
+**Why** — The neighborhood admin workflow is currently implicit — docs/project-plan.md §12.3 describes a sequence (draw boundary, sync venues, curate business claims, optionally add events/challenges, then flip to live), but there's no in-app checklist showing which steps are required vs. optional, which are done, or which are blocking the "Activate neighborhood" action (shipped v0.79.0). A visible checklist surfaces the workflow, prevents admins from forgetting steps, and clearly gates the "go live" action on specific prerequisites (boundary + locations sync are hard requirements; events and challenges are nice-to-have).
+**Notes:** Add a checklist card/panel to the admin neighborhood Overview tab showing: **Required before live** (draw boundary, sync venues/run locations import), **Optional/anytime** (import events feed, create challenges, configure business claiming, set description/social links). Each item links to its configuration page and shows completion state (green check, gray pending, or red blocker if a required step failed). The existing "Activate neighborhood" button (v0.79.0) should only enable once all required items are complete — today it's enabled any time the neighborhood is still `onboarding`, with no check against actual readiness. Open questions: should optional items block anything, or are they purely informational? Should the checklist track sub-steps (e.g. "import events" → "verify feed URL is valid" → "check event count > 0")? Does completion state live in the DB or is it computed server-side from `neighborhood.boundary_geojson is not null`, `venue count > 0`, `ical_feed_url is set`, etc.?
+
+#### Split badges/challenges into app-wide vs neighborhood-specific scopes
+
+**Ref:** 108
+**Type:** feature
+**Depends:** —
+**Why** — Badges and challenges are global-only today (badge rule engine shipped v0.40.0; `GET /neighborhoods/:slug/challenges` reads from shared templates) — there's no way for a challenge to be flavored to one neighborhood's own venues (e.g. "Bar Hop" scoped to Phinneywood's specific bars, per the account page's in-progress challenges). A second neighborhood needs either the same global challenges (fine for some) or its own neighborhood-specific instances (needed for venue-scoped ones like Bar Hop/Coffee Crawl/Bakery Tour), and today's schema can't express that distinction.
+**Notes:** Needs a scope concept — e.g. a nullable `neighborhood_id` on the challenge/badge template tables (null = app-wide, set = neighborhood-specific) — plus a decision on how a neighborhood-specific challenge gets created for a new neighborhood: likely duplicating a template row per neighborhood (copy-on-onboard) rather than one shared row multiple neighborhoods reference, so each neighborhood's instance can track its own progress/stats independently. Overlaps significantly with [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) (Ref 77, already open) — that item is the admin-facing "launch/build a challenge" UI, while this item is the underlying scope/schema split it would need to target; worth scoping together rather than duplicating design work.
+
+#### Two-step neighborhood creation: fields first, boundary required after
+
+**Ref:** 110
+**Type:** improvement
+**Depends:** —
+**Why** — The "create neighborhood" form (`apps/web/src/app/admin/neighborhood/new/page.tsx`) currently bundles name/slug/city/state/country/timezone entry with drawing a boundary polygon into one all-or-nothing submit — the `Create neighborhood` button stays disabled until a polygon exists (`canSubmit` requires `polygon`). Splitting these into two required steps (create with just the basic fields, then land directly on the boundary tool as a mandatory next step) matches how the fields and the boundary are actually two different kinds of work — quick form-filling vs. careful map drawing — and lets an admin save their basic setup without losing it if they get interrupted mid-boundary-draw.
+**Notes:** Backend implication: `create_neighborhood` (`supabase/migrations/20260708010000_neighborhood_boundary_admin_fns.sql`) always computes `boundary_geojson`/`center_lat`/`center_lng` from a required polygon centroid via PostGIS, and `center_lat`/`center_lng` are `not null` columns (`20260706024100_initial_schema.sql`) — making the boundary optional at creation means either those two columns become nullable (simplest) or get a placeholder default until the boundary step completes. The boundary *editing* tool already exists and works post-creation (`admin/neighborhood/[neighborhoodSlug]/boundary/page.tsx`, `updateNeighborhoodBoundary`) — this item is really "redirect straight there after step 1, and don't let the admin skip it," not new boundary-drawing functionality. Open question: how hard is "required" enforced — just a UX nudge (redirect + banner until a boundary exists), or an actual gate blocking other admin actions (locations sync, description, etc.) until the boundary step is done? A `neighborhood.boundary_geojson is null` check is the natural signal either way.
+
+#### Improve boundary polygon drawing UX
+
+**Ref:** 111
+**Type:** improvement
+**Depends:** —
+**Why** — The neighborhood boundary-drawing tool (`/admin/neighborhood/[slug]/boundary`, `BoundaryMap.tsx`) is difficult to use — creating, moving, and deleting the polygon vertices (dots) on the Google Maps interface is fiddly and unintuitive. This tool is the gating step for neighborhood onboarding (Ref 110, project plan §12.3/§12.6) and directly impacts how quickly an admin can set up a neighborhood. Maps are lightly used in the app elsewhere (users only see the Locations tab's map view today), so any map library upgrade to improve admin UX could also apply to the user-facing map later.
+**Notes:** Open questions flagged by the request: is Google Maps the right UI at all, or would a different interaction pattern (e.g., a text-based GeoJSON input with validation, a CSV address list that geofences, a pre-drawn region picker) be easier? Current implementation uses Google Maps JavaScript API via `BoundaryMap.tsx` (apps/web/src/app/admin/neighborhood/BoundaryMap.tsx) — minor UX tweaks (better visual feedback on hover, clearer add/delete gestures) could help, but a full redesign (e.g., replacing with Mapbox, Leaflet, or a non-map paradigm) might be warranted. Tying this to Ref 79 (real interactive map on Locations tab) makes sense: if the app commits to a better map library, both tools get the upgrade.
 
 ### Business & Venue
 

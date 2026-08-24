@@ -1,4 +1,4 @@
-import type { GeoJsonPolygon, NeighborhoodAnalytics, SocialLinks } from "@blockwise/types";
+import type { GeoJsonPolygon, NeighborhoodAnalytics, NeighborhoodStatus, SocialLinks } from "@blockwise/types";
 
 export interface NeighborhoodRecord {
   id: string;
@@ -14,6 +14,10 @@ export interface NeighborhoodRecord {
   // until the first successful sync.
   icalFeedUrl: string | null;
   icalSyncedAt: string | null;
+  // 'onboarding' | 'active' (BACKLOG.md Ref 107) -- was write-only (set at
+  // creation, never read back) until the admin "activate" action needed to
+  // display and flip it.
+  status: NeighborhoodStatus;
 }
 
 export interface NeighborhoodListCounts {
@@ -107,4 +111,9 @@ export interface NeighborhoodRepository {
   // timestamp (rather than using the DB's own now()) so the route's
   // response and the stamped value are guaranteed to agree.
   markLocationsReviewed(id: string, reviewedAt: string): Promise<void>;
+  // One-way 'onboarding' -> 'active' flip (BACKLOG.md Ref 107, project plan
+  // §12.3 step 5) -- no reverse transition, matching the runbook's
+  // "deliberate step" framing. Idempotent: activating an already-active
+  // neighborhood just returns it unchanged.
+  activateNeighborhood(id: string): Promise<NeighborhoodRecord>;
 }

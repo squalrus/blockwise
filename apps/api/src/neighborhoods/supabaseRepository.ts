@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { GeoJsonPolygon, NeighborhoodAnalytics, SocialLinks } from "@blockwise/types";
+import type { GeoJsonPolygon, NeighborhoodAnalytics, NeighborhoodStatus, SocialLinks } from "@blockwise/types";
 import type {
   CreatedNeighborhood,
   CreateNeighborhoodInput,
@@ -22,6 +22,7 @@ function toRecord(row: {
   social_links: SocialLinks | null;
   ical_feed_url: string | null;
   ical_synced_at: string | null;
+  status: NeighborhoodStatus;
 }): NeighborhoodRecord {
   return {
     id: row.id,
@@ -33,11 +34,12 @@ function toRecord(row: {
     social_links: row.social_links ?? {},
     icalFeedUrl: row.ical_feed_url,
     icalSyncedAt: row.ical_synced_at,
+    status: row.status,
   };
 }
 
 const NEIGHBORHOOD_COLUMNS =
-  "id, name, slug, description, city, state, social_links, ical_feed_url, ical_synced_at";
+  "id, name, slug, description, city, state, social_links, ical_feed_url, ical_synced_at, status";
 
 export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -185,6 +187,18 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
       .eq("id", id);
 
     if (error) throw new Error(`markLocationsReviewed failed: ${error.message}`);
+  }
+
+  async activateNeighborhood(id: string): Promise<NeighborhoodRecord> {
+    const { data, error } = await this.supabase
+      .from("neighborhood")
+      .update({ status: "active" satisfies NeighborhoodStatus })
+      .eq("id", id)
+      .select(NEIGHBORHOOD_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`activateNeighborhood failed: ${error.message}`);
+    return toRecord(data);
   }
 
   async createNeighborhood(input: CreateNeighborhoodInput): Promise<CreatedNeighborhood> {

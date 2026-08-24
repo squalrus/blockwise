@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { BoundaryPreviewReport, CreateNeighborhoodResponse, GeoJsonPolygon } from "@blockwise/types";
@@ -26,6 +26,41 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// BACKLOG.md Ref 109: a short, hardcoded list rather than a full ISO-3166
+// country picker -- every neighborhood so far is US-based, so this just
+// forecloses free-text typos without over-building for expansion that
+// hasn't happened yet. Add to this list as new countries actually come up.
+const COUNTRIES = [
+  { code: "US", label: "United States" },
+  { code: "CA", label: "Canada" },
+  { code: "GB", label: "United Kingdom" },
+  { code: "AU", label: "Australia" },
+  { code: "MX", label: "Mexico" },
+];
+
+// Common IANA zones, used only if the browser lacks Intl.supportedValuesOf
+// (BACKLOG.md Ref 109) -- covers the US spread plus the COUNTRIES list above.
+const FALLBACK_TIMEZONES = [
+  "America/Los_Angeles",
+  "America/Denver",
+  "America/Chicago",
+  "America/New_York",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Toronto",
+  "America/Vancouver",
+  "America/Mexico_City",
+  "Europe/London",
+  "Australia/Sydney",
+];
+
+function listTimezones(): string[] {
+  if (typeof Intl.supportedValuesOf === "function") {
+    return Intl.supportedValuesOf("timeZone");
+  }
+  return FALLBACK_TIMEZONES;
+}
+
 // Onboarding runbook (project plan §12.3 step 1): name/slug/city/state/
 // timezone and the drawn boundary are created together in one step, always
 // starting in 'onboarding' status -- flipping to 'active' is a separate,
@@ -34,8 +69,6 @@ export default function NewNeighborhoodPage() {
   const router = useRouter();
   const [access, setAccess] = useState<AccessCheck>("loading");
   const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [slugEdited, setSlugEdited] = useState(false);
   const [city, setCity] = useState("");
   const [state, setStateField] = useState("");
   const [country, setCountry] = useState("US");
@@ -64,10 +97,12 @@ export default function NewNeighborhoodPage() {
     };
   }, []);
 
-  function handleNameChange(value: string) {
-    setName(value);
-    if (!slugEdited) setSlug(slugify(value));
-  }
+  // Slug is always {name}-{city} (BACKLOG.md Ref 106, matching the seeded
+  // "phinneywood-seattle") -- derived here purely for display; the API
+  // derives its own copy server-side rather than trusting this one.
+  const slug = name.trim() && city.trim() ? `${slugify(name)}-${slugify(city)}` : "";
+
+  const timezones = useMemo(() => listTimezones(), []);
 
   async function handlePreview() {
     if (!polygon) return;
@@ -103,7 +138,6 @@ export default function NewNeighborhoodPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           name,
-          slug,
           city,
           state,
           country,
@@ -123,7 +157,7 @@ export default function NewNeighborhoodPage() {
     }
   }
 
-  const canSubmit = name.trim() && slug.trim() && city.trim() && state.trim() && country.trim() && timezone.trim() && polygon;
+  const canSubmit = name.trim() && slug && city.trim() && state.trim() && country.trim() && timezone.trim() && polygon;
 
   if (access !== "allowed") {
     return (
@@ -167,7 +201,7 @@ export default function NewNeighborhoodPage() {
             Name
             <input
               value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               required
               className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
             />
@@ -175,14 +209,10 @@ export default function NewNeighborhoodPage() {
           <label className="flex flex-col gap-1 text-sm text-muted">
             Slug
             <input
-              value={slug}
-              onChange={(e) => {
-                setSlug(e.target.value);
-                setSlugEdited(true);
-              }}
-              required
-              pattern="[a-z0-9-]+"
-              className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
+              value={slug || "auto-generated from name + city"}
+              readOnly
+              disabled
+              className="rounded-md border border-border bg-card-alt px-3 py-2 text-muted"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-muted">
@@ -195,7 +225,7 @@ export default function NewNeighborhoodPage() {
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-muted">
-            State
+            State/territory
             <input
               value={state}
               onChange={(e) => setStateField(e.target.value)}
@@ -205,22 +235,33 @@ export default function NewNeighborhoodPage() {
           </label>
           <label className="flex flex-col gap-1 text-sm text-muted">
             Country
-            <input
+            <select
               value={country}
               onChange={(e) => setCountry(e.target.value)}
               required
               className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
-            />
+            >
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="flex flex-col gap-1 text-sm text-muted">
-            Timezone (IANA)
-            <input
+            Timezone
+            <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               required
-              placeholder="America/Los_Angeles"
               className="rounded-md border border-border bg-card px-3 py-2 text-foreground"
-            />
+            >
+              {timezones.map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 
