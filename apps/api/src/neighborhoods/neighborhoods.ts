@@ -97,6 +97,24 @@ export async function getNeighborhoodBoundary(
   return { status: "found", boundary };
 }
 
+export type ActivateNeighborhoodResult =
+  | { status: "not_found" }
+  | { status: "activated"; neighborhood: NeighborhoodRecord };
+
+// BACKLOG.md Ref 107 / project plan §12.3 step 5: one-way onboarding ->
+// active flip. No "already active" error case -- the repository's activate
+// is idempotent, so calling this twice is harmless, not a conflict.
+export async function activateNeighborhood(
+  id: string,
+  repository: NeighborhoodRepository
+): Promise<ActivateNeighborhoodResult> {
+  const existing = await repository.getNeighborhoodById(id);
+  if (!existing) return { status: "not_found" };
+
+  const neighborhood = await repository.activateNeighborhood(id);
+  return { status: "activated", neighborhood };
+}
+
 export type UpdateNeighborhoodBoundaryResult =
   | { status: "not_found" }
   | { status: "updated"; boundary: NeighborhoodBoundaryRecord };
@@ -113,13 +131,27 @@ export async function updateNeighborhoodBoundary(
   return { status: "updated", boundary };
 }
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 // Onboarding runbook (project plan §12.3 step 1): validation here is
 // intentionally minimal (non-empty strings, a well-formed polygon) --
 // SlugTakenError (thrown by the repository on a uniqueness violation) is the
 // one business-rule check that can't be done without hitting the DB.
+//
+// Slug is always derived server-side from name + city (BACKLOG.md Ref 106:
+// "{name}-{city}", matching the seeded "phinneywood-seattle") rather than
+// accepted from the caller -- keeps the format enforced even against a
+// direct API call, not just the admin form's UI.
 export async function createNeighborhood(
-  input: CreateNeighborhoodInput,
+  input: Omit<CreateNeighborhoodInput, "slug">,
   repository: NeighborhoodRepository
 ): Promise<CreatedNeighborhood> {
-  return repository.createNeighborhood(input);
+  const slug = `${slugify(input.name)}-${slugify(input.city)}`;
+  return repository.createNeighborhood({ ...input, slug });
 }

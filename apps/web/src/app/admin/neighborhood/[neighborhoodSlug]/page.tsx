@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { NeighborhoodDashboardSummary, NeighborhoodProfile, SocialLinks } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, getCurrentUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "./NeighborhoodAdminContext";
 import { DescriptionForm } from "./DescriptionForm";
@@ -29,6 +29,8 @@ export default function NeighborhoodAdminOverviewPage() {
   const [state, setState] = useState<State>({ status: "loading" });
   const [profile, setProfile] = useState<NeighborhoodProfile | null>(null);
   const [pendingClaimCount, setPendingClaimCount] = useState<number | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [activating, setActivating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +64,14 @@ export default function NeighborhoodAdminOverviewPage() {
         .then((claims) => {
           if (!cancelled && claims) setPendingClaimCount(claims.length);
         });
+
+      // Gates the "Activate neighborhood" action below (BACKLOG.md Ref 107) --
+      // mirrors the same super-admin check the new-neighborhood form uses,
+      // since going live is a super-admin decision, not any neighborhood
+      // admin's call.
+      getCurrentUser().then((user) => {
+        if (!cancelled) setIsSuperAdmin(user?.is_super_admin ?? false);
+      });
     }
 
     load();
@@ -82,6 +92,21 @@ export default function NeighborhoodAdminOverviewPage() {
     );
   }
 
+  async function handleActivate() {
+    setActivating(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(clientApiUrl(`/admin/neighborhoods/${neighborhoodId}/activate`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      setState((prev) => (prev.status === "ready" ? { ...prev, summary: { ...prev.summary, status: "active" } } : prev));
+    } finally {
+      setActivating(false);
+    }
+  }
+
   if (state.status === "loading") {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -95,8 +120,33 @@ export default function NeighborhoodAdminOverviewPage() {
 
   return (
     <div className="flex flex-col gap-5.5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="font-heading text-4xl font-extrabold">{state.summary.name}</h1>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                state.summary.status === "active"
+                  ? "bg-brand-green/15 text-brand-green"
+                  : "bg-brand-amber/15 text-brand-amber"
+              }`}
+            >
+              {state.summary.status === "active" ? "Live" : "Onboarding"}
+            </span>
+          </div>
+        </div>
+        {isSuperAdmin && state.summary.status === "onboarding" && (
+          <button
+            type="button"
+            onClick={handleActivate}
+            disabled={activating}
+            className="rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:opacity-50"
+          >
+            {activating ? "Activating…" : "Activate neighborhood"}
+          </button>
+        )}
+      </div>
       <div>
-        <h1 className="font-heading text-4xl font-extrabold">{state.summary.name}</h1>
         <p className="mt-1 text-[15px] text-body-text">
           The public face of the neighborhood — its story, links, and the people who tend it.
         </p>

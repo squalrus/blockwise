@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GeoJsonPolygon, NeighborhoodAnalytics, SocialLinks } from "@blockwise/types";
 import {
+  activateNeighborhood,
   createNeighborhood,
   getNeighborhoodBoundary,
   getNeighborhoodBySlug,
@@ -121,6 +122,13 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
     });
   }
 
+  async activateNeighborhood(id: string): Promise<NeighborhoodRecord> {
+    const neighborhood = this.neighborhoods.find((n) => n.id === id);
+    if (!neighborhood) throw new Error("not found");
+    neighborhood.status = "active";
+    return neighborhood;
+  }
+
   async createNeighborhood(input: CreateNeighborhoodInput): Promise<CreatedNeighborhood> {
     if (this.takenSlugs.has(input.slug)) throw new SlugTakenError(input.slug);
     this.takenSlugs.add(input.slug);
@@ -149,6 +157,7 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
       social_links: {},
       icalFeedUrl: null,
       icalSyncedAt: null,
+      status: "onboarding",
     });
     this.boundaries.set(id, {
       boundaryGeojson: input.boundaryGeojson,
@@ -170,6 +179,7 @@ const PHINNEYWOOD: NeighborhoodRecord = {
   social_links: {},
   icalFeedUrl: null,
   icalSyncedAt: null,
+  status: "onboarding",
 };
 
 describe("getNeighborhoodBySlug", () => {
@@ -270,13 +280,40 @@ describe("updateNeighborhoodBoundary", () => {
   });
 });
 
+describe("activateNeighborhood", () => {
+  it("flips an onboarding neighborhood to active", async () => {
+    const repo = new FakeNeighborhoodRepository([{ ...PHINNEYWOOD }]);
+    const result = await activateNeighborhood("neighborhood-1", repo);
+
+    expect(result.status).toBe("activated");
+    if (result.status === "activated") {
+      expect(result.neighborhood.status).toBe("active");
+    }
+  });
+
+  it("is idempotent for an already-active neighborhood", async () => {
+    const repo = new FakeNeighborhoodRepository([{ ...PHINNEYWOOD, status: "active" }]);
+    const result = await activateNeighborhood("neighborhood-1", repo);
+
+    expect(result.status).toBe("activated");
+    if (result.status === "activated") {
+      expect(result.neighborhood.status).toBe("active");
+    }
+  });
+
+  it("returns not_found for a nonexistent neighborhood", async () => {
+    const repo = new FakeNeighborhoodRepository([]);
+    const result = await activateNeighborhood("nope", repo);
+    expect(result).toEqual({ status: "not_found" });
+  });
+});
+
 describe("createNeighborhood", () => {
   it("creates a new neighborhood with the drawn boundary", async () => {
     const repo = new FakeNeighborhoodRepository([{ ...PHINNEYWOOD }]);
     const created = await createNeighborhood(
       {
         name: "Ballard",
-        slug: "ballard",
         city: "Seattle",
         state: "WA",
         country: "US",
@@ -286,18 +323,34 @@ describe("createNeighborhood", () => {
       repo
     );
 
-    expect(created.slug).toBe("ballard");
+    expect(created.slug).toBe("ballard-seattle");
     expect(created.status).toBe("onboarding");
     expect(created.boundaryGeojson).toEqual(SQUARE);
   });
 
-  it("rejects a slug already used by another neighborhood", async () => {
+  it("derives the slug from name + city (BACKLOG.md Ref 106), ignoring punctuation/case", async () => {
     const repo = new FakeNeighborhoodRepository([{ ...PHINNEYWOOD }]);
+    const created = await createNeighborhood(
+      {
+        name: "Wallingford!",
+        city: "Seattle, WA",
+        state: "WA",
+        country: "US",
+        timezone: "America/Los_Angeles",
+        boundaryGeojson: SQUARE,
+      },
+      repo
+    );
+
+    expect(created.slug).toBe("wallingford-seattle-wa");
+  });
+
+  it("rejects a derived slug already used by another neighborhood", async () => {
+    const repo = new FakeNeighborhoodRepository([{ ...PHINNEYWOOD, slug: "phinneywood-seattle" }]);
     await expect(
       createNeighborhood(
         {
-          name: "Phinneywood Again",
-          slug: "phinneywood",
+          name: "Phinneywood",
           city: "Seattle",
           state: "WA",
           country: "US",
