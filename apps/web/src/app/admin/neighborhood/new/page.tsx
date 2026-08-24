@@ -102,7 +102,7 @@ export default function NewNeighborhoodPage() {
   // derives its own copy server-side rather than trusting this one.
   const slug = name.trim() && city.trim() ? `${slugify(name)}-${slugify(city)}` : "";
 
-  const timezones = useMemo(listTimezones, []);
+  const timezones = useMemo(() => listTimezones(), []);
 
   async function handlePreview() {
     if (!polygon) return;
