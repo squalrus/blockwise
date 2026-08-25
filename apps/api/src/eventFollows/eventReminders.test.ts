@@ -109,6 +109,9 @@ class FakeAuthRepository implements AuthRepository {
   async getNotificationPreferences(userIds: string[]): Promise<Map<string, NotificationPreferences>> {
     return new Map(userIds.map((id) => [id, this.overrides[id] ?? DEFAULT_PREFERENCES]));
   }
+  async recordLogin(): Promise<void> {
+    throw new Error("not implemented");
+  }
 }
 
 const KEYS: PushSubscriptionKeys = { p256dh: "p256dh-value", auth: "auth-value" };

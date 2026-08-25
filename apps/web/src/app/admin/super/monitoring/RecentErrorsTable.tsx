@@ -46,7 +46,11 @@ export function RecentErrorsTable({ errors }: { errors: MonitoringRecentError[] 
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-bold text-foreground">{err.message}</div>
-                <div className="text-[11px] text-muted">{formatTimestamp(err.created_at)}</div>
+                <div className="text-[11px] text-muted">
+                  {formatTimestamp(err.created_at)}
+                  {err.domain && ` · ${err.domain}`}
+                  {err.app_version && ` · v${err.app_version}`}
+                </div>
               </div>
             </button>
             {expanded && (err.stack || err.context) && (

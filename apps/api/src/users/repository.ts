@@ -14,6 +14,9 @@ export interface AdminUserRecord {
   // verification time (verifyToken.ts), "email" when there's no OAuth
   // provider. Null only for rows old enough to predate this column.
   authProvider: string | null;
+  // Stamped by AuthRepository.recordLogin on every real POST
+  // /auth/complete-login -- backs the admin user list's "Last login" column.
+  lastLoginAt: string;
   // Lets the admin user list render each account's real current mushroom
   // (a saved customizer choice, when present) rather than only the
   // hash-derived default -- unlike the neighborhood claims admin page's

@@ -83,4 +83,9 @@ export interface AuthRepository {
   // caller passing a stale/deleted id) are the caller's responsibility to
   // treat as opted-in, same as the column default.
   getNotificationPreferences(userIds: string[]): Promise<Map<string, NotificationPreferences>>;
+  // Stamps last_login_at = now() on an existing account -- called once per
+  // real login event (completeLogin below), not on every /auth/me poll, so
+  // it reflects actual sign-ins rather than every page load. Backs the
+  // super-admin Users tab's "Last login" column.
+  recordLogin(userId: string): Promise<void>;
 }

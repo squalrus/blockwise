@@ -16,6 +16,7 @@ function toAppUserAdminView(record: AdminUserRecord, pushEnabledUserIds: Set<str
     mushroom_customization: record.mushroomCustomization,
     has_push_enabled: pushEnabledUserIds.has(record.id),
     auth_provider: record.authProvider,
+    last_login_at: record.lastLoginAt,
   };
 }
 

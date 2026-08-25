@@ -62,6 +62,7 @@ describe("listUsersForAdmin", () => {
         isSuperAdmin: false,
         mushroomCustomization: customization,
         authProvider: "google",
+        lastLoginAt: "2026-08-20T12:30:00.000Z",
       },
     ]);
 
@@ -81,6 +82,7 @@ describe("listUsersForAdmin", () => {
         mushroom_customization: customization,
         has_push_enabled: true,
         auth_provider: "google",
+        last_login_at: "2026-08-20T12:30:00.000Z",
       },
     ]);
   });
@@ -99,6 +101,7 @@ describe("listUsersForAdmin", () => {
         isSuperAdmin: true,
         mushroomCustomization: null,
         authProvider: "email",
+        lastLoginAt: "2026-08-20T12:30:00.000Z",
       },
     ]);
 

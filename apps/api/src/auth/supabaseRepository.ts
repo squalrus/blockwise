@@ -131,4 +131,13 @@ export class SupabaseAuthRepository implements AuthRepository {
       (data ?? []).map((row) => [row.id as string, row.notification_preferences as NotificationPreferences])
     );
   }
+
+  async recordLogin(userId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("app_user")
+      .update({ last_login_at: new Date().toISOString() })
+      .eq("id", userId);
+
+    if (error) throw new Error(`recordLogin failed: ${error.message}`);
+  }
 }

@@ -2550,12 +2550,19 @@ export function createApp() {
   // Super-admin Monitoring tab (BACKLOG.md Ref 104) -- ?days= clamped to
   // [1, 90], defaulting to 7 (errors/requests are noisier day-to-day than
   // neighborhood/venue analytics, so a shorter default window), backed by a
-  // single get_monitoring_analytics RPC covering all six charts.
+  // single get_monitoring_analytics RPC covering all six charts. ?domain=
+  // and ?version= (BACKLOG.md Ref 104 follow-ups) narrow every chart to one
+  // deployment's rows (e.g. "app.tryspored.com") and/or one shipped release
+  // (e.g. "0.81.0") -- either omitted/empty keeps everything for that axis.
   app.get("/admin/monitoring/analytics", superAdminGate, async (req, res) => {
     try {
       const rawDays = Number(req.query.days);
       const days = Number.isFinite(rawDays) ? Math.min(Math.max(Math.trunc(rawDays), 1), 90) : 7;
-      const analytics = await getMonitoringRepository().getAnalytics(days);
+      const rawDomain = req.query.domain;
+      const domain = typeof rawDomain === "string" && rawDomain.trim() ? rawDomain.trim() : null;
+      const rawVersion = req.query.version;
+      const version = typeof rawVersion === "string" && rawVersion.trim() ? rawVersion.trim() : null;
+      const analytics = await getMonitoringRepository().getAnalytics(days, domain, version);
       res.json(analytics);
     } catch (err) {
       console.error("GET /admin/monitoring/analytics failed:", err);

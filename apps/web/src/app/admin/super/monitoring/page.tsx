@@ -30,13 +30,43 @@ const RANGE_OPTIONS = [
   { days: 30, label: "30 days" },
 ];
 
+// Friendly labels for the domains this project actually uses today --
+// anything else (a future dev.tryspored.com, or an unrecognized value)
+// still renders fine as its raw hostname, so a new deployment shows up
+// automatically the first time it logs something, no code change needed.
+const DOMAIN_LABELS: Record<string, string> = {
+  "app.tryspored.com": "Production",
+  localhost: "Local",
+};
+
+function domainLabel(domain: string): string {
+  return DOMAIN_LABELS[domain] ?? domain;
+}
+
 // Super-admin Monitoring tab (BACKLOG.md Ref 104): errors (API + web) and
 // request volume/latency, rolled on Postgres rather than a third-party
 // service -- backed by a single get_monitoring_analytics RPC, mirroring the
 // neighborhood-admin/business-admin Analytics tabs' single-RPC pattern.
 export default function MonitoringPage() {
   const [days, setDays] = useState(7);
+  // null = "All domains" -- the safe default. Historical rows logged before
+  // this filter existed have domain = NULL (no backfill), and the RPC's
+  // `domain is null or domain = p_domain` filter only matches an exact
+  // domain when one is selected, so defaulting to a specific domain (e.g.
+  // "Production") would silently hide every pre-migration row on first
+  // load, which read as data loss. "Production" is one click away.
+  const [domain, setDomain] = useState<string | null>(null);
+  // null = "All versions" -- unlike domain, there's no reason to default
+  // away from "all" here (a version spike is exactly as interesting on prod
+  // as anywhere else, and defaulting to "latest" would hide the very
+  // regression a rollback investigation needs to see).
+  const [version, setVersion] = useState<string | null>(null);
   const [state, setState] = useState<State>({ status: "loading" });
+  // Kept separate from `state` so the domain/version pickers' pills don't
+  // disappear during a loading flicker between filter changes -- only ever
+  // grows (a domain/version that logged something once stays choosable).
+  const [availableDomains, setAvailableDomains] = useState<string[]>([]);
+  const [availableVersions, setAvailableVersions] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +74,10 @@ export default function MonitoringPage() {
     async function load() {
       setState((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
       const token = await getAccessToken();
-      const res = await fetch(clientApiUrl(`/admin/monitoring/analytics?days=${days}`), {
+      const params = new URLSearchParams({ days: String(days) });
+      if (domain) params.set("domain", domain);
+      if (version) params.set("version", version);
+      const res = await fetch(clientApiUrl(`/admin/monitoring/analytics?${params}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (cancelled) return;
@@ -52,14 +85,17 @@ export default function MonitoringPage() {
         setState({ status: "error", message: "Failed to load monitoring analytics" });
         return;
       }
-      setState({ status: "ready", analytics: await res.json() });
+      const analytics = await res.json();
+      setState({ status: "ready", analytics });
+      setAvailableDomains(analytics.available_domains);
+      setAvailableVersions(analytics.available_versions);
     }
 
     load();
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, domain, version]);
 
   return (
     <div className="flex flex-col gap-5.5">
@@ -70,21 +106,71 @@ export default function MonitoringPage() {
             Errors, request activity, DB query latency, and outbound Google Places API calls.
           </p>
         </div>
-        <div className="flex gap-1.5">
-          {RANGE_OPTIONS.map((opt) => (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-1.5">
             <button
-              key={opt.days}
               type="button"
-              onClick={() => setDays(opt.days)}
+              onClick={() => setDomain(null)}
               className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
-                days === opt.days
-                  ? "bg-foreground text-background"
-                  : "border-1.5 border-border bg-card text-muted-strong"
+                domain === null ? "bg-foreground text-background" : "border-1.5 border-border bg-card text-muted-strong"
               }`}
             >
-              {opt.label}
+              All domains
             </button>
-          ))}
+            {availableDomains.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDomain(d)}
+                className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                  domain === d ? "bg-foreground text-background" : "border-1.5 border-border bg-card text-muted-strong"
+                }`}
+              >
+                {domainLabel(d)}
+              </button>
+            ))}
+          </div>
+          {availableVersions.length > 0 && (
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setVersion(null)}
+                className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                  version === null ? "bg-foreground text-background" : "border-1.5 border-border bg-card text-muted-strong"
+                }`}
+              >
+                All versions
+              </button>
+              {availableVersions.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVersion(v)}
+                  className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                    version === v ? "bg-foreground text-background" : "border-1.5 border-border bg-card text-muted-strong"
+                  }`}
+                >
+                  v{v}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-1.5">
+            {RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.days}
+                type="button"
+                onClick={() => setDays(opt.days)}
+                className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                  days === opt.days
+                    ? "bg-foreground text-background"
+                    : "border-1.5 border-border bg-card text-muted-strong"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

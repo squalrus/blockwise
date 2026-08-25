@@ -29,5 +29,9 @@ export interface MonitoringRepository {
   logError(entry: ErrorLogEntry): Promise<void>;
   logRequest(entry: RequestLogEntry): Promise<void>;
   logPlacesApiCall(entry: PlacesApiCallEntry): Promise<void>;
-  getAnalytics(days: number): Promise<MonitoringAnalytics>;
+  // domain narrows every chart to one deployment's rows (e.g.
+  // "app.tryspored.com"); version narrows to one shipped release (e.g.
+  // "0.81.0") -- undefined/null keeps today's "everything" behavior for
+  // either.
+  getAnalytics(days: number, domain?: string | null, version?: string | null): Promise<MonitoringAnalytics>;
 }

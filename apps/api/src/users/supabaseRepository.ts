@@ -12,10 +12,11 @@ type Row = {
   created_at: string;
   mushroom_customization: MushroomCustomization | null;
   auth_provider: string | null;
+  last_login_at: string;
 };
 
 const COLUMNS =
-  "id, email, display_name, username, account_type, visibility, created_at, mushroom_customization, auth_provider";
+  "id, email, display_name, username, account_type, visibility, created_at, mushroom_customization, auth_provider, last_login_at";
 
 export class SupabaseUserRepository implements UserRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -50,6 +51,7 @@ export class SupabaseUserRepository implements UserRepository {
       isSuperAdmin: superAdminIds.has(row.id),
       mushroomCustomization: row.mushroom_customization,
       authProvider: row.auth_provider,
+      lastLoginAt: row.last_login_at,
     }));
   }
 }

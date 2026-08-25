@@ -95,8 +95,25 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
 
       {isOpen && (
         <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-80 overflow-y-auto rounded-2xl border border-border bg-card py-1.5 text-foreground shadow-lg">
+          {showSuperAdminGroup && (
+            <div className="px-1.5 pb-1">
+              <div className="px-2.5 pt-1.5 pb-1 font-mono text-[10px] tracking-wide text-muted uppercase">
+                Platform
+              </div>
+              <a
+                href="/admin/super"
+                className={`block truncate rounded-lg px-2.5 py-1.5 text-[13px] font-bold ${
+                  current.kind === "super" ? "text-brand-purple" : "text-foreground hover:bg-card-alt"
+                }`}
+              >
+                Super admin mode
+              </a>
+            </div>
+          )}
+
           {showNeighborhoodsGroup && (
             <div className="px-1.5 pb-1">
+              {showSuperAdminGroup && <div className="my-1 border-t border-border" />}
               <div className="px-2.5 pt-1.5 pb-1 font-mono text-[10px] tracking-wide text-muted uppercase">
                 Neighborhoods
               </div>
@@ -126,7 +143,7 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
 
           {showBusinessesGroup && (
             <div className="px-1.5 pb-1">
-              {showNeighborhoodsGroup && <div className="my-1 border-t border-border" />}
+              {(showSuperAdminGroup || showNeighborhoodsGroup) && <div className="my-1 border-t border-border" />}
               <div className="px-2.5 pt-1.5 pb-1 font-mono text-[10px] tracking-wide text-muted uppercase">
                 Businesses
               </div>
@@ -143,23 +160,6 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
                   {v.name}
                 </a>
               ))}
-            </div>
-          )}
-
-          {showSuperAdminGroup && (
-            <div className="px-1.5 pb-1">
-              {(showNeighborhoodsGroup || showBusinessesGroup) && <div className="my-1 border-t border-border" />}
-              <div className="px-2.5 pt-1.5 pb-1 font-mono text-[10px] tracking-wide text-muted uppercase">
-                Platform
-              </div>
-              <a
-                href="/admin/super"
-                className={`block truncate rounded-lg px-2.5 py-1.5 text-[13px] font-bold ${
-                  current.kind === "super" ? "text-brand-purple" : "text-foreground hover:bg-card-alt"
-                }`}
-              >
-                Super admin mode
-              </a>
             </div>
           )}
 
