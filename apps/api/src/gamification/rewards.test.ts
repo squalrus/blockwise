@@ -2,6 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { awardCheckinRewards, awardNeighborConnectionRewards } from "./rewards";
 import { CHECKIN_POINTS, NEIGHBOR_CONNECTION_POINTS } from "./points";
 import { FakeGamificationRepository, makeBadge, makeBadgeRule, makeChallenge } from "./testSupport";
+import type { BadgeRecord } from "./repository";
+
+// Rewards responses carry the public Badge DTO (neighborhood_id, snake_case)
+// rather than the repository-layer BadgeRecord (neighborhoodId, camelCase)
+// the makeBadge() fixtures produce -- convert before comparing.
+function toPublicBadge(badge: BadgeRecord) {
+  return {
+    id: badge.id,
+    code: badge.code,
+    name: badge.name,
+    description: badge.description,
+    icon: badge.icon,
+    neighborhood_id: badge.neighborhoodId,
+  };
+}
 
 // Frozen so the source's own `new Date()` calls (challenges.ts's "now" for
 // endsAt comparisons, reached via awardCheckinRewards) line up with this
@@ -62,7 +77,7 @@ describe("awardCheckinRewards", () => {
 
     expect(summary.pointsEarned).toBe(CHECKIN_POINTS + 50);
     expect(summary.challengesCompleted).toEqual([
-      { id: "challenge-1", title: "Test Challenge", pointsReward: 50, badge: challengeBadge },
+      { id: "challenge-1", title: "Test Challenge", pointsReward: 50, badge: toPublicBadge(challengeBadge) },
     ]);
     expect(summary.badgesEarned).toEqual([]);
   });
@@ -116,7 +131,7 @@ describe("awardCheckinRewards", () => {
       repo
     );
 
-    expect(summary.badgesEarned).toEqual([levelBadge]);
+    expect(summary.badgesEarned).toEqual([toPublicBadge(levelBadge)]);
   });
 });
 
@@ -164,7 +179,7 @@ describe("awardNeighborConnectionRewards", () => {
       { userId: "user-1", otherUserId: "user-2", neighborCount: 1 },
       repo
     );
-    expect(summary.badgesEarned).toEqual([badge]);
+    expect(summary.badgesEarned).toEqual([toPublicBadge(badge)]);
 
     // A second connection (higher count, same threshold already earned)
     // doesn't re-award the same badge.

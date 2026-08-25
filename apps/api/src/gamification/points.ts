@@ -88,6 +88,7 @@ export async function getUserBadges(
       name: record.badge.name,
       description: record.badge.description,
       icon: record.badge.icon,
+      neighborhood_id: record.badge.neighborhoodId,
     },
     awarded_at: record.awardedAt,
   }));

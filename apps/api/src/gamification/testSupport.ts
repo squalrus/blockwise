@@ -1,15 +1,17 @@
 import type { LocationKind } from "@blockwise/types";
-import type {
-  AwardPointsInput,
-  BadgeRecord,
-  BadgeRuleRecord,
-  ChallengeRecord,
-  CompletedChallengeRecord,
-  CompleteChallengeInput,
-  GamificationRepository,
-  LeaderboardRow,
-  LocationContext,
-  UserBadgeRecord,
+import {
+  BadgeCodeTakenError,
+  type AwardPointsInput,
+  type BadgeRecord,
+  type BadgeRuleRecord,
+  type ChallengeRecord,
+  type ChallengeTargetKind,
+  type CompletedChallengeRecord,
+  type CompleteChallengeInput,
+  type GamificationRepository,
+  type LeaderboardRow,
+  type LocationContext,
+  type UserBadgeRecord,
 } from "./repository";
 
 // A null endsAt (indefinite challenge) never excludes a check-in/window comparison.
@@ -86,7 +88,7 @@ export class FakeGamificationRepository implements GamificationRepository {
   }): Promise<ChallengeRecord[]> {
     return this.challenges.filter(
       (c) =>
-        c.neighborhoodId === input.neighborhoodId &&
+        (c.neighborhoodId === input.neighborhoodId || c.neighborhoodId === null) &&
         c.startsAt <= input.now &&
         (c.endsAt === null || c.endsAt >= input.now) &&
         (c.targetKind === "any" ||
@@ -98,8 +100,82 @@ export class FakeGamificationRepository implements GamificationRepository {
 
   async listChallengesForNeighborhood(neighborhoodId: string, now: string): Promise<ChallengeRecord[]> {
     return this.challenges.filter(
-      (c) => c.neighborhoodId === neighborhoodId && (c.endsAt === null || c.endsAt >= now)
+      (c) => (c.neighborhoodId === neighborhoodId || c.neighborhoodId === null) && (c.endsAt === null || c.endsAt >= now)
     );
+  }
+
+  async listAllChallengesForAdmin(): Promise<ChallengeRecord[]> {
+    return [...this.challenges];
+  }
+
+  async listChallengesForNeighborhoodAdmin(neighborhoodId: string): Promise<ChallengeRecord[]> {
+    return this.challenges.filter((c) => c.neighborhoodId === neighborhoodId);
+  }
+
+  async createChallenge(input: {
+    neighborhoodId: string | null;
+    title: string;
+    description: string | null;
+    categoryId: string | null;
+    targetKind: ChallengeRecord["targetKind"];
+    targetCount: number;
+    targetCountLive: boolean;
+    pointsReward: number;
+    badgeId: string | null;
+    startsAt: string;
+    endsAt: string | null;
+  }): Promise<ChallengeRecord> {
+    const created: ChallengeRecord = {
+      id: `challenge-${this.nextId++}`,
+      neighborhoodId: input.neighborhoodId,
+      title: input.title,
+      description: input.description,
+      categoryId: input.categoryId,
+      categoryName: null,
+      venueId: null,
+      venueName: null,
+      targetKind: input.targetKind,
+      targetCount: input.targetCount,
+      targetCountLive: input.targetCountLive,
+      pointsReward: input.pointsReward,
+      badge: input.badgeId ? (this.badgeCatalog.get(input.badgeId) ?? makeBadge({ id: input.badgeId })) : null,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+    };
+    this.challenges.push(created);
+    return created;
+  }
+
+  async updateChallenge(
+    id: string,
+    patch: {
+      title?: string;
+      description?: string | null;
+      categoryId?: string | null;
+      targetKind?: ChallengeTargetKind | null;
+      targetCount?: number;
+      targetCountLive?: boolean;
+      pointsReward?: number;
+      badgeId?: string | null;
+      endsAt?: string | null;
+    },
+    options?: { neighborhoodId?: string }
+  ): Promise<ChallengeRecord | null> {
+    const existing = this.challenges.find((c) => c.id === id);
+    if (!existing) return null;
+    if (options?.neighborhoodId && existing.neighborhoodId !== options.neighborhoodId) return null;
+    if (patch.title !== undefined) existing.title = patch.title;
+    if (patch.description !== undefined) existing.description = patch.description;
+    if (patch.categoryId !== undefined) existing.categoryId = patch.categoryId;
+    if (patch.targetKind !== undefined) existing.targetKind = patch.targetKind;
+    if (patch.targetCount !== undefined) existing.targetCount = patch.targetCount;
+    if (patch.targetCountLive !== undefined) existing.targetCountLive = patch.targetCountLive;
+    if (patch.pointsReward !== undefined) existing.pointsReward = patch.pointsReward;
+    if (patch.badgeId !== undefined) {
+      existing.badge = patch.badgeId ? (this.badgeCatalog.get(patch.badgeId) ?? makeBadge({ id: patch.badgeId })) : null;
+    }
+    if (patch.endsAt !== undefined) existing.endsAt = patch.endsAt;
+    return existing;
   }
 
   async hasCompletedChallenge(userId: string, challengeId: string): Promise<boolean> {
@@ -110,10 +186,20 @@ export class FakeGamificationRepository implements GamificationRepository {
     return Array.from(this.completions).filter((key) => key.startsWith(`${userId}:`)).length;
   }
 
+  async completedChallengeIds(challengeIds: string[]): Promise<Set<string>> {
+    const wanted = new Set(challengeIds);
+    const result = new Set<string>();
+    for (const key of this.completions) {
+      const challengeId = key.slice(key.indexOf(":") + 1);
+      if (wanted.has(challengeId)) result.add(challengeId);
+    }
+    return result;
+  }
+
   async countDistinctVenuesCheckedInForCategory(input: {
     userId: string;
     categoryId: string;
-    neighborhoodId: string;
+    neighborhoodId: string | null;
     startsAt: string;
     endsAt: string | null;
   }): Promise<number> {
@@ -126,7 +212,7 @@ export class FakeGamificationRepository implements GamificationRepository {
             c.checkedInAt >= input.startsAt &&
             withinEnd(c.checkedInAt, input.endsAt) &&
             this.locations.get(c.venueId)?.categoryId === input.categoryId &&
-            this.locations.get(c.venueId)?.neighborhoodId === input.neighborhoodId
+            (!input.neighborhoodId || this.locations.get(c.venueId)?.neighborhoodId === input.neighborhoodId)
         )
         .map((c) => c.venueId)
     );
@@ -136,7 +222,7 @@ export class FakeGamificationRepository implements GamificationRepository {
   async countDistinctVenuesCheckedInForKind(input: {
     userId: string;
     kind?: LocationKind;
-    neighborhoodId: string;
+    neighborhoodId: string | null;
     startsAt: string;
     endsAt: string | null;
   }): Promise<number> {
@@ -149,16 +235,16 @@ export class FakeGamificationRepository implements GamificationRepository {
             c.checkedInAt >= input.startsAt &&
             withinEnd(c.checkedInAt, input.endsAt) &&
             (!input.kind || this.locations.get(c.venueId)?.kind === input.kind) &&
-            this.locations.get(c.venueId)?.neighborhoodId === input.neighborhoodId
+            (!input.neighborhoodId || this.locations.get(c.venueId)?.neighborhoodId === input.neighborhoodId)
         )
         .map((c) => c.venueId)
     );
     return venueIds.size;
   }
 
-  async countActiveLocationsForKind(input: { neighborhoodId: string; kind: LocationKind }): Promise<number> {
+  async countActiveLocationsForKind(input: { neighborhoodId: string | null; kind: LocationKind }): Promise<number> {
     return this.venues.filter(
-      (v) => v.neighborhoodId === input.neighborhoodId && v.kind === input.kind && v.status === "active"
+      (v) => (!input.neighborhoodId || v.neighborhoodId === input.neighborhoodId) && v.kind === input.kind && v.status === "active"
     ).length;
   }
 
@@ -187,7 +273,7 @@ export class FakeGamificationRepository implements GamificationRepository {
       this.pointEvents.push({
         id: `point-${this.nextId++}`,
         userId: input.userId,
-        neighborhoodId: input.neighborhoodId,
+        neighborhoodId: input.neighborhoodId ?? undefined,
         eventType: "challenge_completion",
         points: input.pointsReward,
         challengeId: input.challengeId,
@@ -266,7 +352,9 @@ export class FakeGamificationRepository implements GamificationRepository {
             title: challenge.title,
             description: challenge.description,
             neighborhoodId: challenge.neighborhoodId,
-            neighborhoodName: this.neighborhoodNames.get(challenge.neighborhoodId) ?? challenge.neighborhoodId,
+            neighborhoodName: challenge.neighborhoodId
+              ? (this.neighborhoodNames.get(challenge.neighborhoodId) ?? challenge.neighborhoodId)
+              : null,
             pointsReward: challenge.pointsReward,
             badge: challenge.badge,
             completedAt: this.completionCompletedAt.get(key) ?? new Date(0).toISOString(),
@@ -278,6 +366,37 @@ export class FakeGamificationRepository implements GamificationRepository {
 
   async getAllBadges(): Promise<BadgeRecord[]> {
     return Array.from(this.badgeCatalog.values());
+  }
+
+  async createBadge(input: {
+    code: string;
+    name: string;
+    description: string | null;
+    icon: string | null;
+    neighborhoodId: string | null;
+  }): Promise<BadgeRecord> {
+    if (Array.from(this.badgeCatalog.values()).some((b) => b.code === input.code)) {
+      throw new BadgeCodeTakenError(input.code);
+    }
+    const created: BadgeRecord = { id: `badge-${this.nextId++}`, ...input };
+    this.badgeCatalog.set(created.id, created);
+    return created;
+  }
+
+  async updateBadge(
+    id: string,
+    patch: { name?: string; description?: string | null; icon?: string | null },
+    options?: { neighborhoodId?: string }
+  ): Promise<BadgeRecord | null> {
+    const existing = this.badgeCatalog.get(id);
+    if (!existing) return null;
+    if (options?.neighborhoodId && existing.neighborhoodId !== options.neighborhoodId) return null;
+    const updated = { ...existing };
+    if (patch.name !== undefined) updated.name = patch.name;
+    if (patch.description !== undefined) updated.description = patch.description;
+    if (patch.icon !== undefined) updated.icon = patch.icon;
+    this.badgeCatalog.set(id, updated);
+    return updated;
   }
 
   async getAllBadgeRules(): Promise<BadgeRuleRecord[]> {
@@ -299,6 +418,7 @@ export class FakeGamificationRepository implements GamificationRepository {
     userId: string;
     categoryId?: string;
     kind?: LocationKind;
+    neighborhoodId?: string | null;
   }): Promise<number> {
     const venueIds = new Set(
       this.checkins
@@ -306,7 +426,8 @@ export class FakeGamificationRepository implements GamificationRepository {
           (c) =>
             c.userId === input.userId &&
             (!input.categoryId || this.locations.get(c.venueId)?.categoryId === input.categoryId) &&
-            (!input.kind || this.locations.get(c.venueId)?.kind === input.kind)
+            (!input.kind || this.locations.get(c.venueId)?.kind === input.kind) &&
+            (!input.neighborhoodId || this.locations.get(c.venueId)?.neighborhoodId === input.neighborhoodId)
         )
         .map((c) => c.venueId)
     );
@@ -385,6 +506,7 @@ export function makeBadge(overrides: Partial<BadgeRecord> = {}): BadgeRecord {
     name: "Test Badge",
     description: null,
     icon: null,
+    neighborhoodId: null,
     ...overrides,
   };
 }

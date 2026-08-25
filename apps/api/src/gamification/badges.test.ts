@@ -53,6 +53,51 @@ describe("evaluateBadgesAfterCheckin", () => {
     expect(await repo.hasEarnedBadge("user-1", "badge-bar-1")).toBe(false);
   });
 
+  it("counts progress for a neighborhood-scoped Explorer badge only within its own neighborhood (BACKLOG.md Ref 108 follow-up)", async () => {
+    const repo = new FakeGamificationRepository();
+    const badge = makeBadge({ id: "badge-coffee-phinneywood-5", code: "coffee_explorer_5", neighborhoodId: "phinneywood" });
+    repo.badgeRules.push(
+      makeBadgeRule({ id: "rule-1", badgeId: badge.id, badge, ruleType: "category_milestone", categoryId: "cat-coffee", threshold: 5 })
+    );
+    for (let i = 1; i <= 4; i++) {
+      repo.locations.set(`venue-${i}`, { neighborhoodId: "phinneywood", categoryId: "cat-coffee", kind: "business" });
+    }
+    // A 5th distinct coffee shop, but in a *different* neighborhood --
+    // shouldn't count toward a badge scoped to Phinneywood.
+    repo.locations.set("venue-elsewhere", { neighborhoodId: "other-neighborhood", categoryId: "cat-coffee", kind: "business" });
+
+    for (let i = 1; i <= 4; i++) {
+      repo.checkins.push({ userId: "user-1", venueId: `venue-${i}`, checkedInAt: NOON_JULY_15 });
+    }
+    repo.checkins.push({ userId: "user-1", venueId: "venue-elsewhere", checkedInAt: NOON_JULY_15 });
+    const awarded = await evaluateBadgesAfterCheckin(
+      {
+        userId: "user-1",
+        venueId: "venue-elsewhere",
+        neighborhoodId: "other-neighborhood",
+        categoryId: "cat-coffee",
+        kind: "business",
+        checkedInAt: NOON_JULY_15,
+      },
+      repo
+    );
+
+    // Not relevant at all -- the check-in isn't in the badge's own
+    // neighborhood, so isRelevant filters the rule out before progress is
+    // even computed.
+    expect(awarded).toHaveLength(0);
+    expect(await repo.hasEarnedBadge("user-1", "badge-coffee-phinneywood-5")).toBe(false);
+
+    // The 5th check-in actually inside Phinneywood completes it.
+    repo.locations.set("venue-5", { neighborhoodId: "phinneywood", categoryId: "cat-coffee", kind: "business" });
+    repo.checkins.push({ userId: "user-1", venueId: "venue-5", checkedInAt: NOON_JULY_15 });
+    const completed = await evaluateBadgesAfterCheckin(
+      { userId: "user-1", venueId: "venue-5", neighborhoodId: "phinneywood", categoryId: "cat-coffee", kind: "business", checkedInAt: NOON_JULY_15 },
+      repo
+    );
+    expect(completed.map((b) => b.id)).toEqual(["badge-coffee-phinneywood-5"]);
+  });
+
   it("awards a poi_milestone badge from distinct POIs regardless of free-text type", async () => {
     const repo = new FakeGamificationRepository();
     const badge = makeBadge({ id: "badge-landmark-1", code: "landmark_hunter_1" });

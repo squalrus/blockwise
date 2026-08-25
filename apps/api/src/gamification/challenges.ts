@@ -17,6 +17,19 @@ export interface CompletedChallengeSummary {
   badge: Badge | null;
 }
 
+// Trims a repository-layer BadgeRecord down to the public Badge shape.
+function toPublicBadge(badge: ChallengeRecord["badge"]): Badge | null {
+  if (!badge) return null;
+  return {
+    id: badge.id,
+    code: badge.code,
+    name: badge.name,
+    description: badge.description,
+    icon: badge.icon,
+    neighborhood_id: badge.neighborhoodId,
+  };
+}
+
 function toChallengeProgress(
   challenge: ChallengeRecord,
   targetCount: number,
@@ -42,7 +55,7 @@ function toChallengeProgress(
     poi_name: challenge.venueName,
     target_count: targetCount,
     points_reward: challenge.pointsReward,
-    badge: challenge.badge,
+    badge: toPublicBadge(challenge.badge),
     starts_at: challenge.startsAt,
     ends_at: challenge.endsAt,
     progress_count: progressCount,
@@ -55,8 +68,9 @@ function toChallengeProgress(
 // challenge row was created/last resynced, not updated as locations are
 // added or hidden. Resolve the real denominator live in that case; every
 // other challenge (fixed-count category/venue/any-POI challenges) just uses
-// the stored column.
-async function effectiveTargetCount(
+// the stored column. Exported so challengeAdmin.ts's admin list views can
+// show the same resolved number instead of the raw (possibly stale) column.
+export async function effectiveTargetCount(
   challenge: ChallengeRecord,
   repository: GamificationRepository
 ): Promise<number> {
@@ -176,7 +190,7 @@ export async function getUserCompletedChallenges(
     neighborhood_id: record.neighborhoodId,
     neighborhood_name: record.neighborhoodName,
     points_reward: record.pointsReward,
-    badge: record.badge,
+    badge: toPublicBadge(record.badge),
     completed_at: record.completedAt,
   }));
 }
@@ -195,19 +209,35 @@ export async function getUserActiveChallenges(
   neighborhoods: { neighborhoodId: string; name: string }[],
   repository: GamificationRepository
 ): Promise<UserChallengeProgress[]> {
+  const nameByNeighborhoodId = new Map(neighborhoods.map(({ neighborhoodId, name }) => [neighborhoodId, name]));
+
   const perNeighborhood = await Promise.all(
-    neighborhoods.map(async ({ neighborhoodId, name }) => {
+    neighborhoods.map(async ({ neighborhoodId }) => {
       const progress = await listChallengesWithProgress(neighborhoodId, userId, repository);
-      return progress
-        .filter((challenge) => !challenge.completed && challenge.progress_count > 0)
-        .map((challenge) => ({ ...challenge, neighborhood_name: name }));
+      return progress.filter((challenge) => !challenge.completed && challenge.progress_count > 0);
     })
   );
+
+  // listChallengesWithProgress merges in every app-wide challenge
+  // (BACKLOG.md Ref 108) for each neighborhood queried, so the same
+  // app-wide challenge shows up once per membership -- dedupe by id,
+  // keeping the first copy seen. neighborhood_name is null for an app-wide
+  // challenge (nothing to look up); resolved from the membership list for a
+  // neighborhood-scoped one.
+  const byId = new Map<string, UserChallengeProgress>();
+  for (const challenge of perNeighborhood.flat()) {
+    if (byId.has(challenge.id)) continue;
+    byId.set(challenge.id, {
+      ...challenge,
+      neighborhood_name: challenge.neighborhood_id ? (nameByNeighborhoodId.get(challenge.neighborhood_id) ?? null) : null,
+    });
+  }
+
   // Most-complete-first -- percent rather than raw progress_count, since
   // target_count varies across challenges (2 of 3 should rank above 2 of 10).
-  return perNeighborhood
-    .flat()
-    .sort((a, b) => b.progress_count / b.target_count - a.progress_count / a.target_count);
+  return Array.from(byId.values()).sort(
+    (a, b) => b.progress_count / b.target_count - a.progress_count / a.target_count
+  );
 }
 
 // Called after a successful check-in: finds every active challenge this
@@ -256,7 +286,7 @@ export async function evaluateChallengesAfterCheckin(
         id: challenge.id,
         title: challenge.title,
         pointsReward: challenge.pointsReward,
-        badge: challenge.badge,
+        badge: toPublicBadge(challenge.badge),
       });
     }
   }

@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.81.0] — 2026-08-25
+
+### Added
+
+- **Neighborhood-specific badges and challenges**: badges and challenges can now be scoped to a single neighborhood instead of always being app-wide — `Badge`/`Challenge` both gained a nullable `neighborhood_id` (null = app-wide), with a scope pill on the account/profile Badges pages and the neighborhood Challenges view showing which is which. Eight existing challenge-earned badges and their challenges (Coffee Crawler, Neighborhood Explorer, POI Completionist, Bar Hopper, Bakery Tourist, Retail Therapist, Phinneywood Foodie, Welcome Neighbor) were scoped to Phinneywood and renamed to say so, dropping stale "Summer Series"/"July" wording. (`packages/types/src/index.ts`, `apps/api/src/gamification/`, `apps/web/src/app/account/(tabs)/badges/page.tsx`, `apps/web/src/app/account/(tabs)/challenges/page.tsx`, `apps/web/src/app/profile/[username]/BadgesSection.tsx`, `apps/web/src/app/profile/[username]/ChallengesSection.tsx`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`, `supabase/migrations/20260824010000_app_wide_challenges.sql` and four related migrations)
+- **Super-admin Challenges and Badges management pages** (`/admin/super/challenges`, `/admin/super/badges`): full create/edit for both app-wide and neighborhood-specific challenges and badges, with scope filters, family grouping, and a shared icon-code dropdown. A challenge's badge can be picked from an existing one, created inline, or edited in place, all from the Challenges modal — the standalone Badges page remains fully separate for direct badge management. (`apps/web/src/app/admin/super/challenges/`, `apps/web/src/app/admin/super/badges/`, `apps/web/src/app/admin/AdminModal.tsx`, `apps/api/src/gamification/challengeAdmin.ts`, `apps/api/src/gamification/badgeAdmin.ts`, `apps/api/src/app.ts`)
+- **Neighborhood-admin Challenges tab now authors badges too**: every neighborhood challenge is created together with its own badge in one form (name/description/icon), replacing the separate neighborhood Badges page. A challenge (and its badge) can no longer be edited once anyone has completed it, so a completer's earned badge can't be changed out from under them after the fact — this restriction doesn't apply to super admins. Editing a challenge, on both admin surfaces, can now also change its target (category vs. any-POI/any-check-in, including the "All POIs" live count) rather than only being fixed at creation. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/challenges/`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/api/src/gamification/challengeAdmin.ts`, `apps/api/src/gamification/repository.ts`, `apps/api/src/gamification/supabaseRepository.ts`)
+
+### Changed
+
+- **Challenge target pill reads "All POI"** instead of "Any POI" for a live/completionist challenge, and the Ends date field in every challenge modal now has a one-click Clear control. (`apps/web/src/app/admin/super/challenges/page.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/challenges/page.tsx`)
+
 ## [0.80.0] — 2026-08-24
 
 ### Added

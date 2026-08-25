@@ -48,7 +48,7 @@ function topVisitor(username: string, displayName: string | null, visitCount: nu
 }
 
 function badge(overrides: Partial<Badge> & Pick<Badge, "id" | "code" | "name" | "icon">): Badge {
-  return { description: null, ...overrides };
+  return { description: null, neighborhood_id: null, ...overrides };
 }
 
 const BADGE_LANDMARK_1 = badge({ id: "badge-landmark-1", code: "landmark_hunter_1", name: "Landmark Hunter I", icon: "compass" });

@@ -31,7 +31,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 112 | [Neighborhood onboarding checklist](#neighborhood-onboarding-checklist) | feature | M | H | — |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 84 | [Premium neighborhood tier: events and custom challenges](#premium-neighborhood-tier-events-and-custom-challenges) | feature | L | H | — |
-| 108 | [Split badges/challenges into app-wide vs neighborhood-specific scopes](#split-badgeschallenges-into-app-wide-vs-neighborhood-specific-scopes) | feature | L | H | — |
 | 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
 | 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
@@ -179,14 +178,6 @@ No open limitations.
 **Depends:** —
 **Why** — The neighborhood admin workflow is currently implicit — docs/project-plan.md §12.3 describes a sequence (draw boundary, sync venues, curate business claims, optionally add events/challenges, then flip to live), but there's no in-app checklist showing which steps are required vs. optional, which are done, or which are blocking the "Activate neighborhood" action (shipped v0.79.0). A visible checklist surfaces the workflow, prevents admins from forgetting steps, and clearly gates the "go live" action on specific prerequisites (boundary + locations sync are hard requirements; events and challenges are nice-to-have).
 **Notes:** Add a checklist card/panel to the admin neighborhood Overview tab showing: **Required before live** (draw boundary, sync venues/run locations import), **Optional/anytime** (import events feed, create challenges, configure business claiming, set description/social links). Each item links to its configuration page and shows completion state (green check, gray pending, or red blocker if a required step failed). The existing "Activate neighborhood" button (v0.79.0) should only enable once all required items are complete — today it's enabled any time the neighborhood is still `onboarding`, with no check against actual readiness. Open questions: should optional items block anything, or are they purely informational? Should the checklist track sub-steps (e.g. "import events" → "verify feed URL is valid" → "check event count > 0")? Does completion state live in the DB or is it computed server-side from `neighborhood.boundary_geojson is not null`, `venue count > 0`, `ical_feed_url is set`, etc.?
-
-#### Split badges/challenges into app-wide vs neighborhood-specific scopes
-
-**Ref:** 108
-**Type:** feature
-**Depends:** —
-**Why** — Badges and challenges are global-only today (badge rule engine shipped v0.40.0; `GET /neighborhoods/:slug/challenges` reads from shared templates) — there's no way for a challenge to be flavored to one neighborhood's own venues (e.g. "Bar Hop" scoped to Phinneywood's specific bars, per the account page's in-progress challenges). A second neighborhood needs either the same global challenges (fine for some) or its own neighborhood-specific instances (needed for venue-scoped ones like Bar Hop/Coffee Crawl/Bakery Tour), and today's schema can't express that distinction.
-**Notes:** Needs a scope concept — e.g. a nullable `neighborhood_id` on the challenge/badge template tables (null = app-wide, set = neighborhood-specific) — plus a decision on how a neighborhood-specific challenge gets created for a new neighborhood: likely duplicating a template row per neighborhood (copy-on-onboard) rather than one shared row multiple neighborhoods reference, so each neighborhood's instance can track its own progress/stats independently. Overlaps significantly with [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) (Ref 77, already open) — that item is the admin-facing "launch/build a challenge" UI, while this item is the underlying scope/schema split it would need to target; worth scoping together rather than duplicating design work.
 
 #### Two-step neighborhood creation: fields first, boundary required after
 

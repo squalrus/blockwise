@@ -97,8 +97,16 @@ function ChallengeList({ challenges }: { challenges: ChallengeProgress[] }) {
         return (
           <li key={challenge.id} className="rounded-2xl bg-card-alt px-4 py-4 text-sm">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-extrabold text-foreground">🍄 {challenge.title}</span>
-              <span className="text-xs font-extrabold text-brand-green">
+              <span className="flex min-w-0 items-center gap-1.5 font-extrabold text-foreground">
+                <span className="truncate">🍄 {challenge.title}</span>
+                {/* null neighborhood_id (BACKLOG.md Ref 108) -- this challenge runs in every neighborhood, not just this one. */}
+                {challenge.neighborhood_id === null && (
+                  <span className="shrink-0 rounded-full border border-border bg-card px-1.5 py-0.5 text-[10px] font-extrabold text-muted-strong">
+                    App-wide
+                  </span>
+                )}
+              </span>
+              <span className="shrink-0 text-xs font-extrabold text-brand-green">
                 {challenge.completed ? "Completed ✓" : `+${challenge.points_reward} pts`}
               </span>
             </div>

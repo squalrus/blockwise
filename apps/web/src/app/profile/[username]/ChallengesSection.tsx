@@ -43,7 +43,7 @@ export function ChallengesSection({ challenges }: { challenges: UserChallenge[] 
               <ProgressBar percent={100} />
             </div>
             <p className="mt-1.5 text-xs font-bold text-muted">
-              {challenge.neighborhood_name} · +{challenge.points_reward} pts · Completed{" "}
+              {challenge.neighborhood_name ?? "App-wide"} · +{challenge.points_reward} pts · Completed{" "}
               {new Date(challenge.completed_at).toLocaleString()}
             </p>
           </li>

@@ -40,11 +40,35 @@ export interface BadgeRecord {
   name: string;
   description: string | null;
   icon: string | null;
+  // null = app-wide; set = this badge belongs to (and is only earnable
+  // within) that one neighborhood, e.g. a category_milestone "Explorer"
+  // badge re-homed off the global default (BACKLOG.md Ref 108 follow-up --
+  // "N distinct coffee shops" is meant to be about *this neighborhood's*
+  // coffee shops, not a lifetime cross-neighborhood tally). Distinct from a
+  // challenge's own neighborhood_id: a badge earned via a neighborhood-
+  // scoped *challenge* (challenge.badge_id) can still have neighborhoodId
+  // null here -- this field is only set when the badge itself, independent
+  // of any challenge, is neighborhood-owned (today: badge_rule-driven
+  // badges only).
+  neighborhoodId: string | null;
+}
+
+// badge.code hitting the table's unique constraint (BACKLOG.md Ref 108's
+// super-admin Badges view) -- mirrors SlugTakenError (neighborhoods/
+// repository.ts) for the same "translate a DB uniqueness violation into a
+// typed error the route can catch" pattern.
+export class BadgeCodeTakenError extends Error {
+  constructor(code: string) {
+    super(`Badge code "${code}" is already taken`);
+    this.name = "BadgeCodeTakenError";
+  }
 }
 
 export interface ChallengeRecord {
   id: string;
-  neighborhoodId: string;
+  // null means app-wide (BACKLOG.md Ref 108) -- see the challenge_scope_check
+  // migration for the corresponding schema change.
+  neighborhoodId: string | null;
   title: string;
   description: string | null;
   categoryId: string | null;
@@ -72,7 +96,10 @@ export interface ChallengeRecord {
 export interface CompleteChallengeInput {
   userId: string;
   challengeId: string;
-  neighborhoodId: string;
+  // null for an app-wide challenge -- point_event.neighborhood_id is already
+  // nullable (dropped not null for neighbor_connection events), so this
+  // just writes a null neighborhood_id, same mechanism.
+  neighborhoodId: string | null;
   pointsReward: number;
   badgeId: string | null;
 }
@@ -90,8 +117,9 @@ export interface CompletedChallengeRecord {
   id: string;
   title: string;
   description: string | null;
-  neighborhoodId: string;
-  neighborhoodName: string;
+  // Both null for a completed app-wide challenge (BACKLOG.md Ref 108).
+  neighborhoodId: string | null;
+  neighborhoodName: string | null;
   pointsReward: number;
   badge: BadgeRecord | null;
   completedAt: string;
@@ -174,7 +202,72 @@ export interface GamificationRepository {
     now: string;
   }): Promise<ChallengeRecord[]>;
 
+  // Every neighborhood-scoped challenge for this neighborhood, plus every
+  // app-wide challenge (BACKLOG.md Ref 108) -- merged into one list since
+  // both apply here.
   listChallengesForNeighborhood(neighborhoodId: string, now: string): Promise<ChallengeRecord[]>;
+
+  // Every challenge that exists (any scope, any time window), for the super
+  // admin Challenges tab's list view (BACKLOG.md Ref 108).
+  listAllChallengesForAdmin(): Promise<ChallengeRecord[]>;
+
+  // This neighborhood's own challenges only (no app-wide merge, no time
+  // window filter) -- the neighborhood-admin Challenges tab's list view
+  // (BACKLOG.md Ref 108), which manages just this neighborhood's rows, not
+  // the app-wide ones that also happen to apply here.
+  listChallengesForNeighborhoodAdmin(neighborhoodId: string): Promise<ChallengeRecord[]>;
+
+  createChallenge(input: {
+    neighborhoodId: string | null;
+    title: string;
+    description: string | null;
+    categoryId: string | null;
+    targetKind: ChallengeTargetKind | null;
+    targetCount: number;
+    // True for a "completionist" challenge (e.g. "Visit every POI") whose
+    // real target tracks the neighborhood's current active-POI count rather
+    // than a fixed number -- only meaningful when targetKind is "poi" (see
+    // challenges.ts's effectiveTargetCount, which is what actually resolves
+    // it; targetCount here is stored anyway as a fallback/last-known value
+    // but never trusted directly once this is true).
+    targetCountLive: boolean;
+    pointsReward: number;
+    badgeId: string | null;
+    startsAt: string;
+    endsAt: string | null;
+  }): Promise<ChallengeRecord>;
+
+  // Deliberately narrow -- only the fields safe to change after creation
+  // without re-deriving progress (BACKLOG.md Ref 108's minimal admin UI).
+  // Scope (neighborhood_id) and target composition (category_id/venue_id/
+  // target_kind) are create-only. Returns null if no challenge with this id
+  // exists.
+  // options.neighborhoodId, when passed, scopes the update to a challenge
+  // owned by that neighborhood (neighborhood-admin Challenges tab, BACKLOG.md
+  // Ref 108) -- a challengeId that exists but belongs to a different
+  // neighborhood (or is app-wide) is treated the same as not found, so one
+  // neighborhood's admin can't edit another's rows or an app-wide one.
+  // Omitted entirely for the super-admin route, which can edit anything.
+  updateChallenge(
+    id: string,
+    patch: {
+      title?: string;
+      description?: string | null;
+      // categoryId/targetKind are re-targeting fields -- callers (the
+      // challengeAdmin.ts domain layer) always send both together (one null,
+      // one set) when either changes, so exactly-one-of-category/kind
+      // (challenge_target_check) holds by construction rather than needing
+      // to be re-derived here against the row's current value.
+      categoryId?: string | null;
+      targetKind?: ChallengeTargetKind | null;
+      targetCount?: number;
+      targetCountLive?: boolean;
+      pointsReward?: number;
+      badgeId?: string | null;
+      endsAt?: string | null;
+    },
+    options?: { neighborhoodId?: string }
+  ): Promise<ChallengeRecord | null>;
 
   hasCompletedChallenge(userId: string, challengeId: string): Promise<boolean>;
 
@@ -182,14 +275,25 @@ export interface GamificationRepository {
   // page profile summary), mirroring getUserPointsTotal above.
   countCompletedChallengesForUser(userId: string): Promise<number>;
 
+  // Which of these challenge ids have at least one completion, by anyone
+  // (BACKLOG.md Ref 108 follow-up: a neighborhood admin can't edit a
+  // challenge or its badge once someone has already completed it -- that
+  // would retroactively change what they earned -- while a super admin can
+  // always edit). Batched rather than per-challenge so listing challenges
+  // doesn't do N+1 queries just to compute this flag.
+  completedChallengeIds(challengeIds: string[]): Promise<Set<string>>;
+
   // Distinct venues (matching categoryId, within the neighborhood) this user
   // has checked into within [startsAt, endsAt] -- the progress metric for a
   // category challenge like "5 different coffee shops". A null endsAt (an
   // indefinite challenge) means no upper bound.
+  // neighborhoodId is null for an app-wide category challenge (BACKLOG.md
+  // Ref 108) -- progress is then counted across every neighborhood the user
+  // has checked into, not just one.
   countDistinctVenuesCheckedInForCategory(input: {
     userId: string;
     categoryId: string;
-    neighborhoodId: string;
+    neighborhoodId: string | null;
     startsAt: string;
     endsAt: string | null;
   }): Promise<number>;
@@ -206,10 +310,12 @@ export interface GamificationRepository {
   // any-activity challenge, mirroring countDistinctVenuesCheckedInForCategory.
   // Omitting kind (any-activity) counts check-ins to any location kind;
   // passing kind (any-POI) restricts to that kind only.
+  // neighborhoodId is null for an app-wide any-POI/any-activity challenge
+  // (BACKLOG.md Ref 108), same "count everywhere" meaning as above.
   countDistinctVenuesCheckedInForKind(input: {
     userId: string;
     kind?: LocationKind;
-    neighborhoodId: string;
+    neighborhoodId: string | null;
     startsAt: string;
     endsAt: string | null;
   }): Promise<number>;
@@ -219,7 +325,10 @@ export interface GamificationRepository {
   // challenge like "Visit every POI" (challenges.ts's effectiveTargetCount),
   // as opposed to countDistinctVenuesCheckedInForKind above, which counts
   // this *user's* progress, not the denominator.
-  countActiveLocationsForKind(input: { neighborhoodId: string; kind: LocationKind }): Promise<number>;
+  // neighborhoodId is null for an app-wide completionist challenge
+  // (BACKLOG.md Ref 108) -- the denominator is then every active location of
+  // this kind across every neighborhood.
+  countActiveLocationsForKind(input: { neighborhoodId: string | null; kind: LocationKind }): Promise<number>;
 
   // Marks the challenge complete (idempotent -- returns false if already
   // completed), awards the bonus points, and awards the badge if any.
@@ -251,6 +360,34 @@ export interface GamificationRepository {
   // "locked" badges the user hasn't earned yet alongside earned ones.
   getAllBadges(): Promise<BadgeRecord[]>;
 
+  // Super admin Badges view (BACKLOG.md Ref 108) -- a plain badge row with no
+  // rule attached, meant to be picked as a challenge's badge_id afterward
+  // (or later wired to a badge_rule directly in the DB; the rule engine's ~9
+  // rule types aren't authorable through this admin UI). Throws
+  // BadgeCodeTakenError on a code collision.
+  createBadge(input: {
+    code: string;
+    name: string;
+    description: string | null;
+    icon: string | null;
+    neighborhoodId: string | null;
+  }): Promise<BadgeRecord>;
+
+  // Deliberately excludes code and neighborhoodId -- code is referenced by
+  // exact string in awardBadgeByCode call sites (founderBadge.ts etc.), so
+  // renaming it out from under those would silently break a one-off award;
+  // scope is create-only, mirroring updateChallenge. options.neighborhoodId,
+  // when passed, scopes the update to a badge directly owned by that
+  // neighborhood (neighborhood-admin Badges tab, BACKLOG.md Ref 108) -- a
+  // badgeId that exists but belongs to a different neighborhood (or is
+  // app-wide) is treated the same as not found. Returns null if no badge
+  // matches.
+  updateBadge(
+    id: string,
+    patch: { name?: string; description?: string | null; icon?: string | null },
+    options?: { neighborhoodId?: string }
+  ): Promise<BadgeRecord | null>;
+
   // Every badge rule (badges.ts filters/evaluates these in application code
   // rather than pushing per-rule-type filtering into SQL -- the full rule
   // set is small enough, today's ~45 rows, to just load it every check-in).
@@ -271,6 +408,9 @@ export interface GamificationRepository {
     userId: string;
     categoryId?: string;
     kind?: LocationKind;
+    // Set for a neighborhood-scoped badge_rule -- restricts the count to
+    // that neighborhood instead of a lifetime cross-neighborhood total.
+    neighborhoodId?: string | null;
   }): Promise<number>;
 
   // Distinct locations this user checked into within [startsAt, endsAt] --
