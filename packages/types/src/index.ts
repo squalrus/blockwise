@@ -496,6 +496,9 @@ export interface AppUserAdminView {
   // app_metadata.provider at token verification time, null only for rows
   // old enough to predate the auth_provider column.
   auth_provider: string | null;
+  // Stamped on every real POST /auth/complete-login (not on every /auth/me
+  // poll) -- defaults to the signup timestamp until a second visit.
+  last_login_at: string;
 }
 
 export interface ClaimedVenueSummary {
@@ -1659,6 +1662,13 @@ export interface MonitoringRecentError {
   stack: string | null;
   context: Record<string, unknown> | null;
   created_at: string;
+  // Which deployment logged this row (e.g. "app.tryspored.com", "localhost")
+  // -- null for rows logged before the domain column existed.
+  domain: string | null;
+  // Which shipped release logged this row (apps/api/package.json's
+  // "version" at log time, e.g. "0.81.0") -- null for rows logged before
+  // the app_version column existed.
+  app_version: string | null;
 }
 
 export interface MonitoringLatencyByDay {
@@ -1709,6 +1719,16 @@ export interface MonitoringAnalytics {
   slowest_queries: MonitoringSlowQuery[];
   places_api_calls_over_time: MonitoringDailyCount[];
   places_api_by_endpoint: MonitoringPlacesApiByEndpoint[];
+  // Every domain (deployment) that has ever logged an error or request row,
+  // regardless of the current days/domain filter -- backs the Monitoring
+  // tab's domain picker (BACKLOG.md Ref 104 follow-up), so a future new
+  // deployment shows up automatically once it logs anything.
+  available_domains: string[];
+  // The last 8 distinct shipped versions seen across error_log/request_log,
+  // newest first, regardless of the current days/domain/version filter --
+  // backs the Monitoring tab's version picker (BACKLOG.md Ref 104
+  // follow-up).
+  available_versions: string[];
 }
 
 // POST /monitoring/client-errors: the web app's React error boundaries

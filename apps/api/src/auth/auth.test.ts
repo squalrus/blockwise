@@ -9,6 +9,7 @@ import type { VerifiedAuthUser } from "./verifyToken";
 // ClaimRepository tests.
 class FakeAuthRepository implements AuthRepository {
   users: AppUserRecord[] = [];
+  lastLoginCalls: string[] = [];
   private nextId = 1;
 
   async getByAuthUserId(authUserId: string): Promise<AppUserRecord | null> {
@@ -71,6 +72,10 @@ class FakeAuthRepository implements AuthRepository {
     return new Map(
       this.users.filter((u) => userIds.includes(u.id)).map((u) => [u.id, u.notificationPreferences])
     );
+  }
+
+  async recordLogin(userId: string): Promise<void> {
+    this.lastLoginCalls.push(userId);
   }
 }
 
@@ -289,5 +294,19 @@ describe("completeLogin", () => {
     const result = await completeLogin(VERIFIED, repo);
     expect(result.status).toBe("ok");
     if (result.status === "ok") expect(result.user.id).toBe(account.id);
+  });
+
+  it("stamps last_login_at for a real login", async () => {
+    const repo = new FakeAuthRepository();
+    const account = await completeSignup(VERIFIED, "consumer", repo);
+
+    await completeLogin(VERIFIED, repo);
+    expect(repo.lastLoginCalls).toEqual([account.id]);
+  });
+
+  it("does not stamp last_login_at when the account doesn't exist", async () => {
+    const repo = new FakeAuthRepository();
+    await completeLogin(VERIFIED, repo);
+    expect(repo.lastLoginCalls).toEqual([]);
   });
 });

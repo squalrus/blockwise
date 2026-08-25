@@ -157,6 +157,9 @@ class FakeAuthRepository implements AuthRepository {
   async getNotificationPreferences(userIds: string[]): Promise<Map<string, NotificationPreferences>> {
     return new Map(userIds.map((id) => [id, this.overrides[id] ?? DEFAULT_PREFERENCES]));
   }
+  async recordLogin(): Promise<void> {
+    throw new Error("not implemented");
+  }
 }
 
 // In-memory fake, mirroring FakeFavoriteRepository in favorites/favorite.test.ts

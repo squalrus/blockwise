@@ -2,6 +2,18 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.82.0] — 2026-08-25
+
+### Added
+
+- **Three-dot row-actions menu on the super-admin Users table**, replacing the always-visible inline "send test push" form — "Send test push" now opens as a modal with title, body, and an optional URL field (opens that URL when the notification is tapped). The same `ActionMenu` pattern (open/click-outside/Escape) already used by `AccountNav`/`AdminSwitcher` is now a shared component for row-level actions elsewhere in admin. (`apps/web/src/app/ActionMenu.tsx`, `apps/web/src/app/SendTestPushModal.tsx`, `apps/web/src/app/admin/super/users/page.tsx`)
+- **"Last login" column on the super-admin Users table**: a new `app_user.last_login_at` column is stamped on every real `POST /auth/complete-login` (not on every `/auth/me` poll), defaulting to signup time so it's populated immediately rather than reading blank until a second visit. (`supabase/migrations/20260825010000_last_login_at.sql`, `apps/api/src/auth/`, `apps/api/src/users/`, `packages/types/src/index.ts`)
+- **Domain and version filters on the super-admin Monitoring tab**: error and request logs now record which deployment (`app.tryspored.com`, `localhost`, and any future domain like `dev.tryspored.com`) and which shipped app version logged them, with filter pills to narrow every chart down to one domain and/or one of the last 8 versions — lets production issues be isolated from local-dev noise. A backfill migration recovers `domain` for historical web-sourced errors (which already carried the page URL) from before the column existed; API errors and request-log rows have no URL captured, so those stay unlabeled but remain visible under "All domains". (`supabase/migrations/20260825020000_monitoring_domain.sql` and four related migrations, `apps/api/src/monitoring/`, `apps/web/src/app/admin/super/monitoring/`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Admin header nav now prefers Super Admin mode** when available, falling back to neighborhood admin, then business admin — previously it always preferred neighborhood/business and never routed a super admin straight into `/admin/super`. The `AdminSwitcher` dropdown's "Platform" group also moved to the top of the list, ahead of Neighborhoods/Businesses. (`apps/web/src/app/admin/page.tsx`, `apps/web/src/app/AdminSwitcher.tsx`, `apps/web/src/app/AccountNav.tsx`)
+
 ## [0.81.0] — 2026-08-25
 
 ### Added

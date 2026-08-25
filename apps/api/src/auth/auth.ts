@@ -95,5 +95,6 @@ export async function completeLogin(
   const user = await repository.getByAuthUserId(verified.authUserId);
   if (!user) return { status: "not_signed_up" };
 
+  await repository.recordLogin(user.id);
   return { status: "ok", user };
 }

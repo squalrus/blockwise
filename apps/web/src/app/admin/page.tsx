@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import type { AppUser, ClaimedVenueSummary, NeighborhoodAdminSummary } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken, getCurrentUser, promoteToBusiness } from "@/lib/auth";
@@ -17,11 +16,13 @@ type State =
 
 // Single admin entry point (docs/url-map.md refactor, folding the old
 // /business and /neighborhood-admin list pages together): an account can
-// administer many neighborhoods and/or own many businesses (independent
-// AppUser.account_type / is_neighborhood_admin flags), so there's no longer
-// a single "your list" page -- this just routes straight into whichever shell
-// applies, preferring neighborhoods, and the sidebar's AdminSwitcher is where
-// you browse/switch between everything once inside either shell.
+// be a super admin, administer many neighborhoods, and/or own many
+// businesses (independent AppUser.is_super_admin / is_neighborhood_admin /
+// account_type flags), so there's no longer a single "your list" page --
+// this just routes straight into whichever shell applies, preferring super
+// admin, then neighborhoods, then businesses, and the sidebar's
+// AdminSwitcher is where you browse/switch between everything once inside
+// any shell.
 export default function AdminLandingPage() {
   const router = useRouter();
   const [state, setState] = useState<State>({ status: "loading" });
@@ -35,6 +36,12 @@ export default function AdminLandingPage() {
       if (cancelled) return;
       if (!user) {
         setState({ status: "signed_out" });
+        return;
+      }
+
+      if (user.is_super_admin) {
+        setState({ status: "redirecting" });
+        router.replace("/admin/super");
         return;
       }
 
@@ -101,20 +108,10 @@ export default function AdminLandingPage() {
 
       {state.status === "empty" && (
         <div className="flex flex-col gap-4">
-          {state.user.is_super_admin ? (
-            <p className="text-sm text-muted">
-              You aren&apos;t an admin of any neighborhood yet.{" "}
-              <Link href="/admin/neighborhood/new" className="font-bold text-brand-purple hover:text-brand-orange">
-                Create one
-              </Link>
-              .
-            </p>
-          ) : (
-            <p className="text-sm text-muted">
-              This account isn&apos;t a neighborhood admin for any neighborhood. Neighborhood creation is
-              currently limited to super admins.
-            </p>
-          )}
+          <p className="text-sm text-muted">
+            This account isn&apos;t a neighborhood admin for any neighborhood. Neighborhood creation is currently
+            limited to super admins.
+          </p>
 
           {state.user.account_type === "business" ? (
             <p className="text-sm text-muted">

@@ -137,7 +137,9 @@ export function AccountNav() {
             user={state.user}
             homeNeighborhood={state.homeNeighborhood}
             onboarding={state.onboarding}
-            showAdminLink={state.user.account_type === "business" || state.user.is_neighborhood_admin}
+            showAdminLink={
+              state.user.account_type === "business" || state.user.is_neighborhood_admin || state.user.is_super_admin
+            }
             onLogOut={handleLogOut}
           />
         )}

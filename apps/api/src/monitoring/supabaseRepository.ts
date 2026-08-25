@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MonitoringAnalytics, MonitoringSlowQuery } from "@blockwise/types";
+import { getAppDomain } from "./appDomain";
+import { getAppVersion } from "./appVersion";
 import type { ErrorLogEntry, MonitoringRepository, PlacesApiCallEntry, RequestLogEntry } from "./repository";
 
 export class SupabaseMonitoringRepository implements MonitoringRepository {
@@ -11,6 +13,8 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
       message: entry.message,
       stack: entry.stack ?? null,
       context: entry.context ?? null,
+      domain: getAppDomain(),
+      app_version: getAppVersion(),
     });
 
     if (error) throw new Error(`logError failed: ${error.message}`);
@@ -22,6 +26,8 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
       path: entry.path,
       status_code: entry.statusCode,
       duration_ms: entry.durationMs,
+      domain: getAppDomain(),
+      app_version: getAppVersion(),
     });
 
     if (error) throw new Error(`logRequest failed: ${error.message}`);
@@ -42,9 +48,9 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
   // get_monitoring_analytics's ordinary invoker rights (see
   // 20260821060000_pg_stat_statements.sql). Fetched in parallel and merged
   // here so callers still see one method, one MonitoringAnalytics shape.
-  async getAnalytics(days: number): Promise<MonitoringAnalytics> {
+  async getAnalytics(days: number, domain?: string | null, version?: string | null): Promise<MonitoringAnalytics> {
     const [analyticsResult, slowQueriesResult] = await Promise.all([
-      this.supabase.rpc("get_monitoring_analytics", { p_days: days }),
+      this.supabase.rpc("get_monitoring_analytics", { p_days: days, p_domain: domain ?? null, p_version: version ?? null }),
       this.supabase.rpc("get_slow_queries", { p_limit: 10 }),
     ]);
 
