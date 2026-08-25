@@ -1,4 +1,4 @@
-import type { MonitoringAnalytics } from "@blockwise/types";
+import type { MonitoringAnalytics, PlacesApiEndpoint } from "@blockwise/types";
 
 export interface ErrorLogEntry {
   source: "api" | "web";
@@ -15,7 +15,7 @@ export interface RequestLogEntry {
 }
 
 export interface PlacesApiCallEntry {
-  endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia";
+  endpoint: PlacesApiEndpoint;
   success: boolean;
   durationMs: number;
   errorMessage?: string | null;
@@ -30,6 +30,14 @@ export interface MonitoringRepository {
   logError(entry: ErrorLogEntry): Promise<void>;
   logRequest(entry: RequestLogEntry): Promise<void>;
   logPlacesApiCall(entry: PlacesApiCallEntry): Promise<void>;
+  // Calendar-month-to-date count of successful calls for one endpoint --
+  // backs PlacesApiQuotaGuard (see apps/api/src/places/quotaGuard.ts), which
+  // checks this before a non-critical getPlaceDetails/fetchPhotoMedia call
+  // to decide whether the endpoint's monthly free tier is at/near its limit.
+  // Deliberately a narrow direct query rather than reusing getAnalytics --
+  // this runs on ordinary visitor page loads (via the quota guard's short
+  // cache), not just the super-admin Monitoring tab.
+  getMonthToDateCallCount(endpoint: PlacesApiEndpoint): Promise<number>;
   // domain narrows every chart to one deployment's rows (e.g.
   // "app.tryspored.com"); version narrows to one shipped release (e.g.
   // "0.81.0"); statusClass narrows recent_requests to one status-code family

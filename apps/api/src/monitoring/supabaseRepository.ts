@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MonitoringAnalytics, MonitoringSlowQuery } from "@blockwise/types";
+import type { MonitoringAnalytics, MonitoringSlowQuery, PlacesApiEndpoint } from "@blockwise/types";
 import { getAppDomain } from "./appDomain";
 import { getAppVersion } from "./appVersion";
 import type { ErrorLogEntry, MonitoringRepository, PlacesApiCallEntry, RequestLogEntry } from "./repository";
@@ -42,6 +42,22 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
     });
 
     if (error) throw new Error(`logPlacesApiCall failed: ${error.message}`);
+  }
+
+  // Delegates the "start of this month" boundary to the DB (RPC
+  // get_places_api_month_to_date_count / google_places_billing_month_start,
+  // 20260825140000_places_api_billing_month_pacific_time.sql) rather than
+  // computing it here -- Google's free tier resets at midnight *Pacific
+  // Time*, not UTC, and Pacific Time's PST/PDT offset changes twice a year,
+  // which JS date math would have to special-case. Postgres's `at time
+  // zone 'America/Los_Angeles'` already handles that correctly.
+  async getMonthToDateCallCount(endpoint: PlacesApiEndpoint): Promise<number> {
+    const { data, error } = await this.supabase.rpc("get_places_api_month_to_date_count", {
+      p_endpoint: endpoint,
+    });
+
+    if (error) throw new Error(`getMonthToDateCallCount failed: ${error.message}`);
+    return data ?? 0;
   }
 
   // Two RPCs, not one -- get_slow_queries reads pg_stat_statements, which

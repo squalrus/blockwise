@@ -71,6 +71,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | --- | --- | --- | --- | --- | --- |
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 95 | [Dev instance of the app (Netlify and Supabase)](#dev-instance-of-the-app-netlify-and-supabase) | improvement | L | H | — |
+| 113 | [Trim Place Details field mask to a cheaper SKU tier](#trim-place-details-field-mask-to-a-cheaper-sku-tier) | improvement | S | M | — |
 | 105 | [Additional app themes within brand guidelines](#additional-app-themes-within-brand-guidelines) | feature | M | L | — |
 
 ### Marketing
@@ -321,7 +322,15 @@ No open limitations.
 **Why** — A persistent staging environment enables safe testing and debugging of changes before they reach production users, and a formal approval/promotion workflow prevents accidental releases and gives visibility into what's going live.
 **Notes:** Set up parallel Netlify and Supabase instances (or use Supabase preview branches) mirroring the production setup. Hide the dev site from users and search engines via `robots.txt` disallow, meta tags, and/or a basic auth gate. Configure Netlify to auto-deploy commits to a dev branch (e.g. `main-dev` or `staging`) or trigger via GitHub Actions. Create a promotion mechanism — either a manual Netlify deployment trigger (promoting a dev build to prod) or a GitHub Actions workflow requiring explicit approval (via `workflow_dispatch` or a review/check) before promoting. Open questions: should this coexist with Netlify's per-PR preview deploys (different purposes — per-branch preview for each PR, vs. persistent shared dev for manual testing), or replace them? Should dev share a Supabase project/database or use a completely separate one for true isolation?
 
-#### Additional app themes within brand guidelines
+##### Trim Place Details field mask to a cheaper SKU tier
+
+**Ref:** 113
+**Type:** improvement
+**Depends:** —
+**Why** — `DETAIL_FIELD_MASK` (`apps/api/src/places/client.ts`) requests `reviews` and `photos` on every single `getPlaceDetails` call, which pushes every one of those calls into Google's priciest "Place Details Enterprise + Atmosphere" SKU tier ($25/1k) regardless of whether the caller actually needs reviews/photos that time. Places API content (rating, reviews, hours, phone, photos, etc.) has no caching exception under Google's ToS — only `place_id` (indefinite) and lat/lng (30 days) do — so unlike a typical cost problem, caching longer isn't an available lever here; requesting less per call is.
+**Notes:** Check whether every consumer of `VenueEnrichmentCache` actually needs `reviews`/`photos` on every refresh, or whether a cheaper Basic/Contact-only mask would do for most cases, with the Enterprise+Atmosphere mask reserved for whichever specific call sites (if any) truly need it. Related work already shipped: the Places API cost guardrail (`apps/api/src/places/quotaGuard.ts`, `PLACES_API_PRICING` in `packages/types/src/index.ts`) caps `getPlaceDetails`/`fetchPhotoMedia` near the monthly free tier, and `MAX_GALLERY_PHOTOS` (`apps/api/src/enrichment/refresh.ts`) already caps photo count per venue for the same ToS-driven reason. Open question: does trimming the mask conditionally (some calls Basic-only, some Enterprise+Atmosphere) add enough complexity to justify itself, versus just accepting the current flat rate — worth a quick check of how much of `venue_enrichment_cache`'s data actually goes unused before committing to a split.
+
+### Additional app themes within brand guidelines
 
 **Ref:** 105
 **Type:** feature

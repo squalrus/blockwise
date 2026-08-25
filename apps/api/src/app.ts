@@ -159,6 +159,7 @@ import { InstrumentedPlacesClient } from "./places/instrumentedClient";
 import { investigateMissingLocation } from "./places/investigate";
 import { MockPlacesClient } from "./places/mockClient";
 import { previewNeighborhoodBoundary } from "./places/preview";
+import { PlacesApiQuotaExceededError, PlacesApiQuotaGuard, QuotaGuardedPlacesClient } from "./places/quotaGuard";
 import { SupabasePlacesRepository } from "./places/supabaseRepository";
 import { getHappeningNow } from "./locations/happeningNow";
 import {
@@ -306,14 +307,47 @@ const PUBLIC_PATH_PREFIX = /^\/api(?=\/|$)/;
 // dev. Both classes implement GooglePlacesClient (searchNearby) as well as
 // PlaceDetailsClient, so the same cached instance also backs the boundary
 // preview route's Nearby Search calls.
+//
+// getPlaceDetails/fetchPhotoMedia additionally go through
+// QuotaGuardedPlacesClient (only when live -- MockPlacesClient never costs
+// anything, so guarding it would just make local dev flaky). It sits
+// outside InstrumentedPlacesClient so a guardrail trip never reaches Google
+// and never gets logged as an attempted call. searchNearby/searchText are
+// left ungated: both are admin-triggered actions (sync, boundary preview,
+// investigate), not something that fires on every visitor page view the way
+// enrichment refresh and photo loading do.
+//
+// NOT caching fetchPhotoMedia's bytes server-side, on purpose -- an earlier
+// version of this did (Supabase Storage, 30-day TTL), but Google Maps
+// Platform's Terms of Service explicitly prohibit caching Places API photos
+// beyond a live fetch (Section 3.2.3(b) "No Caching"; the only caching
+// exceptions are place_id, cacheable indefinitely, and lat/lng, cacheable
+// 30 days -- neither covers photos). See EnrichmentSection.tsx's
+// photo-count cap and lazy loading for the compliant way this is addressed
+// instead: fetch fewer photos per venue rather than reuse fetched ones.
 function getPlacesClient(): GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   // Only the real client is instrumented (BACKLOG.md Ref 104 follow-up) --
   // MockPlacesClient calls never hit Google, so logging them would just be
   // local-dev noise on the Monitoring tab.
-  return apiKey
-    ? new InstrumentedPlacesClient(new LivePlacesClient(apiKey), getMonitoringRepository)
-    : new MockPlacesClient();
+  if (!apiKey) return new MockPlacesClient();
+
+  const live = new InstrumentedPlacesClient(new LivePlacesClient(apiKey), getMonitoringRepository);
+  const guarded = new QuotaGuardedPlacesClient(live, getPlacesApiQuotaGuard());
+  return {
+    searchNearby: (params) => live.searchNearby(params),
+    searchText: (params) => live.searchText(params),
+    getPlaceDetails: (placeId) => guarded.getPlaceDetails(placeId),
+    fetchPhotoMedia: (photoReference) => guarded.fetchPhotoMedia(photoReference),
+  };
+}
+
+let placesApiQuotaGuard: PlacesApiQuotaGuard | undefined;
+function getPlacesApiQuotaGuard(): PlacesApiQuotaGuard {
+  placesApiQuotaGuard ??= new PlacesApiQuotaGuard((endpoint) =>
+    getMonitoringRepository().getMonthToDateCallCount(endpoint)
+  );
+  return placesApiQuotaGuard;
 }
 
 // Constructed lazily (on first request) rather than at createApp() time --
@@ -627,6 +661,13 @@ export function createApp() {
       res.setHeader("Cache-Control", "public, max-age=86400");
       res.send(Buffer.from(media.data));
     } catch (err) {
+      // A tripped cost guardrail (QuotaGuardedPlacesClient) isn't a real
+      // failure -- treat it the same as "no photo cached" above rather than
+      // the 502 a genuine Google/network error gets.
+      if (err instanceof PlacesApiQuotaExceededError) {
+        res.status(404).end();
+        return;
+      }
       console.error(`GET /locations/${req.params.id}/photo failed:`, err);
       res.status(502).json({ error: "Failed to load photo" });
     }
