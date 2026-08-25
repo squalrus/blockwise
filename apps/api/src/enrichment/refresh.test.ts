@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { VenueEnrichmentCache } from "@blockwise/types";
 import type { PlaceDetailsClient, RawPlaceDetails } from "../places/client";
+import { PlacesApiQuotaExceededError } from "../places/quotaGuard";
 import { getFreshEnrichment, isStale } from "./refresh";
 import type { EnrichmentRepository, UpsertEnrichmentInput } from "./repository";
 
@@ -100,6 +101,25 @@ describe("getFreshEnrichment", () => {
     expect(result).toMatchObject({ rating: 4.6, price_tier: "PRICE_LEVEL_MODERATE" });
   });
 
+  it("caps photo_refs at MAX_GALLERY_PHOTOS even when Google returns more (photos can't be cached under Google's ToS, so requesting fewer is the only cost lever)", async () => {
+    const repository = new FakeEnrichmentRepository();
+    const placesClient = new FakePlacesClient();
+    placesClient.response = {
+      ...placesClient.response,
+      photos: Array.from({ length: 10 }, (_, i) => ({ name: `places/google-place-1/photos/${i}` })),
+    };
+
+    const result = await getFreshEnrichment("venue-1", "google-place-1", null, repository, placesClient);
+
+    expect(result?.photo_refs).toHaveLength(4);
+    expect(result?.photo_refs).toEqual([
+      "places/google-place-1/photos/0",
+      "places/google-place-1/photos/1",
+      "places/google-place-1/photos/2",
+      "places/google-place-1/photos/3",
+    ]);
+  });
+
   it("works identically for a former-POI-kind location (BACKLOG.md 'POIs and venues managed almost the same')", async () => {
     const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
@@ -188,6 +208,32 @@ describe("getFreshEnrichment", () => {
     const placesClient = new FakePlacesClient();
     placesClient.getPlaceDetails = async () => {
       throw new Error("Places API is down");
+    };
+
+    const result = await getFreshEnrichment("venue-1", "google-place-1", stale, repository, placesClient);
+
+    expect(result).toEqual(stale);
+  });
+
+  it("falls back to stale data instead of failing when the cost guardrail trips", async () => {
+    const stale: VenueEnrichmentCache = {
+      venue_id: "venue-1",
+      source: "google",
+      rating: 4.0,
+      reviews: [{ rating: 4, text: "Old review.", author_name: "Sam", published_at: "2025-12-01T00:00:00Z" }],
+      price_tier: "PRICE_LEVEL_MODERATE",
+      photo_refs: ["https://example.com/old-photo"],
+      phone: null,
+      website: null,
+      hours: null,
+      editorial_summary: null,
+      atmosphere: null,
+      fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+    };
+    const repository = new FakeEnrichmentRepository();
+    const placesClient = new FakePlacesClient();
+    placesClient.getPlaceDetails = async () => {
+      throw new PlacesApiQuotaExceededError("getPlaceDetails");
     };
 
     const result = await getFreshEnrichment("venue-1", "google-place-1", stale, repository, placesClient);

@@ -1,0 +1,17 @@
+-- Undoes 20260825130000_places_photo_cache.sql, which was applied before
+-- we caught that server-side caching of Places API photos violates Google
+-- Maps Platform's Terms of Service (Section 3.2.3(b) "No Caching" -- the
+-- only caching exceptions are place_id, indefinitely, and lat/lng, for 30
+-- days; photos have no exception). That migration file was deleted rather
+-- than left in the repo, so this is the down-migration for anyone whose
+-- database already applied it.
+--
+-- The places-photos bucket itself is NOT dropped here -- Supabase's storage
+-- schema rejects direct SQL writes to storage.objects/storage.buckets
+-- ("Direct deletion from storage tables is not allowed. Use the Storage API
+-- instead.", SQLSTATE 42501), since a bare row delete would leave the
+-- underlying blobs orphaned in the storage backend. It was removed via the
+-- Storage API instead (POST .../bucket/places-photos/empty, then DELETE
+-- .../bucket/places-photos) as a one-off, out-of-band step alongside this
+-- migration.
+drop table if exists places_photo_cache;

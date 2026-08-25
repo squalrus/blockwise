@@ -2,6 +2,22 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.0] — 2026-08-25
+
+### Added
+
+- **Estimated cost and monthly free-tier visibility on the Google Places monitoring sub-page**: a "Monthly free tier" section (now the top section on the page) shows month-to-date progress per endpoint against Google's free allowance, an "Estimated cost" chart sums each day's calls at their actual per-endpoint rate (search, place details, and photo calls bill at different SKU tiers), and the by-endpoint breakdown now shows a per-endpoint and total cost estimate with a disclaimer that it's an upper bound. Free-tier month-to-date is computed on Google's own billing boundary — midnight Pacific Time on the 1st, not UTC. (`apps/web/src/app/admin/super/monitoring/PlacesApiCostChart.tsx`, `PlacesApiFreeTierStats.tsx`, `placesApiCost.ts`, `PlacesApiByEndpointStats.tsx`, `places/page.tsx`, `apps/api/src/monitoring/`, `packages/types/src/index.ts`, `supabase/migrations/20260825120000_monitoring_analytics_fn_v7.sql`, `supabase/migrations/20260825140000_places_api_billing_month_pacific_time.sql`)
+- **Cost guardrail on the two highest-frequency Google Places endpoints** (`getPlaceDetails`, `fetchPhotoMedia`): once month-to-date calls reach 90% of Google's free tier, further live calls are skipped for the rest of the billing month rather than risking runaway charges — enrichment falls back to whatever's already cached, and a guarded photo request returns 404 instead of hitting Google. (`apps/api/src/places/quotaGuard.ts`, `apps/api/src/app.ts`, `apps/api/src/enrichment/refresh.ts`)
+
+### Changed
+
+- **Google Places photo gallery capped at 4 photos per venue** (previously up to 10) and photos now lazy-load — since Places API photos have no caching exception under Google's Terms of Service (only `place_id` and lat/lng do), requesting fewer photos per venue is the only compliant lever for controlling `fetchPhotoMedia` cost. A photo strip with no photos, or where every photo fails to load (e.g. the guardrail is active), now renders nothing instead of an empty placeholder box. (`apps/api/src/enrichment/refresh.ts`, `apps/web/src/app/EnrichmentSection.tsx`, `apps/web/src/app/EnrichmentPhotoGallery.tsx`)
+- **Turbo bumped to 2.10.12** (routine dependency update, no behavior change). (`package.json`, `turbo.json`)
+
+### Removed
+
+- **Server-side caching of Google Places photos**, added earlier and removed after confirming it violates Google Maps Platform's Terms of Service (Section 3.2.3(b) "No Caching" — only `place_id` and lat/lng have caching exceptions; photos don't). (`supabase/migrations/20260825150000_drop_places_photo_cache.sql`)
+
 ## [0.83.0] — 2026-08-25
 
 ### Added

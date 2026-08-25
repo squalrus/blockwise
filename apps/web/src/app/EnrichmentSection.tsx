@@ -1,4 +1,5 @@
 import type { EnrichmentAtmosphere, VenueEnrichmentCache } from "@blockwise/types";
+import { EnrichmentPhotoGallery } from "./EnrichmentPhotoGallery";
 import { VenueHours } from "./VenueHours";
 
 // Amber is light-toned in both themes, so it always needs ink (always-dark)
@@ -47,21 +48,16 @@ export function EnrichmentPhotos({
   alt: string;
 }) {
   if (!enrichment || enrichment.photo_refs.length === 0) {
-    return <div className="h-32 rounded-2xl bg-card-alt" />;
+    return null;
   }
-  return (
-    <div className="flex gap-2 overflow-x-auto">
-      {enrichment.photo_refs.map((_, index) => (
-        // eslint-disable-next-line @next/next/no-img-element -- proxied through apps/api, not a static asset
-        <img
-          key={index}
-          src={photoUrl(index)}
-          alt={alt}
-          className="h-32 w-56 flex-none rounded-2xl object-cover"
-        />
-      ))}
-    </div>
-  );
+  // enrichment.photo_refs is already capped server-side (MAX_GALLERY_PHOTOS
+  // in enrichment/refresh.ts) -- Places API photos can't be cached under
+  // Google's ToS, so requesting fewer of them is the only lever for cost.
+  // photoUrl is resolved to plain strings here, on the server, since a
+  // function prop can't cross into EnrichmentPhotoGallery's Client
+  // Component boundary -- see that file for the lazy-loading/broken-image
+  // handling this delegates to.
+  return <EnrichmentPhotoGallery photoUrls={enrichment.photo_refs.map((_, index) => photoUrl(index))} alt={alt} />;
 }
 
 export function EnrichmentAbout({

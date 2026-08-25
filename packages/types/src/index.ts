@@ -1729,11 +1729,13 @@ export interface MonitoringSlowQuery {
   total_exec_time: number;
 }
 
+export type PlacesApiEndpoint = "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia";
+
 // Self-instrumented outbound Google Places API calls (InstrumentedPlacesClient
 // wraps LivePlacesClient) -- not pulled from Google Cloud Monitoring, so this
 // reflects what our server attempted, not GCP's own quota/cost accounting.
 export interface MonitoringPlacesApiByEndpoint {
-  endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia";
+  endpoint: PlacesApiEndpoint;
   count: number;
   error_count: number;
 }
@@ -1743,11 +1745,70 @@ export interface MonitoringPlacesApiByEndpoint {
 // just observed.
 export interface MonitoringPlacesApiFailure {
   id: string;
-  endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia";
+  endpoint: PlacesApiEndpoint;
   error_message: string | null;
   duration_ms: number;
   created_at: string;
 }
+
+// Same daily-count shape as MonitoringDailyCount, split out by endpoint --
+// backs the Google Places page's cost-over-time chart. A plain daily total
+// can't be priced accurately since each endpoint bills at a different rate
+// (see PLACES_API_PRICING below), so the trend chart needs this breakdown
+// to sum count * rate per day rather than guessing a blended rate.
+export interface MonitoringPlacesApiCallByDayAndEndpoint {
+  date: string; // 'YYYY-MM-DD'
+  endpoint: PlacesApiEndpoint;
+  count: number;
+}
+
+// Month-to-date call counts per endpoint, independent of the Monitoring
+// tab's days/domain/version filters -- Google's Places API (New) free
+// monthly tier (see PLACES_API_PRICING) resets at midnight *Pacific Time*
+// on the 1st (confirmed against Google's docs, 2026-08-25) -- not UTC
+// midnight, and not a rolling window -- so "how much free quota is left
+// this month" has to be computed against that actual boundary
+// (google_places_billing_month_start() in Postgres, which uses 'America/
+// Los_Angeles' rather than a fixed offset so it stays correct across the
+// PST/PDT transition) regardless of which window an admin has picked to
+// look at. Only counts successful calls (mirrors the guardrail in
+// apps/api/src/places/quotaGuard.ts), since a failed request generally
+// isn't billed or counted against quota.
+export interface MonitoringPlacesApiMonthToDate {
+  endpoint: PlacesApiEndpoint;
+  count: number;
+}
+
+// Published per-1,000-request pricing for the Places API (New) SKUs each
+// endpoint always maps to -- each of the 4 methods in apps/api/src/places/
+// client.ts requests a fixed field mask (BASIC_FIELD_MASK or
+// DETAIL_FIELD_MASK), so unlike a general Places integration, the SKU per
+// endpoint here never varies call-to-call. Rates are the base (0-100k
+// requests/month) tier from Google's published pricing as of 2026-08;
+// Google also offers steep volume discounts above that and a small
+// free-tier credit each month, neither of which this accounts for -- treat
+// any cost figure derived from this as an upper-bound estimate of what our
+// server attempted, not GCP's actual bill (same caveat as
+// MonitoringPlacesApiByEndpoint above).
+export interface PlacesApiPricingTier {
+  ratePerThousand: number; // USD
+  freeMonthlyEvents: number;
+}
+
+export const PLACES_API_PRICING: Record<PlacesApiEndpoint, PlacesApiPricingTier> = {
+  searchNearby: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // Nearby Search Pro
+  searchText: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // Text Search Pro
+  getPlaceDetails: { ratePerThousand: 25, freeMonthlyEvents: 1000 }, // Place Details Enterprise + Atmosphere
+  fetchPhotoMedia: { ratePerThousand: 7, freeMonthlyEvents: 1000 }, // Place Photo
+};
+
+// Guardrail threshold (apps/api/src/places/quotaGuard.ts) for the two
+// non-critical, high-frequency endpoints (getPlaceDetails, fetchPhotoMedia)
+// that fire on ordinary visitor page views rather than an admin clicking a
+// button -- shared with the web app so the Monitoring page's free-tier
+// widget flags "guardrail active" at the same line the backend actually
+// stops calling Google at.
+export const PLACES_API_NEAR_LIMIT_THRESHOLD = 0.9;
 
 export interface MonitoringAnalytics {
   days: number;
@@ -1763,6 +1824,8 @@ export interface MonitoringAnalytics {
   places_api_calls_over_time: MonitoringDailyCount[];
   places_api_by_endpoint: MonitoringPlacesApiByEndpoint[];
   recent_places_api_failures: MonitoringPlacesApiFailure[];
+  places_api_calls_by_day_and_endpoint: MonitoringPlacesApiCallByDayAndEndpoint[];
+  places_api_month_to_date_by_endpoint: MonitoringPlacesApiMonthToDate[];
   // Every domain (deployment) that has ever logged an error or request row,
   // regardless of the current days/domain filter -- backs the Monitoring
   // tab's domain picker (BACKLOG.md Ref 104 follow-up), so a future new
