@@ -143,7 +143,11 @@ export function NeighborhoodsSection() {
   );
 }
 
-function NeighborhoodCard({
+// Exported for reuse by admin/super/components/entities/neighborhood/page.tsx
+// (the component library's "every representation of a neighborhood" page) --
+// otherwise local to this file, same reasoning as CollectionCard's own export
+// from account/(tabs)/collection/page.tsx.
+export function NeighborhoodCard({
   neighborhood: n,
   signedIn,
   pending,

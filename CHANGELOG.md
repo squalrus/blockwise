@@ -2,6 +2,16 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.80.0] — 2026-08-24
+
+### Added
+
+- **Activity feed rows show an actor's real mushroom look plus context**: each row's leading avatar now uses the actor's actual saved customizer choice instead of always falling back to a deterministic seeded look, and overlaps it with a second icon giving context for the row — the venue's business/POI mark for check-ins/favorites, the other person's mushroom for neighbor connections, a calendar mark for event follows, and a star for badges/challenge completions. (`apps/web/src/app/ActivityFeed.tsx`, `apps/web/src/app/EntityTile.tsx`, `apps/api/src/activity/`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Component library moved from `/dev/components` to `/admin/super/components`**: the internal component-preview gallery was previously reachable by anyone who knew the URL — it's now gated behind super admin (client-side `is_super_admin` check + server-side `superAdminGate`) and reachable via a new "Components" tab in the super admin sidebar. Coverage also expanded with new pages for badges/challenges sections, event list items, Top Caps, and "entities" pages showing every UI representation of a neighborhood/business/POI/user/event on one page. `robots.ts` no longer needs its own `/dev/` disallow rule since `/admin/` already covers it. (`apps/web/src/app/admin/super/components/`, `apps/web/src/app/admin/super/layout.tsx`, `apps/web/src/app/robots.ts`, `docs/url-map.md`)
+
 ## [0.79.0] — 2026-08-24
 
 ### Added

@@ -67,6 +67,24 @@ const CHIP_GLYPH: Record<EntityKind, () => React.JSX.Element> = {
   neighborhood: LeafGlyph,
 };
 
+// Plain colored circle + glyph, no positioning/border of its own -- the
+// shared visual EntityTypeChip below (an absolutely-positioned, bordered
+// corner badge) wraps, and ActivityFeed's OverlapCluster also renders
+// directly (a same-size circle sitting side by side with the actor's avatar,
+// not tucked into a corner), so the two don't duplicate the
+// kind→color/glyph lookups.
+export function EntityGlyphCircle({ kind, size = 24 }: { kind: EntityKind; size?: number }) {
+  const Glyph = CHIP_GLYPH[kind];
+  return (
+    <span
+      className={`flex items-center justify-center rounded-full text-on-accent ${CHIP_BG[kind]}`}
+      style={{ height: size, width: size }}
+    >
+      <Glyph />
+    </span>
+  );
+}
+
 // Corner chip, same size/weight as ProfileSummaryCard's "LV N" pill but
 // round and icon-only. `surfaceClassName` should match whatever background
 // sits just outside the chip (EntityTile's card-alt summary cards vs.

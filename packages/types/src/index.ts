@@ -1388,8 +1388,23 @@ export interface ActivityItem {
   type: ActivityType;
   actor_name: string;
   actor_username: string | null;
+  // The actor's real saved mushroom customizer choice, if any -- unlike
+  // actor_name/actor_username, never masked by visibility: showing someone's
+  // actual mushroom *appearance* isn't identifying on its own (the same rule
+  // listRecentVisitorMushroomsForNeighborhood, apps/api's
+  // checkins/supabaseRepository.ts, already applies to the recent-visitor
+  // mosaic), only their name is. null falls back to the row's own
+  // deterministic look (resolveMushroomConfig, @blockwise/types).
+  actor_mushroom_customization: MushroomCustomization | null;
   venue_id: string | null;
   venue_name: string | null;
+  // Set only for "checkin"/"favorite" rows (the two types with a real
+  // venue_id) -- lets the feed row's avatar cluster pick the right
+  // EntityTile tint/glyph for the venue it overlaps, mirroring
+  // MushroomCollectionEntry's own location_kind field. null for a legacy row
+  // predating this field, same "untyped fallback" case CollectionCard
+  // already handles.
+  location_kind: "business" | "poi" | null;
   badge_name: string | null;
   badge_icon: string | null;
   challenge_title: string | null;
@@ -1404,6 +1419,9 @@ export interface ActivityItem {
   // a friend-of-a-friend's Spore Feed).
   other_user_name: string | null;
   other_user_username: string | null;
+  // Mirrors actor_mushroom_customization above, for the other party in a
+  // neighbor_connection row -- also never masked by visibility.
+  other_user_mushroom_customization: MushroomCustomization | null;
   // Set for "checkin" / "favorite" / "challenge_completion" /
   // "neighbor_connection" rows -- each is sourced 1:1 from a `point_event`
   // row (apps/api's activity/supabaseRepository.ts), so the points it

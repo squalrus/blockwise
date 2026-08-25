@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.80.0", date: "2026-08-24", summary: "Activity feed avatars now show your real mushroom look plus context icons, and the component library moved from a public URL to gated super-admin access" },
   { version: "0.79.0", date: "2026-08-24", summary: "Admin action to activate a neighborhood, auto-derived neighborhood slugs (name-city), and neighborhood creation form polish (state/territory label, country/timezone dropdowns)" },
   { version: "0.78.0", date: "2026-08-23", summary: "Colored ring + corner glyph badges distinguish business/POI/neighborhood icons and collection cards at a glance" },
   { version: "0.77.0", date: "2026-08-23", summary: "Public profile redesign with a Top Caps section and share button, three new \"Top Cap\" leaderboard badges, activity points shown in every feed, a venue leaderboard on the neighborhood Leaderboard tab, and level badges through level 20" },

@@ -24,8 +24,10 @@ function toActivityItem(record: ActivityRecord): ActivityItem {
     type: record.type,
     actor_name: actorName(record),
     actor_username: record.actorVisibility === "public" ? record.actorUsername : null,
+    actor_mushroom_customization: record.actorMushroomCustomization,
     venue_id: record.venueId,
     venue_name: record.venueName,
+    location_kind: record.venueKind,
     badge_name: record.badgeName,
     badge_icon: record.badgeIcon,
     challenge_title: record.challengeTitle,
@@ -33,6 +35,7 @@ function toActivityItem(record: ActivityRecord): ActivityItem {
     event_title: record.eventTitle,
     other_user_name: otherUserName(record),
     other_user_username: record.otherUserVisibility === "public" ? record.otherUserUsername : null,
+    other_user_mushroom_customization: record.otherUserMushroomCustomization,
     points_earned: record.pointsEarned,
     occurred_at: record.occurredAt,
   };

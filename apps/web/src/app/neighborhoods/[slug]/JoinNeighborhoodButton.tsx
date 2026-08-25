@@ -17,7 +17,7 @@ type Status =
 // sign-in required (see neighborhoodMembers.ts) rather than device-scoped.
 export function JoinNeighborhoodButton({
   neighborhoodId,
-  // Component-library preview only (apps/web/src/app/dev/components) -- skips
+  // Component-library preview only (apps/web/src/app/admin/super/components) -- skips
   // the live membership fetch and starts idle in this joined state instead,
   // so both states can be reviewed side by side rather than depending on the
   // signed-in viewer's real membership. Toggling still works locally (no

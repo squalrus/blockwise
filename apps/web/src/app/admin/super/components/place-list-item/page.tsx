@@ -1,5 +1,5 @@
-import { PlaceListItem } from "../../../PlaceListItem";
-import { SlideToCheckIn } from "../../../SlideToCheckIn";
+import { PlaceListItem } from "../../../../PlaceListItem";
+import { SlideToCheckIn } from "../../../../SlideToCheckIn";
 import { CHECKIN_STATES } from "../demoData";
 
 export default function PlaceListItemDemoPage() {
@@ -18,7 +18,7 @@ export default function PlaceListItemDemoPage() {
           <div key={label} className="flex flex-col gap-2">
             <p className="text-[11px] font-extrabold tracking-wide text-muted uppercase">{label}</p>
             <PlaceListItem
-              href="/dev/components/place-list-item"
+              href="/admin/super/components/place-list-item"
               id={`demo-venue-${index}`}
               name="Wilson Tax And Accounting"
               subtitle="Accounting & Tax · 9057 Greenwood Ave N c206, Seattle, WA 98103, USA"
