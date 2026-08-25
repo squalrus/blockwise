@@ -14,10 +14,10 @@ export function StatTile({
   color: string;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-border bg-card px-4.5 py-4">
+    <div className="flex min-w-0 flex-col gap-1 rounded-2xl border border-border bg-card px-4.5 py-4">
       <div className="flex items-center gap-2">
         {icon}
-        <span className="text-xs font-extrabold text-muted">{label}</span>
+        <span className="min-w-0 text-xs font-extrabold text-muted">{label}</span>
       </div>
       <div className="font-heading text-3xl font-extrabold" style={{ color }}>
         {value}

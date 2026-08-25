@@ -2,6 +2,24 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.83.0] — 2026-08-25
+
+### Added
+
+- **Super-admin Monitoring tab split into three sub-pages** (Overview, Performance, Google Places), sharing one filter bar (days/domain/app-version) and a single `MonitoringContext` fetch instead of each pill reloading the whole page — filters persist across sub-page navigation and survive a refresh via URL query params. Overview merges the errors-by-source tiles directly above the recent-errors list and the status-code tiles above a new recent-requests table; each status-code tile is now a clickable filter (2xx/3xx/4xx/5xx) narrowing that table, so a "4xx: 1" summary count can be drilled into the actual request row instead of staying an unexplained number. (`apps/web/src/app/admin/super/monitoring/`, `apps/api/src/monitoring/`, `apps/api/src/app.ts`, `supabase/migrations/20260825070000_monitoring_analytics_fn_v5.sql`)
+- **Google Places API failures are now visible on the Places sub-page**: outbound Places calls capture the thrown error's message on failure (previously only success/failure timing was logged), surfaced as a recent-failures list (endpoint, error message, duration, timestamp). (`apps/api/src/places/instrumentedClient.ts`, `apps/web/src/app/admin/super/monitoring/PlacesApiFailuresList.tsx`, `supabase/migrations/20260825080000_places_api_call_log_error_message.sql`, `supabase/migrations/20260825090000_monitoring_analytics_fn_v6.sql`)
+- **Event-follow analytics on the business Analytics tab**: a follows-over-time chart and a top-followed-events list (with occurrence date, since a recurring event can share a title across dates), mirroring the existing coupon-claims and top-venues breakdowns. (`apps/web/src/app/admin/business/[venueId]/analytics/`, `supabase/migrations/20260825110000_venue_analytics_fn_v3.sql`, `packages/types/src/index.ts`)
+- **Coupons and Events tiles on the business dashboard Overview**, joining the existing Followers/Check-ins pair so all four top-line counts are visible without switching tabs. (`apps/web/src/app/admin/business/[venueId]/BusinessVenueDashboard.tsx`)
+
+### Changed
+
+- **Points tile removed from the profile summary card's stat strip** — it duplicated the points total already shown in the card's header next to the level progress bar. The strip is now 5 columns (Collection/Check-ins/Badges/Challenges/Neighbors) instead of 6. (`apps/web/src/app/account/ProfileSummaryCard.tsx`)
+- **Activity feed rows shrunk from `text-sm` to `text-xs`**, tightening the neighborhood Spore feed, `/account` Spore Feed, and `/account/activity` My Activity tabs. (`apps/web/src/app/ActivityFeed.tsx`)
+
+### Fixed
+
+- **Stat tiles no longer break column alignment on long labels** (e.g. "4xx Client error") — the tile and its label now allow text to wrap within the grid column instead of overflowing. (`apps/web/src/app/StatTile.tsx`)
+
 ## [0.82.0] — 2026-08-25
 
 ### Added

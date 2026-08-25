@@ -2554,6 +2554,10 @@ export function createApp() {
   // and ?version= (BACKLOG.md Ref 104 follow-ups) narrow every chart to one
   // deployment's rows (e.g. "app.tryspored.com") and/or one shipped release
   // (e.g. "0.81.0") -- either omitted/empty keeps everything for that axis.
+  // ?status_class= (one of 2xx/3xx/4xx/5xx) narrows recent_requests to that
+  // family -- anything else is treated as absent rather than erroring, same
+  // as an unrecognized domain/version.
+  const STATUS_CLASSES = new Set(["2xx", "3xx", "4xx", "5xx"]);
   app.get("/admin/monitoring/analytics", superAdminGate, async (req, res) => {
     try {
       const rawDays = Number(req.query.days);
@@ -2562,7 +2566,9 @@ export function createApp() {
       const domain = typeof rawDomain === "string" && rawDomain.trim() ? rawDomain.trim() : null;
       const rawVersion = req.query.version;
       const version = typeof rawVersion === "string" && rawVersion.trim() ? rawVersion.trim() : null;
-      const analytics = await getMonitoringRepository().getAnalytics(days, domain, version);
+      const rawStatusClass = req.query.status_class;
+      const statusClass = typeof rawStatusClass === "string" && STATUS_CLASSES.has(rawStatusClass) ? rawStatusClass : null;
+      const analytics = await getMonitoringRepository().getAnalytics(days, domain, version, statusClass);
       res.json(analytics);
     } catch (err) {
       console.error("GET /admin/monitoring/analytics failed:", err);
@@ -3180,7 +3186,7 @@ export function createApp() {
   // Analytics tab (charts/breakdowns of activity for this venue) -- mirrors
   // GET /neighborhood-admin/neighborhoods/:id/analytics: ?days= clamped to
   // [1, 90], defaulting to 30, backed by a single get_venue_analytics RPC
-  // covering all four charts.
+  // covering all six charts.
   app.get("/business/venues/:id/analytics", venueOwnerGate, async (req, res) => {
     try {
       const rawDays = Number(req.query.days);

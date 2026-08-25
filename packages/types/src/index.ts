@@ -972,6 +972,19 @@ export interface VenueAnalyticsCouponClaims {
   count: number;
 }
 
+export interface VenueAnalyticsEventFollows {
+  date: string; // 'YYYY-MM-DD'
+  count: number;
+}
+
+export interface VenueAnalyticsTopFollowedEvent {
+  event_id: string;
+  title: string;
+  // Disambiguates same-titled events (e.g. a recurring "Retro Game Night").
+  start_time: string;
+  follow_count: number;
+}
+
 export interface VenueAnalytics {
   venue_id: string;
   days: number;
@@ -979,6 +992,8 @@ export interface VenueAnalytics {
   activity_by_type: VenueAnalyticsActivityByType[];
   checkins_by_day_of_week: VenueAnalyticsDayOfWeekCheckins[];
   coupon_claims_over_time: VenueAnalyticsCouponClaims[];
+  event_follows_over_time: VenueAnalyticsEventFollows[];
+  top_followed_events: VenueAnalyticsTopFollowedEvent[];
 }
 
 // Admin portal boundary drawing (BACKLOG.md Ref 8, project plan §12.6).
@@ -1682,6 +1697,22 @@ export interface MonitoringStatusCodeBreakdown {
   count: number;
 }
 
+// request_log's counterpart to MonitoringRecentError: raw method/path/status/
+// duration rows rather than console.error'd exceptions -- a plain 4xx/5xx
+// response never reaches error_log (only an explicit console.error call site
+// does), so this is how a specific 4xx/5xx from the Status codes tiles gets
+// investigated.
+export interface MonitoringRecentRequest {
+  id: string;
+  method: string;
+  path: string;
+  status_code: number;
+  duration_ms: number;
+  created_at: string;
+  domain: string | null;
+  app_version: string | null;
+}
+
 export interface MonitoringSlowestRoute {
   path: string;
   avg_ms: number;
@@ -1707,11 +1738,23 @@ export interface MonitoringPlacesApiByEndpoint {
   error_count: number;
 }
 
+// Pairs with MonitoringPlacesApiByEndpoint's error_count -- the actual
+// failed calls behind that count, so a spike can be investigated rather than
+// just observed.
+export interface MonitoringPlacesApiFailure {
+  id: string;
+  endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia";
+  error_message: string | null;
+  duration_ms: number;
+  created_at: string;
+}
+
 export interface MonitoringAnalytics {
   days: number;
   errors_over_time: MonitoringDailyCount[];
   errors_by_source: MonitoringErrorsBySource[];
   recent_errors: MonitoringRecentError[];
+  recent_requests: MonitoringRecentRequest[];
   request_volume_over_time: MonitoringDailyCount[];
   latency_over_time: MonitoringLatencyByDay[];
   status_code_breakdown: MonitoringStatusCodeBreakdown[];
@@ -1719,6 +1762,7 @@ export interface MonitoringAnalytics {
   slowest_queries: MonitoringSlowQuery[];
   places_api_calls_over_time: MonitoringDailyCount[];
   places_api_by_endpoint: MonitoringPlacesApiByEndpoint[];
+  recent_places_api_failures: MonitoringPlacesApiFailure[];
   // Every domain (deployment) that has ever logged an error or request row,
   // regardless of the current days/domain filter -- backs the Monitoring
   // tab's domain picker (BACKLOG.md Ref 104 follow-up), so a future new

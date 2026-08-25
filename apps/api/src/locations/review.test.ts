@@ -182,6 +182,8 @@ class FakeLocationRepository implements LocationRepository {
       activity_by_type: [],
       checkins_by_day_of_week: [],
       coupon_claims_over_time: [],
+      event_follows_over_time: [],
+      top_followed_events: [],
     };
   }
 }

@@ -18,6 +18,7 @@ export interface PlacesApiCallEntry {
   endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia";
   success: boolean;
   durationMs: number;
+  errorMessage?: string | null;
 }
 
 // Backs the super-admin Monitoring tab (BACKLOG.md Ref 104) -- writers
@@ -31,7 +32,13 @@ export interface MonitoringRepository {
   logPlacesApiCall(entry: PlacesApiCallEntry): Promise<void>;
   // domain narrows every chart to one deployment's rows (e.g.
   // "app.tryspored.com"); version narrows to one shipped release (e.g.
-  // "0.81.0") -- undefined/null keeps today's "everything" behavior for
-  // either.
-  getAnalytics(days: number, domain?: string | null, version?: string | null): Promise<MonitoringAnalytics>;
+  // "0.81.0"); statusClass narrows recent_requests to one status-code family
+  // (e.g. "4xx") -- undefined/null keeps today's "everything" behavior for
+  // any of the three.
+  getAnalytics(
+    days: number,
+    domain?: string | null,
+    version?: string | null,
+    statusClass?: string | null
+  ): Promise<MonitoringAnalytics>;
 }

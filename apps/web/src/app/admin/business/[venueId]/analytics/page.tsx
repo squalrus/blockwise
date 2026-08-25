@@ -10,6 +10,8 @@ import { CheckinsOverTimeChart } from "./CheckinsOverTimeChart";
 import { ActivityByTypeStats } from "./ActivityByTypeStats";
 import { CheckinsByDayOfWeekChart } from "./CheckinsByDayOfWeekChart";
 import { CouponClaimsChart } from "./CouponClaimsChart";
+import { EventFollowsChart } from "./EventFollowsChart";
+import { TopFollowedEventsList } from "./TopFollowedEventsList";
 
 type State =
   | { status: "loading" }
@@ -24,12 +26,14 @@ const RANGE_OPTIONS = [
 
 // Analytics tab: charts/breakdowns of activity for this venue, backed by a
 // single get_venue_analytics RPC (one fetch covers check-ins-over-time,
-// activity-by-type, checkins-by-day-of-week, and coupon-claims-over-time) --
-// mirrors admin/neighborhood/[neighborhoodSlug]/analytics/page.tsx.
+// activity-by-type, checkins-by-day-of-week, coupon-claims-over-time, and
+// event-follows-over-time/top-followed-events) -- mirrors
+// admin/neighborhood/[neighborhoodSlug]/analytics/page.tsx.
 // locations_by_category_group/top_venues don't have a venue-scoped
 // equivalent (those are neighborhood-collection concepts), so this tab
-// swaps in day-of-week and coupon-claims charts instead. Loading/forbidden
-// state lives in layout.tsx, mirroring every other tab.
+// swaps in day-of-week and coupon-claims charts instead; top_followed_events
+// is this tab's own per-event answer to "which one is resonating." Loading/
+// forbidden state lives in layout.tsx, mirroring every other tab.
 export default function BusinessAdminAnalyticsPage() {
   const { venueId } = useBusinessAdmin();
   const [days, setDays] = useState(30);
@@ -111,6 +115,16 @@ export default function BusinessAdminAnalyticsPage() {
           <section className="rounded-3xl border border-border bg-card p-6">
             <h2 className="mb-3.5 font-heading text-lg font-extrabold">Coupon claims over time</h2>
             <CouponClaimsChart data={state.analytics.coupon_claims_over_time} />
+          </section>
+
+          <section className="rounded-3xl border border-border bg-card p-6">
+            <h2 className="mb-3.5 font-heading text-lg font-extrabold">Event follows over time</h2>
+            <EventFollowsChart data={state.analytics.event_follows_over_time} />
+          </section>
+
+          <section className="rounded-3xl border border-border bg-card p-6">
+            <h2 className="mb-3.5 font-heading text-lg font-extrabold">Top followed events</h2>
+            <TopFollowedEventsList events={state.analytics.top_followed_events} />
           </section>
         </div>
       )}

@@ -38,6 +38,7 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
       endpoint: entry.endpoint,
       success: entry.success,
       duration_ms: entry.durationMs,
+      error_message: entry.errorMessage ?? null,
     });
 
     if (error) throw new Error(`logPlacesApiCall failed: ${error.message}`);
@@ -48,9 +49,19 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
   // get_monitoring_analytics's ordinary invoker rights (see
   // 20260821060000_pg_stat_statements.sql). Fetched in parallel and merged
   // here so callers still see one method, one MonitoringAnalytics shape.
-  async getAnalytics(days: number, domain?: string | null, version?: string | null): Promise<MonitoringAnalytics> {
+  async getAnalytics(
+    days: number,
+    domain?: string | null,
+    version?: string | null,
+    statusClass?: string | null
+  ): Promise<MonitoringAnalytics> {
     const [analyticsResult, slowQueriesResult] = await Promise.all([
-      this.supabase.rpc("get_monitoring_analytics", { p_days: days, p_domain: domain ?? null, p_version: version ?? null }),
+      this.supabase.rpc("get_monitoring_analytics", {
+        p_days: days,
+        p_domain: domain ?? null,
+        p_version: version ?? null,
+        p_status_class: statusClass ?? null,
+      }),
       this.supabase.rpc("get_slow_queries", { p_limit: 10 }),
     ]);
 

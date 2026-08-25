@@ -18,19 +18,40 @@ const COLORS: Record<MonitoringStatusCodeBreakdown["status_class"], string> = {
 };
 const ORDER: MonitoringStatusCodeBreakdown["status_class"][] = ["2xx", "3xx", "4xx", "5xx"];
 
-export function StatusCodeBreakdownStats({ data }: { data: MonitoringStatusCodeBreakdown[] }) {
+type StatusClass = MonitoringStatusCodeBreakdown["status_class"];
+
+// Tiles double as filters for the "Recent requests" table below -- clicking
+// one selects it (click again to clear), rather than adding a second row of
+// pills that duplicates the same four values.
+export function StatusCodeBreakdownStats({
+  data,
+  selected,
+  onSelect,
+}: {
+  data: MonitoringStatusCodeBreakdown[];
+  selected: StatusClass | null;
+  onSelect: (statusClass: StatusClass | null) => void;
+}) {
   const counts = new Map(data.map((d) => [d.status_class, d.count]));
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {ORDER.map((statusClass) => (
-        <StatTile
+        <button
           key={statusClass}
-          icon={<MushroomIcon color={COLORS[statusClass]} />}
-          label={LABELS[statusClass]}
-          value={counts.get(statusClass) ?? 0}
-          color={COLORS[statusClass]}
-        />
+          type="button"
+          onClick={() => onSelect(selected === statusClass ? null : statusClass)}
+          className={`w-full rounded-2xl border-0 bg-transparent p-0 text-left transition-shadow ${
+            selected === statusClass ? "ring-2 ring-foreground" : "hover:ring-2 hover:ring-border"
+          }`}
+        >
+          <StatTile
+            icon={<MushroomIcon color={COLORS[statusClass]} />}
+            label={LABELS[statusClass]}
+            value={counts.get(statusClass) ?? 0}
+            color={COLORS[statusClass]}
+          />
+        </button>
       ))}
     </div>
   );

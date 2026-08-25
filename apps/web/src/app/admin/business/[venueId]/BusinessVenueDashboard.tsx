@@ -71,7 +71,7 @@ export function BusinessVenueDashboard() {
         <p className="mt-1 text-[15px] text-body-text">{state.summary.address}</p>
       </div>
 
-      <div className="grid max-w-md grid-cols-2 gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
         <StatTile
           icon={<MushroomIcon color="var(--brand-orange)" />}
           label="Followers"
@@ -83,6 +83,18 @@ export function BusinessVenueDashboard() {
           label="Check-ins"
           value={state.summary.checkin_count}
           color="var(--brand-green)"
+        />
+        <StatTile
+          icon={<MushroomIcon color="var(--brand-purple)" />}
+          label="Coupons"
+          value={state.summary.coupons.length}
+          color="var(--brand-purple)"
+        />
+        <StatTile
+          icon={<MushroomIcon color="var(--brand-amber)" />}
+          label="Events"
+          value={state.summary.events.length}
+          color="var(--brand-amber)"
         />
       </div>
 
