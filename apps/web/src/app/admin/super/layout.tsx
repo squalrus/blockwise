@@ -14,7 +14,7 @@ type State =
   | { status: "forbidden" }
   | { status: "ready"; user: AppUser };
 
-type TabKey = "overview" | "users" | "category-taxonomy" | "feedback" | "monitoring" | "components";
+type TabKey = "overview" | "users" | "category-taxonomy" | "challenges" | "badges" | "feedback" | "monitoring" | "components";
 
 const TABS: { key: TabKey; href: string; label: string; icon: (props: { className?: string }) => React.ReactNode }[] = [
   {
@@ -70,6 +70,33 @@ const TABS: { key: TabKey; href: string; label: string; icon: (props: { classNam
           strokeLinejoin="round"
         />
         <circle cx="6.3" cy="6.3" r="1.4" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: "challenges",
+    href: "/challenges",
+    label: "Challenges",
+    icon: ({ className }) => (
+      <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
+        <path
+          d="M10 2.5 12.2 7 17 7.7 13.5 11 14.4 15.7 10 13.4 5.6 15.7 6.5 11 3 7.7 7.8 7Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    key: "badges",
+    href: "/badges",
+    label: "Badges",
+    icon: ({ className }) => (
+      <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
+        <circle cx="10" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="2" />
+        <path d="M7 12.5 5.5 18 10 15.5 14.5 18 13 12.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
       </svg>
     ),
   },

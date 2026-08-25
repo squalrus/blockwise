@@ -238,6 +238,48 @@ describe("evaluateChallengesAfterCheckin", () => {
     });
   });
 
+  it("completes an app-wide category challenge from a check-in in any neighborhood (BACKLOG.md Ref 108)", async () => {
+    const repo = new FakeGamificationRepository();
+    repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: "category-coffee", kind: "business" });
+    repo.locations.set("venue-2", { neighborhoodId: "neighborhood-2", categoryId: "category-coffee", kind: "business" });
+    const badge = makeBadge({ id: "badge-coffee-tour", code: "coffee_tour" });
+    repo.challenges.push(
+      makeChallenge({
+        id: "challenge-app-wide-coffee",
+        neighborhoodId: null,
+        categoryId: "category-coffee",
+        categoryName: "Coffee Shop",
+        targetCount: 2,
+        pointsReward: 30,
+        badge,
+      })
+    );
+
+    // First check-in is in neighborhood-1 -- an app-wide challenge should
+    // still be matched even though its own neighborhood_id is null.
+    repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: NOW });
+    await evaluateChallengesAfterCheckin(
+      { userId: "user-1", neighborhoodId: "neighborhood-1", categoryId: "category-coffee", venueId: "venue-1" },
+      repo
+    );
+    expect(await repo.hasCompletedChallenge("user-1", "challenge-app-wide-coffee")).toBe(false);
+
+    // Second check-in is in a *different* neighborhood -- progress should
+    // count across neighborhoods, not reset/restart per neighborhood.
+    repo.checkins.push({ userId: "user-1", venueId: "venue-2", checkedInAt: NOW });
+    await evaluateChallengesAfterCheckin(
+      { userId: "user-1", neighborhoodId: "neighborhood-2", categoryId: "category-coffee", venueId: "venue-2" },
+      repo
+    );
+
+    expect(await repo.hasCompletedChallenge("user-1", "challenge-app-wide-coffee")).toBe(true);
+    expect(repo.badges).toContainEqual({
+      userId: "user-1",
+      badgeId: "badge-coffee-tour",
+      challengeId: "challenge-app-wide-coffee",
+    });
+  });
+
   it("an indefinite challenge (no ends_at) stays active far into the future", async () => {
     const repo = new FakeGamificationRepository();
     repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: null, kind: "business" });
@@ -317,6 +359,23 @@ describe("listChallengesWithProgress", () => {
 
     const [progress] = await listChallengesWithProgress("neighborhood-1", "user-1", repo);
     expect(progress.target_count).toBe(4);
+  });
+
+  it("includes an app-wide challenge (neighborhood_id null) when listing any neighborhood's challenges (BACKLOG.md Ref 108)", async () => {
+    const repo = new FakeGamificationRepository();
+    repo.challenges.push(
+      makeChallenge({ id: "challenge-app-wide", neighborhoodId: null }),
+      makeChallenge({ id: "challenge-scoped", neighborhoodId: "neighborhood-1" })
+    );
+
+    const resultsForOne = await listChallengesWithProgress("neighborhood-1", null, repo);
+    const resultsForOther = await listChallengesWithProgress("neighborhood-other", null, repo);
+
+    expect(resultsForOne.map((c) => c.id).sort()).toEqual(["challenge-app-wide", "challenge-scoped"]);
+    // The neighborhood-1-scoped challenge shouldn't leak into an unrelated
+    // neighborhood's list -- only the app-wide one should.
+    expect(resultsForOther.map((c) => c.id)).toEqual(["challenge-app-wide"]);
+    expect(resultsForOther[0].neighborhood_id).toBeNull();
   });
 
   it("excludes challenges that have already ended", async () => {
@@ -463,5 +522,34 @@ describe("getUserActiveChallenges", () => {
     );
 
     expect(active.map((c) => c.id)).toEqual(["challenge-coffee", "challenge-all-pois"]);
+  });
+
+  it("dedupes an app-wide challenge across memberships and labels it with a null neighborhood_name (BACKLOG.md Ref 108)", async () => {
+    const repo = new FakeGamificationRepository();
+    repo.locations.set("venue-1", { neighborhoodId: "neighborhood-1", categoryId: "category-coffee", kind: "business" });
+    repo.challenges.push(
+      makeChallenge({
+        id: "challenge-app-wide",
+        neighborhoodId: null,
+        categoryId: "category-coffee",
+        categoryName: "Coffee Shop",
+        targetCount: 5,
+      })
+    );
+    repo.checkins.push({ userId: "user-1", venueId: "venue-1", checkedInAt: NOW });
+
+    const active = await getUserActiveChallenges(
+      "user-1",
+      [
+        { neighborhoodId: "neighborhood-1", name: "Neighborhood One" },
+        { neighborhoodId: "neighborhood-2", name: "Neighborhood Two" },
+      ],
+      repo
+    );
+
+    // Present exactly once, not once per membership -- and not mislabeled
+    // with whichever neighborhood happened to surface it first.
+    expect(active).toHaveLength(1);
+    expect(active[0]).toMatchObject({ id: "challenge-app-wide", neighborhood_name: null, progress_count: 1 });
   });
 });

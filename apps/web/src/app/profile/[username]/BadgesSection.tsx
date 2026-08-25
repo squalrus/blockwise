@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { UserBadge } from "@blockwise/types";
+import { clientApiUrl } from "@/lib/clientApi";
 import { BadgeIcon } from "../../BadgeIcon";
 
 const PAGE_SIZE = 10;
@@ -13,6 +14,26 @@ const PAGE_SIZE = 10;
 // the profile page shows the same full list, just to a different viewer.
 export function BadgesSection({ badges }: { badges: UserBadge[] }) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // Badge.neighborhood_id (BACKLOG.md Ref 108 follow-up) names a
+  // neighborhood but doesn't carry its name -- resolved client-side against
+  // the public neighborhood list rather than denormalizing a name onto the
+  // badge DTO, since every badge-displaying surface can cheaply fetch this
+  // once. Not gated on badges.length: an empty/error fetch just means no
+  // pills render, never a broken page.
+  const [neighborhoodNames, setNeighborhoodNames] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(clientApiUrl("/neighborhoods"))
+      .then((res) => (res.ok ? res.json() : []))
+      .then((neighborhoods: { id: string; name: string }[]) => {
+        if (!cancelled) setNeighborhoodNames(new Map(neighborhoods.map((n) => [n.id, n.name])));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (badges.length === 0) {
     return <p className="text-sm text-muted">No badges earned yet.</p>;
@@ -30,7 +51,14 @@ export function BadgesSection({ badges }: { badges: UserBadge[] }) {
               <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-extrabold text-foreground">{userBadge.badge.name}</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="text-sm font-extrabold text-foreground">{userBadge.badge.name}</p>
+                {userBadge.badge.neighborhood_id && (
+                  <span className="rounded-full bg-brand-purple px-1.5 py-0.5 text-[10px] font-extrabold text-on-accent">
+                    {neighborhoodNames.get(userBadge.badge.neighborhood_id) ?? "Neighborhood"}
+                  </span>
+                )}
+              </div>
               {userBadge.badge.description && (
                 <p className="mt-0.5 text-xs text-body-text">{userBadge.badge.description}</p>
               )}

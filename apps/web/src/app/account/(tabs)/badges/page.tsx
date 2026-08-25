@@ -11,8 +11,10 @@ type State =
   | { status: "loading" }
   | { status: "error"; message: string }
   // BACKLOG.md Ref 61: every badge that exists, cross-referenced against
-  // `badges` (earned) to render locked placeholders too.
-  | { status: "ready"; badges: UserBadge[]; badgeCatalog: Badge[] };
+  // `badges` (earned) to render locked placeholders too. neighborhoodNames
+  // resolves a neighborhood-scoped badge's neighborhood_id to a display
+  // name (BACKLOG.md Ref 108 follow-up) -- Badge itself only carries the id.
+  | { status: "ready"; badges: UserBadge[]; badgeCatalog: Badge[]; neighborhoodNames: Map<string, string> };
 
 // Tiered badge code prefixes excluded from the locked preview below --
 // unlike a single one-off badge (e.g. "back_for_seconds"), previewing every
@@ -29,20 +31,23 @@ const HIDDEN_UNTIL_EARNED_PREFIXES = ["forager_", "level_", "good_neighbor_", "d
 async function load(setState: (state: State) => void) {
   const token = await getAccessToken();
   const headers = { Authorization: `Bearer ${token}` };
-  const [badgesRes, catalogRes] = await Promise.all([
+  const [badgesRes, catalogRes, neighborhoodsRes] = await Promise.all([
     fetch(clientApiUrl("/me/badges"), { headers }),
     fetch(clientApiUrl("/badges")),
+    fetch(clientApiUrl("/neighborhoods")),
   ]);
 
-  if (!badgesRes.ok || !catalogRes.ok) {
+  if (!badgesRes.ok || !catalogRes.ok || !neighborhoodsRes.ok) {
     setState({ status: "error", message: "Failed to load your account" });
     return;
   }
 
+  const neighborhoods: { id: string; name: string }[] = await neighborhoodsRes.json();
   setState({
     status: "ready",
     badges: await badgesRes.json(),
     badgeCatalog: await catalogRes.json(),
+    neighborhoodNames: new Map(neighborhoods.map((n) => [n.id, n.name])),
   });
 }
 
@@ -83,7 +88,14 @@ export default function BadgesPage() {
               <BadgeIcon icon={userBadge.badge.icon} name={userBadge.badge.name} />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-extrabold text-foreground">{userBadge.badge.name}</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="text-sm font-extrabold text-foreground">{userBadge.badge.name}</p>
+                {userBadge.badge.neighborhood_id && (
+                  <span className="rounded-full bg-brand-purple px-1.5 py-0.5 text-[10px] font-extrabold text-on-accent">
+                    {state.neighborhoodNames.get(userBadge.badge.neighborhood_id) ?? "Neighborhood"}
+                  </span>
+                )}
+              </div>
               {userBadge.badge.description && (
                 <p className="mt-0.5 text-xs text-body-text">{userBadge.badge.description}</p>
               )}
@@ -99,7 +111,14 @@ export default function BadgesPage() {
               <BadgeIcon icon={badge.icon} name={badge.name} />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-extrabold text-foreground">{badge.name}</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="text-sm font-extrabold text-foreground">{badge.name}</p>
+                {badge.neighborhood_id && (
+                  <span className="rounded-full bg-brand-purple px-1.5 py-0.5 text-[10px] font-extrabold text-on-accent">
+                    {state.neighborhoodNames.get(badge.neighborhood_id) ?? "Neighborhood"}
+                  </span>
+                )}
+              </div>
               {badge.description && <p className="mt-0.5 text-xs text-body-text">{badge.description}</p>}
             </div>
           </li>

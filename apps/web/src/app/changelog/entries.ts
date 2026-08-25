@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.81.0", date: "2026-08-25", summary: "Badges and challenges can now be scoped to a single neighborhood, with new super-admin and neighborhood-admin pages to manage them -- neighborhood admins can no longer edit a challenge or its badge once anyone has completed it" },
   { version: "0.80.0", date: "2026-08-24", summary: "Activity feed avatars now show your real mushroom look plus context icons, and the component library moved from a public URL to gated super-admin access" },
   { version: "0.79.0", date: "2026-08-24", summary: "Admin action to activate a neighborhood, auto-derived neighborhood slugs (name-city), and neighborhood creation form polish (state/territory label, country/timezone dropdowns)" },
   { version: "0.78.0", date: "2026-08-23", summary: "Colored ring + corner glyph badges distinguish business/POI/neighborhood icons and collection cards at a glance" },

@@ -2,6 +2,7 @@ import express from "express";
 import type {
   AccountType,
   AvatarStyle,
+  Badge,
   BusinessClaimContactMethod,
   BusinessClaimStatus,
   CheckinRewardsSummary,
@@ -98,6 +99,21 @@ import {
 import { SupabaseFeedbackRepository } from "./feedback/supabaseRepository";
 import { addFavorite, getFavoriteStatus, removeFavorite } from "./favorites/favorite";
 import { SupabaseFavoriteRepository } from "./favorites/supabaseRepository";
+import {
+  createBadgeForAdmin,
+  listBadgesForAdmin,
+  listBadgesForNeighborhoodAdmin,
+  updateBadgeForAdmin,
+  updateBadgeForNeighborhoodAdmin,
+} from "./gamification/badgeAdmin";
+import {
+  createChallengeForAdmin,
+  createChallengeWithBadgeForNeighborhoodAdmin,
+  listChallengesForAdmin,
+  listChallengesForNeighborhoodAdmin,
+  updateChallengeForAdmin,
+  updateChallengeForNeighborhoodAdmin,
+} from "./gamification/challengeAdmin";
 import {
   getUserActiveChallenges,
   getUserChallengesSummary,
@@ -1531,7 +1547,17 @@ export function createApp() {
   app.get("/badges", async (_req, res) => {
     try {
       const badges = await getGamificationRepository().getAllBadges();
-      res.json(badges.filter((b) => b.code !== SQUALRUS_BADGE_CODE));
+      const publicBadges: Badge[] = badges
+        .filter((b) => b.code !== SQUALRUS_BADGE_CODE)
+        .map((b) => ({
+          id: b.id,
+          code: b.code,
+          name: b.name,
+          description: b.description,
+          icon: b.icon,
+          neighborhood_id: b.neighborhoodId,
+        }));
+      res.json(publicBadges);
     } catch (err) {
       console.error("GET /badges failed:", err);
       res.status(500).json({ error: "Failed to load badge catalog" });
@@ -2658,6 +2684,319 @@ export function createApp() {
     }
   });
 
+  // BACKLOG.md Ref 108: minimal super-admin authoring for app-wide vs
+  // neighborhood-specific challenges, mirroring /admin/category-taxonomy
+  // above. GET/POST/PATCH only, no archive/delete -- a challenge with
+  // completions attached is left in place, matching how challenges have
+  // always been managed (hand-edited rows, never removed).
+  app.get("/admin/challenges", superAdminGate, async (_req, res) => {
+    try {
+      const challenges = await listChallengesForAdmin(getGamificationRepository(), getNeighborhoodRepository());
+      res.json(challenges);
+    } catch (err) {
+      console.error("GET /admin/challenges failed:", err);
+      res.status(500).json({ error: "Failed to list challenges" });
+    }
+  });
+
+  app.post("/admin/challenges", superAdminGate, async (req, res) => {
+    const {
+      neighborhood_id,
+      title,
+      description,
+      category_id,
+      target_kind,
+      target_count,
+      target_count_live,
+      points_reward,
+      badge_id,
+      starts_at,
+      ends_at,
+    } = req.body ?? {};
+    if (neighborhood_id !== null && typeof neighborhood_id !== "string") {
+      res.status(400).json({ error: "neighborhood_id must be a string or null" });
+      return;
+    }
+    if (typeof title !== "string") {
+      res.status(400).json({ error: "title is required" });
+      return;
+    }
+    if (category_id !== undefined && category_id !== null && typeof category_id !== "string") {
+      res.status(400).json({ error: "category_id must be a string or null" });
+      return;
+    }
+    if (target_kind !== undefined && target_kind !== null && target_kind !== "poi" && target_kind !== "any") {
+      res.status(400).json({ error: "target_kind must be 'poi', 'any', or null" });
+      return;
+    }
+    if (typeof target_count !== "number" || target_count < 1) {
+      res.status(400).json({ error: "target_count must be a positive number" });
+      return;
+    }
+    if (target_count_live !== undefined && typeof target_count_live !== "boolean") {
+      res.status(400).json({ error: "target_count_live must be a boolean" });
+      return;
+    }
+    if (typeof points_reward !== "number" || points_reward < 0) {
+      res.status(400).json({ error: "points_reward must be a non-negative number" });
+      return;
+    }
+    if (badge_id !== undefined && badge_id !== null && typeof badge_id !== "string") {
+      res.status(400).json({ error: "badge_id must be a string or null" });
+      return;
+    }
+    if (typeof starts_at !== "string") {
+      res.status(400).json({ error: "starts_at is required" });
+      return;
+    }
+    if (ends_at !== undefined && ends_at !== null && typeof ends_at !== "string") {
+      res.status(400).json({ error: "ends_at must be a string or null" });
+      return;
+    }
+
+    try {
+      const result = await createChallengeForAdmin(
+        {
+          neighborhoodId: neighborhood_id ?? null,
+          title,
+          description: description ?? null,
+          categoryId: category_id ?? null,
+          targetKind: target_kind ?? null,
+          targetCount: target_count,
+          targetCountLive: target_count_live ?? false,
+          pointsReward: points_reward,
+          badgeId: badge_id ?? null,
+          startsAt: starts_at,
+          endsAt: ends_at ?? null,
+        },
+        getGamificationRepository(),
+        getNeighborhoodRepository(),
+        getCategoryAdminRepository()
+      );
+
+      switch (result.status) {
+        case "invalid_title":
+          res.status(400).json({ error: "title must not be empty" });
+          return;
+        case "invalid_target":
+          res.status(400).json({ error: "exactly one of category_id/target_kind is required" });
+          return;
+        case "invalid_live_target":
+          res.status(400).json({ error: "target_count_live is only valid when target_kind is 'poi'" });
+          return;
+        case "invalid_neighborhood":
+          res.status(400).json({ error: "neighborhood_id does not reference an existing neighborhood" });
+          return;
+        case "invalid_category":
+          res.status(400).json({ error: "category_id does not reference an existing category" });
+          return;
+        case "invalid_dates":
+          res.status(400).json({ error: "ends_at must be after starts_at" });
+          return;
+        case "created":
+          res.status(201).json(result.challenge);
+          return;
+      }
+    } catch (err) {
+      console.error("POST /admin/challenges failed:", err);
+      res.status(500).json({ error: "Failed to create challenge" });
+    }
+  });
+
+  app.patch("/admin/challenges/:id", superAdminGate, async (req, res) => {
+    const { title, description, category_id, target_kind, target_count, target_count_live, points_reward, badge_id, ends_at } =
+      req.body ?? {};
+    if (title !== undefined && typeof title !== "string") {
+      res.status(400).json({ error: "title must be a string" });
+      return;
+    }
+    if (category_id !== undefined && category_id !== null && typeof category_id !== "string") {
+      res.status(400).json({ error: "category_id must be a string or null" });
+      return;
+    }
+    if (target_kind !== undefined && target_kind !== null && target_kind !== "poi" && target_kind !== "any") {
+      res.status(400).json({ error: "target_kind must be 'poi', 'any', or null" });
+      return;
+    }
+    if (target_count !== undefined && (typeof target_count !== "number" || target_count < 1)) {
+      res.status(400).json({ error: "target_count must be a positive number" });
+      return;
+    }
+    if (target_count_live !== undefined && typeof target_count_live !== "boolean") {
+      res.status(400).json({ error: "target_count_live must be a boolean" });
+      return;
+    }
+    if (points_reward !== undefined && (typeof points_reward !== "number" || points_reward < 0)) {
+      res.status(400).json({ error: "points_reward must be a non-negative number" });
+      return;
+    }
+    if (badge_id !== undefined && badge_id !== null && typeof badge_id !== "string") {
+      res.status(400).json({ error: "badge_id must be a string or null" });
+      return;
+    }
+    if (ends_at !== undefined && ends_at !== null && typeof ends_at !== "string") {
+      res.status(400).json({ error: "ends_at must be a string or null" });
+      return;
+    }
+
+    try {
+      const result = await updateChallengeForAdmin(
+        req.params.id,
+        {
+          title,
+          description: description === undefined ? undefined : (description ?? null),
+          categoryId: category_id,
+          targetKind: target_kind,
+          targetCount: target_count,
+          targetCountLive: target_count_live,
+          pointsReward: points_reward,
+          badgeId: badge_id,
+          endsAt: ends_at,
+        },
+        getGamificationRepository(),
+        getNeighborhoodRepository(),
+        getCategoryAdminRepository()
+      );
+
+      switch (result.status) {
+        case "not_found":
+          res.status(404).json({ error: "Challenge not found" });
+          return;
+        case "invalid_title":
+          res.status(400).json({ error: "title must not be empty" });
+          return;
+        case "invalid_target":
+          res.status(400).json({ error: "exactly one of category_id/target_kind is required" });
+          return;
+        case "invalid_category":
+          res.status(400).json({ error: "category_id does not reference an existing category" });
+          return;
+        case "invalid_live_target":
+          res.status(400).json({ error: "target_count_live is only valid when target_kind is 'poi'" });
+          return;
+        case "updated":
+          res.json(result.challenge);
+          return;
+      }
+    } catch (err) {
+      // challenge_dates_check (ends_at > starts_at) is only enforceable here
+      // -- this route doesn't re-validate against the row's own starts_at,
+      // so a bad ends_at surfaces as a DB constraint violation instead.
+      if (err instanceof Error && err.message.includes("challenge_dates_check")) {
+        res.status(400).json({ error: "ends_at must be after starts_at" });
+        return;
+      }
+      console.error(`PATCH /admin/challenges/${req.params.id} failed:`, err);
+      res.status(500).json({ error: "Failed to update challenge" });
+    }
+  });
+
+  // Super admin Badges view (BACKLOG.md Ref 108): every badge exists is
+  // already app-wide by construction (badge/badge_rule carry no
+  // neighborhood_id), so this is read-mostly -- classification (app-wide vs.
+  // neighborhood-specific) is derived from what earns each badge (a global
+  // rule, an app-wide challenge, or only neighborhood-scoped challenges), not
+  // stored. Create/edit cover name/description/icon only -- authoring a
+  // badge_rule's ~9 rule types isn't exposed here.
+  app.get("/admin/badges", superAdminGate, async (_req, res) => {
+    try {
+      const badges = await listBadgesForAdmin(getGamificationRepository(), getNeighborhoodRepository());
+      res.json(badges);
+    } catch (err) {
+      console.error("GET /admin/badges failed:", err);
+      res.status(500).json({ error: "Failed to list badges" });
+    }
+  });
+
+  app.post("/admin/badges", superAdminGate, async (req, res) => {
+    const { name, description, icon, neighborhood_id } = req.body ?? {};
+    if (typeof name !== "string") {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    if (description !== undefined && description !== null && typeof description !== "string") {
+      res.status(400).json({ error: "description must be a string or null" });
+      return;
+    }
+    if (icon !== undefined && icon !== null && typeof icon !== "string") {
+      res.status(400).json({ error: "icon must be a string or null" });
+      return;
+    }
+    if (neighborhood_id !== undefined && neighborhood_id !== null && typeof neighborhood_id !== "string") {
+      res.status(400).json({ error: "neighborhood_id must be a string or null" });
+      return;
+    }
+
+    try {
+      const result = await createBadgeForAdmin(
+        name,
+        description ?? null,
+        icon ?? null,
+        neighborhood_id ?? null,
+        getGamificationRepository(),
+        getNeighborhoodRepository()
+      );
+
+      switch (result.status) {
+        case "invalid_name":
+          res.status(400).json({ error: "name must not be empty" });
+          return;
+        case "invalid_neighborhood":
+          res.status(400).json({ error: "neighborhood_id does not reference an existing neighborhood" });
+          return;
+        case "code_taken":
+          res.status(409).json({ error: "A badge with this name (or a very similar one) already exists" });
+          return;
+        case "created":
+          res.status(201).json(result.badge);
+          return;
+      }
+    } catch (err) {
+      console.error("POST /admin/badges failed:", err);
+      res.status(500).json({ error: "Failed to create badge" });
+    }
+  });
+
+  app.patch("/admin/badges/:id", superAdminGate, async (req, res) => {
+    const { name, description, icon } = req.body ?? {};
+    if (name !== undefined && typeof name !== "string") {
+      res.status(400).json({ error: "name must be a string" });
+      return;
+    }
+    if (description !== undefined && description !== null && typeof description !== "string") {
+      res.status(400).json({ error: "description must be a string or null" });
+      return;
+    }
+    if (icon !== undefined && icon !== null && typeof icon !== "string") {
+      res.status(400).json({ error: "icon must be a string or null" });
+      return;
+    }
+
+    try {
+      const result = await updateBadgeForAdmin(
+        req.params.id,
+        { name, description, icon },
+        getGamificationRepository(),
+        getNeighborhoodRepository()
+      );
+
+      switch (result.status) {
+        case "not_found":
+          res.status(404).json({ error: "Badge not found" });
+          return;
+        case "invalid_name":
+          res.status(400).json({ error: "name must not be empty" });
+          return;
+        case "updated":
+          res.json(result.badge);
+          return;
+      }
+    } catch (err) {
+      console.error(`PATCH /admin/badges/${req.params.id} failed:`, err);
+      res.status(500).json({ error: "Failed to update badge" });
+    }
+  });
+
   // The caller must already hold a valid Supabase Auth session (the
   // Authorization bearer token); this endpoint creates the app_user row for
   // a newly authenticated user.
@@ -3424,6 +3763,391 @@ export function createApp() {
       }
     }
   );
+
+  // Neighborhood-admin Challenges tab (BACKLOG.md Ref 108) -- a
+  // neighborhood-scoped slice of the same minimal authoring flow as
+  // superAdminGate's /admin/challenges above, forced to this neighborhood's
+  // own id (neighborhood_id is never accepted from the request body, and
+  // updates are ownership-scoped) rather than exposing app-wide creation or
+  // cross-neighborhood editing to a neighborhood admin.
+  app.get("/neighborhood-admin/neighborhoods/:id/challenges", neighborhoodAdminGate, async (req, res) => {
+    try {
+      const neighborhood = await getNeighborhoodById(req.params.id, getNeighborhoodRepository());
+      if (!neighborhood) {
+        res.status(404).json({ error: "Neighborhood not found" });
+        return;
+      }
+      const challenges = await listChallengesForNeighborhoodAdmin(
+        req.params.id,
+        neighborhood.name,
+        getGamificationRepository()
+      );
+      res.json(challenges);
+    } catch (err) {
+      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/challenges failed:`, err);
+      res.status(500).json({ error: "Failed to list challenges" });
+    }
+  });
+
+  // Every neighborhood-admin challenge is required to come with its own
+  // badge (user request) -- badge_id is gone from this route's body,
+  // replaced with badge_name (required)/badge_description/badge_icon,
+  // which mint a new badge scoped to this neighborhood alongside the
+  // challenge. Distinct from superAdminGate's /admin/challenges, which
+  // keeps badge_id as an optional pick from any existing badge -- super
+  // admin manages badges and challenges as two separate tools by design.
+  app.post("/neighborhood-admin/neighborhoods/:id/challenges", neighborhoodAdminGate, async (req, res) => {
+    const {
+      title,
+      description,
+      category_id,
+      target_kind,
+      target_count,
+      target_count_live,
+      points_reward,
+      starts_at,
+      ends_at,
+      badge_name,
+      badge_description,
+      badge_icon,
+    } = req.body ?? {};
+    if (typeof title !== "string") {
+      res.status(400).json({ error: "title is required" });
+      return;
+    }
+    if (category_id !== undefined && category_id !== null && typeof category_id !== "string") {
+      res.status(400).json({ error: "category_id must be a string or null" });
+      return;
+    }
+    if (target_kind !== undefined && target_kind !== null && target_kind !== "poi" && target_kind !== "any") {
+      res.status(400).json({ error: "target_kind must be 'poi', 'any', or null" });
+      return;
+    }
+    if (typeof target_count !== "number" || target_count < 1) {
+      res.status(400).json({ error: "target_count must be a positive number" });
+      return;
+    }
+    if (target_count_live !== undefined && typeof target_count_live !== "boolean") {
+      res.status(400).json({ error: "target_count_live must be a boolean" });
+      return;
+    }
+    if (typeof points_reward !== "number" || points_reward < 0) {
+      res.status(400).json({ error: "points_reward must be a non-negative number" });
+      return;
+    }
+    if (typeof starts_at !== "string") {
+      res.status(400).json({ error: "starts_at is required" });
+      return;
+    }
+    if (ends_at !== undefined && ends_at !== null && typeof ends_at !== "string") {
+      res.status(400).json({ error: "ends_at must be a string or null" });
+      return;
+    }
+    if (typeof badge_name !== "string") {
+      res.status(400).json({ error: "badge_name is required" });
+      return;
+    }
+    if (badge_description !== undefined && badge_description !== null && typeof badge_description !== "string") {
+      res.status(400).json({ error: "badge_description must be a string or null" });
+      return;
+    }
+    if (badge_icon !== undefined && badge_icon !== null && typeof badge_icon !== "string") {
+      res.status(400).json({ error: "badge_icon must be a string or null" });
+      return;
+    }
+
+    try {
+      const neighborhood = await getNeighborhoodById(req.params.id, getNeighborhoodRepository());
+      if (!neighborhood) {
+        res.status(404).json({ error: "Neighborhood not found" });
+        return;
+      }
+
+      const result = await createChallengeWithBadgeForNeighborhoodAdmin(
+        req.params.id,
+        neighborhood.name,
+        {
+          title,
+          description: description ?? null,
+          categoryId: category_id ?? null,
+          targetKind: target_kind ?? null,
+          targetCount: target_count,
+          targetCountLive: target_count_live ?? false,
+          pointsReward: points_reward,
+          startsAt: starts_at,
+          endsAt: ends_at ?? null,
+        },
+        { name: badge_name, description: badge_description ?? null, icon: badge_icon ?? null },
+        getGamificationRepository(),
+        getCategoryAdminRepository()
+      );
+
+      switch (result.status) {
+        case "invalid_title":
+          res.status(400).json({ error: "title must not be empty" });
+          return;
+        case "invalid_target":
+          res.status(400).json({ error: "exactly one of category_id/target_kind is required" });
+          return;
+        case "invalid_live_target":
+          res.status(400).json({ error: "target_count_live is only valid when target_kind is 'poi'" });
+          return;
+        case "invalid_category":
+          res.status(400).json({ error: "category_id does not reference an existing category" });
+          return;
+        case "invalid_dates":
+          res.status(400).json({ error: "ends_at must be after starts_at" });
+          return;
+        case "invalid_badge_name":
+          res.status(400).json({ error: "badge_name must not be empty" });
+          return;
+        case "badge_code_taken":
+          res.status(409).json({ error: "A badge with this name (or a very similar one) already exists" });
+          return;
+        case "created":
+          res.status(201).json(result.challenge);
+          return;
+      }
+    } catch (err) {
+      console.error(`POST /neighborhood-admin/neighborhoods/${req.params.id}/challenges failed:`, err);
+      res.status(500).json({ error: "Failed to create challenge" });
+    }
+  });
+
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/challenges/:challengeId",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const {
+        title,
+        description,
+        category_id,
+        target_kind,
+        target_count,
+        target_count_live,
+        points_reward,
+        ends_at,
+        badge_name,
+        badge_description,
+        badge_icon,
+      } = req.body ?? {};
+      if (title !== undefined && typeof title !== "string") {
+        res.status(400).json({ error: "title must be a string" });
+        return;
+      }
+      if (category_id !== undefined && category_id !== null && typeof category_id !== "string") {
+        res.status(400).json({ error: "category_id must be a string or null" });
+        return;
+      }
+      if (target_kind !== undefined && target_kind !== null && target_kind !== "poi" && target_kind !== "any") {
+        res.status(400).json({ error: "target_kind must be 'poi', 'any', or null" });
+        return;
+      }
+      if (target_count !== undefined && (typeof target_count !== "number" || target_count < 1)) {
+        res.status(400).json({ error: "target_count must be a positive number" });
+        return;
+      }
+      if (target_count_live !== undefined && typeof target_count_live !== "boolean") {
+        res.status(400).json({ error: "target_count_live must be a boolean" });
+        return;
+      }
+      if (points_reward !== undefined && (typeof points_reward !== "number" || points_reward < 0)) {
+        res.status(400).json({ error: "points_reward must be a non-negative number" });
+        return;
+      }
+      if (ends_at !== undefined && ends_at !== null && typeof ends_at !== "string") {
+        res.status(400).json({ error: "ends_at must be a string or null" });
+        return;
+      }
+      if (badge_name !== undefined && typeof badge_name !== "string") {
+        res.status(400).json({ error: "badge_name must be a string" });
+        return;
+      }
+      if (badge_description !== undefined && badge_description !== null && typeof badge_description !== "string") {
+        res.status(400).json({ error: "badge_description must be a string or null" });
+        return;
+      }
+      if (badge_icon !== undefined && badge_icon !== null && typeof badge_icon !== "string") {
+        res.status(400).json({ error: "badge_icon must be a string or null" });
+        return;
+      }
+
+      try {
+        const neighborhood = await getNeighborhoodById(req.params.id, getNeighborhoodRepository());
+        if (!neighborhood) {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+
+        const result = await updateChallengeForNeighborhoodAdmin(
+          req.params.id,
+          neighborhood.name,
+          req.params.challengeId,
+          {
+            title,
+            description: description === undefined ? undefined : (description ?? null),
+            categoryId: category_id,
+            targetKind: target_kind,
+            targetCount: target_count,
+            targetCountLive: target_count_live,
+            pointsReward: points_reward,
+            endsAt: ends_at,
+            badgeName: badge_name,
+            badgeDescription: badge_description,
+            badgeIcon: badge_icon,
+          },
+          getGamificationRepository(),
+          getCategoryAdminRepository()
+        );
+
+        switch (result.status) {
+          case "not_found":
+            res.status(404).json({ error: "Challenge not found" });
+            return;
+          case "locked":
+            res.status(409).json({ error: "This challenge can no longer be edited -- someone has already completed it" });
+            return;
+          case "invalid_target":
+            res.status(400).json({ error: "exactly one of category_id/target_kind is required" });
+            return;
+          case "invalid_category":
+            res.status(400).json({ error: "category_id does not reference an existing category" });
+            return;
+          case "invalid_live_target":
+            res.status(400).json({ error: "target_count_live is only valid when target_kind is 'poi'" });
+            return;
+          case "invalid_title":
+            res.status(400).json({ error: "title must not be empty" });
+            return;
+          case "invalid_badge_name":
+            res.status(400).json({ error: "badge_name must not be empty" });
+            return;
+          case "updated":
+            res.json(result.challenge);
+            return;
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("challenge_dates_check")) {
+          res.status(400).json({ error: "ends_at must be after starts_at" });
+          return;
+        }
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/challenges/${req.params.challengeId} failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to update challenge" });
+      }
+    }
+  );
+
+  // Neighborhood-admin Badges tab (BACKLOG.md Ref 108 follow-up), mirroring
+  // the Challenges tab pair above: badges directly owned by this
+  // neighborhood, or earned only via one of this neighborhood's own
+  // challenges. Creation is forced to this neighborhood's own id (never
+  // accepted from the body, and never app-wide); updates are
+  // ownership-scoped to badges directly owned by it.
+  app.get("/neighborhood-admin/neighborhoods/:id/badges", neighborhoodAdminGate, async (req, res) => {
+    try {
+      const badges = await listBadgesForNeighborhoodAdmin(
+        req.params.id,
+        getGamificationRepository(),
+        getNeighborhoodRepository()
+      );
+      res.json(badges);
+    } catch (err) {
+      console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/badges failed:`, err);
+      res.status(500).json({ error: "Failed to list badges" });
+    }
+  });
+
+  app.post("/neighborhood-admin/neighborhoods/:id/badges", neighborhoodAdminGate, async (req, res) => {
+    const { name, description, icon } = req.body ?? {};
+    if (typeof name !== "string") {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    if (description !== undefined && description !== null && typeof description !== "string") {
+      res.status(400).json({ error: "description must be a string or null" });
+      return;
+    }
+    if (icon !== undefined && icon !== null && typeof icon !== "string") {
+      res.status(400).json({ error: "icon must be a string or null" });
+      return;
+    }
+
+    try {
+      const result = await createBadgeForAdmin(
+        name,
+        description ?? null,
+        icon ?? null,
+        req.params.id,
+        getGamificationRepository(),
+        getNeighborhoodRepository()
+      );
+
+      switch (result.status) {
+        case "invalid_name":
+          res.status(400).json({ error: "name must not be empty" });
+          return;
+        case "invalid_neighborhood":
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        case "code_taken":
+          res.status(409).json({ error: "A badge with this name (or a very similar one) already exists" });
+          return;
+        case "created":
+          res.status(201).json(result.badge);
+          return;
+      }
+    } catch (err) {
+      console.error(`POST /neighborhood-admin/neighborhoods/${req.params.id}/badges failed:`, err);
+      res.status(500).json({ error: "Failed to create badge" });
+    }
+  });
+
+  app.patch("/neighborhood-admin/neighborhoods/:id/badges/:badgeId", neighborhoodAdminGate, async (req, res) => {
+    const { name, description, icon } = req.body ?? {};
+    if (name !== undefined && typeof name !== "string") {
+      res.status(400).json({ error: "name must be a string" });
+      return;
+    }
+    if (description !== undefined && description !== null && typeof description !== "string") {
+      res.status(400).json({ error: "description must be a string or null" });
+      return;
+    }
+    if (icon !== undefined && icon !== null && typeof icon !== "string") {
+      res.status(400).json({ error: "icon must be a string or null" });
+      return;
+    }
+
+    try {
+      const result = await updateBadgeForNeighborhoodAdmin(
+        req.params.id,
+        req.params.badgeId,
+        { name, description, icon },
+        getGamificationRepository(),
+        getNeighborhoodRepository()
+      );
+
+      switch (result.status) {
+        case "not_found":
+          res.status(404).json({ error: "Badge not found" });
+          return;
+        case "invalid_name":
+          res.status(400).json({ error: "name must not be empty" });
+          return;
+        case "updated":
+          res.json(result.badge);
+          return;
+      }
+    } catch (err) {
+      console.error(
+        `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/badges/${req.params.badgeId} failed:`,
+        err
+      );
+      res.status(500).json({ error: "Failed to update badge" });
+    }
+  });
 
   // Manual location creation (BACKLOG.md "POIs and venues managed almost
   // the same") -- only the "+ Add point of interest" admin flow posts here

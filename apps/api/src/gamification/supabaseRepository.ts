@@ -1,19 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LocationKind } from "@blockwise/types";
 import { RECENT_VISITOR_WINDOW_MS, rankRecentVisitors } from "../checkins/checkin";
-import type {
-  AwardPointsInput,
-  BadgeRecord,
-  BadgeRuleRecord,
-  BadgeRuleType,
-  ChallengeRecord,
-  ChallengeTargetKind,
-  CompletedChallengeRecord,
-  CompleteChallengeInput,
-  GamificationRepository,
-  LeaderboardRow,
-  LocationContext,
-  UserBadgeRecord,
+import {
+  BadgeCodeTakenError,
+  type AwardPointsInput,
+  type BadgeRecord,
+  type BadgeRuleRecord,
+  type BadgeRuleType,
+  type ChallengeRecord,
+  type ChallengeTargetKind,
+  type CompletedChallengeRecord,
+  type CompleteChallengeInput,
+  type GamificationRepository,
+  type LeaderboardRow,
+  type LocationContext,
+  type UserBadgeRecord,
 } from "./repository";
 
 // Without generated Database types passed to createClient, supabase-js can't
@@ -28,11 +29,11 @@ function single<T>(embed: T[] | T | null | undefined): T | null {
 const CHALLENGE_COLUMNS =
   "id, neighborhood_id, title, description, category_id, category:category_id(name), " +
   "venue_id, venue:venue_id(name), target_kind, target_count, target_count_live, points_reward, " +
-  "badge:badge_id(id, code, name, description, icon), starts_at, ends_at";
+  "badge:badge_id(id, code, name, description, icon, neighborhoodId:neighborhood_id), starts_at, ends_at";
 
 interface ChallengeRow {
   id: string;
-  neighborhood_id: string;
+  neighborhood_id: string | null;
   title: string;
   description: string | null;
   category_id: string | null;
@@ -69,7 +70,7 @@ function toChallengeRecord(row: ChallengeRow): ChallengeRecord {
 }
 
 const BADGE_RULE_COLUMNS =
-  "id, badge_id, rule_type, category_id, threshold, badge:badge_id(id, code, name, description, icon)";
+  "id, badge_id, rule_type, category_id, threshold, badge:badge_id(id, code, name, description, icon, neighborhoodId:neighborhood_id)";
 
 interface BadgeRuleRow {
   id: string;
@@ -94,14 +95,14 @@ function toBadgeRuleRecord(row: BadgeRuleRow): BadgeRuleRecord {
 const USER_CHALLENGE_COMPLETION_COLUMNS =
   "completed_at, challenge:challenge_id(id, title, description, points_reward, " +
   "neighborhood_id, neighborhood:neighborhood_id(name), " +
-  "badge:badge_id(id, code, name, description, icon))";
+  "badge:badge_id(id, code, name, description, icon, neighborhoodId:neighborhood_id))";
 
 interface CompletedChallengeRow {
   id: string;
   title: string;
   description: string | null;
   points_reward: number;
-  neighborhood_id: string;
+  neighborhood_id: string | null;
   neighborhood: { name: string } | { name: string }[] | null;
   badge: BadgeRecord | BadgeRecord[] | null;
 }
@@ -161,11 +162,13 @@ export class SupabaseGamificationRepository implements GamificationRepository {
     now: string;
   }): Promise<ChallengeRecord[]> {
     // ends_at is null for an indefinite challenge, which is always "active"
-    // on the end-date side.
+    // on the end-date side. Matches this neighborhood's own challenges plus
+    // every app-wide challenge (BACKLOG.md Ref 108) -- a check-in anywhere
+    // can satisfy an app-wide challenge, not just a neighborhood-scoped one.
     const query = this.supabase
       .from("challenge")
       .select(CHALLENGE_COLUMNS)
-      .eq("neighborhood_id", input.neighborhoodId)
+      .or(`neighborhood_id.eq.${input.neighborhoodId},neighborhood_id.is.null`)
       .lte("starts_at", input.now)
       .or(`ends_at.is.null,ends_at.gte.${input.now}`);
 
@@ -186,15 +189,113 @@ export class SupabaseGamificationRepository implements GamificationRepository {
   }
 
   async listChallengesForNeighborhood(neighborhoodId: string, now: string): Promise<ChallengeRecord[]> {
+    // Merges this neighborhood's own challenges with every app-wide
+    // challenge (BACKLOG.md Ref 108) -- app-wide challenges show up in every
+    // neighborhood's challenge list.
     const { data, error } = await this.supabase
       .from("challenge")
       .select(CHALLENGE_COLUMNS)
-      .eq("neighborhood_id", neighborhoodId)
+      .or(`neighborhood_id.eq.${neighborhoodId},neighborhood_id.is.null`)
       .or(`ends_at.is.null,ends_at.gte.${now}`)
       .order("starts_at");
 
     if (error) throw new Error(`listChallengesForNeighborhood failed: ${error.message}`);
     return (data ?? []).map((row) => toChallengeRecord(row as unknown as ChallengeRow));
+  }
+
+  async listAllChallengesForAdmin(): Promise<ChallengeRecord[]> {
+    const { data, error } = await this.supabase
+      .from("challenge")
+      .select(CHALLENGE_COLUMNS)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new Error(`listAllChallengesForAdmin failed: ${error.message}`);
+    return (data ?? []).map((row) => toChallengeRecord(row as unknown as ChallengeRow));
+  }
+
+  async listChallengesForNeighborhoodAdmin(neighborhoodId: string): Promise<ChallengeRecord[]> {
+    const { data, error } = await this.supabase
+      .from("challenge")
+      .select(CHALLENGE_COLUMNS)
+      .eq("neighborhood_id", neighborhoodId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new Error(`listChallengesForNeighborhoodAdmin failed: ${error.message}`);
+    return (data ?? []).map((row) => toChallengeRecord(row as unknown as ChallengeRow));
+  }
+
+  async createChallenge(input: {
+    neighborhoodId: string | null;
+    title: string;
+    description: string | null;
+    categoryId: string | null;
+    targetKind: ChallengeTargetKind | null;
+    targetCount: number;
+    targetCountLive: boolean;
+    pointsReward: number;
+    badgeId: string | null;
+    startsAt: string;
+    endsAt: string | null;
+  }): Promise<ChallengeRecord> {
+    const { data, error } = await this.supabase
+      .from("challenge")
+      .insert({
+        neighborhood_id: input.neighborhoodId,
+        title: input.title,
+        description: input.description,
+        category_id: input.categoryId,
+        target_kind: input.targetKind,
+        target_count: input.targetCount,
+        target_count_live: input.targetCountLive,
+        points_reward: input.pointsReward,
+        badge_id: input.badgeId,
+        starts_at: input.startsAt,
+        ends_at: input.endsAt,
+      })
+      .select(CHALLENGE_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`createChallenge failed: ${error.message}`);
+    return toChallengeRecord(data as unknown as ChallengeRow);
+  }
+
+  async updateChallenge(
+    id: string,
+    patch: {
+      title?: string;
+      description?: string | null;
+      categoryId?: string | null;
+      targetKind?: ChallengeTargetKind | null;
+      targetCount?: number;
+      targetCountLive?: boolean;
+      pointsReward?: number;
+      badgeId?: string | null;
+      endsAt?: string | null;
+    },
+    options?: { neighborhoodId?: string }
+  ): Promise<ChallengeRecord | null> {
+    const update: Record<string, unknown> = {};
+    if (patch.title !== undefined) update.title = patch.title;
+    if (patch.description !== undefined) update.description = patch.description;
+    if (patch.categoryId !== undefined) update.category_id = patch.categoryId;
+    if (patch.targetKind !== undefined) update.target_kind = patch.targetKind;
+    if (patch.targetCount !== undefined) update.target_count = patch.targetCount;
+    if (patch.targetCountLive !== undefined) update.target_count_live = patch.targetCountLive;
+    if (patch.pointsReward !== undefined) update.points_reward = patch.pointsReward;
+    if (patch.badgeId !== undefined) update.badge_id = patch.badgeId;
+    if (patch.endsAt !== undefined) update.ends_at = patch.endsAt;
+
+    let query = this.supabase.from("challenge").update(update).eq("id", id);
+    // Ownership scope for the neighborhood-admin route (BACKLOG.md Ref 108)
+    // -- a challenge belonging to a different neighborhood (or app-wide)
+    // matches zero rows here, same as not found.
+    if (options?.neighborhoodId) query = query.eq("neighborhood_id", options.neighborhoodId);
+
+    const { data, error } = await query.select(CHALLENGE_COLUMNS).maybeSingle();
+
+    if (error) throw new Error(`updateChallenge failed: ${error.message}`);
+    if (!data) return null;
+    return toChallengeRecord(data as unknown as ChallengeRow);
   }
 
   async hasCompletedChallenge(userId: string, challengeId: string): Promise<boolean> {
@@ -219,10 +320,21 @@ export class SupabaseGamificationRepository implements GamificationRepository {
     return count ?? 0;
   }
 
+  async completedChallengeIds(challengeIds: string[]): Promise<Set<string>> {
+    if (challengeIds.length === 0) return new Set();
+    const { data, error } = await this.supabase
+      .from("user_challenge_completion")
+      .select("challenge_id")
+      .in("challenge_id", challengeIds);
+
+    if (error) throw new Error(`completedChallengeIds failed: ${error.message}`);
+    return new Set((data ?? []).map((row) => row.challenge_id as string));
+  }
+
   async countDistinctVenuesCheckedInForCategory(input: {
     userId: string;
     categoryId: string;
-    neighborhoodId: string;
+    neighborhoodId: string | null;
     startsAt: string;
     endsAt: string | null;
   }): Promise<number> {
@@ -232,8 +344,10 @@ export class SupabaseGamificationRepository implements GamificationRepository {
       .eq("user_id", input.userId)
       .not("venue_id", "is", null)
       .gte("checked_in_at", input.startsAt)
-      .eq("venue.category_id", input.categoryId)
-      .eq("venue.neighborhood_id", input.neighborhoodId);
+      .eq("venue.category_id", input.categoryId);
+    // null means an app-wide challenge (BACKLOG.md Ref 108) -- count across
+    // every neighborhood rather than restricting to one.
+    if (input.neighborhoodId) query = query.eq("venue.neighborhood_id", input.neighborhoodId);
     if (input.endsAt) query = query.lte("checked_in_at", input.endsAt);
 
     const { data, error } = await query;
@@ -245,7 +359,7 @@ export class SupabaseGamificationRepository implements GamificationRepository {
   async countDistinctVenuesCheckedInForKind(input: {
     userId: string;
     kind?: LocationKind;
-    neighborhoodId: string;
+    neighborhoodId: string | null;
     startsAt: string;
     endsAt: string | null;
   }): Promise<number> {
@@ -254,8 +368,10 @@ export class SupabaseGamificationRepository implements GamificationRepository {
       .select("venue_id, venue:venue_id!inner(kind, neighborhood_id)")
       .eq("user_id", input.userId)
       .not("venue_id", "is", null)
-      .gte("checked_in_at", input.startsAt)
-      .eq("venue.neighborhood_id", input.neighborhoodId);
+      .gte("checked_in_at", input.startsAt);
+    // null means an app-wide challenge (BACKLOG.md Ref 108) -- count across
+    // every neighborhood rather than restricting to one.
+    if (input.neighborhoodId) query = query.eq("venue.neighborhood_id", input.neighborhoodId);
     if (input.kind) query = query.eq("venue.kind", input.kind);
     if (input.endsAt) query = query.lte("checked_in_at", input.endsAt);
 
@@ -264,13 +380,16 @@ export class SupabaseGamificationRepository implements GamificationRepository {
     return new Set((data ?? []).map((row) => row.venue_id as string)).size;
   }
 
-  async countActiveLocationsForKind(input: { neighborhoodId: string; kind: LocationKind }): Promise<number> {
-    const { count, error } = await this.supabase
+  async countActiveLocationsForKind(input: { neighborhoodId: string | null; kind: LocationKind }): Promise<number> {
+    let query = this.supabase
       .from("venue")
       .select("id", { count: "exact", head: true })
-      .eq("neighborhood_id", input.neighborhoodId)
       .eq("kind", input.kind)
       .eq("status", "active");
+    // null means an app-wide completionist challenge (BACKLOG.md Ref 108) --
+    // the denominator is every active location of this kind, any neighborhood.
+    if (input.neighborhoodId) query = query.eq("neighborhood_id", input.neighborhoodId);
+    const { count, error } = await query;
     if (error) throw new Error(`countActiveLocationsForKind failed: ${error.message}`);
     return count ?? 0;
   }
@@ -391,7 +510,7 @@ export class SupabaseGamificationRepository implements GamificationRepository {
   async getUserBadges(userId: string): Promise<UserBadgeRecord[]> {
     const { data, error } = await this.supabase
       .from("user_badge")
-      .select("challenge_id, awarded_at, badge:badge_id(id, code, name, description, icon)")
+      .select("challenge_id, awarded_at, badge:badge_id(id, code, name, description, icon, neighborhoodId:neighborhood_id)")
       .eq("user_id", userId)
       .order("awarded_at", { ascending: false });
 
@@ -421,7 +540,7 @@ export class SupabaseGamificationRepository implements GamificationRepository {
           title: challenge.title,
           description: challenge.description,
           neighborhoodId: challenge.neighborhood_id,
-          neighborhoodName: single(challenge.neighborhood)?.name ?? "",
+          neighborhoodName: single(challenge.neighborhood)?.name ?? null,
           pointsReward: challenge.points_reward,
           badge: single(challenge.badge),
           completedAt: row.completed_at,
@@ -431,9 +550,59 @@ export class SupabaseGamificationRepository implements GamificationRepository {
   }
 
   async getAllBadges(): Promise<BadgeRecord[]> {
-    const { data, error } = await this.supabase.from("badge").select("id, code, name, description, icon");
+    const { data, error } = await this.supabase
+      .from("badge")
+      .select("id, code, name, description, icon, neighborhoodId:neighborhood_id");
     if (error) throw new Error(`getAllBadges failed: ${error.message}`);
     return data ?? [];
+  }
+
+  async createBadge(input: {
+    code: string;
+    name: string;
+    description: string | null;
+    icon: string | null;
+    neighborhoodId: string | null;
+  }): Promise<BadgeRecord> {
+    const { data, error } = await this.supabase
+      .from("badge")
+      .insert({
+        code: input.code,
+        name: input.name,
+        description: input.description,
+        icon: input.icon,
+        neighborhood_id: input.neighborhoodId,
+      })
+      .select("id, code, name, description, icon, neighborhoodId:neighborhood_id")
+      .single();
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) throw new BadgeCodeTakenError(input.code);
+      throw new Error(`createBadge failed: ${error.message}`);
+    }
+    return data;
+  }
+
+  async updateBadge(
+    id: string,
+    patch: { name?: string; description?: string | null; icon?: string | null },
+    options?: { neighborhoodId?: string }
+  ): Promise<BadgeRecord | null> {
+    const update: Record<string, unknown> = {};
+    if (patch.name !== undefined) update.name = patch.name;
+    if (patch.description !== undefined) update.description = patch.description;
+    if (patch.icon !== undefined) update.icon = patch.icon;
+
+    let query = this.supabase.from("badge").update(update).eq("id", id);
+    // Ownership scope for the neighborhood-admin route (BACKLOG.md Ref 108)
+    // -- a badge belonging to a different neighborhood (or app-wide)
+    // matches zero rows here, same as not found.
+    if (options?.neighborhoodId) query = query.eq("neighborhood_id", options.neighborhoodId);
+
+    const { data, error } = await query.select("id, code, name, description, icon, neighborhoodId:neighborhood_id").maybeSingle();
+
+    if (error) throw new Error(`updateBadge failed: ${error.message}`);
+    return data ?? null;
   }
 
   async getAllBadgeRules(): Promise<BadgeRuleRecord[]> {
@@ -467,14 +636,20 @@ export class SupabaseGamificationRepository implements GamificationRepository {
     userId: string;
     categoryId?: string;
     kind?: LocationKind;
+    // Set for a neighborhood-scoped badge_rule (e.g. an Explorer badge
+    // re-homed to Phinneywood, BACKLOG.md Ref 108 follow-up) -- restricts
+    // the distinct-venue count to that neighborhood instead of the user's
+    // lifetime cross-neighborhood total.
+    neighborhoodId?: string | null;
   }): Promise<number> {
     let query = this.supabase
       .from("checkin")
-      .select("venue_id, venue:venue_id!inner(category_id, kind)")
+      .select("venue_id, venue:venue_id!inner(category_id, kind, neighborhood_id)")
       .eq("user_id", input.userId)
       .not("venue_id", "is", null);
     if (input.categoryId) query = query.eq("venue.category_id", input.categoryId);
     if (input.kind) query = query.eq("venue.kind", input.kind);
+    if (input.neighborhoodId) query = query.eq("venue.neighborhood_id", input.neighborhoodId);
 
     const { data, error } = await query;
     if (error) throw new Error(`countDistinctVenuesForBadge failed: ${error.message}`);

@@ -1308,6 +1308,12 @@ export interface Badge {
   name: string;
   description: string | null;
   icon: string | null;
+  // null = app-wide (the vast majority); set = this badge belongs to one
+  // neighborhood specifically (BACKLOG.md Ref 108 follow-up). Resolve the
+  // name client-side against GET /neighborhoods rather than a denormalized
+  // neighborhood_name field here, since every consumer of this type already
+  // has (or can cheaply fetch) that full list.
+  neighborhood_id: string | null;
 }
 
 // A badge a user has earned (BACKLOG.md Ref 55), across every neighborhood
@@ -1316,6 +1322,58 @@ export interface Badge {
 export interface UserBadge {
   badge: Badge;
   awarded_at: string;
+}
+
+// "rule" = a global badge_rule row (BACKLOG.md Ref 108's badge_rule engine,
+// already app-wide by construction); "challenge" = awarded via a challenge's
+// badge_id; "manual" = a one-off award with neither (e.g. the founder
+// badge). A badge can be earned more than one way at once, hence an array.
+export type BadgeEarnMethod = "rule" | "challenge" | "manual";
+
+// One challenge that awards this badge on completion.
+export interface BadgeAdminChallengeRef {
+  id: string;
+  title: string;
+  // Both null when the awarding challenge is itself app-wide.
+  neighborhood_id: string | null;
+  neighborhood_name: string | null;
+}
+
+// Super admin's Badges view (BACKLOG.md Ref 108): every badge, classified by
+// how it's earned. neighborhood_id/neighborhood_name reflect the badge's own
+// direct scope (e.g. a category_milestone "Explorer" badge re-homed to one
+// neighborhood -- both null for an app-wide badge). scope is
+// "neighborhood_specific" either when neighborhood_id is set directly, or
+// (for a badge with no direct scope of its own) when every challenge that
+// awards it is itself neighborhood-scoped -- a badge earned only via
+// neighborhood-scoped challenges is still neighborhood-specific in effect
+// even though neighborhood_id stays null in that case.
+export interface BadgeAdminItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  neighborhood_id: string | null;
+  neighborhood_name: string | null;
+  scope: "app_wide" | "neighborhood_specific";
+  earned_via: BadgeEarnMethod[];
+  challenges: BadgeAdminChallengeRef[];
+}
+
+export interface CreateBadgeRequest {
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  // null creates an app-wide badge; a string scopes it to that neighborhood
+  // directly (distinct from a challenge's own scope -- see BadgeAdminItem).
+  neighborhood_id?: string | null;
+}
+
+export interface UpdateBadgeRequest {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
 }
 
 // "poi" targets one specific venue_id (still named poi_id/poi_name below for
@@ -1328,7 +1386,9 @@ export type ChallengeTargetType = "category" | "poi" | "any_poi" | "any_activity
 
 export interface Challenge {
   id: string;
-  neighborhood_id: string;
+  // null means app-wide (BACKLOG.md Ref 108) -- the challenge applies in
+  // every neighborhood rather than one specific one.
+  neighborhood_id: string | null;
   title: string;
   description: string | null;
   target_type: ChallengeTargetType;
@@ -1494,8 +1554,10 @@ export interface UserChallenge {
   id: string;
   title: string;
   description: string | null;
-  neighborhood_id: string;
-  neighborhood_name: string;
+  // Both null for an app-wide challenge (BACKLOG.md Ref 108) -- display a
+  // fallback like "App-wide" rather than a neighborhood link.
+  neighborhood_id: string | null;
+  neighborhood_name: string | null;
   points_reward: number;
   badge: Badge | null;
   completed_at: string;
@@ -1504,9 +1566,74 @@ export interface UserChallenge {
 // GET /me/challenges/active -- every active, not-yet-completed challenge
 // across every neighborhood this user belongs to, for the account page's
 // Challenges tab, mirroring UserChallenge's shape but with live progress
-// (ChallengeProgress) instead of a completion timestamp.
+// (ChallengeProgress) instead of a completion timestamp. Null for an
+// app-wide challenge, same as UserChallenge.neighborhood_name above.
 export interface UserChallengeProgress extends ChallengeProgress {
-  neighborhood_name: string;
+  neighborhood_name: string | null;
+}
+
+// Super admin's Challenges tab (BACKLOG.md Ref 108) -- a challenge with its
+// scope resolved to a display name, for the admin list/table view. Creation
+// only supports category- or kind-targeted challenges (never a specific
+// venue) to keep the minimal admin authoring flow simple; existing
+// venue-targeted rows (seeded by hand before this admin UI existed) still
+// display here, just aren't creatable through it.
+export interface ChallengeAdminItem {
+  id: string;
+  neighborhood_id: string | null;
+  neighborhood_name: string | null;
+  title: string;
+  description: string | null;
+  target_type: ChallengeTargetType;
+  category_id: string | null;
+  category_name: string | null;
+  poi_id: string | null;
+  poi_name: string | null;
+  target_count: number;
+  // True for a "completionist" challenge (e.g. "Visit every POI") whose
+  // real target tracks the neighborhood's current active-POI count rather
+  // than a fixed number -- only meaningful when target_type is "any_poi".
+  // When true, target_count above is already the live-resolved number (see
+  // challenges.ts's effectiveTargetCount), not the raw stored column.
+  target_count_live: boolean;
+  points_reward: number;
+  badge: Badge | null;
+  starts_at: string;
+  ends_at: string | null;
+  // True once anyone has completed this challenge. A neighborhood admin
+  // can no longer edit the challenge or its badge once this flips true
+  // (would retroactively change what was already earned); a super admin
+  // can edit regardless.
+  has_completions: boolean;
+}
+
+export interface CreateChallengeRequest {
+  // null creates an app-wide challenge; a string scopes it to that
+  // neighborhood, same meaning as every challenge created before this admin
+  // UI existed.
+  neighborhood_id: string | null;
+  title: string;
+  description?: string | null;
+  // Exactly one of category_id/target_kind must be set.
+  category_id?: string | null;
+  target_kind?: "poi" | "any" | null;
+  target_count: number;
+  // Only valid when target_kind is "poi" -- see ChallengeAdminItem's own
+  // target_count_live doc comment.
+  target_count_live?: boolean;
+  points_reward: number;
+  badge_id?: string | null;
+  starts_at: string;
+  ends_at?: string | null;
+}
+
+export interface UpdateChallengeRequest {
+  title?: string;
+  description?: string | null;
+  target_count?: number;
+  points_reward?: number;
+  badge_id?: string | null;
+  ends_at?: string | null;
 }
 
 // Super-admin Monitoring tab (BACKLOG.md Ref 104): one combined shape --

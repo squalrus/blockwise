@@ -9,6 +9,7 @@ function toBadge(record: BadgeRuleRecord["badge"]): Badge {
     name: record.name,
     description: record.description,
     icon: record.icon,
+    neighborhood_id: record.neighborhoodId,
   };
 }
 
@@ -28,10 +29,22 @@ function endOfUtcDay(iso: string): string {
 // move its progress -- daily/same-venue/level rules are always re-checked
 // (any check-in affects them), but a category_milestone/poi_milestone rule
 // for a category or kind this check-in doesn't match can't have changed.
-function isRelevant(rule: BadgeRuleRecord, categoryId: string | undefined, kind: LocationKind): boolean {
+function isRelevant(
+  rule: BadgeRuleRecord,
+  categoryId: string | undefined,
+  kind: LocationKind,
+  neighborhoodId: string
+): boolean {
   switch (rule.ruleType) {
     case "category_milestone":
-      return rule.categoryId === categoryId;
+      // A neighborhood-scoped Explorer badge (BACKLOG.md Ref 108 follow-up)
+      // only cares about check-ins within its own neighborhood -- a
+      // check-in elsewhere can't move its progress even if the category
+      // matches, unlike an app-wide (neighborhoodId null) rule.
+      return (
+        rule.categoryId === categoryId &&
+        (rule.badge.neighborhoodId === null || rule.badge.neighborhoodId === neighborhoodId)
+      );
     case "poi_milestone":
     case "poi_rank_reached":
       return kind === "poi";
@@ -73,7 +86,11 @@ async function progressForRule(
 ): Promise<number> {
   switch (rule.ruleType) {
     case "category_milestone":
-      return repository.countDistinctVenuesForBadge({ userId: input.userId, categoryId: rule.categoryId! });
+      return repository.countDistinctVenuesForBadge({
+        userId: input.userId,
+        categoryId: rule.categoryId!,
+        neighborhoodId: rule.badge.neighborhoodId,
+      });
     case "poi_milestone":
       return repository.countDistinctVenuesForBadge({ userId: input.userId, kind: "poi" });
     case "daily_distinct_venues":
@@ -123,7 +140,7 @@ export async function evaluateBadgesAfterCheckin(
   repository: GamificationRepository
 ): Promise<Badge[]> {
   const rules = await repository.getAllBadgeRules();
-  const relevant = rules.filter((rule) => isRelevant(rule, input.categoryId, input.kind));
+  const relevant = rules.filter((rule) => isRelevant(rule, input.categoryId, input.kind, input.neighborhoodId));
   if (relevant.length === 0) return [];
 
   const dayStart = startOfUtcDay(input.checkedInAt);
