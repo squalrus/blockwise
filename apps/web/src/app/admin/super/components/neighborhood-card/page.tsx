@@ -1,5 +1,5 @@
-import { JoinNeighborhoodButton } from "../../../neighborhoods/[slug]/JoinNeighborhoodButton";
-import { NeighborhoodSummaryCard } from "../../../neighborhoods/[slug]/NeighborhoodSummaryCard";
+import { JoinNeighborhoodButton } from "../../../../neighborhoods/[slug]/JoinNeighborhoodButton";
+import { NeighborhoodSummaryCard } from "../../../../neighborhoods/[slug]/NeighborhoodSummaryCard";
 import { NEIGHBORHOOD_CARDS } from "../demoData";
 
 export default function NeighborhoodCardDemoPage() {

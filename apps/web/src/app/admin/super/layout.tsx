@@ -14,7 +14,7 @@ type State =
   | { status: "forbidden" }
   | { status: "ready"; user: AppUser };
 
-type TabKey = "overview" | "users" | "category-taxonomy" | "feedback" | "monitoring";
+type TabKey = "overview" | "users" | "category-taxonomy" | "feedback" | "monitoring" | "components";
 
 const TABS: { key: TabKey; href: string; label: string; icon: (props: { className?: string }) => React.ReactNode }[] = [
   {
@@ -102,6 +102,26 @@ const TABS: { key: TabKey; href: string; label: string; icon: (props: { classNam
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    key: "components",
+    href: "/components",
+    label: "Components",
+    icon: ({ className }) => (
+      <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
+        <rect x="2.5" y="2.5" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" strokeWidth="2" />
+        <circle cx="14.5" cy="5.5" r="3" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.6" />
+        <path
+          d="M2.5 14 L8.5 14 L8.5 17.5 L2.5 17.5 Z M11 15.75 L17.5 15.75"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.6"
         />
       </svg>
     ),

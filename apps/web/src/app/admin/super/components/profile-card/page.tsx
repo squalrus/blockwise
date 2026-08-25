@@ -1,5 +1,5 @@
-import { NeighborRequestButton } from "../../../profile/[username]/NeighborRequestButton";
-import { ProfileSummaryCard } from "../../../account/ProfileSummaryCard";
+import { NeighborRequestButton } from "../../../../profile/[username]/NeighborRequestButton";
+import { ProfileSummaryCard } from "../../../../account/ProfileSummaryCard";
 import { PROFILE_CARDS } from "../demoData";
 
 export default function ProfileCardDemoPage() {

@@ -26,7 +26,7 @@ import { useCheckIn, type CheckinStatus } from "./useCheckIn";
 // badges, a one-line error) doesn't visually shrink the card either.
 export function SlideToCheckIn({
   locationId,
-  // Component-library preview only (apps/web/src/app/dev/components) -- the
+  // Component-library preview only (apps/web/src/app/admin/super/components) -- the
   // control starts idle and fully draggable like the real thing, but a
   // completed slide resolves to this canned outcome instead of making the
   // real useCheckIn network call, so every terminal state can be demoed by
@@ -87,7 +87,7 @@ export function SlideToCheckIn({
             parkedAtEnd={status.state === "success"}
             snapBack={recoverableFailure}
             onComplete={checkIn}
-            // mockResolution means this is the /dev/components style-guide
+            // mockResolution means this is the /admin/super/components style-guide
             // gallery, not a real signed-out visitor -- keep it fully
             // draggable there regardless of auth state, per that page's
             // "review every state by actually sliding" purpose.

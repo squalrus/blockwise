@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MushroomCustomization } from "@blockwise/types";
 import type { ActivityRecord, ActivityRepository } from "./repository";
 
 // Without generated Database types passed to createClient, supabase-js can't
@@ -10,7 +11,13 @@ function single<T>(embed: T[] | T | null | undefined): T | null {
   return Array.isArray(embed) ? (embed[0] ?? null) : embed;
 }
 
-type ActorEmbed = { display_name: string | null; username: string | null; visibility: "public" | "private" };
+type ActorEmbed = {
+  display_name: string | null;
+  username: string | null;
+  visibility: "public" | "private";
+  mushroom_customization: MushroomCustomization | null;
+};
+type VenueEmbed = { name: string; kind: "business" | "poi" };
 
 interface PointEventRow {
   id: string;
@@ -18,7 +25,7 @@ interface PointEventRow {
   points: number;
   created_at: string;
   venue_id: string | null;
-  venue: { name: string } | { name: string }[] | null;
+  venue: VenueEmbed | VenueEmbed[] | null;
   challenge: { title: string } | { title: string }[] | null;
   user: ActorEmbed | ActorEmbed[] | null;
   // Set only for event_type "neighbor_connection".
@@ -40,17 +47,17 @@ interface EventFollowRow {
   user: ActorEmbed | ActorEmbed[] | null;
 }
 
+const ACTOR_COLUMNS = "display_name, username, visibility, mushroom_customization";
 const POINT_EVENT_COLUMNS =
-  "id, event_type, points, created_at, venue_id, venue:venue_id(name), challenge:challenge_id(title), " +
-  "user:user_id!inner(display_name, username, visibility), neighbor_user_id, neighbor:neighbor_user_id(display_name, username, visibility)";
-const USER_BADGE_COLUMNS =
-  "id, awarded_at, badge:badge_id(name, icon), user:user_id!inner(display_name, username, visibility)";
+  "id, event_type, points, created_at, venue_id, venue:venue_id(name, kind), challenge:challenge_id(title), " +
+  `user:user_id!inner(${ACTOR_COLUMNS}), neighbor_user_id, neighbor:neighbor_user_id(${ACTOR_COLUMNS})`;
+const USER_BADGE_COLUMNS = `id, awarded_at, badge:badge_id(name, icon), user:user_id!inner(${ACTOR_COLUMNS})`;
 // Base columns only -- callers append their own `event:event_id(...)` embed
 // (the neighborhood-scoped queries below need `!inner` plus a
 // neighborhood_id/venue.neighborhood_id filter target; the user-scoped one
 // doesn't), so this deliberately excludes `event` to avoid two conflicting
 // `event:` aliases landing in the same select() call.
-const EVENT_FOLLOW_COLUMNS = "id, created_at, user:user_id!inner(display_name, username, visibility)";
+const EVENT_FOLLOW_COLUMNS = `id, created_at, user:user_id!inner(${ACTOR_COLUMNS})`;
 
 function fromPointEventRow(row: PointEventRow): ActivityRecord {
   const actor = single(row.user);
@@ -62,9 +69,11 @@ function fromPointEventRow(row: PointEventRow): ActivityRecord {
     type: row.event_type as ActivityRecord["type"],
     actorDisplayName: actor?.display_name ?? null,
     actorUsername: actor?.username ?? null,
+    actorMushroomCustomization: actor?.mushroom_customization ?? null,
     actorVisibility: actor?.visibility ?? "private",
     venueId: row.venue_id,
     venueName: venue?.name ?? null,
+    venueKind: venue?.kind ?? null,
     badgeName: null,
     badgeIcon: null,
     challengeTitle: challenge?.title ?? null,
@@ -73,6 +82,7 @@ function fromPointEventRow(row: PointEventRow): ActivityRecord {
     otherUserId: row.event_type === "neighbor_connection" ? row.neighbor_user_id : null,
     otherUserDisplayName: neighbor?.display_name ?? null,
     otherUserUsername: neighbor?.username ?? null,
+    otherUserMushroomCustomization: neighbor?.mushroom_customization ?? null,
     otherUserVisibility: neighbor?.visibility ?? (row.event_type === "neighbor_connection" ? "private" : null),
     pointsEarned: row.points,
     occurredAt: row.created_at,
@@ -87,9 +97,11 @@ function fromUserBadgeRow(row: UserBadgeRow): ActivityRecord {
     type: "badge",
     actorDisplayName: actor?.display_name ?? null,
     actorUsername: actor?.username ?? null,
+    actorMushroomCustomization: actor?.mushroom_customization ?? null,
     actorVisibility: actor?.visibility ?? "private",
     venueId: null,
     venueName: null,
+    venueKind: null,
     badgeName: badge?.name ?? null,
     badgeIcon: badge?.icon ?? null,
     challengeTitle: null,
@@ -98,6 +110,7 @@ function fromUserBadgeRow(row: UserBadgeRow): ActivityRecord {
     otherUserId: null,
     otherUserDisplayName: null,
     otherUserUsername: null,
+    otherUserMushroomCustomization: null,
     otherUserVisibility: null,
     pointsEarned: null,
     occurredAt: row.awarded_at,
@@ -114,9 +127,11 @@ function fromEventFollowRow(row: EventFollowRow): ActivityRecord | null {
     type: "event_follow",
     actorDisplayName: actor?.display_name ?? null,
     actorUsername: actor?.username ?? null,
+    actorMushroomCustomization: actor?.mushroom_customization ?? null,
     actorVisibility: actor?.visibility ?? "private",
     venueId: event.venue_id,
     venueName: venue?.name ?? null,
+    venueKind: null,
     badgeName: null,
     badgeIcon: null,
     challengeTitle: null,
@@ -125,6 +140,7 @@ function fromEventFollowRow(row: EventFollowRow): ActivityRecord | null {
     otherUserId: null,
     otherUserDisplayName: null,
     otherUserUsername: null,
+    otherUserMushroomCustomization: null,
     otherUserVisibility: null,
     pointsEarned: null,
     occurredAt: row.created_at,

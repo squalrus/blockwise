@@ -27,7 +27,7 @@ function StatTile({ value, label, accent, divider }: { value: number; label: str
 }
 
 // Extracted from the neighborhood profile layout (BACKLOG.md Ref 44) so it
-// can be rendered standalone in /dev/components alongside the location and
+// can be rendered standalone in /admin/super/components alongside the location and
 // person profile summary cards, self-contained in its own card background
 // like ProfileSummaryCard rather than sitting bare on the page. `actions`
 // holds the page-level Join button -- omitted here means no action row,

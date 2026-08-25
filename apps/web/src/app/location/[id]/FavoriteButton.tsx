@@ -14,7 +14,7 @@ type Status =
 
 export function FavoriteButton({
   venueId,
-  // Component-library preview only (apps/web/src/app/dev/components) -- skips
+  // Component-library preview only (apps/web/src/app/admin/super/components) -- skips
   // the live favorite-status fetch and starts idle in this state instead, so
   // both states can be reviewed side by side rather than depending on the
   // signed-in viewer's real favorites. Toggling still works locally (no

@@ -29,8 +29,16 @@ function toCheckinActivity(profile: PublicUserProfile): ActivityItem[] {
     type: "checkin",
     actor_name: profile.display_name ?? profile.username,
     actor_username: profile.username,
+    // This is this same profile's own check-in history, so it's always
+    // their own real saved customization -- same "your own look, not just
+    // your seed" rule ActivityFeed's ActorAvatar applies to every other row.
+    actor_mushroom_customization: profile.mushroom_customization,
     venue_id: checkin.venue_id,
     venue_name: checkin.name,
+    // CheckinHistoryItem (profile.recent_checkins) carries no kind of its
+    // own -- ActorAvatar's overlap treatment simply falls back to a plain
+    // avatar here, same as any other row predating location_kind.
+    location_kind: null,
     badge_name: null,
     badge_icon: null,
     challenge_title: null,
@@ -38,6 +46,7 @@ function toCheckinActivity(profile: PublicUserProfile): ActivityItem[] {
     event_title: null,
     other_user_name: null,
     other_user_username: null,
+    other_user_mushroom_customization: null,
     // Not backed by a real point_event row here (recent_checkins is a plain
     // CheckinHistoryItem[], see above) -- awardCheckinRewards doesn't
     // *always* award CHECKIN_POINTS (e.g. a venue with no resolved

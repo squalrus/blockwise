@@ -1,5 +1,5 @@
-import { FavoriteButton } from "../../../location/[id]/FavoriteButton";
-import { LocationSummaryCard } from "../../../location/[id]/LocationSummaryCard";
+import { FavoriteButton } from "../../../../location/[id]/FavoriteButton";
+import { LocationSummaryCard } from "../../../../location/[id]/LocationSummaryCard";
 import { LOCATION_CARDS } from "../demoData";
 
 export default function LocationCardDemoPage() {

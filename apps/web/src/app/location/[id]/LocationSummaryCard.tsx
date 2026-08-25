@@ -30,7 +30,7 @@ function StatTile({ value, label, accent, divider }: { value: React.ReactNode; l
 
 // Extracted from the merged business/POI detail page (BACKLOG.md "POIs and
 // venues managed almost the same") so it can be rendered standalone in
-// /dev/components alongside the neighborhood and person profile summary
+// /admin/super/components alongside the neighborhood and person profile summary
 // cards, branching on `location.kind` the same way the page does and
 // self-contained in its own card background like ProfileSummaryCard rather
 // than sitting bare on the page. Check-ins and favorites are shown for both

@@ -17,10 +17,25 @@ type Status =
 // list row, not on its own page). Signed-in only per that item's scoping --
 // renders nothing for a signed-out visitor rather than prompting to sign in,
 // since a compact list-row action isn't the place for that prompt.
-export function FollowEventButton({ eventId }: { eventId: string }) {
-  const [status, setStatus] = useState<Status>({ state: "loading" });
+export function FollowEventButton({
+  eventId,
+  // Component-library preview only (apps/web/src/app/admin/super/components) -- skips
+  // the live follow-status fetch and starts idle in this state instead, so
+  // both states can be reviewed side by side rather than depending on the
+  // signed-in viewer's real follows. Toggling still works locally (no
+  // network call), mirroring FavoriteButton's mockFavorited pattern. Never
+  // passed in real usage.
+  mockFollowing,
+}: {
+  eventId: string;
+  mockFollowing?: boolean;
+}) {
+  const [status, setStatus] = useState<Status>(
+    mockFollowing === undefined ? { state: "loading" } : { state: "idle", following: mockFollowing }
+  );
 
   useEffect(() => {
+    if (mockFollowing !== undefined) return;
     let cancelled = false;
 
     async function load() {
@@ -47,11 +62,17 @@ export function FollowEventButton({ eventId }: { eventId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [eventId]);
+  }, [eventId, mockFollowing]);
 
   async function toggleFollow() {
     if (status.state !== "idle") return;
     const wasFollowing = status.following;
+
+    if (mockFollowing !== undefined) {
+      setStatus({ state: "idle", following: !wasFollowing });
+      return;
+    }
+
     setStatus({ state: "saving", following: wasFollowing });
 
     try {

@@ -19,7 +19,6 @@ export default function robots(): MetadataRoute.Robots {
         "/checkin",
         "/admin",
         "/admin/",
-        "/dev/",
       ],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,

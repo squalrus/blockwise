@@ -24,7 +24,7 @@ type Status =
 // separate accept action is needed here.
 export function NeighborRequestButton({
   username,
-  // Component-library preview only (apps/web/src/app/dev/components) -- skips
+  // Component-library preview only (apps/web/src/app/admin/super/components) -- skips
   // the live connections fetch and starts idle in this state instead, so
   // every state can be reviewed side by side rather than depending on the
   // signed-in viewer's real connections. Toggling still works locally (no

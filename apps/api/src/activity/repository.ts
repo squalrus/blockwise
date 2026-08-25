@@ -1,4 +1,4 @@
-import type { ActivityType, ProfileVisibility } from "@blockwise/types";
+import type { ActivityType, MushroomCustomization, ProfileVisibility } from "@blockwise/types";
 
 // One row per activity event, pre-join but not yet masked -- actor visibility
 // is exposed raw here so the business logic layer (activity.ts) decides how
@@ -8,9 +8,17 @@ export interface ActivityRecord {
   type: ActivityType;
   actorDisplayName: string | null;
   actorUsername: string | null;
+  // Mirrors ActivityItem's own actor_mushroom_customization field
+  // (packages/types) -- never masked by visibility, unlike every other
+  // actor* field here.
+  actorMushroomCustomization: MushroomCustomization | null;
   actorVisibility: ProfileVisibility;
   venueId: string | null;
   venueName: string | null;
+  // Set only for a row sourced from `point_event` with a venue (checkin/
+  // favorite) -- mirrors ActivityItem's own location_kind field
+  // (packages/types), which this maps straight onto.
+  venueKind: "business" | "poi" | null;
   badgeName: string | null;
   badgeIcon: string | null;
   challengeTitle: string | null;
@@ -23,6 +31,9 @@ export interface ActivityRecord {
   otherUserId: string | null;
   otherUserDisplayName: string | null;
   otherUserUsername: string | null;
+  // Mirrors actorMushroomCustomization above -- also never masked by
+  // visibility.
+  otherUserMushroomCustomization: MushroomCustomization | null;
   otherUserVisibility: ProfileVisibility | null;
   // Set only for a row sourced from `point_event` (checkin/favorite/
   // challenge_completion/neighbor_connection) -- see ActivityItem's own
