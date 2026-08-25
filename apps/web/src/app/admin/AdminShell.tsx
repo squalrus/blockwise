@@ -9,6 +9,13 @@ import { AccountMenu } from "../AccountMenu";
 import { AdminSwitcher, type AdminSwitcherCurrent } from "../AdminSwitcher";
 import packageJson from "../../../package.json";
 
+export interface AdminShellSubTab {
+  key: string;
+  href: string;
+  label: string;
+  active: boolean;
+}
+
 export interface AdminShellTab {
   key: string;
   href: string;
@@ -16,6 +23,11 @@ export interface AdminShellTab {
   icon: (props: { className?: string }) => React.ReactNode;
   active: boolean;
   badge?: React.ReactNode;
+  // Rendered indented under this tab, only while it's active (e.g.
+  // Monitoring > Overview/Performance/Google Places) -- a section with
+  // sub-pages, not a second top-level surface, so it doesn't warrant its own
+  // AdminShellTab entry.
+  children?: AdminShellSubTab[];
 }
 
 interface AdminShellProps {
@@ -101,18 +113,35 @@ export function AdminShell({ switcherCurrent, user, tabs, viewPublicHref, onLogO
 
         <nav className="flex flex-col gap-0.5">
           {tabs.map((tab) => (
-            <a
-              key={tab.key}
-              href={tab.href}
-              onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-extrabold ${
-                tab.active ? "bg-card text-foreground" : "text-nav-muted hover:bg-nav-foreground/8"
-              }`}
-            >
-              <tab.icon className="shrink-0" />
-              <span>{tab.label}</span>
-              {tab.badge}
-            </a>
+            <div key={tab.key}>
+              <a
+                href={tab.href}
+                onClick={() => setSidebarOpen(false)}
+                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-extrabold ${
+                  tab.active ? "bg-card text-foreground" : "text-nav-muted hover:bg-nav-foreground/8"
+                }`}
+              >
+                <tab.icon className="shrink-0" />
+                <span>{tab.label}</span>
+                {tab.badge}
+              </a>
+              {tab.active && tab.children && tab.children.length > 0 && (
+                <div className="mt-0.5 mb-1 ml-4.5 flex flex-col gap-0.5 border-l border-nav-foreground/12 pl-3">
+                  {tab.children.map((child) => (
+                    <a
+                      key={child.key}
+                      href={child.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`rounded-lg px-2.5 py-1.5 text-[13px] font-bold ${
+                        child.active ? "bg-card text-foreground" : "text-nav-muted hover:bg-nav-foreground/8"
+                      }`}
+                    >
+                      {child.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </nav>
 

@@ -16,7 +16,13 @@ type State =
 
 type TabKey = "overview" | "users" | "category-taxonomy" | "challenges" | "badges" | "feedback" | "monitoring" | "components";
 
-const TABS: { key: TabKey; href: string; label: string; icon: (props: { className?: string }) => React.ReactNode }[] = [
+const TABS: {
+  key: TabKey;
+  href: string;
+  label: string;
+  icon: (props: { className?: string }) => React.ReactNode;
+  children?: { key: string; href: string; label: string }[];
+}[] = [
   {
     key: "overview",
     href: "",
@@ -132,6 +138,11 @@ const TABS: { key: TabKey; href: string; label: string; icon: (props: { classNam
         />
       </svg>
     ),
+    children: [
+      { key: "overview", href: "", label: "Overview" },
+      { key: "performance", href: "/performance", label: "Performance" },
+      { key: "places", href: "/places", label: "Google Places" },
+    ],
   },
   {
     key: "components",
@@ -248,7 +259,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           {newFeedbackCount}
         </span>
       ) : undefined;
-    return { key: tab.key, href, label: tab.label, icon: tab.icon, active, badge };
+    const children = tab.children?.map((child) => {
+      const childHref = `${href}${child.href}`;
+      return { key: child.key, href: childHref, label: child.label, active: pathname === childHref };
+    });
+    return { key: tab.key, href, label: tab.label, icon: tab.icon, active, badge, children };
   });
 
   return (

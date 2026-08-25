@@ -51,6 +51,10 @@ describe("InstrumentedPlacesClient", () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(repo.logged).toHaveLength(1);
-    expect(repo.logged[0]).toMatchObject({ endpoint: "getPlaceDetails", success: false });
+    expect(repo.logged[0]).toMatchObject({
+      endpoint: "getPlaceDetails",
+      success: false,
+      errorMessage: "Google Places getPlaceDetails failed: 500 boom",
+    });
   });
 });

@@ -19,22 +19,22 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 // when linkToAccountTabs is set (the account page's own layout.tsx passes
 // it; the public profile page doesn't, since its tiles show *someone else's*
 // counts -- a tile there linking to your own /account/collection would be
-// showing their number but navigating to your data). Points has no matching
-// tab (level/points already live in this same card's header/progress bar
-// above), so it never links. Level is computed server-side
-// (GET /me/points, apps/api's gamification/points.ts computeLevel) rather
-// than here, so it agrees with the badge rule engine's "level_reached"
-// badges, which need the same number. `action` is an optional upper-right
-// slot (BACKLOG.md Ref 14/33) -- the public profile page uses it for a
-// NeighborRequestButton, mirroring JoinNeighborhoodButton's placement on a
-// neighborhood profile; the account page (viewing your own card) uses it for
-// a "View public" link to the same public-visibility/username gate the
-// ProfileForm settings link already uses (unset entirely otherwise, same as
-// a private or username-less account viewing its own card).
-// href unset (Points, or any tile when linkToAccountTabs is false) renders
-// a plain div; otherwise a Link to that stat's own /account/* tab. `divider`
-// draws the vertical rule between columns in the redesign's flat 6-column
-// strip (every tile but the last).
+// showing their number but navigating to your data). Points already live in
+// the card's header/progress bar (line 158), so the redundant tile was
+// removed. Level is computed server-side (GET /me/points, apps/api's
+// gamification/points.ts computeLevel) rather than here, so it agrees with
+// the badge rule engine's "level_reached" badges, which need the same
+// number. `action` is an optional upper-right slot (BACKLOG.md Ref 14/33) --
+// the public profile page uses it for a NeighborRequestButton, mirroring
+// JoinNeighborhoodButton's placement on a neighborhood profile; the account
+// page (viewing your own card) uses it for a "View public" link to the same
+// public-visibility/username gate the ProfileForm settings link already uses
+// (unset entirely otherwise, same as a private or username-less account
+// viewing its own card).
+// href unset (any tile when linkToAccountTabs is false) renders a plain div;
+// otherwise a Link to that stat's own /account/* tab. `divider` draws the
+// vertical rule between columns in the redesign's flat 5-column strip (every
+// tile but the last).
 function StatTile({
   value,
   label,
@@ -162,10 +162,9 @@ export function ProfileSummaryCard({
         {action}
       </div>
 
-      <div className="grid grid-cols-6 border-t border-border pt-3.5">
+      <div className="grid grid-cols-5 border-t border-border pt-3.5">
         <StatTile value={collectionCount} label="Collection" accent="text-brand-orange" href={linkToAccountTabs ? "/account/collection" : undefined} divider />
         <StatTile value={checkinCount} label="Check-ins" accent="text-brand-green" href={linkToAccountTabs ? "/account/activity" : undefined} divider />
-        <StatTile value={points} label="Points" accent="text-brand-purple" divider />
         <StatTile value={badgeCount} label="Badges" accent="text-brand-amber" href={linkToAccountTabs ? "/account/badges" : undefined} divider />
         <StatTile value={challengeCount} label="Challenges" accent="text-brand-orange" href={linkToAccountTabs ? "/account/challenges" : undefined} divider />
         <StatTile value={neighborCount} label="Neighbors" accent="text-brand-purple" href={linkToAccountTabs ? "/account/neighbors" : undefined} />

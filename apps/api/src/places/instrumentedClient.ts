@@ -46,17 +46,22 @@ export class InstrumentedPlacesClient implements GooglePlacesClient, PlaceDetail
     const startedAt = Date.now();
     try {
       const result = await fn();
-      this.log(endpoint, true, Date.now() - startedAt);
+      this.log(endpoint, true, Date.now() - startedAt, null);
       return result;
     } catch (err) {
-      this.log(endpoint, false, Date.now() - startedAt);
+      this.log(endpoint, false, Date.now() - startedAt, err instanceof Error ? err.message : String(err));
       throw err;
     }
   }
 
-  private log(endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia", success: boolean, durationMs: number): void {
+  private log(
+    endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia",
+    success: boolean,
+    durationMs: number,
+    errorMessage: string | null
+  ): void {
     this.getRepository()
-      .logPlacesApiCall({ endpoint, success, durationMs })
+      .logPlacesApiCall({ endpoint, success, durationMs, errorMessage })
       .catch(() => {
         // Best-effort only, mirrors installErrorLogging/requestLoggingMiddleware.
       });
