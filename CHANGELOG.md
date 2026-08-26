@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.1] — 2026-08-26
+
+### Changed
+
+- **Notification category toggles on Account Settings now hidden until push notifications are enabled** — the per-category list (Neighbor check-ins, Connection requests, Connection accepted, Event reminders, New coupons) is meaningless before push is turned on, so it no longer shows until the master "Get push notifications on this device" toggle reports enabled. (`apps/web/src/app/NotificationToggle.tsx`, `apps/web/src/app/NotificationPreferencesToggles.tsx`, `apps/web/src/app/account/settings/page.tsx`)
+
 ## [0.84.0] — 2026-08-25
 
 ### Added

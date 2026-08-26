@@ -6,11 +6,10 @@ import { getAccessToken, setCachedUser } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
 // BACKLOG.md Ref 102 follow-up: per-category push opt-outs, one toggle per
-// key in NotificationPreferences. NotificationToggle (the master browser-
-// permission switch, rendered alongside this on /account/settings) has to
-// be "on" for any of these to matter, but that's a separate, unrelated
-// on/off dimension -- these categories stay visible either way so a user
-// can set preferences ahead of enabling push.
+// key in NotificationPreferences. Rendered only once NotificationToggle
+// (the master browser-permission switch on /account/settings) reports
+// "on" -- these per-category toggles are meaningless without push enabled,
+// so they stay hidden until then.
 const CATEGORIES: { key: keyof NotificationPreferences; label: string; description: string }[] = [
   { key: "checkins", label: "Neighbor check-ins", description: "One of your connections checks in nearby." },
   { key: "connection_requests", label: "Connection requests", description: "Someone wants to connect with you." },

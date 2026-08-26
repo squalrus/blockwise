@@ -89,8 +89,12 @@ export async function subscribeToPush(): Promise<"subscribed" | "permission_deni
 // standalone mode -- Safari refuses the permission prompt from a regular
 // browser tab -- so that case steers the user to install first instead of
 // showing a toggle that would just fail.
-export function NotificationToggle() {
+export function NotificationToggle({ onStateChange }: { onStateChange?: (state: State) => void } = {}) {
   const [state, setState] = useState<State>("checking");
+
+  useEffect(() => {
+    onStateChange?.(state);
+  }, [state, onStateChange]);
 
   useEffect(() => {
     let cancelled = false;
