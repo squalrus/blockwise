@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.84.1", date: "2026-08-26", summary: "Notification category toggles on Account Settings now stay hidden until push notifications are enabled" },
   { version: "0.84.0", date: "2026-08-25", summary: "Google Places monitoring page now shows estimated cost and monthly free-tier usage; a quota guardrail pauses the highest-cost endpoints near the free-tier limit; venue photo galleries capped at 4 lazy-loaded photos, replacing non-compliant server-side photo caching" },
   { version: "0.83.0", date: "2026-08-25", summary: "Monitoring tab split into Overview/Performance/Google Places sub-pages with filterable request/Places-failure drill-down; business dashboard gets Coupons/Events tiles and event-follow analytics; profile card drops the redundant Points tile" },
   { version: "0.82.0", date: "2026-08-25", summary: "Super-admin Users table gets a three-dot actions menu (Send Test Push is now a modal with a URL field) and a Last login column; Monitoring tab gains domain/version filters; admin nav now prefers Super Admin mode" },

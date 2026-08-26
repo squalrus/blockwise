@@ -23,6 +23,7 @@ type State =
 // of v0.23.0) onto their own settings surface.
 export default function AccountSettingsPage() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [pushEnabled, setPushEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,9 +136,11 @@ export default function AccountSettingsPage() {
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Notifications</h2>
             <div className="flex items-center justify-between gap-4 rounded-xl bg-card-alt px-4 py-3 text-sm">
               <span className="text-muted">Get push notifications on this device.</span>
-              <NotificationToggle />
+              <NotificationToggle onStateChange={(s) => setPushEnabled(s === "on")} />
             </div>
-            <NotificationPreferencesToggles user={state.user} onSaved={handleProfileSaved} />
+            {pushEnabled && (
+              <NotificationPreferencesToggles user={state.user} onSaved={handleProfileSaved} />
+            )}
           </section>
 
           <section className="flex flex-col gap-2.5">
