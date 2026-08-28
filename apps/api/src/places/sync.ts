@@ -1,4 +1,4 @@
-import { buildGoogleTypeIndex, matchCategory, type CategoryRecord } from "./categorize";
+import { buildGeoapifyCategoryIndex, matchCategory, type CategoryRecord } from "./categorize";
 import type { GooglePlacesClient, RawGooglePlace } from "./client";
 import { findDuplicate } from "./dedup";
 import { generateCoverageGrid, isPointInPolygon, subdivideCircle, type GeoJsonPolygon, type LatLng } from "./geo";
@@ -9,10 +9,6 @@ import type { PlacesRepository } from "./repository";
 // a single circle covering all of Phinneywood hit that cap immediately).
 const DEFAULT_TILE_RADIUS_METERS = 400;
 const PLACES_API_RESULT_CAP = 20;
-// Nearby Search also caps includedTypes at 50 per call (confirmed in
-// practice once the taxonomy grew past it) -- chunk rather than trim the
-// taxonomy, since more chunks only cost extra requests, not coverage.
-const MAX_INCLUDED_TYPES_PER_REQUEST = 50;
 // When a tile+type-chunk call comes back saturated (BACKLOG.md Ref 73: dense
 // areas silently drop venues past the cap), re-query that same circle as a
 // fixed fan-out of 4 smaller, overlapping sub-circles (subdivideCircle) to
@@ -70,12 +66,6 @@ async function searchTileWithSubdivision(
   };
 }
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
-  return chunks;
-}
-
 export interface PlaceSearchCandidate {
   raw: RawGooglePlace;
   name: string;
@@ -105,11 +95,18 @@ export async function searchPlacesInPolygon(
 ): Promise<PlaceSearchResult> {
   const tiles = generateCoverageGrid(polygon, tileRadiusMeters);
 
-  const categoryIndex = buildGoogleTypeIndex(categories);
-  // Restricts the search server-side to Google types the taxonomy actually
-  // maps -- an earlier unrestricted run pulled in schools, churches, and
-  // apartment buildings alongside real businesses.
-  const includedTypesChunks = chunk([...categoryIndex.keys()], MAX_INCLUDED_TYPES_PER_REQUEST);
+  const categoryIndex = buildGeoapifyCategoryIndex(categories);
+  // Google's Nearby Search included-types restriction has no counterpart
+  // left in the taxonomy: source_mapping_json.google was fully replaced by
+  // .geoapify (docs/geoapify-migration-plan.md Phase 2), and Geoapify's
+  // dot-hierarchical tags aren't valid Google type strings (Google rejects
+  // unrecognized includedTypes outright, per
+  // 20260706033000_fix_invalid_google_types.sql). Search unrestricted per
+  // tile until Phase 4 replaces this whole Google-shaped tiling step with
+  // Geoapify's own category search -- broader/noisier results (schools,
+  // churches, apartment buildings) are an accepted temporary regression,
+  // not a bug.
+  const includedTypesChunks: string[][] = [[]];
 
   const requests = tiles.flatMap((center) =>
     includedTypesChunks.map((includedTypes) => ({ center, includedTypes }))
@@ -147,8 +144,15 @@ export async function searchPlacesInPolygon(
     }
 
     const name = place.displayName.text;
+    // Google's flat type strings (e.g. "cafe") can never match a
+    // geoapify-tag index (e.g. "catering.cafe.coffee_shop") -- every place
+    // goes uncategorized until Phase 4 rewires this whole function onto the
+    // real Geoapify client. Still passed through so unmappedTypes below
+    // keeps reporting Google's types for now, not because a match is
+    // expected here.
     const category =
-      matchCategory({ primaryType: place.primaryType, types: place.types }, categoryIndex) ?? null;
+      matchCategory({ categories: place.primaryType ? [place.primaryType, ...place.types] : place.types }, categoryIndex) ??
+      null;
     // Flagged every run a venue's category is still unmapped, not just the
     // run that first inserted it -- otherwise re-syncing a previously-seen,
     // still-uncategorized venue silently drops off this report.

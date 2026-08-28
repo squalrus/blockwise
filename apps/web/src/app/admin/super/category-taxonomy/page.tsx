@@ -29,7 +29,7 @@ export default function SuperAdminCategoryTaxonomyPage() {
 
   const [newName, setNewName] = useState("");
   const [newParentId, setNewParentId] = useState("");
-  const [newGoogleTypes, setNewGoogleTypes] = useState("");
+  const [newGeoapifyCategories, setNewGeoapifyCategories] = useState("");
   const [creating, setCreating] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export default function SuperAdminCategoryTaxonomyPage() {
     setCreating(true);
     setActionError(null);
     const token = await getAccessToken();
-    const googleTypes = newGoogleTypes
+    const geoapifyCategories = newGeoapifyCategories
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
@@ -76,7 +76,7 @@ export default function SuperAdminCategoryTaxonomyPage() {
       body: JSON.stringify({
         name: newName,
         parent_category_id: newParentId || null,
-        google_types: googleTypes,
+        geoapify_categories: geoapifyCategories,
       }),
     });
     setCreating(false);
@@ -88,7 +88,7 @@ export default function SuperAdminCategoryTaxonomyPage() {
     const created: CategoryAdminItem = await res.json();
     setCategories((prev) => [...prev, created]);
     setNewName("");
-    setNewGoogleTypes("");
+    setNewGeoapifyCategories("");
   }
 
   async function handleRenameSubmit(id: string) {
@@ -193,8 +193,8 @@ export default function SuperAdminCategoryTaxonomyPage() {
                   Archived
                 </span>
               )}
-              {category.google_types.length > 0 && (
-                <span className="text-xs font-bold text-muted">{category.google_types.join(", ")}</span>
+              {category.geoapify_categories.length > 0 && (
+                <span className="text-xs font-bold text-muted">{category.geoapify_categories.join(", ")}</span>
               )}
             </div>
             {category.status === "active" && (
@@ -256,9 +256,9 @@ export default function SuperAdminCategoryTaxonomyPage() {
         </select>
         {newParentId && (
           <input
-            value={newGoogleTypes}
-            onChange={(e) => setNewGoogleTypes(e.target.value)}
-            placeholder="Google Places types, comma-separated (e.g. cafe, coffee_shop)"
+            value={newGeoapifyCategories}
+            onChange={(e) => setNewGeoapifyCategories(e.target.value)}
+            placeholder="Geoapify categories, comma-separated (e.g. catering.cafe.coffee_shop)"
             className="rounded-md border border-border bg-card-alt px-3 py-2 text-foreground"
           />
         )}

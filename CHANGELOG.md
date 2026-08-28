@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.3] — 2026-08-28
+
+### Changed
+
+- **Category taxonomy remapped from Google Places types to Geoapify's OSM category tags** (Phase 2 of the Google Places → Geoapify migration): every leaf category's `source_mapping_json.google` is replaced by `.geoapify`, mapped from Geoapify's published category list, and `categorize.ts` now does longest-prefix matching against Geoapify's dot-hierarchical tags (e.g. `catering.restaurant.italian` matches a category configured with `catering.restaurant`) instead of exact-matching Google's flat type strings. The super-admin category taxonomy tool (`/admin/super/category-taxonomy`) and its API now read/write `geoapify_categories` instead of `google_types`. No user-visible change yet — the live sync/investigate pipeline still runs on the Google client (Phase 4 not done), so venue categorization is temporarily inert until that rewiring lands; the Nearby Search `includedTypes` restriction was also dropped (search now runs unrestricted per tile) since Geoapify's tags aren't valid Google type strings to send. Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`supabase/migrations/20260828010000_geoapify_category_mapping.sql`, `apps/api/src/places/categorize.ts`, `sync.ts`, `investigate.ts`, `apps/api/src/categoryAdmin/`, `apps/web/src/app/admin/super/category-taxonomy/page.tsx`, `packages/types/src/index.ts`)
+
 ## [0.84.2] — 2026-08-27
 
 ### Added

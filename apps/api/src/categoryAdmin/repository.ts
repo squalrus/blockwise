@@ -5,7 +5,7 @@ export interface CategoryAdminRecord {
   name: string;
   parentCategoryId: string | null;
   status: CategoryStatus;
-  googleTypes: string[];
+  geoapifyCategories: string[];
 }
 
 // Abstracts persistence so categoryAdmin.ts's create/rename/archive logic can
@@ -20,7 +20,7 @@ export interface CategoryAdminRepository {
   createCategory(
     name: string,
     parentCategoryId: string | null,
-    googleTypes: string[]
+    geoapifyCategories: string[]
   ): Promise<CategoryAdminRecord>;
   renameCategory(id: string, name: string): Promise<CategoryAdminRecord>;
   archiveCategory(id: string): Promise<CategoryAdminRecord>;

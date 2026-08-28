@@ -30,9 +30,9 @@ const PHINNEYWOOD_BOUNDARY: NeighborhoodRecord["boundaryGeojson"] = {
 };
 
 const CATEGORIES: CategoryRecord[] = [
-  { id: "coffee-shop", name: "Coffee Shop", source_mapping_json: { google: ["cafe", "coffee_shop"] } },
-  { id: "bakery", name: "Bakery", source_mapping_json: { google: ["bakery"] } },
-  { id: "park", name: "Park & Playground", source_mapping_json: { google: ["park", "playground"] } },
+  { id: "coffee-shop", name: "Coffee Shop", source_mapping_json: { geoapify: ["catering.cafe.coffee_shop"] } },
+  { id: "bakery", name: "Bakery", source_mapping_json: { geoapify: ["commercial.food_and_drink.bakery"] } },
+  { id: "park", name: "Park & Playground", source_mapping_json: { geoapify: ["leisure.park", "leisure.playground"] } },
 ];
 
 class FakePlacesRepository implements PlacesRepository {
@@ -100,11 +100,17 @@ describe("syncNeighborhoodPlaces", () => {
     expect(widgetUpsert?.categoryId).toBeNull();
   });
 
-  it("assigns the matched category to a mapped place", async () => {
+  // Phase 4 (docs/geoapify-migration-plan.md) rewires this pipeline onto the
+  // Geoapify client -- until then, the taxonomy only has geoapify-shaped
+  // tags (dot-hierarchical OSM categories) and this pipeline still runs
+  // against Google's flat type strings, so nothing can match and every
+  // place goes uncategorized. This documents that accepted, temporary
+  // regression rather than asserting real matching behavior.
+  it("leaves every place uncategorized until Phase 4 rewires the client onto Geoapify", async () => {
     await syncNeighborhoodPlaces("phinneywood-seattle", new MockPlacesClient(), repository);
 
     const bakery = repository.upsertCalls.find((v) => v.name === "Original Bakery");
-    expect(bakery?.categoryId).toBe("bakery");
+    expect(bakery?.categoryId).toBeNull();
   });
 
   it("updates an already-synced, unclaimed venue instead of skipping it", async () => {
@@ -246,11 +252,17 @@ describe("syncNeighborhoodPlaces", () => {
     expect(report.inserted.length).toBe(25);
   });
 
-  it("chunks includedTypes across multiple calls when the taxonomy exceeds the per-call limit", async () => {
+  // Google's includedTypes-chunking mechanism (splitting a taxonomy over 50
+  // types across multiple calls) no longer has anything to chunk: the
+  // taxonomy only carries geoapify-shaped tags now (Phase 2), which aren't
+  // valid Google types to send at all. One unrestricted call per tile runs
+  // instead, regardless of taxonomy size, until Phase 4 replaces this
+  // Google-shaped tiling step with Geoapify's own category search.
+  it("makes exactly one unrestricted call per tile, regardless of taxonomy size", async () => {
     const manyCategories: CategoryRecord[] = Array.from({ length: 120 }, (_, i) => ({
       id: `cat-${i}`,
       name: `Category ${i}`,
-      source_mapping_json: { google: [`google_type_${i}`] },
+      source_mapping_json: { geoapify: [`geoapify_type_${i}`] },
     }));
 
     class CountingRepository extends FakePlacesRepository {
@@ -266,8 +278,7 @@ describe("syncNeighborhoodPlaces", () => {
       countingRepository
     );
 
-    // 120 types over a 50-per-call limit needs 3 chunks per tile.
-    expect(report.apiCallsMade).toBe(report.tilesQueried * 3);
+    expect(report.apiCallsMade).toBe(report.tilesQueried);
   });
 
   it("throws a clear error when the neighborhood has no boundary set", async () => {

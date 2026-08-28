@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.84.3", date: "2026-08-28", summary: "Behind-the-scenes: second phase of moving venue data off Google Places API onto Geoapify, remapping the category taxonomy (no visible changes yet)" },
   { version: "0.84.2", date: "2026-08-27", summary: "Behind-the-scenes: first phase of moving venue data off Google Places API onto Geoapify (no visible changes yet)" },
   { version: "0.84.1", date: "2026-08-26", summary: "Notification category toggles on Account Settings now stay hidden until push notifications are enabled" },
   { version: "0.84.0", date: "2026-08-25", summary: "Google Places monitoring page now shows estimated cost and monthly free-tier usage; a quota guardrail pauses the highest-cost endpoints near the free-tier limit; venue photo galleries capped at 4 lazy-loaded photos, replacing non-compliant server-side photo caching" },
