@@ -44,7 +44,7 @@ export function getLocationsReviewCooldownStatus(
 }
 
 export interface NewLocationCandidate {
-  googlePlaceId: string;
+  geoapifyPlaceId: string;
   name: string;
   lat: number;
   lng: number;
@@ -71,7 +71,7 @@ export interface LocationReviewReport {
 // (BACKLOG.md Ref 54): reuses the same tiling/search/boundary-filter/
 // categorize pipeline as the real sync and the boundary dry-run preview
 // (searchPlacesInPolygon), then excludes anything already known -- first by
-// google_place_id (a location converted from the other kind, or a location
+// geoapify_place_id (a location converted from the other kind, or a location
 // from a prior sync/review run), then by the same name+location heuristic
 // the real sync uses against venues (places/dedup.ts's findDuplicate) so a
 // near-duplicate isn't re-surfaced just because it lacks a matching place
@@ -124,7 +124,7 @@ export async function reviewNeighborhoodLocations(
 
   const newCandidates: NewLocationCandidate[] = [];
   for (const place of search.places) {
-    const alreadyKnown = existingLocations.some((l) => l.googlePlaceId === place.raw.id);
+    const alreadyKnown = existingLocations.some((l) => l.geoapifyPlaceId === place.raw.id);
     if (alreadyKnown) continue;
 
     const dedupCandidate = { name: place.name, location: place.location };
@@ -132,7 +132,7 @@ export async function reviewNeighborhoodLocations(
     dedupList.push(dedupCandidate);
 
     newCandidates.push({
-      googlePlaceId: place.raw.id,
+      geoapifyPlaceId: place.raw.id,
       name: place.name,
       lat: place.location.lat,
       lng: place.location.lng,
@@ -154,7 +154,7 @@ export async function reviewNeighborhoodLocations(
 export type LocationClassification = "business" | "poi" | "omit";
 
 export interface LocationReviewClassificationInput {
-  googlePlaceId: string;
+  geoapifyPlaceId: string;
   name: string;
   lat: number;
   lng: number;
@@ -182,7 +182,7 @@ export interface CommitLocationReviewResult {
 // (e.g. a missing category_id) shouldn't abort the rest of the batch.
 //
 // "omit" is persisted, not skipped (BACKLOG.md "Reimport Locations"): a
-// hidden POI row keyed by google_place_id, so it reads as already-known on
+// hidden POI row keyed by geoapify_place_id, so it reads as already-known on
 // the next review run instead of resurfacing as a new candidate forever --
 // the whole point of a rate-limited reimport is that repeat runs get
 // cheaper (fewer undecided candidates) over time.
@@ -239,7 +239,7 @@ export async function commitLocationReview(
               name: item.name,
               lat: item.lat,
               lng: item.lng,
-              googlePlaceId: item.googlePlaceId,
+              geoapifyPlaceId: item.geoapifyPlaceId,
               address: item.address,
               status: "hidden",
             },
@@ -257,7 +257,7 @@ export async function commitLocationReview(
           // scheduled sync job already performs. New rows default to kind
           // "business" at the DB level.
           await placesRepository.upsertVenue({
-            googlePlaceId: item.googlePlaceId,
+            geoapifyPlaceId: item.geoapifyPlaceId,
             name: item.name,
             categoryId: item.categoryId,
             lat: item.lat,
@@ -277,7 +277,7 @@ export async function commitLocationReview(
               name: item.name,
               lat: item.lat,
               lng: item.lng,
-              googlePlaceId: item.googlePlaceId,
+              geoapifyPlaceId: item.geoapifyPlaceId,
               address: item.address,
             },
             locationRepository

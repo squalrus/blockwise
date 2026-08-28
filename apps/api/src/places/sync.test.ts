@@ -117,7 +117,7 @@ describe("syncNeighborhoodPlaces", () => {
     repository.venues = [
       {
         id: "existing-1",
-        googlePlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "mock-herkimer-coffee",
         name: "Herkimer Coffee (old name)",
         lat: 47.6816,
         lng: -122.3552,
@@ -128,14 +128,14 @@ describe("syncNeighborhoodPlaces", () => {
     const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockPlacesClient(), repository);
 
     expect(report.updated).toContain("Herkimer Coffee");
-    expect(repository.upsertCalls.some((v) => v.googlePlaceId === "mock-herkimer-coffee")).toBe(true);
+    expect(repository.upsertCalls.some((v) => v.geoapifyPlaceId === "mock-herkimer-coffee")).toBe(true);
   });
 
   it("does not overwrite a claimed venue's data", async () => {
     repository.venues = [
       {
         id: "existing-2",
-        googlePlaceId: "mock-original-bakery",
+        geoapifyPlaceId: "mock-original-bakery",
         name: "Original Bakery (business-submitted name)",
         lat: 47.6742,
         lng: -122.3555,
@@ -146,7 +146,7 @@ describe("syncNeighborhoodPlaces", () => {
     const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockPlacesClient(), repository);
 
     expect(report.skippedClaimed).toContain("Original Bakery");
-    expect(repository.upsertCalls.some((v) => v.googlePlaceId === "mock-original-bakery")).toBe(false);
+    expect(repository.upsertCalls.some((v) => v.geoapifyPlaceId === "mock-original-bakery")).toBe(false);
   });
 
   it("merges places from different tiles rather than only using one call's worth", async () => {

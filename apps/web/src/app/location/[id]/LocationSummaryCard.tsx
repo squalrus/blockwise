@@ -16,9 +16,7 @@ const SOCIAL_PLATFORM_LABELS: { key: keyof SocialLinks; label: string }[] = [
 // BACKLOG.md Ref 101 redesign: divided stat strip, mirroring
 // NeighborhoodSummaryCard's own StatTile -- flat text over a border-t rule
 // instead of separate boxed StatCard tiles, so the header card reads as one
-// continuous surface. Column count flexes (2 or 3) depending on whether a
-// rating is available, so `divider` is passed explicitly per caller rather
-// than inferred from position.
+// continuous surface.
 function StatTile({ value, label, accent, divider }: { value: React.ReactNode; label: string; accent: string; divider?: boolean }) {
   return (
     <div className={`px-1 py-1 text-center ${divider ? "border-r border-border" : ""}`}>
@@ -48,7 +46,6 @@ export function LocationSummaryCard({
   favoriteAction?: React.ReactNode;
 }) {
   const isBusiness = location.kind === "business";
-  const hasRating = location.enrichment?.rating != null;
 
   return (
     <div className="flex flex-col gap-2.5 overflow-hidden rounded-2xl bg-card-alt px-5 pt-4 pb-6">
@@ -128,17 +125,9 @@ export function LocationSummaryCard({
         </div>
       )}
 
-      <div className={`grid ${hasRating ? "grid-cols-3" : "grid-cols-2"} border-t border-border pt-3.5`}>
+      <div className="grid grid-cols-2 border-t border-border pt-3.5">
         <StatTile value={location.checkin_count} label="Check-ins" accent="text-brand-green" divider />
-        <StatTile
-          value={location.favorite_count}
-          label="Favorites"
-          accent="text-brand-orange"
-          divider={hasRating}
-        />
-        {hasRating && (
-          <StatTile value={`★ ${location.enrichment!.rating}`} label="Rating" accent="text-brand-amber" />
-        )}
+        <StatTile value={location.favorite_count} label="Favorites" accent="text-brand-orange" />
       </div>
 
       <SlideToCheckIn locationId={location.id} />

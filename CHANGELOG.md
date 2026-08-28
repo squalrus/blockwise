@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.4] — 2026-08-28
+
+### Changed
+
+- **`venue.google_place_id` renamed to `geoapify_place_id`, and `venue_enrichment_cache` trimmed down to what Geoapify's Place Details API can actually provide** (Phase 3 of the Google Places → Geoapify migration): the `rating`, `reviews`, `photo_refs`, `price_tier`, and `atmosphere` columns are dropped, and `source` now reads `'geoapify'` instead of `'google'`. Ratings, reviews, and photo galleries are removed as product features entirely — no Geoapify equivalent exists — taking the rating stat tile, the Reviews tab, the About-tab photo strip, `aggregateRating` JSON-LD, the photo-based Open Graph image, and the `GET /locations/:id/photo` proxy route with them. Schema-only step: `sync.ts`/`review.ts`/`investigate.ts`/`refresh.ts` still call Google's live API under the hood until Phase 4 rewires the actual client, so `geoapify_place_id` holds a real Google place ID for now — an accepted temporary regression, matching Phase 2's category-taxonomy rename. Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`supabase/migrations/20260828020000_geoapify_venue_schema.sql`, `apps/api/src/enrichment/`, `apps/api/src/locations/`, `apps/api/src/places/`, `apps/api/src/app.ts`, `apps/web/src/app/location/[id]/`, `apps/web/src/app/EnrichmentSection.tsx`, `packages/types/src/index.ts`)
+
 ## [0.84.3] — 2026-08-28
 
 ### Changed

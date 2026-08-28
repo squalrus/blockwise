@@ -9,7 +9,7 @@ export interface NeighborhoodRecord {
 
 export interface ExistingVenue {
   id: string;
-  googlePlaceId: string | null;
+  geoapifyPlaceId: string | null;
   name: string;
   lat: number;
   lng: number;
@@ -17,7 +17,7 @@ export interface ExistingVenue {
 }
 
 export interface UpsertVenueInput {
-  googlePlaceId: string;
+  geoapifyPlaceId: string;
   name: string;
   categoryId: string | null;
   lat: number;

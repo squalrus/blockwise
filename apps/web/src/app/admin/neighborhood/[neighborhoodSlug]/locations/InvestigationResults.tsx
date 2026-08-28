@@ -26,7 +26,7 @@ export function InvestigationResults({
 }) {
   const [categoryChoice, setCategoryChoice] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
-    for (const candidate of candidates) initial[candidate.google_place_id] = candidate.suggested_category_id ?? "";
+    for (const candidate of candidates) initial[candidate.geoapify_place_id] = candidate.suggested_category_id ?? "";
     return initial;
   });
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -43,10 +43,10 @@ export function InvestigationResults({
   );
 
   async function addAsVenue(candidate: PlacesInvestigationCandidate) {
-    const categoryId = categoryChoice[candidate.google_place_id];
+    const categoryId = categoryChoice[candidate.geoapify_place_id];
     if (!categoryId) return;
 
-    setAddingId(candidate.google_place_id);
+    setAddingId(candidate.geoapify_place_id);
     setAddError(null);
     const token = await getAccessToken();
     const res = await fetch(
@@ -55,7 +55,7 @@ export function InvestigationResults({
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          google_place_id: candidate.google_place_id,
+          geoapify_place_id: candidate.geoapify_place_id,
           name: candidate.name,
           lat: candidate.lat,
           lng: candidate.lng,
@@ -70,7 +70,7 @@ export function InvestigationResults({
       setAddError(body.error ?? "Failed to add location");
       return;
     }
-    setAddedIds((prev) => new Set(prev).add(candidate.google_place_id));
+    setAddedIds((prev) => new Set(prev).add(candidate.geoapify_place_id));
   }
 
   if (candidates.length === 0) {
@@ -82,9 +82,9 @@ export function InvestigationResults({
       {addError && <p className="text-sm text-red-600 dark:text-red-400">{addError}</p>}
       <ul className="flex flex-col gap-2">
         {candidates.map((candidate) => {
-          const added = addedIds.has(candidate.google_place_id);
+          const added = addedIds.has(candidate.geoapify_place_id);
           return (
-            <li key={candidate.google_place_id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+            <li key={candidate.geoapify_place_id} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
               <p className="font-extrabold text-foreground">{candidate.name}</p>
               <p className="text-muted">{candidate.address}</p>
 
@@ -115,10 +115,10 @@ export function InvestigationResults({
               {!candidate.already_known_as && !added && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <select
-                    value={categoryChoice[candidate.google_place_id] ?? ""}
-                    disabled={!categories || addingId === candidate.google_place_id}
+                    value={categoryChoice[candidate.geoapify_place_id] ?? ""}
+                    disabled={!categories || addingId === candidate.geoapify_place_id}
                     onChange={(e) =>
-                      setCategoryChoice((prev) => ({ ...prev, [candidate.google_place_id]: e.target.value }))
+                      setCategoryChoice((prev) => ({ ...prev, [candidate.geoapify_place_id]: e.target.value }))
                     }
                     className="rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground"
                   >
@@ -133,11 +133,11 @@ export function InvestigationResults({
                   </select>
                   <button
                     type="button"
-                    disabled={!categoryChoice[candidate.google_place_id] || addingId === candidate.google_place_id}
+                    disabled={!categoryChoice[candidate.geoapify_place_id] || addingId === candidate.geoapify_place_id}
                     onClick={() => addAsVenue(candidate)}
                     className="rounded-md bg-brand-green px-3 py-1 text-xs font-bold text-on-accent disabled:opacity-50"
                   >
-                    {addingId === candidate.google_place_id ? "Adding…" : "Add as venue"}
+                    {addingId === candidate.geoapify_place_id ? "Adding…" : "Add as venue"}
                   </button>
                 </div>
               )}

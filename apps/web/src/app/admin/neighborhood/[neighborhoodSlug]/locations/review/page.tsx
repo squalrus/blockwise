@@ -28,7 +28,7 @@ interface Decision {
 }
 
 function decisionKey(candidate: LocationReviewCandidate): string {
-  return candidate.google_place_id;
+  return candidate.geoapify_place_id;
 }
 
 function removalKey(removal: LocationRemovalCandidate): string {
@@ -124,7 +124,7 @@ export default function LocationReviewPage() {
     const classifications = report.new_candidates.map((candidate) => {
       const decision = decisions[decisionKey(candidate)];
       return {
-        google_place_id: candidate.google_place_id,
+        geoapify_place_id: candidate.geoapify_place_id,
         name: candidate.name,
         lat: candidate.lat,
         lng: candidate.lng,

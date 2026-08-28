@@ -40,14 +40,14 @@ export class SupabasePlacesRepository implements PlacesRepository {
   async listVenuesByNeighborhood(neighborhoodId: string): Promise<ExistingVenue[]> {
     const { data, error } = await this.supabase
       .from("venue")
-      .select("id, google_place_id, name, lat, lng, claimed_by_business")
+      .select("id, geoapify_place_id, name, lat, lng, claimed_by_business")
       .eq("neighborhood_id", neighborhoodId);
 
     if (error) throw new Error(`listVenuesByNeighborhood failed: ${error.message}`);
 
     return (data ?? []).map((row) => ({
       id: row.id,
-      googlePlaceId: row.google_place_id,
+      geoapifyPlaceId: row.geoapify_place_id,
       name: row.name,
       lat: row.lat,
       lng: row.lng,
@@ -56,12 +56,12 @@ export class SupabasePlacesRepository implements PlacesRepository {
   }
 
   async upsertVenue(venue: UpsertVenueInput): Promise<void> {
-    // Conflict target matches venue_google_place_id_neighborhood_id_key --
+    // Conflict target matches venue_geoapify_place_id_neighborhood_id_key --
     // uniqueness is per neighborhood, not global, so the same Google Place
     // can be claimed independently by more than one neighborhood.
     const { error } = await this.supabase.from("venue").upsert(
       {
-        google_place_id: venue.googlePlaceId,
+        geoapify_place_id: venue.geoapifyPlaceId,
         name: venue.name,
         category_id: venue.categoryId,
         lat: venue.lat,
@@ -69,7 +69,7 @@ export class SupabasePlacesRepository implements PlacesRepository {
         address: venue.address,
         neighborhood_id: venue.neighborhoodId,
       },
-      { onConflict: "google_place_id,neighborhood_id" }
+      { onConflict: "geoapify_place_id,neighborhood_id" }
     );
 
     if (error) throw new Error(`upsertVenue failed: ${error.message}`);

@@ -233,7 +233,7 @@ export async function syncNeighborhoodPlaces(
   const existingVenues = [...existingVenuesFromRepo];
 
   for (const { raw: place, name, location, category } of search.places) {
-    const existingByPlaceId = existingVenues.find((v) => v.googlePlaceId === place.id);
+    const existingByPlaceId = existingVenues.find((v) => v.geoapifyPlaceId === place.id);
 
     if (existingByPlaceId) {
       if (existingByPlaceId.claimedByBusiness) {
@@ -265,7 +265,7 @@ export async function syncNeighborhoodPlaces(
     report.inserted.push(name);
     existingVenues.push({
       id: place.id,
-      googlePlaceId: place.id,
+      geoapifyPlaceId: place.id,
       name,
       lat: location.lat,
       lng: location.lng,
@@ -284,7 +284,7 @@ function toUpsertInput(
   neighborhoodId: string
 ) {
   return {
-    googlePlaceId: place.id,
+    geoapifyPlaceId: place.id,
     name,
     categoryId,
     lat: location.lat,

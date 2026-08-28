@@ -59,12 +59,12 @@ function categoryGroupName(embed: CategoryEmbed[] | CategoryEmbed | null): strin
 }
 
 const LOCATION_COLUMNS =
-  "id, neighborhood_id, google_place_id, name, kind, category_id, description, lat, lng, address, claimed_by_business, status, created_at, category:category_id(name, parent:parent_category_id(name))";
+  "id, neighborhood_id, geoapify_place_id, name, kind, category_id, description, lat, lng, address, claimed_by_business, status, created_at, category:category_id(name, parent:parent_category_id(name))";
 
 interface LocationRow {
   id: string;
   neighborhood_id: string;
-  google_place_id: string | null;
+  geoapify_place_id: string | null;
   name: string;
   kind: "business" | "poi";
   category_id: string | null;
@@ -82,7 +82,7 @@ function toRecord(row: LocationRow): LocationRecord {
   return {
     id: row.id,
     neighborhoodId: row.neighborhood_id,
-    googlePlaceId: row.google_place_id,
+    geoapifyPlaceId: row.geoapify_place_id,
     name: row.name,
     kind: row.kind,
     categoryId: row.category_id,
@@ -166,7 +166,7 @@ export class SupabaseLocationRepository implements LocationRepository {
     const { data: location, error: locationError } = await this.supabase
       .from("venue")
       .select(
-        "id, google_place_id, name, kind, description, address, lat, lng, claimed_by_business, category:category_id(name), neighborhood:neighborhood_id(slug, name)"
+        "id, geoapify_place_id, name, kind, description, address, lat, lng, claimed_by_business, category:category_id(name), neighborhood:neighborhood_id(slug, name)"
       )
       .eq("id", locationId)
       .eq("status", "active")
@@ -189,11 +189,9 @@ export class SupabaseLocationRepository implements LocationRepository {
     ] = await Promise.all([
       this.supabase
         .from("venue_enrichment_cache")
-        .select(
-          "venue_id, source, rating, reviews, price_tier, photo_refs, phone, website, hours, editorial_summary, atmosphere, fetched_at"
-        )
+        .select("venue_id, source, phone, website, hours, editorial_summary, fetched_at")
         .eq("venue_id", locationId)
-        .eq("source", "google")
+        .eq("source", "geoapify")
         .maybeSingle(),
       this.supabase
         .from("business_claim")
@@ -266,7 +264,7 @@ export class SupabaseLocationRepository implements LocationRepository {
 
     return {
       id: location.id,
-      googlePlaceId: location.google_place_id,
+      geoapifyPlaceId: location.geoapify_place_id,
       name: location.name,
       kind: location.kind,
       description: location.description,
@@ -308,7 +306,7 @@ export class SupabaseLocationRepository implements LocationRepository {
         category_id: input.categoryId,
         lat: input.lat,
         lng: input.lng,
-        google_place_id: input.googlePlaceId,
+        geoapify_place_id: input.geoapifyPlaceId,
         address: input.address,
         ...(input.status ? { status: input.status } : {}),
       })
