@@ -1,46 +1,43 @@
 import type { MonitoringRepository } from "../monitoring/repository";
 import type {
-  GooglePlacesClient,
-  PlaceDetailsClient,
-  PlacesTextSearchClient,
-  RawGooglePlace,
-  RawPlaceDetails,
-  PhotoMedia,
-  SearchNearbyParams,
-  SearchTextParams,
-} from "./client";
+  GeoapifyPlace,
+  GeoapifyPlaceDetails,
+  GeoapifyPlaceDetailsClient,
+  GeoapifyPlacesClient,
+  GeoapifySearchParams,
+  GeoapifySearchTextParams,
+  GeoapifyTextSearchClient,
+} from "./geoapifyClient";
 
-// Wraps LivePlacesClient (BACKLOG.md Ref 104 follow-up) so every outbound
-// call to Google's Places API gets timed and logged to places_api_call_log,
-// without touching LivePlacesClient itself -- mirrors requestLoggingMiddleware's
-// decorator approach rather than instrumenting each of the 4 methods inline.
-// Only wraps the Live client in app.ts's getPlacesClient(), not
-// MockPlacesClient, since a mock call never actually hit Google and would
-// just be noise on the Monitoring tab.
-export class InstrumentedPlacesClient implements GooglePlacesClient, PlaceDetailsClient, PlacesTextSearchClient {
+// Wraps LiveGeoapifyClient (BACKLOG.md Ref 104 follow-up) so every outbound
+// call to Geoapify's API gets timed and logged to places_api_call_log,
+// without touching LiveGeoapifyClient itself -- mirrors requestLoggingMiddleware's
+// decorator approach rather than instrumenting each method inline. Only
+// wraps the Live client in app.ts's getPlacesClient(), not
+// MockGeoapifyClient, since a mock call never actually hits Geoapify and
+// would just be noise on the Monitoring tab.
+export class InstrumentedPlacesClient
+  implements GeoapifyPlacesClient, GeoapifyPlaceDetailsClient, GeoapifyTextSearchClient
+{
   constructor(
-    private readonly inner: GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient,
+    private readonly inner: GeoapifyPlacesClient & GeoapifyPlaceDetailsClient & GeoapifyTextSearchClient,
     private readonly getRepository: () => MonitoringRepository
   ) {}
 
-  async searchNearby(params: SearchNearbyParams): Promise<RawGooglePlace[]> {
-    return this.timed("searchNearby", () => this.inner.searchNearby(params));
+  async searchPlaces(params: GeoapifySearchParams): Promise<GeoapifyPlace[]> {
+    return this.timed("searchPlaces", () => this.inner.searchPlaces(params));
   }
 
-  async searchText(params: SearchTextParams): Promise<RawGooglePlace[]> {
+  async searchText(params: GeoapifySearchTextParams): Promise<GeoapifyPlace[]> {
     return this.timed("searchText", () => this.inner.searchText(params));
   }
 
-  async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
+  async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {
     return this.timed("getPlaceDetails", () => this.inner.getPlaceDetails(placeId));
   }
 
-  async fetchPhotoMedia(photoReference: string): Promise<PhotoMedia> {
-    return this.timed("fetchPhotoMedia", () => this.inner.fetchPhotoMedia(photoReference));
-  }
-
   private async timed<T>(
-    endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia",
+    endpoint: "searchPlaces" | "searchText" | "getPlaceDetails",
     fn: () => Promise<T>
   ): Promise<T> {
     const startedAt = Date.now();
@@ -55,7 +52,7 @@ export class InstrumentedPlacesClient implements GooglePlacesClient, PlaceDetail
   }
 
   private log(
-    endpoint: "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia",
+    endpoint: "searchPlaces" | "searchText" | "getPlaceDetails",
     success: boolean,
     durationMs: number,
     errorMessage: string | null

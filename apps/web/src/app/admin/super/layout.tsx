@@ -14,7 +14,16 @@ type State =
   | { status: "forbidden" }
   | { status: "ready"; user: AppUser };
 
-type TabKey = "overview" | "users" | "category-taxonomy" | "challenges" | "badges" | "feedback" | "monitoring" | "components";
+type TabKey =
+  | "overview"
+  | "users"
+  | "category-taxonomy"
+  | "challenges"
+  | "badges"
+  | "feedback"
+  | "monitoring"
+  | "geoapify-migration"
+  | "components";
 
 const TABS: {
   key: TabKey;
@@ -143,6 +152,27 @@ const TABS: {
       { key: "performance", href: "/performance", label: "Performance" },
       { key: "places", href: "/places", label: "Google Places" },
     ],
+  },
+  {
+    // Disposable migration tooling (BACKLOG.md Ref 114 Phase 5) -- delete
+    // this tab entry alongside admin/super/geoapify-migration/page.tsx and
+    // its matching apps/api/src/app.ts routes once every location has a
+    // real Geoapify place ID.
+    key: "geoapify-migration",
+    href: "/geoapify-migration",
+    label: "Geoapify migration",
+    icon: ({ className }) => (
+      <svg width="18" height="18" viewBox="0 0 20 20" className={className} aria-hidden="true">
+        <path
+          d="M10 2.5c-3.6 0-6.2 2.8-6.2 6 0 4.2 6.2 9 6.2 9s6.2-4.8 6.2-9c0-3.2-2.6-6-6.2-6Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <circle cx="10" cy="8.3" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    ),
   },
   {
     key: "components",

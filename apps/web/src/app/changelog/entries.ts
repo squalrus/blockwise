@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.84.5", date: "2026-08-28", summary: "Venue sync, boundary preview, missing-venue search, and hours/phone/website enrichment now run on Geoapify instead of Google Places (fourth phase of the migration) -- category matching and \"open now\" both work again; a one-time admin tool reconciles venues synced before the cutover" },
   { version: "0.84.4", date: "2026-08-28", summary: "Removed ratings, reviews, and photo galleries from venue/POI pages (third phase of moving venue data off Google Places API onto Geoapify -- no replacement feature exists yet)" },
   { version: "0.84.3", date: "2026-08-28", summary: "Behind-the-scenes: second phase of moving venue data off Google Places API onto Geoapify, remapping the category taxonomy (no visible changes yet)" },
   { version: "0.84.2", date: "2026-08-27", summary: "Behind-the-scenes: first phase of moving venue data off Google Places API onto Geoapify (no visible changes yet)" },

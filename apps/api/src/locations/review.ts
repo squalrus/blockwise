@@ -1,15 +1,15 @@
 import type { GeoJsonPolygon } from "@blockwise/types";
-import type { GooglePlacesClient } from "../places/client";
-import { findDuplicate } from "../places/dedup";
+import { findDuplicate, nameSimilarity } from "../places/dedup";
+import type { GeoapifyPlacesClient } from "../places/geoapifyClient";
 import { isPointInPolygon } from "../places/geo";
 import type { PlacesRepository } from "../places/repository";
 import { searchPlacesInPolygon } from "../places/sync";
-import { createLocation, updateLocationStatusForNeighborhood } from "./locations";
+import { createLocation, reassignLocationPlaceIdForNeighborhood, updateLocationStatusForNeighborhood } from "./locations";
 import type { LocationRepository } from "./repository";
 
 // "Reimport Locations" cooldown (BACKLOG.md) -- once every 24h per
 // neighborhood, since each run costs a real (and rate-limited, see
-// places/sync.ts's subdivideCircle comment) Google Places query. Enforced
+// places/sync.ts's subdivideCircle comment) Places query. Enforced
 // here as a pure, testable function of (lastReviewedAt, now) rather than
 // inline in the route, so the exact boundary condition is unit-testable
 // without a real clock or a real neighborhood repository.
@@ -59,12 +59,33 @@ export interface ProposedRemoval {
   address: string | null;
 }
 
+// Geoapify migration backfill (BACKLOG.md Ref 114 Phase 5): a search result
+// that fuzzy-matched an existing location (dedup.ts's name+location check)
+// rather than a genuinely new place. Every existing venue's geoapify_place_id
+// still holds its pre-migration Google ID until an admin explicitly approves
+// one of these -- confidencePercent (nameSimilarity, 0-100) is surfaced so
+// an admin reviewing a one-time, single-neighborhood backlog of these can
+// scan and bulk-approve the obvious ones without opening each one, rather
+// than an automatic rewrite that a wrong fuzzy match could silently corrupt.
+export interface PossibleLocationMatch {
+  locationId: string;
+  existingName: string;
+  existingAddress: string | null;
+  geoapifyPlaceId: string;
+  matchedName: string;
+  matchedAddress: string;
+  lat: number;
+  lng: number;
+  confidencePercent: number;
+}
+
 export interface LocationReviewReport {
   tilesQueried: number;
   apiCallsMade: number;
   callsAtResultCap: number;
   newCandidates: NewLocationCandidate[];
   proposedRemovals: ProposedRemoval[];
+  possibleMatches: PossibleLocationMatch[];
 }
 
 // Bulk Places review (BACKLOG.md Ref 29) + boundary reconciliation
@@ -84,7 +105,7 @@ export interface LocationReviewReport {
 export async function reviewNeighborhoodLocations(
   neighborhoodId: string,
   polygon: GeoJsonPolygon,
-  client: GooglePlacesClient,
+  client: GeoapifyPlacesClient,
   placesRepository: PlacesRepository,
   locationRepository: LocationRepository
 ): Promise<LocationReviewReport> {
@@ -110,29 +131,52 @@ export async function reviewNeighborhoodLocations(
     proposedRemovals.push({ id: location.id, name: location.name, address: location.address });
   }
 
-  // Grows as candidates are accepted below, mirroring syncNeighborhoodPlaces
-  // (sync.ts) -- catches two near-duplicate places returned in the *same*
-  // review run (Google itself sometimes lists one place twice under
-  // different place IDs), not just duplicates against rows already in the DB.
-  const dedupList = existingLocations
-    // Only locations with real coordinates can be checked for a
-    // near-duplicate location match -- a handful of legacy rows predate
-    // lat/lng (BACKLOG.md Ref 51) and are simply skipped here, same as
-    // they're skipped from boundary-membership checks above.
+  // Existing locations checkable for a near-duplicate match -- a handful of
+  // legacy rows predate lat/lng (BACKLOG.md Ref 51) and are simply skipped
+  // here, same as they're skipped from boundary-membership checks above.
+  // Kept separate from sessionDedupList below so a match against THIS list
+  // specifically (an already-known location under a possibly-stale Google
+  // place ID) can be reported as a possible match rather than silently
+  // dropped -- see PossibleLocationMatch's comment.
+  const existingDedupList = existingLocations
     .filter((l): l is typeof l & { lat: number; lng: number } => l.lat !== null && l.lng !== null)
-    .map((l) => ({ name: l.name, location: { lat: l.lat, lng: l.lng } }));
+    .map((l) => ({ id: l.id, name: l.name, address: l.address, location: { lat: l.lat, lng: l.lng } }));
+
+  // Grows as new candidates are accepted below, mirroring
+  // syncNeighborhoodPlaces (sync.ts) -- catches two near-duplicate places
+  // returned in the *same* review run (a place sometimes listed twice under
+  // different place IDs), not just duplicates against rows already in the DB.
+  const sessionDedupList = existingDedupList.map(({ name, location }) => ({ name, location }));
 
   const newCandidates: NewLocationCandidate[] = [];
+  const possibleMatches: PossibleLocationMatch[] = [];
   for (const place of search.places) {
-    const alreadyKnown = existingLocations.some((l) => l.geoapifyPlaceId === place.raw.id);
+    const alreadyKnown = existingLocations.some((l) => l.geoapifyPlaceId === place.raw.placeId);
     if (alreadyKnown) continue;
 
     const dedupCandidate = { name: place.name, location: place.location };
-    if (findDuplicate(dedupCandidate, dedupList)) continue;
-    dedupList.push(dedupCandidate);
+
+    const existingMatch = findDuplicate(dedupCandidate, existingDedupList);
+    if (existingMatch) {
+      possibleMatches.push({
+        locationId: existingMatch.id,
+        existingName: existingMatch.name,
+        existingAddress: existingMatch.address,
+        geoapifyPlaceId: place.raw.placeId,
+        matchedName: place.name,
+        matchedAddress: place.raw.formattedAddress,
+        lat: place.location.lat,
+        lng: place.location.lng,
+        confidencePercent: Math.round(nameSimilarity(place.name, existingMatch.name) * 100),
+      });
+      continue;
+    }
+
+    if (findDuplicate(dedupCandidate, sessionDedupList)) continue;
+    sessionDedupList.push(dedupCandidate);
 
     newCandidates.push({
-      geoapifyPlaceId: place.raw.id,
+      geoapifyPlaceId: place.raw.placeId,
       name: place.name,
       lat: place.location.lat,
       lng: place.location.lng,
@@ -148,6 +192,7 @@ export async function reviewNeighborhoodLocations(
     callsAtResultCap: search.callsAtResultCap,
     newCandidates,
     proposedRemovals,
+    possibleMatches,
   };
 }
 
@@ -168,11 +213,18 @@ export interface LocationRemovalApproval {
   id: string;
 }
 
+// An admin-approved PossibleLocationMatch -- see that interface's comment.
+export interface LocationReidentification {
+  locationId: string;
+  geoapifyPlaceId: string;
+}
+
 export interface CommitLocationReviewResult {
   createdBusinesses: string[];
   createdPois: string[];
   omitted: string[];
   removed: string[];
+  reidentified: string[];
   failed: { name: string; error: string }[];
 }
 
@@ -200,15 +252,35 @@ export async function commitLocationReview(
   classifications: LocationReviewClassificationInput[],
   removals: LocationRemovalApproval[],
   placesRepository: PlacesRepository,
-  locationRepository: LocationRepository
+  locationRepository: LocationRepository,
+  reidentifications: LocationReidentification[] = []
 ): Promise<CommitLocationReviewResult> {
   const result: CommitLocationReviewResult = {
     createdBusinesses: [],
     createdPois: [],
     omitted: [],
     removed: [],
+    reidentified: [],
     failed: [],
   };
+
+  for (const reidentification of reidentifications) {
+    try {
+      const outcome = await reassignLocationPlaceIdForNeighborhood(
+        neighborhoodId,
+        reidentification.locationId,
+        reidentification.geoapifyPlaceId,
+        locationRepository
+      );
+      if (outcome.status === "not_found") throw new Error("Location not found");
+      result.reidentified.push(outcome.location.name);
+    } catch (err) {
+      result.failed.push({
+        name: reidentification.locationId,
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  }
 
   for (const removal of removals) {
     try {
@@ -253,7 +325,7 @@ export async function commitLocationReview(
           if (!item.categoryId) throw new Error("category_id is required to classify as a business");
           // The sync pipeline's own venue upsert (places/sync.ts) -- reused
           // as-is rather than routing through createLocation, since this is
-          // the same "known Google Place, sync into venue" operation the
+          // the same "known Geoapify Place, sync into venue" operation the
           // scheduled sync job already performs. New rows default to kind
           // "business" at the DB level.
           await placesRepository.upsertVenue({

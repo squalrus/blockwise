@@ -4,15 +4,17 @@ import type {
   GeoapifyPlaceDetailsClient,
   GeoapifyPlacesClient,
   GeoapifySearchParams,
+  GeoapifySearchTextParams,
+  GeoapifyTextSearchClient,
 } from "./geoapifyClient";
 
-// Mirrors mockClient.ts's fixture set (same venues/locations, so the two
-// mock clients stay directly comparable) but in Geoapify's shape --
-// OSM-style dotted categories instead of Google types, no primaryType, no
-// businessStatus. Keeps the same deliberate edge cases: a near-duplicate
-// pair for the dedup pass, a place outside the Phinneywood boundary for the
-// point-in-polygon filter, and an unmapped category for the "flag rather
-// than guess" path.
+// Fixture data for building/testing the sync pipeline without a real
+// GEOAPIFY_API_KEY, in the same shape LiveGeoapifyClient returns --
+// OSM-style dotted categories, no businessStatus equivalent. Deliberately
+// includes the same edge cases the pipeline needs to handle correctly: a
+// near-duplicate pair for the dedup pass, a place outside the Phinneywood
+// boundary for the point-in-polygon filter, and an unmapped category for
+// the "flag rather than guess" path.
 const FIXTURE_PLACES: GeoapifyPlace[] = [
   {
     placeId: "geoapify-mock-diesel-fuel-coffee",
@@ -90,9 +92,21 @@ const FIXTURE_PLACE_DETAILS: Record<string, GeoapifyPlaceDetails> = {
   },
 };
 
-export class MockGeoapifyClient implements GeoapifyPlacesClient, GeoapifyPlaceDetailsClient {
+export class MockGeoapifyClient
+  implements GeoapifyPlacesClient, GeoapifyPlaceDetailsClient, GeoapifyTextSearchClient
+{
   async searchPlaces(_params: GeoapifySearchParams): Promise<GeoapifyPlace[]> {
     return FIXTURE_PLACES;
+  }
+
+  // Matches by substring against the fixture names rather than always
+  // returning everything -- so local dev without a GEOAPIFY_API_KEY still
+  // exercises the "nothing found" path investigate.ts (BACKLOG.md Ref 96)
+  // exists to diagnose, not just the "found it" path.
+  async searchText({ text }: GeoapifySearchTextParams): Promise<GeoapifyPlace[]> {
+    const query = text.trim().toLowerCase();
+    if (!query) return [];
+    return FIXTURE_PLACES.filter((place) => place.name?.toLowerCase().includes(query));
   }
 
   async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {

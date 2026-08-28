@@ -101,7 +101,7 @@ export interface CategoryRecord {
 // Abstracts persistence so location business logic (locations.ts) can be
 // tested against an in-memory fake instead of a real Supabase project,
 // mirroring the pattern in places/repository.ts. A location is either kind
-// "business" (Google-Place-backed, claimable) or "poi" (neighborhood-owned,
+// "business" (Geoapify-Place-backed, claimable) or "poi" (neighborhood-owned,
 // never claimable) -- both rows in the same underlying table since the
 // venue/poi merge (BACKLOG.md "POIs and venues managed almost the same").
 export interface LocationRepository {
@@ -139,6 +139,13 @@ export interface LocationRepository {
   // locations.ts's switchLocationKindForNeighborhood.
   setLocationKind(locationId: string, input: SetLocationKindInput): Promise<LocationRecord>;
   updateLocationCategory(locationId: string, categoryId: string): Promise<LocationRecord>;
+  // Geoapify migration backfill (BACKLOG.md Ref 114 Phase 5) -- re-points an
+  // existing location at a real Geoapify place ID, either from an admin's
+  // explicit "possible match" approval on a review run, or a manual
+  // investigate-and-attach for a venue neither place-ID nor fuzzy name/
+  // location matching caught. Never called for a brand-new location (those
+  // get their geoapify_place_id at creation via createLocation/upsertVenue).
+  updateLocationPlaceId(locationId: string, geoapifyPlaceId: string): Promise<LocationRecord>;
   // Only leaf categories (those with a parent_category_id) -- the 6
   // top-level group rows are organizational only.
   listCategories(): Promise<CategoryRecord[]>;

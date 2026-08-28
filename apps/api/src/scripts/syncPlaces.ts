@@ -1,5 +1,5 @@
-import { LivePlacesClient } from "../places/client";
-import { MockPlacesClient } from "../places/mockClient";
+import { LiveGeoapifyClient } from "../places/geoapifyClient";
+import { MockGeoapifyClient } from "../places/mockGeoapifyClient";
 import { SupabasePlacesRepository } from "../places/supabaseRepository";
 import { syncNeighborhoodPlaces } from "../places/sync";
 import { getSupabaseClient } from "../supabase";
@@ -14,10 +14,9 @@ try {
   // No .env.local file present -- fine if the environment was set some other way.
 }
 
-// Runs the Google Places sync for one neighborhood (BACKLOG "Data layer
+// Runs the Geoapify Places sync for one neighborhood (BACKLOG "Data layer
 // MVP"). Usage: npm run sync:places -- <neighborhood-slug>
-// Uses MockPlacesClient unless GOOGLE_PLACES_API_KEY is set in the
-// environment (see docs/google-places-setup.md for real-key setup).
+// Uses MockGeoapifyClient unless GEOAPIFY_API_KEY is set in the environment.
 async function main() {
   const slug = process.argv[2];
   if (!slug) {
@@ -25,10 +24,10 @@ async function main() {
     process.exit(1);
   }
 
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  const client = apiKey ? new LivePlacesClient(apiKey) : new MockPlacesClient();
+  const apiKey = process.env.GEOAPIFY_API_KEY;
+  const client = apiKey ? new LiveGeoapifyClient(apiKey) : new MockGeoapifyClient();
   if (!apiKey) {
-    console.log("GOOGLE_PLACES_API_KEY not set -- using mock Google Places responses.\n");
+    console.log("GEOAPIFY_API_KEY not set -- using mock Geoapify Places responses.\n");
   }
 
   const repository = new SupabasePlacesRepository(getSupabaseClient());

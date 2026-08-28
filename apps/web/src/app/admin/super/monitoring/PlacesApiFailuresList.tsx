@@ -1,15 +1,20 @@
 import type { MonitoringPlacesApiFailure } from "@blockwise/types";
 
+// See PlacesApiByEndpointStats' matching comment: searchNearby/fetchPhotoMedia
+// are Google-only and retired as of the Geoapify migration's Phase 4, kept
+// here only for historical rows; searchPlaces is Geoapify's replacement.
 const LABELS: Record<MonitoringPlacesApiFailure["endpoint"], string> = {
-  searchNearby: "Nearby search",
+  searchNearby: "Nearby search (retired)",
+  searchPlaces: "Places search",
   searchText: "Text search",
   getPlaceDetails: "Place details",
-  fetchPhotoMedia: "Photo media",
+  fetchPhotoMedia: "Photo media (retired)",
 };
 // Same mapping as PlacesApiByEndpointStats, kept separate rather than
 // imported to avoid a cross-component coupling for four hex strings.
 const COLORS: Record<MonitoringPlacesApiFailure["endpoint"], string> = {
   searchNearby: "var(--brand-purple)",
+  searchPlaces: "var(--brand-purple)",
   searchText: "var(--brand-amber)",
   getPlaceDetails: "var(--brand-green)",
   fetchPhotoMedia: "var(--brand-orange)",

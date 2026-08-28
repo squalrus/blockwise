@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { InstrumentedPlacesClient } from "./instrumentedClient";
-import type { GooglePlacesClient, PlaceDetailsClient, PlacesTextSearchClient, RawGooglePlace, RawPlaceDetails } from "./client";
+import type {
+  GeoapifyPlace,
+  GeoapifyPlaceDetails,
+  GeoapifyPlaceDetailsClient,
+  GeoapifyPlacesClient,
+  GeoapifyTextSearchClient,
+} from "./geoapifyClient";
 import type { MonitoringRepository, PlacesApiCallEntry } from "../monitoring/repository";
 
-class FakeInnerClient implements GooglePlacesClient, PlaceDetailsClient, PlacesTextSearchClient {
-  async searchNearby(): Promise<RawGooglePlace[]> {
+class FakeInnerClient implements GeoapifyPlacesClient, GeoapifyPlaceDetailsClient, GeoapifyTextSearchClient {
+  async searchPlaces(): Promise<GeoapifyPlace[]> {
     return [];
   }
-  async searchText(): Promise<RawGooglePlace[]> {
+  async searchText(): Promise<GeoapifyPlace[]> {
     return [];
   }
-  async getPlaceDetails(): Promise<RawPlaceDetails> {
-    throw new Error("Google Places getPlaceDetails failed: 500 boom");
-  }
-  async fetchPhotoMedia() {
-    return { contentType: "image/png", data: new ArrayBuffer(0) };
+  async getPlaceDetails(): Promise<GeoapifyPlaceDetails> {
+    throw new Error("Geoapify getPlaceDetails failed: 500 boom");
   }
 }
 
@@ -33,11 +36,11 @@ describe("InstrumentedPlacesClient", () => {
       () => repo as unknown as MonitoringRepository
     );
 
-    await client.searchNearby({ center: { lat: 47.6, lng: -122.3 }, radiusMeters: 500 });
+    await client.searchPlaces({ center: { lat: 47.6, lng: -122.3 }, radiusMeters: 500, categories: ["catering.cafe"] });
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(repo.logged).toHaveLength(1);
-    expect(repo.logged[0]).toMatchObject({ endpoint: "searchNearby", success: true });
+    expect(repo.logged[0]).toMatchObject({ endpoint: "searchPlaces", success: true });
   });
 
   it("logs a failed call and still rethrows the underlying error", async () => {
@@ -54,7 +57,7 @@ describe("InstrumentedPlacesClient", () => {
     expect(repo.logged[0]).toMatchObject({
       endpoint: "getPlaceDetails",
       success: false,
-      errorMessage: "Google Places getPlaceDetails failed: 500 boom",
+      errorMessage: "Geoapify getPlaceDetails failed: 500 boom",
     });
   });
 });

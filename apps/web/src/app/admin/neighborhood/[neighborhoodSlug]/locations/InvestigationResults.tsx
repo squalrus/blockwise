@@ -74,7 +74,7 @@ export function InvestigationResults({
   }
 
   if (candidates.length === 0) {
-    return <p className="text-sm text-muted">{emptyMessage ?? "Google Places returned nothing for this search."}</p>;
+    return <p className="text-sm text-muted">{emptyMessage ?? "Geoapify returned nothing for this search."}</p>;
   }
 
   return (
@@ -89,11 +89,6 @@ export function InvestigationResults({
               <p className="text-muted">{candidate.address}</p>
 
               <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs font-bold">
-                {candidate.business_status && candidate.business_status !== "OPERATIONAL" && (
-                  <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-600 dark:text-red-400">
-                    {candidate.business_status.replace(/_/g, " ").toLowerCase()}
-                  </span>
-                )}
                 {candidate.inside_boundary === false && (
                   <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-600 dark:text-amber-400">
                     Outside boundary

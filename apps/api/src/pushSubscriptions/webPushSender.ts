@@ -11,7 +11,7 @@ export type SendResult = { status: "sent" } | { status: "gone" } | { status: "er
 
 // Abstracts the actual web-push send so pushSubscriptions.ts's fan-out logic
 // (which subscriptions to prune on failure) can be tested against a fake,
-// mirroring the GooglePlacesClient/PlaceDetailsClient split for syncPlaces.
+// mirroring the GeoapifyPlacesClient/GeoapifyPlaceDetailsClient split for syncPlaces.
 export interface PushSender {
   send(subscription: { endpoint: string; keys: PushSubscriptionKeys }, payload: PushPayload): Promise<SendResult>;
 }

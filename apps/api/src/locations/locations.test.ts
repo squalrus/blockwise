@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TopVisitor, VenueAnalytics, VenueEnrichmentCache } from "@blockwise/types";
 import type { EnrichmentRepository, UpsertEnrichmentInput } from "../enrichment/repository";
-import type { PlaceDetailsClient, RawPlaceDetails } from "../places/client";
+import type { GeoapifyPlaceDetails, GeoapifyPlaceDetailsClient } from "../places/geoapifyClient";
 import {
   createLocation,
   deleteLocationForNeighborhood,
@@ -125,6 +125,12 @@ class FakeLocationRepository implements LocationRepository {
   async updateLocationCategory(locationId: string, categoryId: string): Promise<LocationRecord> {
     const location = this.locations.find((l) => l.id === locationId)!;
     location.categoryId = categoryId;
+    return location;
+  }
+
+  async updateLocationPlaceId(locationId: string, geoapifyPlaceId: string): Promise<LocationRecord> {
+    const location = this.locations.find((l) => l.id === locationId)!;
+    location.geoapifyPlaceId = geoapifyPlaceId;
     return location;
   }
 
@@ -258,17 +264,19 @@ class FakeEnrichmentRepository implements EnrichmentRepository {
   }
 }
 
-class FakePlacesClient implements PlaceDetailsClient {
+class FakePlacesClient implements GeoapifyPlaceDetailsClient {
   calls: string[] = [];
-  response: RawPlaceDetails = { id: "geoapify-place-1", nationalPhoneNumber: "(206) 555-0100" };
+  response: GeoapifyPlaceDetails = {
+    placeId: "geoapify-place-1",
+    name: "Diesel Fuel Coffee",
+    formattedAddress: "123 Main St",
+    categories: [],
+    phone: "(206) 555-0100",
+  };
 
-  async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
+  async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {
     this.calls.push(placeId);
     return this.response;
-  }
-
-  async fetchPhotoMedia() {
-    return { contentType: "image/png", data: new ArrayBuffer(0) };
   }
 }
 
@@ -359,7 +367,7 @@ describe("getLocationDetailWithFreshEnrichment", () => {
     const placesClient = new FakePlacesClient();
     placesClient.response = {
       ...placesClient.response,
-      regularOpeningHours: { weekdayDescriptions: ["Monday: 9:00 AM – 5:00 PM"] },
+      openingHours: "Mo 09:00-17:00",
     };
 
     // 2026-07-06 is a Monday; 2pm falls within the 9am-5pm window above.

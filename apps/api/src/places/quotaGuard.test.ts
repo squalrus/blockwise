@@ -1,18 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { PlacesApiQuotaExceededError, PlacesApiQuotaGuard, QuotaGuardedPlacesClient } from "./quotaGuard";
-import type { PhotoMedia, PlaceDetailsClient, RawPlaceDetails } from "./client";
+import type { GeoapifyPlaceDetails, GeoapifyPlaceDetailsClient } from "./geoapifyClient";
 
-class FakeInnerClient implements PlaceDetailsClient {
+class FakeInnerClient implements GeoapifyPlaceDetailsClient {
   calls: string[] = [];
 
-  async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
+  async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {
     this.calls.push(placeId);
-    return { id: placeId };
-  }
-
-  async fetchPhotoMedia(photoReference: string): Promise<PhotoMedia> {
-    this.calls.push(photoReference);
-    return { contentType: "image/png", data: new ArrayBuffer(0) };
+    return { placeId, name: null, formattedAddress: "", categories: [] };
   }
 }
 
@@ -32,8 +27,8 @@ describe("PlacesApiQuotaGuard", () => {
     const getMonthToDateCallCount = vi.fn().mockResolvedValue(10);
     const guard = new PlacesApiQuotaGuard(getMonthToDateCallCount);
 
-    await guard.isNearLimit("fetchPhotoMedia");
-    await guard.isNearLimit("fetchPhotoMedia");
+    await guard.isNearLimit("getPlaceDetails");
+    await guard.isNearLimit("getPlaceDetails");
 
     expect(getMonthToDateCallCount).toHaveBeenCalledTimes(1);
   });
@@ -45,7 +40,7 @@ describe("PlacesApiQuotaGuard", () => {
     const guard = new PlacesApiQuotaGuard(getMonthToDateCallCount);
 
     expect(await guard.isNearLimit("getPlaceDetails")).toBe(true);
-    expect(await guard.isNearLimit("fetchPhotoMedia")).toBe(false);
+    expect(await guard.isNearLimit("searchPlaces")).toBe(false);
   });
 });
 
@@ -56,9 +51,8 @@ describe("QuotaGuardedPlacesClient", () => {
     const client = new QuotaGuardedPlacesClient(inner, guard);
 
     await client.getPlaceDetails("place-1");
-    await client.fetchPhotoMedia("photo-ref-1");
 
-    expect(inner.calls).toEqual(["place-1", "photo-ref-1"]);
+    expect(inner.calls).toEqual(["place-1"]);
   });
 
   it("throws PlacesApiQuotaExceededError instead of calling through when near the limit", async () => {

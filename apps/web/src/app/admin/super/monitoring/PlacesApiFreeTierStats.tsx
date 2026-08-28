@@ -1,25 +1,32 @@
 import { PLACES_API_NEAR_LIMIT_THRESHOLD, PLACES_API_PRICING, type MonitoringPlacesApiMonthToDate } from "@blockwise/types";
 
+// See PlacesApiByEndpointStats' matching comment: searchNearby/fetchPhotoMedia
+// are Google-only and retired as of the Geoapify migration's Phase 4, kept
+// here only for historical rows; searchPlaces is Geoapify's replacement.
 const LABELS: Record<MonitoringPlacesApiMonthToDate["endpoint"], string> = {
-  searchNearby: "Nearby search",
+  searchNearby: "Nearby search (retired)",
+  searchPlaces: "Places search",
   searchText: "Text search",
   getPlaceDetails: "Place details",
-  fetchPhotoMedia: "Photo media",
+  fetchPhotoMedia: "Photo media (retired)",
 };
 const ORDER: MonitoringPlacesApiMonthToDate["endpoint"][] = [
+  "searchPlaces",
   "searchNearby",
   "searchText",
   "getPlaceDetails",
   "fetchPhotoMedia",
 ];
-// Mirrors app.ts's getPlacesClient() -- only these two are actually guarded
-// (QuotaGuardedPlacesClient), since they're the ones that fire on ordinary
-// visitor page views rather than an admin clicking a button.
+// Mirrors app.ts's getPlacesClient() -- only getPlaceDetails is actually
+// guarded (QuotaGuardedPlacesClient) as of Phase 4, since it's the one that
+// fires on ordinary visitor page views rather than an admin clicking a
+// button -- fetchPhotoMedia was guarded too before Phase 3 removed it.
 const GUARDED: Record<MonitoringPlacesApiMonthToDate["endpoint"], boolean> = {
   searchNearby: false,
+  searchPlaces: false,
   searchText: false,
   getPlaceDetails: true,
-  fetchPhotoMedia: true,
+  fetchPhotoMedia: false,
 };
 
 // Month-to-date usage against each endpoint's Google free tier
