@@ -342,7 +342,7 @@ No open limitations.
 **Progress (9-phase plan, see `docs/geoapify-migration-plan.md` for full detail on each):**
 
 - [x] Phase 1 — Geoapify-native client (`apps/api/src/places/geoapifyClient.ts`, `mockGeoapifyClient.ts`) — shipped v0.84.2, standalone/not yet wired in
-- [ ] Phase 2 — Category taxonomy remapping (`category.source_mapping_json.geoapify` per leaf category)
+- [x] Phase 2 — Category taxonomy remapping (`category.source_mapping_json.geoapify` per leaf category) — full replace of `.google` per leaf category (migration `20260828010000_geoapify_category_mapping.sql`), `categorize.ts` rewritten to prefix-match Geoapify's dot-hierarchical tags (single provider key, no more `sourceKey` branching), `categoryAdmin` stack (API + `/admin/super/category-taxonomy` UI) renamed `google_types` → `geoapify_categories`. **Accepted temporary regression**: `sync.ts`/`investigate.ts` still run against the live Google client (Phase 4 not done), so their category-matching calls now compare Google's flat type strings against Geoapify-shaped tags and never match — every place goes uncategorized, and the Nearby Search `includedTypes` restriction was dropped (search now runs unrestricted per tile) since Geoapify's tags aren't valid Google type strings. Both call sites and the affected tests carry comments pointing at Phase 4 as the fix.
 - [ ] Phase 3 — Schema changes (rename `venue.google_place_id` → `geoapify_place_id`, trim `venue_enrichment_cache`)
 - [ ] Phase 4 — `sync.ts`/`geo.ts` wiring (depends on 1–3)
 - [ ] Phase 5 — Backfill existing venues via `locations/review.ts`'s admin diff flow (depends on 4)

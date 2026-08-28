@@ -4,9 +4,9 @@ import type { CategoryAdminRecord, CategoryAdminRepository } from "./repository"
 
 const COLUMNS = "id, name, parent_category_id, status, source_mapping_json";
 
-function toGoogleTypes(json: Record<string, unknown> | null): string[] {
-  const google = (json as { google?: unknown } | null)?.google;
-  return Array.isArray(google) ? google.filter((t): t is string => typeof t === "string") : [];
+function toGeoapifyCategories(json: Record<string, unknown> | null): string[] {
+  const geoapify = (json as { geoapify?: unknown } | null)?.geoapify;
+  return Array.isArray(geoapify) ? geoapify.filter((t): t is string => typeof t === "string") : [];
 }
 
 function toRecord(row: {
@@ -21,7 +21,7 @@ function toRecord(row: {
     name: row.name,
     parentCategoryId: row.parent_category_id,
     status: row.status as CategoryStatus,
-    googleTypes: toGoogleTypes(row.source_mapping_json),
+    geoapifyCategories: toGeoapifyCategories(row.source_mapping_json),
   };
 }
 
@@ -48,12 +48,12 @@ export class SupabaseCategoryAdminRepository implements CategoryAdminRepository 
   async createCategory(
     name: string,
     parentCategoryId: string | null,
-    googleTypes: string[]
+    geoapifyCategories: string[]
   ): Promise<CategoryAdminRecord> {
     // Group rows (parentCategoryId === null) stay organizational-only, per
-    // the seeded taxonomy's convention (category_taxonomy.sql) -- google
-    // types only make sense on a leaf.
-    const sourceMappingJson = parentCategoryId ? { google: googleTypes } : {};
+    // the seeded taxonomy's convention (category_taxonomy.sql) -- geoapify
+    // categories only make sense on a leaf.
+    const sourceMappingJson = parentCategoryId ? { geoapify: geoapifyCategories } : {};
     const { data, error } = await this.supabase
       .from("category")
       .insert({ name, parent_category_id: parentCategoryId, source_mapping_json: sourceMappingJson })

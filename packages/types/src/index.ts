@@ -1298,9 +1298,10 @@ export interface CategoryAdminItem {
   name: string;
   parent_category_id: string | null;
   status: CategoryStatus;
-  // The Google Places types[] that normalize into this leaf category (README
-  // §2/§1.4 step 3) -- empty for top-level group rows.
-  google_types: string[];
+  // The Geoapify/OSM category tags that normalize into this leaf category
+  // (docs/geoapify-migration-plan.md Phase 2) -- empty for top-level group
+  // rows.
+  geoapify_categories: string[];
 }
 
 export interface CreateCategoryRequest {
@@ -1308,7 +1309,7 @@ export interface CreateCategoryRequest {
   // null creates a new top-level group; a string must reference an existing
   // top-level group (2-level taxonomy only, no nesting under a leaf).
   parent_category_id: string | null;
-  google_types?: string[];
+  geoapify_categories?: string[];
 }
 
 export interface RenameCategoryRequest {

@@ -7,7 +7,7 @@ function toCategoryAdminItem(record: CategoryAdminRecord): CategoryAdminItem {
     name: record.name,
     parent_category_id: record.parentCategoryId,
     status: record.status,
-    google_types: record.googleTypes,
+    geoapify_categories: record.geoapifyCategories,
   };
 }
 
@@ -24,7 +24,7 @@ export type CreateCategoryResult =
 export async function createCategory(
   name: string,
   parentCategoryId: string | null,
-  googleTypes: string[],
+  geoapifyCategories: string[],
   repository: CategoryAdminRepository
 ): Promise<CreateCategoryResult> {
   const trimmedName = name.trim();
@@ -37,7 +37,7 @@ export async function createCategory(
     if (!parent || parent.parentCategoryId !== null) return { status: "invalid_parent" };
   }
 
-  const created = await repository.createCategory(trimmedName, parentCategoryId, googleTypes);
+  const created = await repository.createCategory(trimmedName, parentCategoryId, geoapifyCategories);
   return { status: "created", category: toCategoryAdminItem(created) };
 }
 

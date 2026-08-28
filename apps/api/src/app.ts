@@ -2645,7 +2645,7 @@ export function createApp() {
   });
 
   app.post("/admin/category-taxonomy", superAdminGate, async (req, res) => {
-    const { name, parent_category_id, google_types } = req.body ?? {};
+    const { name, parent_category_id, geoapify_categories } = req.body ?? {};
     if (typeof name !== "string") {
       res.status(400).json({ error: "name is required" });
       return;
@@ -2655,10 +2655,10 @@ export function createApp() {
       return;
     }
     if (
-      google_types !== undefined &&
-      (!Array.isArray(google_types) || !google_types.every((t) => typeof t === "string"))
+      geoapify_categories !== undefined &&
+      (!Array.isArray(geoapify_categories) || !geoapify_categories.every((t) => typeof t === "string"))
     ) {
-      res.status(400).json({ error: "google_types must be an array of strings" });
+      res.status(400).json({ error: "geoapify_categories must be an array of strings" });
       return;
     }
 
@@ -2666,7 +2666,7 @@ export function createApp() {
       const result = await createCategory(
         name,
         parent_category_id ?? null,
-        google_types ?? [],
+        geoapify_categories ?? [],
         getCategoryAdminRepository()
       );
 

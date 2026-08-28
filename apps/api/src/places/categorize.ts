@@ -1,8 +1,16 @@
-// Category normalization (README §1.4 step 3 / §2): map a place's Google
-// `types[]` into the unified taxonomy via each Category's
-// source_mapping_json.google list, rather than guessing. Unmapped types are
-// left uncategorized (category_id stays null) for manual review in the
-// admin tool once it exists, instead of forcing a best-effort guess.
+// Category normalization (docs/geoapify-migration-plan.md Phase 2): map a
+// place's Geoapify/OSM category tags into the unified taxonomy via each
+// Category's source_mapping_json.geoapify list, rather than guessing.
+// Unmapped tags are left uncategorized (category_id stays null) for manual
+// review in the admin tool, instead of forcing a best-effort guess.
+//
+// Geoapify's tags are dot-hierarchical (e.g. "catering.restaurant.italian"),
+// unlike Google's flat type strings, so matching is prefix-based: a place
+// tagged with a specific subtype matches a category configured with a
+// broader ancestor tag. Configured tags are checked longest-first so a more
+// specific one (e.g. "commercial.food_and_drink.bakery") wins over a
+// broader sibling (e.g. "commercial.food_and_drink") when a place could
+// match either.
 
 export interface CategoryRecord {
   id: string;
@@ -11,39 +19,46 @@ export interface CategoryRecord {
 }
 
 export interface CategorizablePlace {
-  primaryType?: string;
-  types: string[];
+  categories: string[];
 }
 
-export function buildGoogleTypeIndex(categories: CategoryRecord[]): Map<string, CategoryRecord> {
-  const index = new Map<string, CategoryRecord>();
+interface GeoapifyCategoryEntry {
+  tag: string;
+  category: CategoryRecord;
+}
+
+export function buildGeoapifyCategoryIndex(categories: CategoryRecord[]): GeoapifyCategoryEntry[] {
+  const entries: GeoapifyCategoryEntry[] = [];
 
   for (const category of categories) {
-    const googleTypes = category.source_mapping_json.google;
-    if (!Array.isArray(googleTypes)) continue;
+    const geoapifyTags = category.source_mapping_json.geoapify;
+    if (!Array.isArray(geoapifyTags)) continue;
 
-    for (const type of googleTypes) {
-      if (typeof type === "string") index.set(type, category);
+    for (const tag of geoapifyTags) {
+      if (typeof tag === "string") entries.push({ tag, category });
     }
   }
 
-  return index;
+  return entries.sort((a, b) => b.tag.length - a.tag.length);
 }
 
-// Checks primaryType first (Google's own best guess at the dominant type),
-// then falls through the rest of types[] in the order Google returned them.
+function tagMatches(placeTag: string, configuredTag: string): boolean {
+  return placeTag === configuredTag || placeTag.startsWith(`${configuredTag}.`);
+}
+
+// Checks each of the place's category tags in order (Geoapify returns them
+// with no declared "primary" one -- see geoapifyClient.ts's GeoapifyPlace
+// comment), against the longest-first index, so the most specific
+// configured match wins regardless of which tag or category is scanned
+// first.
 export function matchCategory(
   place: CategorizablePlace,
-  index: Map<string, CategoryRecord>
+  index: GeoapifyCategoryEntry[]
 ): CategoryRecord | undefined {
-  if (place.primaryType) {
-    const match = index.get(place.primaryType);
-    if (match) return match;
-  }
-
-  for (const type of place.types) {
-    const match = index.get(type);
-    if (match) return match;
+  for (const placeTag of place.categories) {
+    for (const entry of index) {
+      if (tagMatches(placeTag, entry.tag)) return entry.category;
+    }
   }
 
   return undefined;

@@ -18,14 +18,14 @@ class FakeCategoryAdminRepository implements CategoryAdminRepository {
   async createCategory(
     name: string,
     parentCategoryId: string | null,
-    googleTypes: string[]
+    geoapifyCategories: string[]
   ): Promise<CategoryAdminRecord> {
     const created: CategoryAdminRecord = {
       id: `cat-${this.categories.length + 1}`,
       name,
       parentCategoryId,
       status: "active",
-      googleTypes,
+      geoapifyCategories,
     };
     this.categories.push(created);
     return created;
@@ -59,7 +59,7 @@ const GROUP: CategoryAdminRecord = {
   name: "Food & Drink",
   parentCategoryId: null,
   status: "active",
-  googleTypes: [],
+  geoapifyCategories: [],
 };
 
 const LEAF: CategoryAdminRecord = {
@@ -67,7 +67,7 @@ const LEAF: CategoryAdminRecord = {
   name: "Coffee Shop",
   parentCategoryId: "group-food",
   status: "active",
-  googleTypes: ["cafe"],
+  geoapifyCategories: ["cafe"],
 };
 
 describe("listCategoriesForAdmin", () => {
@@ -75,8 +75,8 @@ describe("listCategoriesForAdmin", () => {
     const repo = new FakeCategoryAdminRepository([GROUP, LEAF]);
     const result = await listCategoriesForAdmin(repo);
     expect(result).toEqual([
-      { id: "group-food", name: "Food & Drink", parent_category_id: null, status: "active", google_types: [] },
-      { id: "leaf-cafe", name: "Coffee Shop", parent_category_id: "group-food", status: "active", google_types: ["cafe"] },
+      { id: "group-food", name: "Food & Drink", parent_category_id: null, status: "active", geoapify_categories: [] },
+      { id: "leaf-cafe", name: "Coffee Shop", parent_category_id: "group-food", status: "active", geoapify_categories: ["cafe"] },
     ]);
   });
 });
@@ -117,7 +117,7 @@ describe("createCategory", () => {
       expect(result.category).toMatchObject({
         name: "Tea House",
         parent_category_id: "group-food",
-        google_types: ["cafe", "tea_house"],
+        geoapify_categories: ["cafe", "tea_house"],
       });
     }
   });

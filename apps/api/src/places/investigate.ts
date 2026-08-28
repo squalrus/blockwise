@@ -1,4 +1,4 @@
-import { buildGoogleTypeIndex, matchCategory, type CategoryRecord } from "./categorize";
+import { buildGeoapifyCategoryIndex, matchCategory, type CategoryRecord } from "./categorize";
 import type { PlacesTextSearchClient, RawGooglePlace } from "./client";
 import { isPointInPolygon, type GeoJsonPolygon, type LatLng } from "./geo";
 
@@ -44,12 +44,18 @@ export async function investigateMissingLocation(
     locationBias: { center: neighborhoodCenter, radiusMeters: INVESTIGATION_BIAS_RADIUS_METERS },
   });
 
-  const categoryIndex = buildGoogleTypeIndex(categories);
+  const categoryIndex = buildGeoapifyCategoryIndex(categories);
 
   return results.map((place) => {
     const location = { lat: place.location.latitude, lng: place.location.longitude };
+    // Google's flat type strings can never match a geoapify-tag index --
+    // every result goes uncategorized until Phase 4 rewires this onto the
+    // real Geoapify client (docs/geoapify-migration-plan.md).
     const category =
-      matchCategory({ primaryType: place.primaryType, types: place.types }, categoryIndex) ?? null;
+      matchCategory(
+        { categories: place.primaryType ? [place.primaryType, ...place.types] : place.types },
+        categoryIndex
+      ) ?? null;
     const existing = existingLocations.find((l) => l.googlePlaceId === place.id);
 
     return {
