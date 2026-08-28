@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { CategoryRecord } from "./categorize";
 import type { GeoJsonPolygon } from "./geo";
-import { MockPlacesClient } from "./mockClient";
+import { MockGeoapifyClient } from "./mockGeoapifyClient";
 import { previewNeighborhoodBoundary } from "./preview";
 
 // Mirrors the boundary fixture in sync.test.ts closely enough to include
-// every in-boundary fixture in mockClient.ts and exclude "Outside The
-// Boundary Cafe".
+// every in-boundary fixture in mockGeoapifyClient.ts and exclude "Outside
+// The Boundary Cafe".
 const PHINNEYWOOD_BOUNDARY: GeoJsonPolygon = {
   type: "Polygon",
   coordinates: [
@@ -25,7 +25,7 @@ const PHINNEYWOOD_BOUNDARY: GeoJsonPolygon = {
 
 const CATEGORIES: CategoryRecord[] = [
   { id: "coffee-shop", name: "Coffee Shop", source_mapping_json: { geoapify: ["catering.cafe.coffee_shop"] } },
-  { id: "bakery", name: "Bakery", source_mapping_json: { geoapify: ["commercial.food_and_drink.bakery"] } },
+  { id: "bakery", name: "Bakery", source_mapping_json: { geoapify: ["catering.cafe.bakery"] } },
   { id: "park", name: "Park & Playground", source_mapping_json: { geoapify: ["leisure.park", "leisure.playground"] } },
 ];
 
@@ -33,7 +33,7 @@ describe("previewNeighborhoodBoundary", () => {
   it("returns in-boundary candidates without touching persistence", async () => {
     const report = await previewNeighborhoodBoundary(
       PHINNEYWOOD_BOUNDARY,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       CATEGORIES
     );
 
@@ -41,20 +41,15 @@ describe("previewNeighborhoodBoundary", () => {
     expect(report.candidates.some((c) => c.name === "Outside The Boundary Cafe")).toBe(false);
   });
 
-  // Phase 4 (docs/geoapify-migration-plan.md) rewires this pipeline onto the
-  // Geoapify client -- until then, the taxonomy only has geoapify-shaped
-  // tags and this pipeline still runs against Google's flat type strings,
-  // so nothing can match. This documents that accepted, temporary
-  // regression rather than asserting real matching behavior.
-  it("leaves every candidate uncategorized until Phase 4 rewires the client onto Geoapify", async () => {
+  it("categorizes candidates whose Geoapify tag matches the taxonomy, leaves the rest unmapped", async () => {
     const report = await previewNeighborhoodBoundary(
       PHINNEYWOOD_BOUNDARY,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       CATEGORIES
     );
 
     const coffee = report.candidates.find((c) => c.name === "Diesel Fuel Coffee");
-    expect(coffee?.categoryName).toBeNull();
+    expect(coffee?.categoryName).toBe("Coffee Shop");
 
     const repairShop = report.candidates.find((c) => c.name === "Widget Electronics Repair");
     expect(repairShop?.categoryName).toBeNull();
@@ -63,7 +58,7 @@ describe("previewNeighborhoodBoundary", () => {
   it("reports tile/call counts alongside the candidates", async () => {
     const report = await previewNeighborhoodBoundary(
       PHINNEYWOOD_BOUNDARY,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       CATEGORIES
     );
 

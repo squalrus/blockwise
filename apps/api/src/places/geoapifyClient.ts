@@ -1,11 +1,12 @@
 import type { LatLng } from "./geo";
 
-// New, standalone module -- not yet wired into sync.ts/app.ts (see
-// docs/geoapify-migration-plan.md Phase 1). Deliberately does not reuse or
-// extend client.ts's Google-shaped types/interfaces, so this can be built
-// and tested in isolation without touching the live Google Places pipeline.
-// Names get the "Geoapify" prefix for the same reason -- once Phase 4/8
-// actually replaces client.ts, these become the provider-neutral names.
+// The real Places client (docs/geoapify-migration-plan.md) -- wired into
+// sync.ts/preview.ts/investigate.ts/enrichment/refresh.ts and app.ts's
+// getPlacesClient() as of Phase 4, replacing the old Google-shaped
+// client.ts (deleted). Names keep the "Geoapify" prefix rather than being
+// renamed to something provider-neutral now that there's only one provider,
+// since "Geoapify place" reads more clearly than a bare "Place" would next
+// to the Postgres-side geoapify_place_id column.
 
 export interface GeoapifyPlace {
   placeId: string;
@@ -38,6 +39,27 @@ export interface GeoapifySearchParams {
 
 export interface GeoapifyPlacesClient {
   searchPlaces(params: GeoapifySearchParams): Promise<GeoapifyPlace[]>;
+}
+
+export interface GeoapifySearchTextParams {
+  text: string;
+  // Soft hint (Geoapify's Geocoding API `bias=proximity:lon,lat`, not a
+  // hard filter) -- unlike searchPlaces' `filter=circle:...`, a real match
+  // outside the radius can still surface, which is what investigate.ts's
+  // "why isn't this venue showing up" lookup needs: a place ranked as
+  // slightly outside the neighborhood is still worth showing an admin, not
+  // silently dropped.
+  bias?: LatLng;
+}
+
+// Free-text lookup for investigate.ts (BACKLOG.md Ref 96) -- backed by
+// Geoapify's Geocoding API (v1/geocode/search), not the Places API, since
+// Geoapify's Places API has no free-text query mode (only category +
+// location filters). Geocoding primarily indexes addresses but returns POI
+// results too via its `category`/`result_type: "amenity"` fields, which is
+// enough for "find this business by name."
+export interface GeoapifyTextSearchClient {
+  searchText(params: GeoapifySearchTextParams): Promise<GeoapifyPlace[]>;
 }
 
 export interface GeoapifyPlaceDetails {
@@ -80,6 +102,34 @@ interface GeoapifyFeatureCollection {
   features?: { properties: GeoapifyFeatureProperties }[];
 }
 
+// Geocoding API's format=json (the default) returns a flat `results` array
+// of the same field shape as Places API's GeoJSON `properties`, not a
+// FeatureCollection -- geocode search results have no `categories` array,
+// just a single `category` string (apidocs.geoapify.com/docs/geocoding),
+// normalized to GeoapifyPlace's array shape below.
+interface GeoapifyGeocodeResult {
+  place_id: string;
+  name?: string;
+  formatted?: string;
+  lat?: number;
+  lon?: number;
+  category?: string;
+}
+
+interface GeoapifyGeocodeResponse {
+  results?: GeoapifyGeocodeResult[];
+}
+
+function toGeoapifyPlaceFromGeocode(result: GeoapifyGeocodeResult): GeoapifyPlace {
+  return {
+    placeId: result.place_id,
+    name: result.name ?? null,
+    formattedAddress: result.formatted ?? "",
+    location: { lat: result.lat ?? 0, lng: result.lon ?? 0 },
+    categories: result.category ? [result.category] : [],
+  };
+}
+
 function toGeoapifyPlace(properties: GeoapifyFeatureProperties): GeoapifyPlace {
   return {
     placeId: properties.place_id,
@@ -103,8 +153,23 @@ function toGeoapifyPlaceDetails(properties: GeoapifyFeatureProperties): Geoapify
   };
 }
 
-export class LiveGeoapifyClient implements GeoapifyPlacesClient, GeoapifyPlaceDetailsClient {
+export class LiveGeoapifyClient
+  implements GeoapifyPlacesClient, GeoapifyPlaceDetailsClient, GeoapifyTextSearchClient
+{
   constructor(private readonly apiKey: string) {}
+
+  async searchText({ text, bias }: GeoapifySearchTextParams): Promise<GeoapifyPlace[]> {
+    const params = new URLSearchParams({ text, apiKey: this.apiKey });
+    if (bias) params.set("bias", `proximity:${bias.lng},${bias.lat}`);
+
+    const response = await fetch(`https://api.geoapify.com/v1/geocode/search?${params}`);
+    if (!response.ok) {
+      throw new Error(`Geoapify searchText failed: ${response.status} ${await response.text()}`);
+    }
+
+    const body = (await response.json()) as GeoapifyGeocodeResponse;
+    return (body.results ?? []).map(toGeoapifyPlaceFromGeocode);
+  }
 
   async searchPlaces({ center, radiusMeters, categories, limit }: GeoapifySearchParams): Promise<GeoapifyPlace[]> {
     const params = new URLSearchParams({

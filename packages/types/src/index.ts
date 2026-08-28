@@ -1209,23 +1209,24 @@ export interface CommitLocationReviewResult {
 }
 
 // Missing-location investigation (BACKLOG.md Ref 96) -- a single admin
-// Google Places Text Search lookup for one reported-missing venue, distinct
-// from LocationReviewCandidate (a full-boundary Nearby Search sweep): a
-// free-text query has no Google-type restriction, so it can surface a place
+// Geoapify Geocoding lookup for one reported-missing venue, distinct from
+// LocationReviewCandidate (a full-boundary Places search sweep): a
+// free-text query has no category restriction, so it can surface a place
 // the boundary-wide review/sync flow never would, along with why it looks
-// missing.
+// missing. No businessStatus equivalent exists in OSM data (unlike Google),
+// so there's no "closed" signal to surface here.
 export interface PlacesInvestigationCandidate {
   geoapify_place_id: string;
   name: string;
   address: string;
   lat: number;
   lng: number;
-  business_status: string | null;
-  types: string[];
+  categories: string[];
   suggested_category_id: string | null;
   suggested_category_name: string | null;
-  // Name of the existing venue/POI already keyed to this exact Google place,
-  // if any -- means it isn't actually missing, just not found under this name.
+  // Name of the existing venue/POI already keyed to this exact Geoapify
+  // place, if any -- means it isn't actually missing, just not found under
+  // this name.
   already_known_as: string | null;
   // Null when the neighborhood has no saved boundary to test against.
   inside_boundary: boolean | null;
@@ -1247,6 +1248,78 @@ export interface AddInvestigatedLocationRequest {
 
 export interface AddInvestigatedLocationResult {
   created_businesses: string[];
+}
+
+// --- Geoapify migration backfill tooling (BACKLOG.md Ref 114 Phase 5) ---
+// Disposable, super-admin-only (apps/web/src/app/admin/super/geoapify-migration/,
+// matching apps/api/src/app.ts routes under /admin/geoapify-migration/...).
+// Every location synced before the Phase 4 cutover still carries its
+// original Google place ID; this whole block exists to reconcile that and
+// should be deleted once every location has a real Geoapify ID.
+
+// A search result that fuzzy-matched an existing location by name+location
+// (apps/api/src/places/dedup.ts) rather than a genuinely new place --
+// confidencePercent is that match's name-similarity score, surfaced so an
+// admin can scan a one-time batch and bulk-approve the obvious ones without
+// opening each individually. Never auto-applied -- see the commit endpoint.
+export interface GeoapifyMigrationPossibleMatch {
+  location_id: string;
+  existing_name: string;
+  existing_address: string | null;
+  geoapify_place_id: string;
+  matched_name: string;
+  matched_address: string;
+  lat: number;
+  lng: number;
+  confidence_percent: number;
+}
+
+export interface GeoapifyMigrationReviewResult {
+  tiles_queried: number;
+  api_calls_made: number;
+  calls_at_result_cap: number;
+  possible_matches: GeoapifyMigrationPossibleMatch[];
+}
+
+export interface GeoapifyMigrationCommitRequest {
+  reidentifications: { location_id: string; geoapify_place_id: string }[];
+}
+
+export interface GeoapifyMigrationCommitResult {
+  reidentified: string[];
+  failed: { name: string; error: string }[];
+}
+
+// A location whose geoapify_place_id still looks Google-shaped after a
+// review run -- either never resurfaced by Geoapify's boundary sweep at all
+// (a real, confirmed-live-verification coverage gap, docs/geoapify-migration-plan.md
+// Phase 0) or resurfaced but didn't clear the fuzzy-match threshold. The
+// punch list for manual search-and-attach.
+export interface GeoapifyMigrationLegacyLocation {
+  id: string;
+  name: string;
+  address: string | null;
+  geoapify_place_id: string;
+}
+
+// Free-text Geoapify search result for the manual attach step -- a subset
+// of PlacesInvestigationCandidate (no category/boundary/already-known
+// annotations, since this flow doesn't need them).
+export interface GeoapifyMigrationSearchCandidate {
+  geoapify_place_id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+export interface GeoapifyMigrationSearchReport {
+  query: string;
+  candidates: GeoapifyMigrationSearchCandidate[];
+}
+
+export interface GeoapifyMigrationAttachRequest {
+  geoapify_place_id: string;
 }
 
 // Only leaf categories (see supabase/migrations/.../category_taxonomy.sql)
@@ -1704,7 +1777,19 @@ export interface MonitoringSlowQuery {
   total_exec_time: number;
 }
 
-export type PlacesApiEndpoint = "searchNearby" | "searchText" | "getPlaceDetails" | "fetchPhotoMedia";
+// searchNearby/fetchPhotoMedia are Google-only and no longer produced by
+// InstrumentedPlacesClient (docs/geoapify-migration-plan.md Phase 4) -- kept
+// here only so historical places_api_call_log rows from before the cutover
+// still type-check. searchPlaces is Geoapify's Places API (replaces
+// searchNearby); searchText now backs investigate.ts's Geoapify Geocoding
+// API lookup instead of Google's Text Search, same name, different provider
+// underneath. Full rename/removal of the stale Google-only values is Phase 7.
+export type PlacesApiEndpoint =
+  | "searchNearby"
+  | "searchPlaces"
+  | "searchText"
+  | "getPlaceDetails"
+  | "fetchPhotoMedia";
 
 // Self-instrumented outbound Google Places API calls (InstrumentedPlacesClient
 // wraps LivePlacesClient) -- not pulled from Google Cloud Monitoring, so this
@@ -1770,8 +1855,14 @@ export interface PlacesApiPricingTier {
   freeMonthlyEvents: number;
 }
 
+// searchPlaces has no real rate here yet -- Geoapify bills in daily credits
+// (1/search + 1/extra 20 results), not this shape's monthly-$/free-events
+// model, so this entry is a placeholder (matches searchNearby's old Google
+// rate) that keeps PLACES_API_PRICING exhaustive over PlacesApiEndpoint
+// without asserting a real cost. Phase 7 replaces the whole shape.
 export const PLACES_API_PRICING: Record<PlacesApiEndpoint, PlacesApiPricingTier> = {
   searchNearby: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // Nearby Search Pro
+  searchPlaces: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // placeholder, see comment above
   searchText: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // Text Search Pro
   getPlaceDetails: { ratePerThousand: 25, freeMonthlyEvents: 1000 }, // Place Details Enterprise + Atmosphere
   fetchPhotoMedia: { ratePerThousand: 7, freeMonthlyEvents: 1000 }, // Place Photo

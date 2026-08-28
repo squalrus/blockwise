@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { VenueEnrichmentCache } from "@blockwise/types";
-import type { PlaceDetailsClient, RawPlaceDetails } from "../places/client";
+import type { GeoapifyPlaceDetails, GeoapifyPlaceDetailsClient } from "../places/geoapifyClient";
 import { PlacesApiQuotaExceededError } from "../places/quotaGuard";
 import { getFreshEnrichment, isStale } from "./refresh";
 import type { EnrichmentRepository, UpsertEnrichmentInput } from "./repository";
@@ -29,23 +29,22 @@ class FakeEnrichmentRepository implements EnrichmentRepository {
   }
 }
 
-class FakePlacesClient implements PlaceDetailsClient {
+class FakePlacesClient implements GeoapifyPlaceDetailsClient {
   calls: string[] = [];
-  response: RawPlaceDetails = {
-    id: "geoapify-place-1",
-    nationalPhoneNumber: "(206) 555-0100",
-    websiteUri: "https://example.com",
-    regularOpeningHours: { weekdayDescriptions: ["Monday: 7:00 AM – 5:00 PM"] },
-    editorialSummary: { text: "Cozy neighborhood coffee shop." },
+  response: GeoapifyPlaceDetails = {
+    placeId: "geoapify-place-1",
+    name: "Diesel Fuel Coffee",
+    formattedAddress: "123 Main St",
+    categories: [],
+    phone: "(206) 555-0100",
+    website: "https://example.com",
+    openingHours: "Mo 07:00-17:00",
+    description: "Cozy neighborhood coffee shop.",
   };
 
-  async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
+  async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {
     this.calls.push(placeId);
     return this.response;
-  }
-
-  async fetchPhotoMedia() {
-    return { contentType: "image/png", data: new ArrayBuffer(0) };
   }
 }
 

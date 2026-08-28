@@ -380,6 +380,18 @@ export class SupabaseLocationRepository implements LocationRepository {
     return toRecord(data as unknown as LocationRow);
   }
 
+  async updateLocationPlaceId(locationId: string, geoapifyPlaceId: string): Promise<LocationRecord> {
+    const { data, error } = await this.supabase
+      .from("venue")
+      .update({ geoapify_place_id: geoapifyPlaceId })
+      .eq("id", locationId)
+      .select(LOCATION_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`updateLocationPlaceId failed: ${error.message}`);
+    return toRecord(data as unknown as LocationRow);
+  }
+
   async listCategories(): Promise<CategoryRecord[]> {
     const { data, error } = await this.supabase
       .from("category")

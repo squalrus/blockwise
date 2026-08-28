@@ -2,20 +2,31 @@ import type { MonitoringPlacesApiByEndpoint } from "@blockwise/types";
 import { MushroomIcon } from "../../../StatTile";
 import { estimateCost, formatUsd } from "./placesApiCost";
 
+// searchNearby/fetchPhotoMedia are Google-only and retired as of the
+// Geoapify migration's Phase 4 (docs/geoapify-migration-plan.md) -- kept
+// here only so historical rows from before the cutover still render a
+// label/color; new rows never produce them. searchPlaces is Geoapify's
+// replacement for searchNearby, reusing its color slot below since only
+// one of the two is ever actively growing at a time. Full rename/cleanup
+// of this list is Phase 7.
 const LABELS: Record<MonitoringPlacesApiByEndpoint["endpoint"], string> = {
-  searchNearby: "Nearby search",
+  searchNearby: "Nearby search (retired)",
+  searchPlaces: "Places search",
   searchText: "Text search",
   getPlaceDetails: "Place details",
-  fetchPhotoMedia: "Photo media",
+  fetchPhotoMedia: "Photo media (retired)",
 };
-// Exactly 4 endpoints, exactly 4 brand colors -- one each, no reuse needed.
+// Only 4 brand colors exist -- searchPlaces reuses searchNearby's slot (see
+// comment above) rather than introducing a 5th.
 const COLORS: Record<MonitoringPlacesApiByEndpoint["endpoint"], string> = {
   searchNearby: "var(--brand-purple)",
+  searchPlaces: "var(--brand-purple)",
   searchText: "var(--brand-amber)",
   getPlaceDetails: "var(--brand-green)",
   fetchPhotoMedia: "var(--brand-orange)",
 };
 const ORDER: MonitoringPlacesApiByEndpoint["endpoint"][] = [
+  "searchPlaces",
   "searchNearby",
   "searchText",
   "getPlaceDetails",

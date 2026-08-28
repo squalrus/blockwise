@@ -10,7 +10,7 @@ import type {
 import { VENUE_LEADERBOARD_LIMIT } from "../checkins/checkin";
 import type { EnrichmentRepository } from "../enrichment/repository";
 import { getFreshEnrichment } from "../enrichment/refresh";
-import type { PlaceDetailsClient } from "../places/client";
+import type { GeoapifyPlaceDetailsClient } from "../places/geoapifyClient";
 import { resolveOpenStatus } from "./hours";
 import type {
   CategoryRecord,
@@ -116,14 +116,14 @@ export async function getLocationForNeighborhood(
 
 // Public location detail page (BACKLOG.md Ref 46/59) -- isn't scoped to a
 // caller-supplied neighborhoodId or gated by admin auth; refreshes/returns
-// Google Places enrichment when the location has a geoapify_place_id (either
-// kind). Hidden locations 404 here (LocationRepository.getLocationDetail
+// Geoapify Places enrichment when the location has a geoapify_place_id
+// (either kind). Hidden locations 404 here (LocationRepository.getLocationDetail
 // already filters to status = 'active').
 export async function getLocationDetailWithFreshEnrichment(
   locationId: string,
   repository: LocationRepository,
   enrichmentRepository: EnrichmentRepository,
-  placesClient: PlaceDetailsClient,
+  placesClient: GeoapifyPlaceDetailsClient,
   now: Date = new Date()
 ): Promise<VenueDetail | null> {
   const record = await repository.getLocationDetail(locationId);
@@ -231,6 +231,28 @@ export async function reassignLocationCategoryForNeighborhood(
   if (!category) return { status: "invalid_category" };
 
   const updated = await repository.updateLocationCategory(locationId, categoryId);
+  return { status: "updated", location: toVenue(updated) };
+}
+
+export type ReassignLocationPlaceIdResult = { status: "updated"; location: Venue } | { status: "not_found" };
+
+// Geoapify migration backfill (BACKLOG.md Ref 114 Phase 5) -- manually
+// attaches a real Geoapify place ID to an existing location, for the
+// "investigate a missing venue" tool's attach action once an admin has
+// confirmed a search result is the same physical place. Same
+// cross-neighborhood ownership check as every other admin mutation; no
+// validation that geoapifyPlaceId is well-formed since the caller always
+// sources it from a real Geoapify search result, never free text.
+export async function reassignLocationPlaceIdForNeighborhood(
+  neighborhoodId: string,
+  locationId: string,
+  geoapifyPlaceId: string,
+  repository: LocationRepository
+): Promise<ReassignLocationPlaceIdResult> {
+  const locationNeighborhoodId = await repository.getLocationNeighborhoodId(locationId);
+  if (locationNeighborhoodId !== neighborhoodId) return { status: "not_found" };
+
+  const updated = await repository.updateLocationPlaceId(locationId, geoapifyPlaceId);
   return { status: "updated", location: toVenue(updated) };
 }
 

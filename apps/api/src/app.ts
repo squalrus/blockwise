@@ -149,15 +149,16 @@ import {
 } from "./neighborhoodMembers/neighborhoodMembers";
 import { SupabaseNeighborhoodMemberRepository } from "./neighborhoodMembers/supabaseRepository";
 import {
-  LivePlacesClient,
-  type GooglePlacesClient,
-  type PlaceDetailsClient,
-  type PlacesTextSearchClient,
-} from "./places/client";
+  LiveGeoapifyClient,
+  type GeoapifyPlaceDetailsClient,
+  type GeoapifyPlacesClient,
+  type GeoapifyTextSearchClient,
+} from "./places/geoapifyClient";
 import { isValidPolygon } from "./places/geo";
 import { InstrumentedPlacesClient } from "./places/instrumentedClient";
 import { investigateMissingLocation } from "./places/investigate";
-import { MockPlacesClient } from "./places/mockClient";
+import { isLegacyGooglePlaceId } from "./places/legacyPlaceId";
+import { MockGeoapifyClient } from "./places/mockGeoapifyClient";
 import { previewNeighborhoodBoundary } from "./places/preview";
 import { PlacesApiQuotaGuard, QuotaGuardedPlacesClient } from "./places/quotaGuard";
 import { SupabasePlacesRepository } from "./places/supabaseRepository";
@@ -172,6 +173,7 @@ import {
   listLocationListItemsForNeighborhood,
   listLocationsForNeighborhood,
   reassignLocationCategoryForNeighborhood,
+  reassignLocationPlaceIdForNeighborhood,
   switchLocationKindForNeighborhood,
   updateLocationForNeighborhood,
   updateLocationStatusForNeighborhood,
@@ -302,40 +304,34 @@ function bearerToken(req: express.Request): string | null {
 const FUNCTION_PATH_PREFIX = /^\/\.netlify\/functions\/[^/]+/;
 const PUBLIC_PATH_PREFIX = /^\/api(?=\/|$)/;
 
-// Mirrors the LivePlacesClient/MockPlacesClient choice in scripts/syncPlaces.ts:
-// falls back to mock Place Details when no API key is configured, e.g. local
-// dev. Both classes implement GooglePlacesClient (searchNearby) as well as
-// PlaceDetailsClient, so the same cached instance also backs the boundary
-// preview route's Nearby Search calls.
+// Mirrors the LiveGeoapifyClient/MockGeoapifyClient choice in
+// scripts/syncPlaces.ts: falls back to mock Place Details when no API key
+// is configured, e.g. local dev. Both classes implement GeoapifyPlacesClient
+// (searchPlaces) as well as GeoapifyPlaceDetailsClient and
+// GeoapifyTextSearchClient, so the same cached instance also backs the
+// boundary preview route's search calls and investigate.ts's text lookup.
 //
 // getPlaceDetails additionally goes through QuotaGuardedPlacesClient (only
-// when live -- MockPlacesClient never costs anything, so guarding it would
-// just make local dev flaky). It sits outside InstrumentedPlacesClient so a
-// guardrail trip never reaches Google and never gets logged as an attempted
-// call. searchNearby/searchText are left ungated: both are admin-triggered
-// actions (sync, boundary preview, investigate), not something that fires
-// on every visitor page view the way enrichment refresh does.
-//
-// fetchPhotoMedia is still composed below (PlaceDetailsClient still
-// requires it) but nothing calls it anymore -- ratings/reviews/photo
-// galleries were dropped as product features in the Geoapify migration's
-// Phase 3 (docs/geoapify-migration-plan.md), which also retired the photo
-// proxy route this used to back. Left in place for Phase 8's cleanup pass
-// rather than touching client.ts here.
-function getPlacesClient(): GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient {
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+// when live -- MockGeoapifyClient never costs anything, so guarding it
+// would just make local dev flaky). It sits outside InstrumentedPlacesClient
+// so a guardrail trip never reaches Geoapify and never gets logged as an
+// attempted call. searchPlaces/searchText are left ungated: both are
+// admin-triggered actions (sync, boundary preview, investigate), not
+// something that fires on every visitor page view the way enrichment
+// refresh does.
+function getPlacesClient(): GeoapifyPlacesClient & GeoapifyPlaceDetailsClient & GeoapifyTextSearchClient {
+  const apiKey = process.env.GEOAPIFY_API_KEY;
   // Only the real client is instrumented (BACKLOG.md Ref 104 follow-up) --
-  // MockPlacesClient calls never hit Google, so logging them would just be
-  // local-dev noise on the Monitoring tab.
-  if (!apiKey) return new MockPlacesClient();
+  // MockGeoapifyClient calls never hit Geoapify, so logging them would just
+  // be local-dev noise on the Monitoring tab.
+  if (!apiKey) return new MockGeoapifyClient();
 
-  const live = new InstrumentedPlacesClient(new LivePlacesClient(apiKey), getMonitoringRepository);
+  const live = new InstrumentedPlacesClient(new LiveGeoapifyClient(apiKey), getMonitoringRepository);
   const guarded = new QuotaGuardedPlacesClient(live, getPlacesApiQuotaGuard());
   return {
-    searchNearby: (params) => live.searchNearby(params),
+    searchPlaces: (params) => live.searchPlaces(params),
     searchText: (params) => live.searchText(params),
     getPlaceDetails: (placeId) => guarded.getPlaceDetails(placeId),
-    fetchPhotoMedia: (photoReference) => guarded.fetchPhotoMedia(photoReference),
   };
 }
 
@@ -357,8 +353,8 @@ function getLocationRepository(): SupabaseLocationRepository {
   return locationRepository;
 }
 
-let placesClient: (GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient) | undefined;
-function getCachedPlacesClient(): GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient {
+let placesClient: (GeoapifyPlacesClient & GeoapifyPlaceDetailsClient & GeoapifyTextSearchClient) | undefined;
+function getCachedPlacesClient(): GeoapifyPlacesClient & GeoapifyPlaceDetailsClient & GeoapifyTextSearchClient {
   placesClient ??= getPlacesClient();
   return placesClient;
 }
@@ -4227,7 +4223,7 @@ export function createApp() {
   });
 
   // Reimport cooldown status (BACKLOG.md "Reimport Locations") -- read-only,
-  // never touches Google Places, so both the Locations tab (to show/disable
+  // never touches the Places API, so both the Locations tab (to show/disable
   // the reimport button before the admin even navigates to the review page)
   // and the review page itself (so "Run review" reflects the same cooldown
   // rather than only failing after the fact with a 429) can check without
@@ -4269,13 +4265,15 @@ export function createApp() {
   );
 
   // Bulk Places review (BACKLOG.md Ref 29) -- an admin-triggered dry-run
-  // Google Places query against the neighborhood's *saved* boundary (never
-  // an unsaved draft -- that's what /admin/neighborhoods/preview-boundary is
+  // Places query against the neighborhood's *saved* boundary (never an
+  // unsaved draft -- that's what /admin/neighborhoods/preview-boundary is
   // for), listing places not yet represented as a venue or POI. Costs a real
   // Places API call each time it runs, same as preview-boundary -- rate
   // limited to once per 24h per neighborhood (BACKLOG.md "Reimport
   // Locations") since an earlier unthrottled version of this exhausted a
-  // real Google Cloud project's SearchNearbyRequest-per-minute quota.
+  // real Google Cloud project's SearchNearbyRequest-per-minute quota (this
+  // predates the Geoapify migration; Geoapify's own per-minute limits
+  // aren't yet characterized, so the same conservative throttle stays).
   //
   // Registered ahead of the generic GET .../locations/:locationId route
   // below -- Express matches routes in registration order, and `:locationId`
@@ -4434,13 +4432,14 @@ export function createApp() {
   );
 
   // Missing-location investigation (BACKLOG.md Ref 96) -- a single
-  // admin-triggered Google Places Text Search for one venue name/address, to
+  // admin-triggered Geoapify Geocoding search for one venue name/address, to
   // diagnose why a reported venue isn't turning up through the normal
-  // Nearby-Search-based review/sync flow (which is restricted to Google
-  // types the category taxonomy maps, and scoped strictly to the boundary
-  // polygon). Text Search has neither restriction, so it can surface a place
-  // Nearby Search never would, along with why it looks "missing" -- outside
-  // the boundary, or already on record under a different name. Costs one
+  // category-search-based review/sync flow (which is restricted to the
+  // taxonomy's configured tags, and scoped strictly to the boundary
+  // polygon). Geocoding search has neither restriction, so it can surface a
+  // place the category search never would, along with why it looks
+  // "missing" -- outside the boundary, or already on record under a
+  // different name. Costs one
   // Places API call per search, not a full tile sweep, so it isn't
   // cooldown-gated like .../locations/review -- an admin chasing one venue
   // needs to retry different phrasings freely.
@@ -4482,13 +4481,12 @@ export function createApp() {
         res.json({
           query,
           candidates: candidates.map((c) => ({
-            geoapify_place_id: c.raw.id,
+            geoapify_place_id: c.raw.placeId,
             name: c.name,
             address: c.address,
             lat: c.lat,
             lng: c.lng,
-            business_status: c.businessStatus,
-            types: c.raw.types,
+            categories: c.raw.categories,
             suggested_category_id: c.suggestedCategoryId,
             suggested_category_name: c.suggestedCategoryName,
             already_known_as: c.alreadyKnownAs,
@@ -4567,6 +4565,222 @@ export function createApp() {
       }
     }
   );
+
+  // ---------------------------------------------------------------------
+  // Geoapify migration backfill tooling (BACKLOG.md Ref 114 Phase 5) --
+  // disposable, super-admin-only. Every location synced before Phase 4's
+  // cutover still carries its original Google place ID in what's now the
+  // geoapify_place_id column; this reconciles them against real Geoapify
+  // data with a manual verification step (no auto-write on a fuzzy match --
+  // see review.ts's PossibleLocationMatch comment), surfaced in a standalone
+  // super-admin page kept deliberately separate from the permanent
+  // neighborhood-admin Locations/Review UI so the whole thing -- these
+  // routes, apps/web/src/app/admin/super/geoapify-migration/, and
+  // isLegacyGooglePlaceId -- can be deleted cleanly once every location has
+  // a real Geoapify ID. The underlying reviewNeighborhoodLocations/
+  // commitLocationReview/reassignLocationPlaceIdForNeighborhood functions
+  // stay -- they're not migration-specific, just reused here.
+  //
+  // Bypasses the 24h reimport cooldown (superAdminGate-only, a deliberate
+  // one-off action, not something that needs rate-limiting against routine
+  // misclick the way the neighborhood-admin button does) but still stamps
+  // locationsReviewedAt, since a real Places API sweep did happen and that
+  // timestamp should reflect it.
+  app.get(
+    "/admin/geoapify-migration/neighborhoods/:id/review",
+    superAdminGate,
+    async (req, res) => {
+      try {
+        const boundaryResult = await getNeighborhoodBoundary(req.params.id, getNeighborhoodRepository());
+        if (boundaryResult.status === "not_found" || !boundaryResult.boundary.boundaryGeojson) {
+          res.status(400).json({ error: "Neighborhood has no boundary set" });
+          return;
+        }
+
+        const report = await reviewNeighborhoodLocations(
+          req.params.id,
+          boundaryResult.boundary.boundaryGeojson,
+          getCachedPlacesClient(),
+          getPlacesRepository(),
+          getLocationRepository()
+        );
+        await getNeighborhoodRepository().markLocationsReviewed(req.params.id, new Date().toISOString());
+
+        res.json({
+          tiles_queried: report.tilesQueried,
+          api_calls_made: report.apiCallsMade,
+          calls_at_result_cap: report.callsAtResultCap,
+          possible_matches: report.possibleMatches.map((m) => ({
+            location_id: m.locationId,
+            existing_name: m.existingName,
+            existing_address: m.existingAddress,
+            geoapify_place_id: m.geoapifyPlaceId,
+            matched_name: m.matchedName,
+            matched_address: m.matchedAddress,
+            lat: m.lat,
+            lng: m.lng,
+            confidence_percent: m.confidencePercent,
+          })),
+        });
+      } catch (err) {
+        console.error(`GET /admin/geoapify-migration/neighborhoods/${req.params.id}/review failed:`, err);
+        res.status(500).json({ error: "Failed to review locations" });
+      }
+    }
+  );
+
+  app.post(
+    "/admin/geoapify-migration/neighborhoods/:id/commit",
+    superAdminGate,
+    async (req, res) => {
+      const { reidentifications } = req.body ?? {};
+      if (
+        !Array.isArray(reidentifications) ||
+        reidentifications.some(
+          (item) =>
+            typeof item !== "object" ||
+            item === null ||
+            typeof item.location_id !== "string" ||
+            !item.location_id ||
+            typeof item.geoapify_place_id !== "string" ||
+            !item.geoapify_place_id
+        )
+      ) {
+        res.status(400).json({ error: "reidentifications must be an array of {location_id, geoapify_place_id}" });
+        return;
+      }
+
+      try {
+        const result = await commitLocationReview(
+          req.params.id,
+          [],
+          [],
+          getPlacesRepository(),
+          getLocationRepository(),
+          reidentifications.map((item) => ({ locationId: item.location_id, geoapifyPlaceId: item.geoapify_place_id }))
+        );
+        res.json({ reidentified: result.reidentified, failed: result.failed });
+      } catch (err) {
+        console.error(`POST /admin/geoapify-migration/neighborhoods/${req.params.id}/commit failed:`, err);
+        res.status(500).json({ error: "Failed to commit reidentifications" });
+      }
+    }
+  );
+
+  // Every location whose geoapify_place_id still looks Google-shaped after
+  // a review run -- either never resurfaced by Geoapify's boundary sweep at
+  // all (a real, confirmed-live-verification risk -- docs/geoapify-migration-plan.md
+  // Phase 0), or resurfaced but didn't clear dedup's fuzzy match threshold.
+  // The migration page's manual punch list: for each, search
+  // .../investigate below and attach the right result by hand.
+  app.get(
+    "/admin/geoapify-migration/neighborhoods/:id/legacy-locations",
+    superAdminGate,
+    async (req, res) => {
+      try {
+        const locations = await listLocationListItemsForNeighborhood(req.params.id, getLocationRepository());
+        const legacy = locations.filter(
+          (l): l is typeof l & { geoapify_place_id: string } =>
+            l.geoapify_place_id !== null && isLegacyGooglePlaceId(l.geoapify_place_id)
+        );
+        res.json(
+          legacy.map((l) => ({
+            id: l.id,
+            name: l.name,
+            address: l.address,
+            geoapify_place_id: l.geoapify_place_id,
+          }))
+        );
+      } catch (err) {
+        console.error(`GET /admin/geoapify-migration/neighborhoods/${req.params.id}/legacy-locations failed:`, err);
+        res.status(500).json({ error: "Failed to list legacy locations" });
+      }
+    }
+  );
+
+  // Same free-text Geoapify lookup as .../locations/investigate
+  // (neighborhoodAdminGate), just superAdminGate-scoped so this migration
+  // tool doesn't require the operator to also be that neighborhood's admin.
+  app.get(
+    "/admin/geoapify-migration/neighborhoods/:id/investigate",
+    superAdminGate,
+    async (req, res) => {
+      const query = req.query.query;
+      if (typeof query !== "string" || !query.trim()) {
+        res.status(400).json({ error: "query is required" });
+        return;
+      }
+
+      try {
+        const boundaryResult = await getNeighborhoodBoundary(req.params.id, getNeighborhoodRepository());
+        if (boundaryResult.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+
+        const categories = await getPlacesRepository().listCategories();
+        const candidates = await investigateMissingLocation(
+          query,
+          { lat: boundaryResult.boundary.centerLat, lng: boundaryResult.boundary.centerLng },
+          boundaryResult.boundary.boundaryGeojson,
+          getCachedPlacesClient(),
+          categories,
+          []
+        );
+
+        res.json({
+          query,
+          candidates: candidates.map((c) => ({
+            geoapify_place_id: c.raw.placeId,
+            name: c.name,
+            address: c.address,
+            lat: c.lat,
+            lng: c.lng,
+          })),
+        });
+      } catch (err) {
+        console.error(`GET /admin/geoapify-migration/neighborhoods/${req.params.id}/investigate failed:`, err);
+        res.status(500).json({ error: "Failed to investigate location" });
+      }
+    }
+  );
+
+  // Manual attach -- for a location on the legacy-locations punch list that
+  // never got an automatic possible-match hit at all (a Geoapify boundary
+  // sweep coverage gap, per Phase 0's live-verification findings), an admin
+  // who's found the right result via .../investigate above pins it directly.
+  app.post(
+    "/admin/geoapify-migration/neighborhoods/:id/locations/:locationId/attach",
+    superAdminGate,
+    async (req, res) => {
+      const { geoapify_place_id } = req.body ?? {};
+      if (typeof geoapify_place_id !== "string" || !geoapify_place_id) {
+        res.status(400).json({ error: "geoapify_place_id is required" });
+        return;
+      }
+
+      try {
+        const result = await reassignLocationPlaceIdForNeighborhood(
+          req.params.id,
+          req.params.locationId,
+          geoapify_place_id,
+          getLocationRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Location not found" });
+          return;
+        }
+        res.json(result.location);
+      } catch (err) {
+        console.error(
+          `POST /admin/geoapify-migration/neighborhoods/${req.params.id}/locations/${req.params.locationId}/attach failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to attach place id" });
+      }
+    }
+  );
+  // ---------------------------------------------------------------------
 
   app.get(
     "/neighborhood-admin/neighborhoods/:id/locations/:locationId",

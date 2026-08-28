@@ -14,12 +14,12 @@ type State =
   | { status: "error"; message: string };
 
 // Missing-location investigation (BACKLOG.md Ref 96) -- a single free-text
-// Google Places Text Search for one reported-missing venue, distinct from
-// the Reimport Locations wizard (a full-boundary Nearby Search sweep
-// restricted to mapped Google types). This isn't restricted at all, so it
-// can find a place the boundary sweep never would, and annotates each result
-// with the two most common reasons it looks "missing": outside the
-// neighborhood's boundary, or already on record under a different name.
+// Geoapify Geocoding search for one reported-missing venue, distinct from
+// the Reimport Locations wizard (a full-boundary Places search sweep
+// restricted to the taxonomy's mapped categories). This isn't restricted at
+// all, so it can find a place the boundary sweep never would, and annotates
+// each result with the two most common reasons it looks "missing": outside
+// the neighborhood's boundary, or already on record under a different name.
 export default function InvestigateMissingLocationPage() {
   const { neighborhoodId, slug } = useNeighborhoodAdmin();
   const [query, setQuery] = useState("");

@@ -115,14 +115,14 @@ function isNearPolygon(point: LatLng, polygon: GeoJsonPolygon, thresholdMeters: 
   );
 }
 
-// Google's Nearby Search (New Places API) restricts results to a circle, not
-// an arbitrary polygon, and caps each call at 20 results -- a single circle
-// covering all of Phinneywood hits that cap well before exhausting the
-// area's real venues (confirmed in practice: a first sync attempt returned
-// exactly 20 raw candidates). So the sync tiles the polygon's bounding box
-// with a grid of smaller overlapping circles instead of one big one, each
-// tile individually unlikely to exceed 20 results, then relies on
-// isPointInPolygon downstream to trim tiles back to the real boundary.
+// Geoapify's Places API (like Google's old Nearby Search) restricts results
+// to a circle, not an arbitrary polygon, and caps each call at a fixed
+// result count (sync.ts's PLACES_API_RESULT_CAP) -- Google's old 20-result
+// cap was hit in practice by a single circle covering all of Phinneywood.
+// So the sync tiles the polygon's bounding box with a grid of smaller
+// overlapping circles instead of one big one, each tile individually
+// unlikely to saturate the cap, then relies on isPointInPolygon downstream
+// to trim tiles back to the real boundary.
 //
 // Spacing is kept below the theoretical gap-free maximum for a square grid
 // of circles (radius * sqrt(2)) to leave overlap margin, at the cost of

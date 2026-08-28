@@ -31,9 +31,9 @@ export interface NeighborhoodBoundaryRecord {
   centerLat: number;
   centerLng: number;
   // "Reimport Locations" cooldown (BACKLOG.md) -- last time a location
-  // review actually queried Google Places for this neighborhood, or null if
-  // never. Read alongside the boundary since both back the same review GET
-  // route.
+  // review actually queried the Places API for this neighborhood, or null
+  // if never. Read alongside the boundary since both back the same review
+  // GET route.
   locationsReviewedAt: string | null;
 }
 
@@ -107,7 +107,7 @@ export interface NeighborhoodRepository {
   getAnalytics(id: string, days: number): Promise<NeighborhoodAnalytics>;
   createNeighborhood(input: CreateNeighborhoodInput): Promise<CreatedNeighborhood>;
   // Stamps the 24h "Reimport Locations" cooldown (BACKLOG.md) the moment a
-  // location review actually queries Google Places -- takes an explicit
+  // location review actually queries the Places API -- takes an explicit
   // timestamp (rather than using the DB's own now()) so the route's
   // response and the stamped value are guaranteed to agree.
   markLocationsReviewed(id: string, reviewedAt: string): Promise<void>;

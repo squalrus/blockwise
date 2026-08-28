@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { VenueAnalytics } from "@blockwise/types";
 import type { CategoryRecord } from "../places/categorize";
-import { MockPlacesClient } from "../places/mockClient";
+import { MockGeoapifyClient } from "../places/mockGeoapifyClient";
 import type { ExistingVenue, NeighborhoodRecord, PlacesRepository, UpsertVenueInput } from "../places/repository";
 import type {
   CategoryRecord as LocationCategoryRecord,
@@ -33,7 +33,7 @@ const PHINNEYWOOD_BOUNDARY: NeighborhoodRecord["boundaryGeojson"] = {
 
 const CATEGORIES: CategoryRecord[] = [
   { id: "coffee-shop", name: "Coffee Shop", source_mapping_json: { geoapify: ["catering.cafe.coffee_shop"] } },
-  { id: "bakery", name: "Bakery", source_mapping_json: { geoapify: ["commercial.food_and_drink.bakery"] } },
+  { id: "bakery", name: "Bakery", source_mapping_json: { geoapify: ["catering.cafe.bakery"] } },
   { id: "park", name: "Park & Playground", source_mapping_json: { geoapify: ["leisure.park", "leisure.playground"] } },
 ];
 
@@ -158,6 +158,12 @@ class FakeLocationRepository implements LocationRepository {
     return location;
   }
 
+  async updateLocationPlaceId(locationId: string, geoapifyPlaceId: string): Promise<LocationRecord> {
+    const location = this.locations.find((l) => l.id === locationId)!;
+    location.geoapifyPlaceId = geoapifyPlaceId;
+    return location;
+  }
+
   async listCategories(): Promise<LocationCategoryRecord[]> {
     return [];
   }
@@ -226,7 +232,7 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -239,22 +245,17 @@ describe("reviewNeighborhoodLocations", () => {
     expect(report.newCandidates.filter((c) => c.name.startsWith("Diesel Fuel Coffee"))).toHaveLength(1);
   });
 
-  // Phase 4 (docs/geoapify-migration-plan.md) rewires the shared sync
-  // pipeline onto the Geoapify client -- until then, the taxonomy only has
-  // geoapify-shaped tags and the pipeline still runs against Google's flat
-  // type strings, so nothing can match. This documents that accepted,
-  // temporary regression rather than asserting real matching behavior.
-  it("leaves every candidate uncategorized until Phase 4 rewires the client onto Geoapify", async () => {
+  it("categorizes a candidate whose Geoapify tag matches the taxonomy, leaves the rest unmapped", async () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
 
     const bakery = report.newCandidates.find((c) => c.name === "Original Bakery");
-    expect(bakery?.suggestedCategoryId).toBeNull();
+    expect(bakery?.suggestedCategoryId).toBe("bakery");
 
     const widget = report.newCandidates.find((c) => c.name === "Widget Electronics Repair");
     expect(widget?.suggestedCategoryId).toBeNull();
@@ -264,7 +265,7 @@ describe("reviewNeighborhoodLocations", () => {
     locationRepository.locations = [
       makeBusinessLocation({
         id: "existing-1",
-        geoapifyPlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
         name: "Herkimer Coffee",
         lat: 47.6816,
         lng: -122.3552,
@@ -274,7 +275,7 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -286,7 +287,7 @@ describe("reviewNeighborhoodLocations", () => {
     locationRepository.locations = [
       makePoiLocation({
         id: "existing-poi-1",
-        geoapifyPlaceId: "mock-mustard-seed-park",
+        geoapifyPlaceId: "geoapify-mock-mustard-seed-park",
         name: "Mustard Seed Park",
         lat: 47.685,
         lng: -122.3495,
@@ -297,7 +298,7 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -305,7 +306,7 @@ describe("reviewNeighborhoodLocations", () => {
     expect(report.newCandidates.some((c) => c.name === "Mustard Seed Park")).toBe(false);
   });
 
-  it("excludes a near-duplicate match against an existing business with no matching place id", async () => {
+  it("surfaces a near-duplicate match against an existing business as a possible match, not a new candidate", async () => {
     locationRepository.locations = [
       makeBusinessLocation({
         id: "existing-2",
@@ -319,12 +320,20 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
 
     expect(report.newCandidates.some((c) => c.name === "Herkimer Coffee")).toBe(false);
+    expect(report.possibleMatches).toHaveLength(1);
+    expect(report.possibleMatches[0]).toMatchObject({
+      locationId: "existing-2",
+      existingName: "Herkimer Coffee Shop",
+      geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
+      matchedName: "Herkimer Coffee",
+    });
+    expect(report.possibleMatches[0].confidencePercent).toBeGreaterThanOrEqual(60);
   });
 
   it("skips POIs with null lat/lng when deduping (BACKLOG.md Ref 51)", async () => {
@@ -336,7 +345,7 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -358,7 +367,7 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -385,7 +394,7 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -412,7 +421,7 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -429,14 +438,14 @@ describe("reviewNeighborhoodLocations", () => {
         status: "active",
         lat: 47.6816,
         lng: -122.3552,
-        geoapifyPlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
       }),
     ];
 
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -452,7 +461,7 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -472,7 +481,7 @@ describe("reviewNeighborhoodLocations", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );
@@ -491,7 +500,7 @@ describe("commitLocationReview", () => {
   });
 
   const candidate = {
-    geoapifyPlaceId: "mock-herkimer-coffee",
+    geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
     name: "Herkimer Coffee",
     lat: 47.6816,
     lng: -122.3552,
@@ -510,7 +519,7 @@ describe("commitLocationReview", () => {
     expect(result.createdBusinesses).toEqual(["Herkimer Coffee"]);
     expect(placesRepository.upsertCalls).toEqual([
       {
-        geoapifyPlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
         name: "Herkimer Coffee",
         categoryId: "coffee-shop",
         lat: 47.6816,
@@ -534,7 +543,7 @@ describe("commitLocationReview", () => {
     expect(locationRepository.locations).toHaveLength(1);
     expect(locationRepository.locations[0]).toMatchObject({
       name: "Herkimer Coffee",
-      geoapifyPlaceId: "mock-herkimer-coffee",
+      geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
       kind: "poi",
     });
   });
@@ -553,7 +562,7 @@ describe("commitLocationReview", () => {
     expect(locationRepository.locations).toHaveLength(1);
     expect(locationRepository.locations[0]).toMatchObject({
       name: "Herkimer Coffee",
-      geoapifyPlaceId: "mock-herkimer-coffee",
+      geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
       kind: "poi",
       status: "hidden",
     });
@@ -564,7 +573,7 @@ describe("commitLocationReview", () => {
       "phinneywood-id",
       [
         { ...candidate, classification: "business" }, // missing categoryId
-        { ...candidate, geoapifyPlaceId: "mock-original-bakery", name: "Original Bakery", classification: "poi" },
+        { ...candidate, geoapifyPlaceId: "geoapify-mock-original-bakery", name: "Original Bakery", classification: "poi" },
       ],
       [],
       placesRepository,
@@ -619,6 +628,44 @@ describe("commitLocationReview", () => {
     expect(locationRepository.locations).toHaveLength(1);
   });
 
+  it("reidentifies an approved possible match, rewriting the existing location's geoapify_place_id", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
+        id: "existing-2",
+        geoapifyPlaceId: "ChIJ-legacy-google-id",
+        name: "Herkimer Coffee Shop",
+        lat: 47.6816,
+        lng: -122.3552,
+      }),
+    ];
+
+    const result = await commitLocationReview(
+      "phinneywood-id",
+      [],
+      [],
+      placesRepository,
+      locationRepository,
+      [{ locationId: "existing-2", geoapifyPlaceId: "geoapify-mock-herkimer-coffee" }]
+    );
+
+    expect(result.reidentified).toEqual(["Herkimer Coffee Shop"]);
+    expect(locationRepository.locations[0].geoapifyPlaceId).toBe("geoapify-mock-herkimer-coffee");
+  });
+
+  it("reports a failure for a reidentification referencing an unknown location, without aborting the batch", async () => {
+    const result = await commitLocationReview(
+      "phinneywood-id",
+      [],
+      [],
+      placesRepository,
+      locationRepository,
+      [{ locationId: "missing-location", geoapifyPlaceId: "geoapify-mock-herkimer-coffee" }]
+    );
+
+    expect(result.reidentified).toHaveLength(0);
+    expect(result.failed).toEqual([{ name: "missing-location", error: "Location not found" }]);
+  });
+
   it("reports a failure for a removal referencing an unknown id, without aborting the batch", async () => {
     const result = await commitLocationReview(
       "phinneywood-id",
@@ -635,11 +682,11 @@ describe("commitLocationReview", () => {
     ]);
   });
 
-  it("treats a removed location as forgotten -- its google place resurfaces as a new candidate again", async () => {
+  it("treats a removed location as forgotten -- its geoapify place resurfaces as a new candidate again", async () => {
     locationRepository.locations = [
       makeBusinessLocation({
         id: "previously-removed",
-        geoapifyPlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
         name: "Herkimer Coffee (stale)",
         status: "removed",
         lat: 47.6816,
@@ -650,7 +697,7 @@ describe("commitLocationReview", () => {
     const report = await reviewNeighborhoodLocations(
       "phinneywood-id",
       PHINNEYWOOD_BOUNDARY!,
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       placesRepository,
       locationRepository
     );

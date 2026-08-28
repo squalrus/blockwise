@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { CategoryRecord } from "./categorize";
-import type { GooglePlacesClient, RawGooglePlace, SearchNearbyParams } from "./client";
+import type { GeoapifyPlace, GeoapifySearchParams } from "./geoapifyClient";
 import { haversineMeters } from "./geo";
-import { MockPlacesClient } from "./mockClient";
+import { MockGeoapifyClient } from "./mockGeoapifyClient";
 import type {
   ExistingVenue,
   NeighborhoodRecord,
@@ -12,7 +12,8 @@ import type {
 import { syncNeighborhoodPlaces } from "./sync";
 
 // Mirrors the polygon in supabase/seed.sql closely enough to include every
-// in-boundary fixture in mockClient.ts and exclude "Outside The Boundary Cafe".
+// in-boundary fixture in mockGeoapifyClient.ts and exclude "Outside The
+// Boundary Cafe".
 const PHINNEYWOOD_BOUNDARY: NeighborhoodRecord["boundaryGeojson"] = {
   type: "Polygon",
   coordinates: [
@@ -31,7 +32,7 @@ const PHINNEYWOOD_BOUNDARY: NeighborhoodRecord["boundaryGeojson"] = {
 
 const CATEGORIES: CategoryRecord[] = [
   { id: "coffee-shop", name: "Coffee Shop", source_mapping_json: { geoapify: ["catering.cafe.coffee_shop"] } },
-  { id: "bakery", name: "Bakery", source_mapping_json: { geoapify: ["commercial.food_and_drink.bakery"] } },
+  { id: "bakery", name: "Bakery", source_mapping_json: { geoapify: ["catering.cafe.bakery"] } },
   { id: "park", name: "Park & Playground", source_mapping_json: { geoapify: ["leisure.park", "leisure.playground"] } },
 ];
 
@@ -73,13 +74,13 @@ describe("syncNeighborhoodPlaces", () => {
   });
 
   it("filters out-of-boundary places", async () => {
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockPlacesClient(), repository);
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
     expect(report.skippedOutOfBoundary).toBe(1);
     expect(repository.upsertCalls.some((v) => v.name === "Outside The Boundary Cafe")).toBe(false);
   });
 
   it("dedups a near-duplicate place returned in the same batch", async () => {
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockPlacesClient(), repository);
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
 
     expect(report.inserted).toContain("Diesel Fuel Coffee");
     expect(report.skippedDuplicates).toContainEqual({
@@ -89,35 +90,40 @@ describe("syncNeighborhoodPlaces", () => {
     expect(repository.upsertCalls.filter((v) => v.name.startsWith("Diesel Fuel Coffee"))).toHaveLength(1);
   });
 
-  it("flags a place with an unmapped Google type instead of guessing a category", async () => {
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockPlacesClient(), repository);
+  it("flags a place with an unmapped Geoapify category instead of guessing", async () => {
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
 
     expect(report.unmappedTypes).toContainEqual({
       name: "Widget Electronics Repair",
-      types: ["electronics_repair"],
+      types: ["service.electronics_repair"],
     });
     const widgetUpsert = repository.upsertCalls.find((v) => v.name === "Widget Electronics Repair");
     expect(widgetUpsert?.categoryId).toBeNull();
   });
 
-  // Phase 4 (docs/geoapify-migration-plan.md) rewires this pipeline onto the
-  // Geoapify client -- until then, the taxonomy only has geoapify-shaped
-  // tags (dot-hierarchical OSM categories) and this pipeline still runs
-  // against Google's flat type strings, so nothing can match and every
-  // place goes uncategorized. This documents that accepted, temporary
-  // regression rather than asserting real matching behavior.
-  it("leaves every place uncategorized until Phase 4 rewires the client onto Geoapify", async () => {
-    await syncNeighborhoodPlaces("phinneywood-seattle", new MockPlacesClient(), repository);
+  it("categorizes a place whose Geoapify tag matches the taxonomy", async () => {
+    await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
+
+    const coffee = repository.upsertCalls.find((v) => v.name === "Diesel Fuel Coffee");
+    expect(coffee?.categoryId).toBe("coffee-shop");
 
     const bakery = repository.upsertCalls.find((v) => v.name === "Original Bakery");
-    expect(bakery?.categoryId).toBeNull();
+    expect(bakery?.categoryId).toBe("bakery");
+
+    const park = repository.upsertCalls.find((v) => v.name === "Mustard Seed Park");
+    expect(park?.categoryId).toBe("park");
+  });
+
+  it("no OSM/Geoapify equivalent to businessStatus exists, so skippedClosedPermanently is always 0", async () => {
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
+    expect(report.skippedClosedPermanently).toBe(0);
   });
 
   it("updates an already-synced, unclaimed venue instead of skipping it", async () => {
     repository.venues = [
       {
         id: "existing-1",
-        geoapifyPlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
         name: "Herkimer Coffee (old name)",
         lat: 47.6816,
         lng: -122.3552,
@@ -125,17 +131,17 @@ describe("syncNeighborhoodPlaces", () => {
       },
     ];
 
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockPlacesClient(), repository);
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
 
     expect(report.updated).toContain("Herkimer Coffee");
-    expect(repository.upsertCalls.some((v) => v.geoapifyPlaceId === "mock-herkimer-coffee")).toBe(true);
+    expect(repository.upsertCalls.some((v) => v.geoapifyPlaceId === "geoapify-mock-herkimer-coffee")).toBe(true);
   });
 
   it("does not overwrite a claimed venue's data", async () => {
     repository.venues = [
       {
         id: "existing-2",
-        geoapifyPlaceId: "mock-original-bakery",
+        geoapifyPlaceId: "geoapify-mock-original-bakery",
         name: "Original Bakery (business-submitted name)",
         lat: 47.6742,
         lng: -122.3555,
@@ -143,35 +149,34 @@ describe("syncNeighborhoodPlaces", () => {
       },
     ];
 
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockPlacesClient(), repository);
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
 
     expect(report.skippedClaimed).toContain("Original Bakery");
-    expect(repository.upsertCalls.some((v) => v.geoapifyPlaceId === "mock-original-bakery")).toBe(false);
+    expect(repository.upsertCalls.some((v) => v.geoapifyPlaceId === "geoapify-mock-original-bakery")).toBe(false);
   });
 
   it("merges places from different tiles rather than only using one call's worth", async () => {
     // A realistic fake: each tile only "sees" places within its own radius,
-    // like Google actually would. These two are ~2.9km apart -- too far
-    // for any single circle covering both to stay under the result cap in
+    // like Geoapify actually would. These two are ~2.9km apart -- too far
+    // for any single circle covering both to stay within a small radius in
     // practice, so this only passes if the sync actually queries more than
     // one tile and merges the results.
-    const north = { id: "north-cafe", location: { lat: 47.694, lng: -122.352 } };
-    const south = { id: "south-bakery", location: { lat: 47.66, lng: -122.353 } };
+    const north = { placeId: "north-cafe", location: { lat: 47.694, lng: -122.352 } };
+    const south = { placeId: "south-bakery", location: { lat: 47.66, lng: -122.353 } };
 
-    class PartitionedClient implements GooglePlacesClient {
-      calls: SearchNearbyParams[] = [];
+    class PartitionedClient {
+      calls: GeoapifySearchParams[] = [];
 
-      async searchNearby(params: SearchNearbyParams): Promise<RawGooglePlace[]> {
+      async searchPlaces(params: GeoapifySearchParams): Promise<GeoapifyPlace[]> {
         this.calls.push(params);
         return [north, south]
           .filter((p) => haversineMeters(params.center, p.location) <= params.radiusMeters)
           .map((p) => ({
-            id: p.id,
-            displayName: { text: p.id },
+            placeId: p.placeId,
+            name: p.placeId,
             formattedAddress: "test address",
-            location: { latitude: p.location.lat, longitude: p.location.lng },
-            types: ["cafe"],
-            businessStatus: "OPERATIONAL",
+            location: p.location,
+            categories: [],
           }));
       }
     }
@@ -185,20 +190,19 @@ describe("syncNeighborhoodPlaces", () => {
   });
 
   it("reports tiles that hit the Places API's per-call result cap, subdividing to retry each one", async () => {
-    class SaturatedClient implements GooglePlacesClient {
+    class SaturatedClient {
       calls = 0;
 
-      async searchNearby(): Promise<RawGooglePlace[]> {
+      async searchPlaces(): Promise<GeoapifyPlace[]> {
         this.calls++;
         // Outside the Phinneywood boundary so the per-place pipeline just
         // skips them -- only the raw tile response size matters here.
-        return Array.from({ length: 20 }, (_, i) => ({
-          id: `saturated-${i}`,
-          displayName: { text: `Saturated Place ${i}` },
+        return Array.from({ length: 500 }, (_, i) => ({
+          placeId: `saturated-${i}`,
+          name: `Saturated Place ${i}`,
           formattedAddress: "test address",
-          location: { latitude: 47.5, longitude: -122.2 },
-          types: ["cafe"],
-          businessStatus: "OPERATIONAL" as const,
+          location: { lat: 47.5, lng: -122.2 },
+          categories: [],
         }));
       }
     }
@@ -215,50 +219,78 @@ describe("syncNeighborhoodPlaces", () => {
     expect(report.callsAtResultCap).toBeGreaterThan(0);
   });
 
-  it("catches venues past the cap in a dense tile by subdividing", async () => {
-    // 25 real, distinct venues spread over a ~270m x 180m cluster -- more
-    // than the 20-result cap a single call can return, and spread widely
-    // enough that once sub-circles shrink to ~100-200m radius they only see
-    // part of the cluster each, forcing the split to actually separate them
-    // rather than every sub-circle re-seeing all 25.
-    const densePlaces: RawGooglePlace[] = Array.from({ length: 25 }, (_, i) => {
-      const row = Math.floor(i / 5);
-      const col = i % 5;
-      return {
-        id: `dense-${i}`,
-        displayName: { text: `Dense Venue ${i}` },
-        formattedAddress: "test address",
-        location: { latitude: 47.6686 + row * 0.0006, longitude: -122.355 + col * 0.0006 },
-        types: ["cafe"],
-        businessStatus: "OPERATIONAL" as const,
-      };
-    });
+  // Distinct-enough names (not just a shared prefix + counter) so tightly
+  // packed synthetic fixture venues below don't trip dedup.ts's own
+  // name-similarity check (>=0.6) at close range -- a real dense area's
+  // venues have genuinely different names, which this mimics well enough
+  // to isolate what this test actually checks (subdivision, not dedup).
+  // Both words depend on *both* row and col (not one word per axis) so
+  // even a same-row or same-col neighbor gets a fully different name, not
+  // just one differing word next to an unchanged one -- verified empirically
+  // (no adjacent-cell pair within the grid's spacing scores >=0.6 similarity).
+  const WORD_A = [
+    "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet",
+    "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango",
+    "Uniform", "Victor", "Whiskey", "Xray", "Yankee", "Zulu", "Amber", "Coral", "Ivory", "Jade",
+    "Onyx", "Pearl", "Ruby", "Topaz", "Cedar", "Elm", "Maple", "Oak", "Pine", "Willow",
+  ];
+  const WORD_B = [
+    "Market", "Grocers", "Bakery", "Diner", "Bistro", "Tavern", "Provisions", "Outfitters",
+    "Emporium", "Depot", "Foundry", "Gallery", "Cellars", "Roasters", "Cafe", "Kitchen", "Parlor",
+    "Workshop", "Studio", "Mercantile", "Apothecary", "Bookshop", "Cannery", "Distillery",
+    "Farmstand", "Garage", "Hardware", "Ironworks", "Junkyard", "Kiosk", "Laundry", "Motel",
+    "Newsstand", "Outpost", "Pharmacy", "Quikstop", "Repair", "Salvage", "Trading", "Union",
+  ];
+  function gridName(row: number, col: number): string {
+    const a = WORD_A[(row * 7 + col * 3) % WORD_A.length];
+    const b = WORD_B[(row * 11 + col * 17) % WORD_B.length];
+    return `${a} ${b}`;
+  }
 
-    class DenseClient implements GooglePlacesClient {
-      async searchNearby(params: SearchNearbyParams): Promise<RawGooglePlace[]> {
-        const inRange = densePlaces.filter(
-          (p) =>
-            haversineMeters(params.center, {
-              lat: p.location.latitude,
-              lng: p.location.longitude,
-            }) <= params.radiusMeters
-        );
-        return inRange.slice(0, 20);
+  it("catches venues past the cap in a dense tile by subdividing", async () => {
+    // 528 real, distinct venues in a grid centered on the neighborhood
+    // center, spread widely enough (~270m radius) that a single 400m-radius
+    // tile sees all of them (saturating past the 500-result cap) but each
+    // of subdivideCircle's 4 sub-circles only sees roughly a quarter --
+    // comfortably under the cap, so the retry recovers the full set rather
+    // than truncating again.
+    const rows = 24;
+    const cols = 22;
+    const densePlaces: GeoapifyPlace[] = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const i = row * cols + col;
+        densePlaces.push({
+          placeId: `dense-${i}`,
+          name: gridName(row, col),
+          formattedAddress: "test address",
+          location: {
+            lat: 47.6686 + (row - rows / 2) * 0.00015,
+            lng: -122.355 + (col - cols / 2) * 0.00015,
+          },
+          categories: [],
+        });
+      }
+    }
+
+    class DenseClient {
+      async searchPlaces(params: GeoapifySearchParams): Promise<GeoapifyPlace[]> {
+        const inRange = densePlaces.filter((p) => haversineMeters(params.center, p.location) <= params.radiusMeters);
+        return inRange.slice(0, 500);
       }
     }
 
     const report = await syncNeighborhoodPlaces("phinneywood-seattle", new DenseClient(), repository);
 
-    expect(report.inserted.length).toBe(25);
+    expect(report.skippedDuplicates).toHaveLength(0);
+    expect(report.inserted.length).toBe(densePlaces.length);
   });
 
-  // Google's includedTypes-chunking mechanism (splitting a taxonomy over 50
-  // types across multiple calls) no longer has anything to chunk: the
-  // taxonomy only carries geoapify-shaped tags now (Phase 2), which aren't
-  // valid Google types to send at all. One unrestricted call per tile runs
-  // instead, regardless of taxonomy size, until Phase 4 replaces this
-  // Google-shaped tiling step with Geoapify's own category search.
-  it("makes exactly one unrestricted call per tile, regardless of taxonomy size", async () => {
+  // Geoapify's Places API requires a non-empty `categories` filter, so every
+  // configured taxonomy tag is sent in one request per tile (deduped), not
+  // chunked across multiple calls the way Google's old 50-type cap forced --
+  // one call per tile regardless of how large the taxonomy grows.
+  it("makes exactly one call per tile, regardless of taxonomy size", async () => {
     const manyCategories: CategoryRecord[] = Array.from({ length: 120 }, (_, i) => ({
       id: `cat-${i}`,
       name: `Category ${i}`,
@@ -274,7 +306,7 @@ describe("syncNeighborhoodPlaces", () => {
     const countingRepository = new CountingRepository();
     const report = await syncNeighborhoodPlaces(
       "phinneywood-seattle",
-      new MockPlacesClient(),
+      new MockGeoapifyClient(),
       countingRepository
     );
 
@@ -289,7 +321,7 @@ describe("syncNeighborhoodPlaces", () => {
     }
 
     await expect(
-      syncNeighborhoodPlaces("no-boundary", new MockPlacesClient(), new NoBoundaryRepository())
+      syncNeighborhoodPlaces("no-boundary", new MockGeoapifyClient(), new NoBoundaryRepository())
     ).rejects.toThrow(/no boundary_geojson set/);
   });
 });

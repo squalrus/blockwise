@@ -121,8 +121,16 @@ work already done — it's meant to be picked up as backlog work.
   - `PoweredByGoogle` attribution component (rendered in `about/page.tsx`
     and the now-deleted `reviews/page.tsx`) replaced with a Geoapify/OSM
     attribution component.
-  - Not affected: `happeningNow.ts`/`OpenNowRow.tsx`/Today-tab "open now"
-    feature — sourced from `enrichment.hours`, which is kept.
+  - **Correction (found during Phase 4, this claim was wrong):**
+    `happeningNow.ts`/`OpenNowRow.tsx`/Today-tab "open now" feature —
+    sourced from `enrichment.hours`, which is kept, but NOT in a compatible
+    format: `locations/hours.ts`'s parser expects Google's one-line-per-weekday
+    shape (`"Monday: 9:00 AM – 5:00 PM"`), and Geoapify's Place Details
+    returns a raw OSM `opening_hours` string (`"Mo-Fr 09:00-18:00"`) instead
+    — a different syntax entirely. Phase 4 added
+    `apps/api/src/enrichment/openingHours.ts`, a compatibility parser for
+    the common day-range + time-range case, converting into the shape
+    `hours.ts` already understands rather than rewriting `hours.ts` itself.
 
 ### Map rendering
 
@@ -264,7 +272,12 @@ work already done — it's meant to be picked up as backlog work.
   in Phases 4 and 6.
 - **Phases 1 (client), 2 (category mapping), 3 (schema)** proceed in
   parallel once Phase 0's shapes are confirmed.
-- **Phase 4** (`sync.ts` wiring) depends on 1–3.
+- **Phase 4** (`sync.ts` wiring) depends on 1–3. **Done** -- see BACKLOG.md
+  Ref 114's Phase 4 entry for the full list of what shipped, including two
+  items done ahead of their originally-planned phase: `investigate.ts`'s
+  Geoapify text-search rewrite (originally filed under item 8/Phase 8 below)
+  and a fix for this doc's incorrect "hours parsing is not affected" claim
+  (see the Enrichment section below, now corrected).
 - **Phase 5** (backfill) depends on 4.
 - **Phase 6** (map rendering — MapLibre GL + Geoapify vector tiles) is
   independent of 1-5, can proceed in parallel; benefits from Phase 0
