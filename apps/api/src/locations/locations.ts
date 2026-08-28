@@ -23,7 +23,7 @@ import type {
 function toVenue(record: LocationRecord): Venue {
   return {
     id: record.id,
-    google_place_id: record.googlePlaceId,
+    geoapify_place_id: record.geoapifyPlaceId,
     name: record.name,
     kind: record.kind,
     category_id: record.categoryId,
@@ -46,7 +46,7 @@ export interface CreateLocationRequestInput {
   categoryId?: string;
   lat: number;
   lng: number;
-  googlePlaceId?: string;
+  geoapifyPlaceId?: string;
   address?: string;
   // Defaults to "active" (the DB default) when omitted -- passed explicitly
   // as "hidden" when persisting an omitted review candidate (BACKLOG.md
@@ -67,7 +67,7 @@ export async function createLocation(
     categoryId: input.categoryId ?? null,
     lat: input.lat,
     lng: input.lng,
-    googlePlaceId: input.googlePlaceId ?? null,
+    geoapifyPlaceId: input.geoapifyPlaceId ?? null,
     address: input.address ?? null,
     status: input.status,
   } satisfies CreateLocationInput);
@@ -116,7 +116,7 @@ export async function getLocationForNeighborhood(
 
 // Public location detail page (BACKLOG.md Ref 46/59) -- isn't scoped to a
 // caller-supplied neighborhoodId or gated by admin auth; refreshes/returns
-// Google Places enrichment when the location has a google_place_id (either
+// Google Places enrichment when the location has a geoapify_place_id (either
 // kind). Hidden locations 404 here (LocationRepository.getLocationDetail
 // already filters to status = 'active').
 export async function getLocationDetailWithFreshEnrichment(
@@ -131,7 +131,7 @@ export async function getLocationDetailWithFreshEnrichment(
 
   const enrichment = await getFreshEnrichment(
     locationId,
-    record.googlePlaceId,
+    record.geoapifyPlaceId,
     record.enrichment,
     enrichmentRepository,
     placesClient
@@ -141,7 +141,7 @@ export async function getLocationDetailWithFreshEnrichment(
     id: record.id,
     name: record.name,
     kind: record.kind,
-    google_place_id: record.googlePlaceId,
+    geoapify_place_id: record.geoapifyPlaceId,
     description: record.description,
     address: record.address,
     lat: record.lat,
@@ -330,6 +330,6 @@ export async function listLocationListItemsForNeighborhood(
     claimed_by_business: r.claimedByBusiness,
     lat: r.lat,
     lng: r.lng,
-    google_place_id: r.googlePlaceId,
+    geoapify_place_id: r.geoapifyPlaceId,
   }));
 }

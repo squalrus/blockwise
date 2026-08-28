@@ -275,7 +275,7 @@ export const NEIGHBORHOOD_CARDS: { label: string; neighborhood: NeighborhoodProf
 
 function venueDetail(overrides: Partial<VenueDetail> & Pick<VenueDetail, "id" | "name" | "kind">): VenueDetail {
   return {
-    google_place_id: null,
+    geoapify_place_id: null,
     description: null,
     address: "9057 Greenwood Ave N, Seattle, WA 98103, USA",
     lat: 47.6896,
@@ -298,7 +298,7 @@ function venueDetail(overrides: Partial<VenueDetail> & Pick<VenueDetail, "id" | 
 // Location summary card (LocationSummaryCard, as rendered on /location/[id])
 export const LOCATION_CARDS: { label: string; location: VenueDetail; favorited: boolean }[] = [
   {
-    label: "Business -- claimed, rated, with social links, heavy check-in history, favorited",
+    label: "Business -- claimed, with social links, heavy check-in history, favorited",
     location: venueDetail({
       id: "demo-location-1",
       name: "Wilson Tax And Accounting",
@@ -322,16 +322,11 @@ export const LOCATION_CARDS: { label: string; location: VenueDetail; favorited: 
       open_status: { open: false, time: "9 AM" },
       enrichment: {
         venue_id: "demo-location-1",
-        source: "google",
-        rating: 4.7,
-        reviews: [],
-        price_tier: null,
-        photo_refs: [],
+        source: "geoapify",
         phone: null,
         website: null,
         hours: null,
         editorial_summary: null,
-        atmosphere: null,
         fetched_at: NOW,
       },
       social_links: { instagram: "https://instagram.com/wilsontax", website: "https://wilsontax.example.com" },
@@ -339,7 +334,7 @@ export const LOCATION_CARDS: { label: string; location: VenueDetail; favorited: 
     favorited: true,
   },
   {
-    label: "Business -- unclaimed, no rating, no check-ins yet, not favorited",
+    label: "Business -- unclaimed, no check-ins yet, not favorited",
     location: venueDetail({
       id: "demo-location-2",
       name: "Corner Cafe",

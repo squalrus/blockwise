@@ -4,7 +4,7 @@ Living inventory of every route in `apps/web` and every endpoint in `apps/api`. 
 
 > **Update this file whenever a route changes.** Adding, removing, renaming, or re-scoping a web page or API endpoint? Update the matching tree below in the same change. See [CONTRIBUTING.md](../CONTRIBUTING.md)'s workflow step 2 — CLAUDE.md also flags this so it gets checked automatically during AI-assisted changes.
 
-Last reviewed: 2026-08-25 (Monitoring tab split into Overview/Performance/Places sub-pages, request/Places-failure drill-down, business event-follow analytics — see History).
+Last reviewed: 2026-08-28 (Geoapify migration Phase 3: venue.geoapify_place_id rename, venue_enrichment_cache trim, Reviews tab and photo proxy route removed — see History).
 
 ## Web app (`apps/web/src/app`, Next.js App Router)
 
@@ -61,8 +61,7 @@ apps/web/src/app/
 │   └── [id]/
 │       ├── layout.tsx                              — P — shared chrome (back link, summary card, photo strip, tab bar, claim form), merged business/POI detail page (BACKLOG.md "POIs and venues managed almost the same"), branches on `kind` throughout
 │       ├── page.tsx                                /location/:id — Spore Feed tab (default) — this venue's own check-ins, newest first
-│       ├── about/page.tsx                          /location/:id/about — About tab — Google Places enrichment (price/hours/phone/website/atmosphere), business-kind or any POI with a google_place_id
-│       ├── reviews/page.tsx                        /location/:id/reviews — Reviews tab — Google's aggregate rating + sampled reviews
+│       ├── about/page.tsx                          /location/:id/about — About tab — Geoapify Place Details enrichment (hours/phone/website/description), business-kind or any POI with a geoapify_place_id
 │       ├── coupons/page.tsx                        /location/:id/coupons — Coupons tab, business-kind only — CouponsSection.tsx, client-fetched for per-viewer claim/eligibility (BACKLOG.md Ref 83, replaces the old Announcements section)
 │       ├── events/page.tsx                         /location/:id/events — Events tab, business-kind only (a POI can never be claimed, so never has events)
 │       └── leaderboard/page.tsx                    /location/:id/leaderboard — Leaderboard tab — visitCount ranking within the rolling 60-day window (GET /venues/:id/leaderboard), same ranking as the summary card's Top Caps badges at a higher limit
@@ -196,7 +195,6 @@ Auth gates:
 
 /locations/:id
 ├── (root)                                            GET — public — merged business/POI detail + enrichment cache (BACKLOG.md "POIs and venues managed almost the same"; was separate GET /venues/:id + GET /pois/:id)
-├── photo                                              GET — public — ?index= selects among cached photos (default 0)
 └── checkins                                          POST — auth — awards check-in points/challenge progress, same geofence/cooldown for either kind (BACKLOG.md Ref 86: no more anonymous check-ins)
 
 /venues/:id
@@ -318,6 +316,7 @@ Identifier note: every neighborhood-identifying path param in the API is the **i
 
 ## History
 
+- **2026-08-28** — Geoapify migration Phase 3 (BACKLOG.md Ref 114, `docs/geoapify-migration-plan.md`): `venue.google_place_id` renamed to `geoapify_place_id` (`supabase/migrations/20260828020000_geoapify_venue_schema.sql`), and `venue_enrichment_cache` trimmed -- `rating`/`reviews`/`photo_refs`/`price_tier`/`atmosphere` columns dropped, `source` CHECK constraint moved from `'google'` to `'geoapify'`. Ratings, reviews, and photo galleries are removed as product features entirely (no Geoapify equivalent) -- `/location/:id/reviews` and the `GET /locations/:id/photo` proxy route are both gone, along with the rating stat tile on the summary card, the photo strip on the About tab, `aggregateRating` JSON-LD, and the photo-based Open Graph image. `EnrichmentPhotoGallery.tsx` deleted; `EnrichmentSection.tsx` now only exports `EnrichmentAbout` (hours/phone/website/description). Schema-only step -- `sync.ts`/`review.ts`/`investigate.ts`/`refresh.ts` still call Google's live API under the hood until Phase 4 rewires the actual client, so `geoapify_place_id` holds a real Google place ID for now, an accepted temporary regression matching Phase 2's category-taxonomy rename.
 - **2026-08-24** — The 6 Phinneywood challenges whose titles didn't already say so now do too (`supabase/migrations/20260824060000_rename_phinneywood_challenges.sql`), matching 20260824050000's badge renames: Coffee Crawl → Phinneywood Coffee Crawl, Visit any POI → Visit Any Phinneywood POI, Visit every POI → Visit Every Phinneywood POI, Bar Hop → Phinneywood Bar Hop, Bakery Tour → Phinneywood Bakery Tour, Retail Therapy → Phinneywood Retail Therapy (Taste of Phinneywood and Thanks for Visiting Phinneywood already had it). Titles only -- descriptions were already clean.
 - **2026-08-24** — The 8 Phinneywood-scoped badges' names now say so (`supabase/migrations/20260824050000_rename_phinneywood_badges.sql`): Coffee Crawler → Phinneywood Coffee Crawler, Neighborhood Explorer → Phinneywood Explorer, POI Completionist → Phinneywood Completionist, Bar Hopper → Phinneywood Bar Hopper, Bakery Tourist → Phinneywood Bakery Tourist, Retail Therapist → Phinneywood Retail Therapist, Welcome Neighbor → Welcome to Phinneywood (Phinneywood Foodie already had it). Also dropped the stale "during the Summer Series"/"during July" wording from these badges' descriptions and the Coffee Crawl challenge's own description -- leftover copy from before 20260710040000 made these challenges evergreen instead of seasonal; the copy never caught up.
 - **2026-08-24** — 8 challenge-earned badges (Coffee Crawler, Neighborhood Explorer, POI Completionist, Bar Hopper, Bakery Tourist, Retail Therapist, Phinneywood Foodie, Welcome Neighbor) now carry `badge.neighborhood_id` directly, set to Phinneywood (`supabase/migrations/20260824040000_scope_challenge_earned_badges_to_phinneywood.sql`). All 8 are earned only via a Phinneywood-scoped `challenge.badge_id` link, no `badge_rule` -- the admin Badges tab already classified them as neighborhood-specific by deriving it from that challenge link, but the badge row's own `neighborhood_id` stayed null, so the public Badge DTO (and thus the account Badges tab / profile `BadgesSection.tsx`'s new pill) had nothing to show, e.g. "Welcome Neighbor" displayed no neighborhood pill even though it's genuinely Phinneywood-only. Setting it directly makes `badge.neighborhood_id` the single source of truth everywhere, matching how the Explorer badges are scoped.

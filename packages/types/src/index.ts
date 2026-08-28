@@ -70,7 +70,7 @@ export type LocationKind = "business" | "poi";
 
 export interface Venue {
   id: string;
-  google_place_id: string | null;
+  geoapify_place_id: string | null;
   name: string;
   kind: LocationKind;
   category_id: string | null;
@@ -90,46 +90,21 @@ export interface Venue {
   updated_at: string;
 }
 
-export type EnrichmentSource = "google";
-
-export interface EnrichmentReview {
-  rating: number | null;
-  text: string | null;
-  author_name: string | null;
-  // Google's own publishTime for the review (RFC3339) -- null when Google
-  // didn't return one (older/edge-case reviews), in which case the review
-  // renders without a date rather than a fabricated one.
-  published_at: string | null;
-}
-
-export interface EnrichmentAtmosphere {
-  delivery: boolean | null;
-  dine_in: boolean | null;
-  takeout: boolean | null;
-  outdoor_seating: boolean | null;
-  good_for_children: boolean | null;
-  reservable: boolean | null;
-}
+// Renamed from "google" (Phase 3, docs/geoapify-migration-plan.md) -- the
+// underlying data is still fetched from Google's live API until Phase 4
+// rewires the actual client, an accepted temporary regression that plan
+// calls out explicitly.
+export type EnrichmentSource = "geoapify";
 
 export interface VenueEnrichmentCache {
   venue_id: string;
   source: EnrichmentSource;
-  rating: number | null;
-  reviews: EnrichmentReview[];
-  price_tier: string | null;
-  // Google Places API (New) photo *references* (e.g. "places/.../photos/..."),
-  // not fetchable URLs -- turning one into a URL requires the API key, which
-  // must stay server-side. Serve them via apps/api's GET /venues/:id/photo
-  // proxy (?index=) rather than embedding these values directly in
-  // client-rendered HTML.
-  photo_refs: string[];
   phone: string | null;
   website: string | null;
   // Human-readable weekday hours (Google's `regularOpeningHours.weekdayDescriptions`),
   // e.g. ["Monday: 9:00 AM – 5:00 PM", ...] -- avoids parsing raw period data.
   hours: string[] | null;
   editorial_summary: string | null;
-  atmosphere: EnrichmentAtmosphere | null;
   fetched_at: string;
 }
 
@@ -153,10 +128,9 @@ export interface VenueDetail {
   id: string;
   name: string;
   kind: LocationKind;
-  // Gates whether a POI-kind location's photo strip renders at all (most
-  // POIs are manually created with no Google Place behind them) -- always
-  // populated for kind "business".
-  google_place_id: string | null;
+  // Null for most manually-created POIs (no Geoapify place behind them) --
+  // always populated for kind "business".
+  geoapify_place_id: string | null;
   // POI-only field, null for kind "business".
   description: string | null;
   address: string | null;
@@ -1068,7 +1042,7 @@ export interface CreateLocationRequest {
   lat: number;
   lng: number;
   address?: string;
-  google_place_id?: string;
+  geoapify_place_id?: string;
 }
 
 // Location edit (BACKLOG.md Ref 29, generalized from POI-only), all optional
@@ -1148,14 +1122,14 @@ export interface LocationListItem {
   // always populated for businesses.
   lat: number | null;
   lng: number | null;
-  google_place_id: string | null;
+  geoapify_place_id: string | null;
 }
 
 // Bulk Places review (BACKLOG.md Ref 29) -- a Google Places entity inside the
 // neighborhood's boundary that isn't yet a venue or POI. Admin-triggered
 // (costs a real Places API query each run), not surfaced automatically.
 export interface LocationReviewCandidate {
-  google_place_id: string;
+  geoapify_place_id: string;
   name: string;
   lat: number;
   lng: number;
@@ -1200,7 +1174,7 @@ export interface LocationsReviewCooldownStatus {
 export type LocationClassification = "business" | "poi" | "omit";
 
 export interface LocationReviewClassificationInput {
-  google_place_id: string;
+  geoapify_place_id: string;
   name: string;
   lat: number;
   lng: number;
@@ -1224,7 +1198,7 @@ export interface CommitLocationReviewResult {
   created_pois: string[];
   // Persisted as a hidden POI, not just skipped -- see BACKLOG.md "Reimport
   // Locations": an omitted candidate is still recorded (matched by
-  // google_place_id on future reviews) so it never resurfaces asking for a
+  // geoapify_place_id on future reviews) so it never resurfaces asking for a
   // decision again, it just doesn't show up as an active location.
   omitted: string[];
   // Set to "removed" (not "hidden") -- fully detached from the
@@ -1241,7 +1215,7 @@ export interface CommitLocationReviewResult {
 // the boundary-wide review/sync flow never would, along with why it looks
 // missing.
 export interface PlacesInvestigationCandidate {
-  google_place_id: string;
+  geoapify_place_id: string;
   name: string;
   address: string;
   lat: number;
@@ -1263,7 +1237,7 @@ export interface PlacesInvestigationReport {
 }
 
 export interface AddInvestigatedLocationRequest {
-  google_place_id: string;
+  geoapify_place_id: string;
   name: string;
   lat: number;
   lng: number;

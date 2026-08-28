@@ -2,8 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LocationKind, VenueEnrichmentCache } from "@blockwise/types";
 import type { EnrichmentRepository, OpenNowCandidate, UpsertEnrichmentInput } from "./repository";
 
-const ENRICHMENT_COLUMNS =
-  "venue_id, source, rating, reviews, price_tier, photo_refs, phone, website, hours, editorial_summary, atmosphere, fetched_at";
+const ENRICHMENT_COLUMNS = "venue_id, source, phone, website, hours, editorial_summary, fetched_at";
 
 function single<T>(embed: T[] | T | null | undefined): T | null {
   if (embed === undefined || embed === null) return null;
@@ -32,7 +31,7 @@ export class SupabaseEnrichmentRepository implements EnrichmentRepository {
       .from("venue_enrichment_cache")
       .select(ENRICHMENT_COLUMNS)
       .eq("venue_id", locationId)
-      .eq("source", "google")
+      .eq("source", "geoapify")
       .maybeSingle();
 
     if (error) throw new Error(`getEnrichment failed: ${error.message}`);
@@ -46,15 +45,10 @@ export class SupabaseEnrichmentRepository implements EnrichmentRepository {
         {
           venue_id: input.locationId,
           source: input.source,
-          rating: input.rating,
-          reviews: input.reviews,
-          price_tier: input.priceTier,
-          photo_refs: input.photoRefs,
           phone: input.phone,
           website: input.website,
           hours: input.hours,
           editorial_summary: input.editorialSummary,
-          atmosphere: input.atmosphere,
           fetched_at: new Date().toISOString(),
         },
         { onConflict: "venue_id,source" }
@@ -66,18 +60,6 @@ export class SupabaseEnrichmentRepository implements EnrichmentRepository {
     return data as VenueEnrichmentCache;
   }
 
-  async getPhotoReference(locationId: string, index: number): Promise<string | null> {
-    const { data, error } = await this.supabase
-      .from("venue_enrichment_cache")
-      .select("photo_refs")
-      .eq("venue_id", locationId)
-      .eq("source", "google")
-      .maybeSingle();
-
-    if (error) throw new Error(`getPhotoReference failed: ${error.message}`);
-    return (data?.photo_refs as string[] | undefined)?.[index] ?? null;
-  }
-
   async listOpenNowCandidates(neighborhoodId: string): Promise<OpenNowCandidate[]> {
     const { data, error } = await this.supabase
       .from("venue_enrichment_cache")
@@ -86,7 +68,7 @@ export class SupabaseEnrichmentRepository implements EnrichmentRepository {
       )
       .eq("venue.neighborhood_id", neighborhoodId)
       .eq("venue.status", "active")
-      .eq("source", "google")
+      .eq("source", "geoapify")
       .not("hours", "is", null);
 
     if (error) throw new Error(`listOpenNowCandidates failed: ${error.message}`);

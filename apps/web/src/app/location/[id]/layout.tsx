@@ -33,7 +33,6 @@ export async function generateMetadata({
     location.description ??
     location.enrichment?.editorial_summary ??
     `${location.name}${location.category_name ? `, ${location.category_name}` : ""} in ${location.neighborhood_name}.${location.address ? ` ${location.address}.` : ""}`;
-  const hasPhoto = (location.enrichment?.photo_refs.length ?? 0) > 0;
 
   // Each tab page sets its own `alternates.canonical` for its own path
   // (mirroring /neighborhoods/[slug]'s layout+subnav split) -- deliberately
@@ -42,11 +41,7 @@ export async function generateMetadata({
   return {
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      ...(hasPhoto ? { images: [`/api/locations/${location.id}/photo?index=0`] } : {}),
-    },
+    openGraph: { title, description },
   };
 }
 
@@ -59,13 +54,12 @@ function locationJsonLd(location: VenueDetail): Record<string, unknown> | null {
     url: `${SITE_URL}/location/${location.id}`,
     ...(location.address ? { address: location.address } : {}),
     ...(location.category_name ? { additionalType: location.category_name } : {}),
-    ...(location.enrichment?.rating != null ? { aggregateRating: { "@type": "AggregateRating", ratingValue: location.enrichment.rating } } : {}),
   };
 }
 
 // BACKLOG.md Ref 101 redesign: shared chrome (back link, summary card, tab
 // bar, claim form) for the location detail page's tabs -- Spore
-// Feed (page.tsx, default)/About/Reviews/Coupons/Events/Leaderboard, each
+// Feed (page.tsx, default)/About/Coupons/Events/Leaderboard, each
 // its own route (mirroring /neighborhoods/[slug]'s layout+subnav split, not
 // /account's former in-page tab state) so a specific tab is directly
 // linkable and only fetches the data it needs. Merged business/POI detail

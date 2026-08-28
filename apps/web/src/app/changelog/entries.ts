@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.84.4", date: "2026-08-28", summary: "Removed ratings, reviews, and photo galleries from venue/POI pages (third phase of moving venue data off Google Places API onto Geoapify -- no replacement feature exists yet)" },
   { version: "0.84.3", date: "2026-08-28", summary: "Behind-the-scenes: second phase of moving venue data off Google Places API onto Geoapify, remapping the category taxonomy (no visible changes yet)" },
   { version: "0.84.2", date: "2026-08-27", summary: "Behind-the-scenes: first phase of moving venue data off Google Places API onto Geoapify (no visible changes yet)" },
   { version: "0.84.1", date: "2026-08-26", summary: "Notification category toggles on Account Settings now stay hidden until push notifications are enabled" },

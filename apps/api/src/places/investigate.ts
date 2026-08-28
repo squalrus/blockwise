@@ -37,7 +37,7 @@ export async function investigateMissingLocation(
   boundary: GeoJsonPolygon | null,
   client: PlacesTextSearchClient,
   categories: CategoryRecord[],
-  existingLocations: { googlePlaceId: string | null; name: string }[]
+  existingLocations: { geoapifyPlaceId: string | null; name: string }[]
 ): Promise<PlacesInvestigationCandidate[]> {
   const results = await client.searchText({
     textQuery: query,
@@ -56,7 +56,7 @@ export async function investigateMissingLocation(
         { categories: place.primaryType ? [place.primaryType, ...place.types] : place.types },
         categoryIndex
       ) ?? null;
-    const existing = existingLocations.find((l) => l.googlePlaceId === place.id);
+    const existing = existingLocations.find((l) => l.geoapifyPlaceId === place.id);
 
     return {
       raw: place,

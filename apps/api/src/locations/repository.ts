@@ -12,7 +12,7 @@ import type {
 export interface LocationRecord {
   id: string;
   neighborhoodId: string;
-  googlePlaceId: string | null;
+  geoapifyPlaceId: string | null;
   name: string;
   kind: LocationKind;
   categoryId: string | null;
@@ -33,7 +33,7 @@ export interface LocationRecord {
 // record into one shape for GET /locations/:id).
 export interface LocationDetailRecord {
   id: string;
-  googlePlaceId: string | null;
+  geoapifyPlaceId: string | null;
   name: string;
   kind: LocationKind;
   description: string | null;
@@ -70,7 +70,7 @@ export interface CreateLocationInput {
   categoryId: string | null;
   lat: number;
   lng: number;
-  googlePlaceId: string | null;
+  geoapifyPlaceId: string | null;
   address: string | null;
   // Defaults to the DB's "active" default when omitted -- set explicitly to
   // "hidden" when persisting an omitted review candidate (BACKLOG.md

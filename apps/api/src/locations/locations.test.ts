@@ -80,7 +80,7 @@ class FakeLocationRepository implements LocationRepository {
     const record: LocationRecord = {
       id: `location-${this.nextId++}`,
       neighborhoodId: input.neighborhoodId,
-      googlePlaceId: input.googlePlaceId,
+      geoapifyPlaceId: input.geoapifyPlaceId,
       name: input.name,
       kind: input.kind,
       categoryId: input.categoryId,
@@ -170,7 +170,7 @@ function makeBusiness(overrides: Partial<LocationRecord> = {}): LocationRecord {
   return {
     id: "location-1",
     neighborhoodId: "neighborhood-1",
-    googlePlaceId: null,
+    geoapifyPlaceId: null,
     name: "Diesel Fuel Coffee",
     kind: "business",
     categoryId: null,
@@ -249,27 +249,18 @@ class FakeEnrichmentRepository implements EnrichmentRepository {
     return {
       venue_id: input.locationId,
       source: input.source,
-      rating: input.rating,
-      reviews: input.reviews,
-      price_tier: input.priceTier,
-      photo_refs: input.photoRefs,
       phone: input.phone,
       website: input.website,
       hours: input.hours,
       editorial_summary: input.editorialSummary,
-      atmosphere: input.atmosphere,
       fetched_at: new Date().toISOString(),
     };
-  }
-
-  async getPhotoReference(): Promise<string | null> {
-    return null;
   }
 }
 
 class FakePlacesClient implements PlaceDetailsClient {
   calls: string[] = [];
-  response: RawPlaceDetails = { id: "google-place-1", rating: 4.7 };
+  response: RawPlaceDetails = { id: "geoapify-place-1", nationalPhoneNumber: "(206) 555-0100" };
 
   async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
     this.calls.push(placeId);
@@ -283,7 +274,7 @@ class FakePlacesClient implements PlaceDetailsClient {
 
 const BASE_DETAIL: LocationDetailRecord = {
   id: "location-1",
-  googlePlaceId: "google-place-1",
+  geoapifyPlaceId: "geoapify-place-1",
   name: "Diesel Fuel Coffee",
   kind: "business",
   description: null,
@@ -322,8 +313,8 @@ describe("getLocationDetailWithFreshEnrichment", () => {
 
     const result = await getLocationDetailWithFreshEnrichment("location-1", repo, enrichmentRepository, placesClient);
 
-    expect(placesClient.calls).toEqual(["google-place-1"]);
-    expect(result?.enrichment).toMatchObject({ rating: 4.7 });
+    expect(placesClient.calls).toEqual(["geoapify-place-1"]);
+    expect(result?.enrichment).toMatchObject({ phone: "(206) 555-0100" });
     expect(result?.checkin_count).toBe(3);
     expect(result?.favorite_count).toBe(2);
     expect(result?.kind).toBe("business");
@@ -383,9 +374,9 @@ describe("getLocationDetailWithFreshEnrichment", () => {
     expect(result?.open_status).toEqual({ open: true, time: "5 PM" });
   });
 
-  it("skips enrichment when the location has no google_place_id", async () => {
+  it("skips enrichment when the location has no geoapify_place_id", async () => {
     const repo = new FakeLocationRepository();
-    repo.detail = { ...BASE_DETAIL, kind: "poi", googlePlaceId: null };
+    repo.detail = { ...BASE_DETAIL, kind: "poi", geoapifyPlaceId: null };
     const placesClient = new FakePlacesClient();
 
     const result = await getLocationDetailWithFreshEnrichment("location-1", repo, new FakeEnrichmentRepository(), placesClient);

@@ -115,7 +115,7 @@ class FakeLocationRepository implements LocationRepository {
     const record: LocationRecord = {
       id: `location-${this.nextId++}`,
       neighborhoodId: input.neighborhoodId,
-      googlePlaceId: input.googlePlaceId,
+      geoapifyPlaceId: input.geoapifyPlaceId,
       name: input.name,
       kind: input.kind,
       categoryId: input.categoryId,
@@ -192,7 +192,7 @@ function makeBusinessLocation(overrides: Partial<LocationRecord> = {}): Location
   return {
     id: "location-1",
     neighborhoodId: "phinneywood-id",
-    googlePlaceId: null,
+    geoapifyPlaceId: null,
     name: "Business",
     kind: "business",
     categoryId: null,
@@ -260,11 +260,11 @@ describe("reviewNeighborhoodLocations", () => {
     expect(widget?.suggestedCategoryId).toBeNull();
   });
 
-  it("excludes a place already synced as a business, matched by google_place_id", async () => {
+  it("excludes a place already synced as a business, matched by geoapify_place_id", async () => {
     locationRepository.locations = [
       makeBusinessLocation({
         id: "existing-1",
-        googlePlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "mock-herkimer-coffee",
         name: "Herkimer Coffee",
         lat: 47.6816,
         lng: -122.3552,
@@ -282,11 +282,11 @@ describe("reviewNeighborhoodLocations", () => {
     expect(report.newCandidates.some((c) => c.name === "Herkimer Coffee")).toBe(false);
   });
 
-  it("excludes a place already converted to a POI, matched by google_place_id", async () => {
+  it("excludes a place already converted to a POI, matched by geoapify_place_id", async () => {
     locationRepository.locations = [
       makePoiLocation({
         id: "existing-poi-1",
-        googlePlaceId: "mock-mustard-seed-park",
+        geoapifyPlaceId: "mock-mustard-seed-park",
         name: "Mustard Seed Park",
         lat: 47.685,
         lng: -122.3495,
@@ -309,7 +309,7 @@ describe("reviewNeighborhoodLocations", () => {
     locationRepository.locations = [
       makeBusinessLocation({
         id: "existing-2",
-        googlePlaceId: null,
+        geoapifyPlaceId: null,
         name: "Herkimer Coffee Shop",
         lat: 47.6816,
         lng: -122.3552,
@@ -429,7 +429,7 @@ describe("reviewNeighborhoodLocations", () => {
         status: "active",
         lat: 47.6816,
         lng: -122.3552,
-        googlePlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "mock-herkimer-coffee",
       }),
     ];
 
@@ -491,7 +491,7 @@ describe("commitLocationReview", () => {
   });
 
   const candidate = {
-    googlePlaceId: "mock-herkimer-coffee",
+    geoapifyPlaceId: "mock-herkimer-coffee",
     name: "Herkimer Coffee",
     lat: 47.6816,
     lng: -122.3552,
@@ -510,7 +510,7 @@ describe("commitLocationReview", () => {
     expect(result.createdBusinesses).toEqual(["Herkimer Coffee"]);
     expect(placesRepository.upsertCalls).toEqual([
       {
-        googlePlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "mock-herkimer-coffee",
         name: "Herkimer Coffee",
         categoryId: "coffee-shop",
         lat: 47.6816,
@@ -534,7 +534,7 @@ describe("commitLocationReview", () => {
     expect(locationRepository.locations).toHaveLength(1);
     expect(locationRepository.locations[0]).toMatchObject({
       name: "Herkimer Coffee",
-      googlePlaceId: "mock-herkimer-coffee",
+      geoapifyPlaceId: "mock-herkimer-coffee",
       kind: "poi",
     });
   });
@@ -553,7 +553,7 @@ describe("commitLocationReview", () => {
     expect(locationRepository.locations).toHaveLength(1);
     expect(locationRepository.locations[0]).toMatchObject({
       name: "Herkimer Coffee",
-      googlePlaceId: "mock-herkimer-coffee",
+      geoapifyPlaceId: "mock-herkimer-coffee",
       kind: "poi",
       status: "hidden",
     });
@@ -564,7 +564,7 @@ describe("commitLocationReview", () => {
       "phinneywood-id",
       [
         { ...candidate, classification: "business" }, // missing categoryId
-        { ...candidate, googlePlaceId: "mock-original-bakery", name: "Original Bakery", classification: "poi" },
+        { ...candidate, geoapifyPlaceId: "mock-original-bakery", name: "Original Bakery", classification: "poi" },
       ],
       [],
       placesRepository,
@@ -639,7 +639,7 @@ describe("commitLocationReview", () => {
     locationRepository.locations = [
       makeBusinessLocation({
         id: "previously-removed",
-        googlePlaceId: "mock-herkimer-coffee",
+        geoapifyPlaceId: "mock-herkimer-coffee",
         name: "Herkimer Coffee (stale)",
         status: "removed",
         lat: 47.6816,

@@ -18,51 +18,25 @@ class FakeEnrichmentRepository implements EnrichmentRepository {
     const row: VenueEnrichmentCache = {
       venue_id: input.locationId,
       source: input.source,
-      rating: input.rating,
-      reviews: input.reviews,
-      price_tier: input.priceTier,
-      photo_refs: input.photoRefs,
       phone: input.phone,
       website: input.website,
       hours: input.hours,
       editorial_summary: input.editorialSummary,
-      atmosphere: input.atmosphere,
       fetched_at: new Date().toISOString(),
     };
     this.rows.set(input.locationId, row);
     return row;
-  }
-
-  async getPhotoReference(locationId: string, index: number): Promise<string | null> {
-    return this.rows.get(locationId)?.photo_refs[index] ?? null;
   }
 }
 
 class FakePlacesClient implements PlaceDetailsClient {
   calls: string[] = [];
   response: RawPlaceDetails = {
-    id: "google-place-1",
-    rating: 4.6,
-    priceLevel: "PRICE_LEVEL_MODERATE",
-    reviews: [
-      {
-        rating: 5,
-        text: { text: "Great espresso." },
-        authorAttribution: { displayName: "Ava" },
-        publishTime: "2026-01-15T10:00:00Z",
-      },
-    ],
-    photos: [{ name: "places/google-place-1/photos/1" }, { name: "places/google-place-1/photos/2" }],
+    id: "geoapify-place-1",
     nationalPhoneNumber: "(206) 555-0100",
     websiteUri: "https://example.com",
     regularOpeningHours: { weekdayDescriptions: ["Monday: 7:00 AM – 5:00 PM"] },
     editorialSummary: { text: "Cozy neighborhood coffee shop." },
-    delivery: false,
-    dineIn: true,
-    takeout: true,
-    outdoorSeating: true,
-    goodForChildren: true,
-    reservable: false,
   };
 
   async getPlaceDetails(placeId: string): Promise<RawPlaceDetails> {
@@ -94,61 +68,37 @@ describe("getFreshEnrichment", () => {
     const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
 
-    const result = await getFreshEnrichment("venue-1", "google-place-1", null, repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", "geoapify-place-1", null, repository, placesClient);
 
-    expect(placesClient.calls).toEqual(["google-place-1"]);
+    expect(placesClient.calls).toEqual(["geoapify-place-1"]);
     expect(repository.upsertCalls).toHaveLength(1);
-    expect(result).toMatchObject({ rating: 4.6, price_tier: "PRICE_LEVEL_MODERATE" });
-  });
-
-  it("caps photo_refs at MAX_GALLERY_PHOTOS even when Google returns more (photos can't be cached under Google's ToS, so requesting fewer is the only cost lever)", async () => {
-    const repository = new FakeEnrichmentRepository();
-    const placesClient = new FakePlacesClient();
-    placesClient.response = {
-      ...placesClient.response,
-      photos: Array.from({ length: 10 }, (_, i) => ({ name: `places/google-place-1/photos/${i}` })),
-    };
-
-    const result = await getFreshEnrichment("venue-1", "google-place-1", null, repository, placesClient);
-
-    expect(result?.photo_refs).toHaveLength(4);
-    expect(result?.photo_refs).toEqual([
-      "places/google-place-1/photos/0",
-      "places/google-place-1/photos/1",
-      "places/google-place-1/photos/2",
-      "places/google-place-1/photos/3",
-    ]);
+    expect(result).toMatchObject({ phone: "(206) 555-0100", website: "https://example.com" });
   });
 
   it("works identically for a former-POI-kind location (BACKLOG.md 'POIs and venues managed almost the same')", async () => {
     const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
 
-    const result = await getFreshEnrichment("poi-1", "google-place-1", null, repository, placesClient);
+    const result = await getFreshEnrichment("poi-1", "geoapify-place-1", null, repository, placesClient);
 
     expect(repository.upsertCalls).toEqual([expect.objectContaining({ locationId: "poi-1" })]);
-    expect(result).toMatchObject({ venue_id: "poi-1", rating: 4.6 });
+    expect(result).toMatchObject({ venue_id: "poi-1", phone: "(206) 555-0100" });
   });
 
   it("does not refetch when the cached enrichment is still fresh", async () => {
     const fresh: VenueEnrichmentCache = {
       venue_id: "venue-1",
-      source: "google",
-      rating: 4.5,
-      reviews: [{ rating: 5, text: "Still good.", author_name: "Ava", published_at: "2026-01-10T00:00:00Z" }],
-      price_tier: "PRICE_LEVEL_MODERATE",
-      photo_refs: ["https://example.com/old-photo"],
+      source: "geoapify",
       phone: "(206) 555-0100",
       website: "https://example.com",
       hours: ["Monday: 7:00 AM – 5:00 PM"],
       editorial_summary: "Cozy neighborhood coffee shop.",
-      atmosphere: null,
       fetched_at: new Date().toISOString(),
     };
     const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
 
-    const result = await getFreshEnrichment("venue-1", "google-place-1", fresh, repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", "geoapify-place-1", fresh, repository, placesClient);
 
     expect(placesClient.calls).toHaveLength(0);
     expect(repository.upsertCalls).toHaveLength(0);
@@ -158,28 +108,23 @@ describe("getFreshEnrichment", () => {
   it("refetches when the cached enrichment has passed the TTL", async () => {
     const stale: VenueEnrichmentCache = {
       venue_id: "venue-1",
-      source: "google",
-      rating: 4.0,
-      reviews: [{ rating: 4, text: "Old review.", author_name: "Sam", published_at: "2025-12-01T00:00:00Z" }],
-      price_tier: "PRICE_LEVEL_MODERATE",
-      photo_refs: ["https://example.com/old-photo"],
+      source: "geoapify",
       phone: null,
       website: null,
       hours: null,
       editorial_summary: null,
-      atmosphere: null,
       fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
     };
     const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
 
-    const result = await getFreshEnrichment("venue-1", "google-place-1", stale, repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", "geoapify-place-1", stale, repository, placesClient);
 
-    expect(placesClient.calls).toEqual(["google-place-1"]);
-    expect(result?.rating).toBe(4.6);
+    expect(placesClient.calls).toEqual(["geoapify-place-1"]);
+    expect(result?.phone).toBe("(206) 555-0100");
   });
 
-  it("skips enrichment entirely when there's no google_place_id", async () => {
+  it("skips enrichment entirely when there's no geoapify_place_id", async () => {
     const repository = new FakeEnrichmentRepository();
     const placesClient = new FakePlacesClient();
 
@@ -192,16 +137,11 @@ describe("getFreshEnrichment", () => {
   it("falls back to stale data instead of failing when the refresh errors", async () => {
     const stale: VenueEnrichmentCache = {
       venue_id: "venue-1",
-      source: "google",
-      rating: 4.0,
-      reviews: [{ rating: 4, text: "Old review.", author_name: "Sam", published_at: "2025-12-01T00:00:00Z" }],
-      price_tier: "PRICE_LEVEL_MODERATE",
-      photo_refs: ["https://example.com/old-photo"],
+      source: "geoapify",
       phone: null,
       website: null,
       hours: null,
       editorial_summary: null,
-      atmosphere: null,
       fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
     };
     const repository = new FakeEnrichmentRepository();
@@ -210,7 +150,7 @@ describe("getFreshEnrichment", () => {
       throw new Error("Places API is down");
     };
 
-    const result = await getFreshEnrichment("venue-1", "google-place-1", stale, repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", "geoapify-place-1", stale, repository, placesClient);
 
     expect(result).toEqual(stale);
   });
@@ -218,16 +158,11 @@ describe("getFreshEnrichment", () => {
   it("falls back to stale data instead of failing when the cost guardrail trips", async () => {
     const stale: VenueEnrichmentCache = {
       venue_id: "venue-1",
-      source: "google",
-      rating: 4.0,
-      reviews: [{ rating: 4, text: "Old review.", author_name: "Sam", published_at: "2025-12-01T00:00:00Z" }],
-      price_tier: "PRICE_LEVEL_MODERATE",
-      photo_refs: ["https://example.com/old-photo"],
+      source: "geoapify",
       phone: null,
       website: null,
       hours: null,
       editorial_summary: null,
-      atmosphere: null,
       fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
     };
     const repository = new FakeEnrichmentRepository();
@@ -236,7 +171,7 @@ describe("getFreshEnrichment", () => {
       throw new PlacesApiQuotaExceededError("getPlaceDetails");
     };
 
-    const result = await getFreshEnrichment("venue-1", "google-place-1", stale, repository, placesClient);
+    const result = await getFreshEnrichment("venue-1", "geoapify-place-1", stale, repository, placesClient);
 
     expect(result).toEqual(stale);
   });

@@ -159,7 +159,7 @@ import { InstrumentedPlacesClient } from "./places/instrumentedClient";
 import { investigateMissingLocation } from "./places/investigate";
 import { MockPlacesClient } from "./places/mockClient";
 import { previewNeighborhoodBoundary } from "./places/preview";
-import { PlacesApiQuotaExceededError, PlacesApiQuotaGuard, QuotaGuardedPlacesClient } from "./places/quotaGuard";
+import { PlacesApiQuotaGuard, QuotaGuardedPlacesClient } from "./places/quotaGuard";
 import { SupabasePlacesRepository } from "./places/supabaseRepository";
 import { getHappeningNow } from "./locations/happeningNow";
 import {
@@ -308,23 +308,20 @@ const PUBLIC_PATH_PREFIX = /^\/api(?=\/|$)/;
 // PlaceDetailsClient, so the same cached instance also backs the boundary
 // preview route's Nearby Search calls.
 //
-// getPlaceDetails/fetchPhotoMedia additionally go through
-// QuotaGuardedPlacesClient (only when live -- MockPlacesClient never costs
-// anything, so guarding it would just make local dev flaky). It sits
-// outside InstrumentedPlacesClient so a guardrail trip never reaches Google
-// and never gets logged as an attempted call. searchNearby/searchText are
-// left ungated: both are admin-triggered actions (sync, boundary preview,
-// investigate), not something that fires on every visitor page view the way
-// enrichment refresh and photo loading do.
+// getPlaceDetails additionally goes through QuotaGuardedPlacesClient (only
+// when live -- MockPlacesClient never costs anything, so guarding it would
+// just make local dev flaky). It sits outside InstrumentedPlacesClient so a
+// guardrail trip never reaches Google and never gets logged as an attempted
+// call. searchNearby/searchText are left ungated: both are admin-triggered
+// actions (sync, boundary preview, investigate), not something that fires
+// on every visitor page view the way enrichment refresh does.
 //
-// NOT caching fetchPhotoMedia's bytes server-side, on purpose -- an earlier
-// version of this did (Supabase Storage, 30-day TTL), but Google Maps
-// Platform's Terms of Service explicitly prohibit caching Places API photos
-// beyond a live fetch (Section 3.2.3(b) "No Caching"; the only caching
-// exceptions are place_id, cacheable indefinitely, and lat/lng, cacheable
-// 30 days -- neither covers photos). See EnrichmentSection.tsx's
-// photo-count cap and lazy loading for the compliant way this is addressed
-// instead: fetch fewer photos per venue rather than reuse fetched ones.
+// fetchPhotoMedia is still composed below (PlaceDetailsClient still
+// requires it) but nothing calls it anymore -- ratings/reviews/photo
+// galleries were dropped as product features in the Geoapify migration's
+// Phase 3 (docs/geoapify-migration-plan.md), which also retired the photo
+// proxy route this used to back. Left in place for Phase 8's cleanup pass
+// rather than touching client.ts here.
 function getPlacesClient(): GooglePlacesClient & PlaceDetailsClient & PlacesTextSearchClient {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   // Only the real client is instrumented (BACKLOG.md Ref 104 follow-up) --
@@ -636,40 +633,6 @@ export function createApp() {
     } catch (err) {
       console.error(`GET /locations/${req.params.id} failed:`, err);
       res.status(500).json({ error: "Failed to load location" });
-    }
-  });
-
-  // Proxies a cached Google photo reference through the server so the
-  // Places API key (needed to build the actual media URL) never reaches
-  // the browser -- see PlaceDetailsClient.fetchPhotoMedia. `?index=` selects
-  // which of the cached photos to serve (Google returns up to 10 per
-  // location, BACKLOG.md Ref 41); defaults to the first.
-  app.get("/locations/:id/photo", async (req, res) => {
-    try {
-      const index = Number(req.query.index ?? 0);
-      if (!Number.isInteger(index) || index < 0) {
-        res.status(400).json({ error: "index must be a non-negative integer" });
-        return;
-      }
-      const photoReference = await getEnrichmentRepository().getPhotoReference(req.params.id, index);
-      if (!photoReference) {
-        res.status(404).end();
-        return;
-      }
-      const media = await getCachedPlacesClient().fetchPhotoMedia(photoReference);
-      res.setHeader("Content-Type", media.contentType);
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      res.send(Buffer.from(media.data));
-    } catch (err) {
-      // A tripped cost guardrail (QuotaGuardedPlacesClient) isn't a real
-      // failure -- treat it the same as "no photo cached" above rather than
-      // the 502 a genuine Google/network error gets.
-      if (err instanceof PlacesApiQuotaExceededError) {
-        res.status(404).end();
-        return;
-      }
-      console.error(`GET /locations/${req.params.id}/photo failed:`, err);
-      res.status(502).json({ error: "Failed to load photo" });
     }
   });
 
@@ -4208,7 +4171,7 @@ export function createApp() {
   // today (kind hardcoded to "poi" client-side); kind "business" is accepted
   // for forward compatibility but has no manual-create UI yet.
   app.post("/neighborhood-admin/neighborhoods/:id/locations", neighborhoodAdminGate, async (req, res) => {
-    const { kind, name, description, category_id, lat, lng, google_place_id, address } = req.body ?? {};
+    const { kind, name, description, category_id, lat, lng, geoapify_place_id, address } = req.body ?? {};
     if (kind !== "business" && kind !== "poi") {
       res.status(400).json({ error: "kind must be 'business' or 'poi'" });
       return;
@@ -4225,8 +4188,8 @@ export function createApp() {
       res.status(400).json({ error: "lat and lng are required" });
       return;
     }
-    if (google_place_id !== undefined && typeof google_place_id !== "string") {
-      res.status(400).json({ error: "google_place_id must be a string" });
+    if (geoapify_place_id !== undefined && typeof geoapify_place_id !== "string") {
+      res.status(400).json({ error: "geoapify_place_id must be a string" });
       return;
     }
     if (address !== undefined && typeof address !== "string") {
@@ -4237,7 +4200,7 @@ export function createApp() {
     try {
       const location = await createLocation(
         req.params.id,
-        { kind, name, description, categoryId: category_id, lat, lng, googlePlaceId: google_place_id, address },
+        { kind, name, description, categoryId: category_id, lat, lng, geoapifyPlaceId: geoapify_place_id, address },
         getLocationRepository()
       );
       res.status(201).json(location);
@@ -4364,7 +4327,7 @@ export function createApp() {
           api_calls_made: report.apiCallsMade,
           calls_at_result_cap: report.callsAtResultCap,
           new_candidates: report.newCandidates.map((c) => ({
-            google_place_id: c.googlePlaceId,
+            geoapify_place_id: c.geoapifyPlaceId,
             name: c.name,
             lat: c.lat,
             lng: c.lng,
@@ -4415,8 +4378,8 @@ export function createApp() {
         if (
           typeof item !== "object" ||
           item === null ||
-          typeof item.google_place_id !== "string" ||
-          !item.google_place_id ||
+          typeof item.geoapify_place_id !== "string" ||
+          !item.geoapify_place_id ||
           typeof item.name !== "string" ||
           !item.name ||
           typeof item.lat !== "number" ||
@@ -4426,7 +4389,7 @@ export function createApp() {
         ) {
           res.status(400).json({
             error:
-              "each classification requires google_place_id, name, lat, lng, address, and a valid classification",
+              "each classification requires geoapify_place_id, name, lat, lng, address, and a valid classification",
           });
           return;
         }
@@ -4440,7 +4403,7 @@ export function createApp() {
         const result = await commitLocationReview(
           req.params.id,
           classifications.map((item) => ({
-            googlePlaceId: item.google_place_id,
+            geoapifyPlaceId: item.geoapify_place_id,
             name: item.name,
             lat: item.lat,
             lng: item.lng,
@@ -4513,13 +4476,13 @@ export function createApp() {
           boundaryResult.boundary.boundaryGeojson,
           getCachedPlacesClient(),
           categories,
-          existingLocations.map((l) => ({ googlePlaceId: l.google_place_id, name: l.name }))
+          existingLocations.map((l) => ({ geoapifyPlaceId: l.geoapify_place_id, name: l.name }))
         );
 
         res.json({
           query,
           candidates: candidates.map((c) => ({
-            google_place_id: c.raw.id,
+            geoapify_place_id: c.raw.id,
             name: c.name,
             address: c.address,
             lat: c.lat,
@@ -4553,10 +4516,10 @@ export function createApp() {
     "/neighborhood-admin/neighborhoods/:id/locations/investigate/add",
     neighborhoodAdminGate,
     async (req, res) => {
-      const { google_place_id, name, lat, lng, address, category_id } = req.body ?? {};
+      const { geoapify_place_id, name, lat, lng, address, category_id } = req.body ?? {};
       if (
-        typeof google_place_id !== "string" ||
-        !google_place_id ||
+        typeof geoapify_place_id !== "string" ||
+        !geoapify_place_id ||
         typeof name !== "string" ||
         !name ||
         typeof lat !== "number" ||
@@ -4568,7 +4531,7 @@ export function createApp() {
       ) {
         res
           .status(400)
-          .json({ error: "google_place_id, name, lat, lng, address, and category_id are required" });
+          .json({ error: "geoapify_place_id, name, lat, lng, address, and category_id are required" });
         return;
       }
 
@@ -4577,7 +4540,7 @@ export function createApp() {
           req.params.id,
           [
             {
-              googlePlaceId: google_place_id,
+              geoapifyPlaceId: geoapify_place_id,
               name,
               lat,
               lng,
