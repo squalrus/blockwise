@@ -72,6 +72,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 95 | [Dev instance of the app (Netlify and Supabase)](#dev-instance-of-the-app-netlify-and-supabase) | improvement | L | H | — |
 | 113 | [Trim Place Details field mask to a cheaper SKU tier](#trim-place-details-field-mask-to-a-cheaper-sku-tier) | improvement | S | M | — |
+| 114 | [Migrate from Google Places API to Geoapify](#migrate-from-google-places-api-to-geoapify) | improvement | L | M | — |
 | 105 | [Additional app themes within brand guidelines](#additional-app-themes-within-brand-guidelines) | feature | M | L | — |
 
 ### Marketing
@@ -329,6 +330,26 @@ No open limitations.
 **Depends:** —
 **Why** — `DETAIL_FIELD_MASK` (`apps/api/src/places/client.ts`) requests `reviews` and `photos` on every single `getPlaceDetails` call, which pushes every one of those calls into Google's priciest "Place Details Enterprise + Atmosphere" SKU tier ($25/1k) regardless of whether the caller actually needs reviews/photos that time. Places API content (rating, reviews, hours, phone, photos, etc.) has no caching exception under Google's ToS — only `place_id` (indefinite) and lat/lng (30 days) do — so unlike a typical cost problem, caching longer isn't an available lever here; requesting less per call is.
 **Notes:** Check whether every consumer of `VenueEnrichmentCache` actually needs `reviews`/`photos` on every refresh, or whether a cheaper Basic/Contact-only mask would do for most cases, with the Enterprise+Atmosphere mask reserved for whichever specific call sites (if any) truly need it. Related work already shipped: the Places API cost guardrail (`apps/api/src/places/quotaGuard.ts`, `PLACES_API_PRICING` in `packages/types/src/index.ts`) caps `getPlaceDetails`/`fetchPhotoMedia` near the monthly free tier, and `MAX_GALLERY_PHOTOS` (`apps/api/src/enrichment/refresh.ts`) already caps photo count per venue for the same ToS-driven reason. Open question: does trimming the mask conditionally (some calls Basic-only, some Enterprise+Atmosphere) add enough complexity to justify itself, versus just accepting the current flat rate — worth a quick check of how much of `venue_enrichment_cache`'s data actually goes unused before committing to a split.
+
+#### Migrate from Google Places API to Geoapify
+
+**Ref:** 114
+**Type:** improvement
+**Depends:** —
+**Why** — Google's Places ToS forbids caching the fields Spored actually needs (name, address, rating, hours, photos) at all — only `place_id` and lat/lng have caching exceptions — pure friction for a periodic bulk-sync pipeline (`places/sync.ts`) rather than live per-visitor lookups. Geoapify (OSM-based) permits indefinite storage with no per-field restriction, and Spored's real usage volume fits comfortably inside its free tier. Also removes ratings/reviews/photo-gallery features (no Geoapify equivalent; live-verified they're absent from real venue data) and moves map rendering off the separate Google Maps JS SDK onto MapLibre GL JS + Geoapify vector tiles, consolidating everything onto one vendor/key and opening up real map styling/customization that raster tiles don't support.
+**Notes:** Full design, phased rollout, schema changes (rename `venue.google_place_id` → `geoapify_place_id`, trim `venue_enrichment_cache`), category-taxonomy remapping, and frontend removal inventory (rating stat tile, `EnrichmentReviews`/`EnrichmentPhotoGallery`, the `/reviews` tab) are documented in `docs/geoapify-migration-plan.md`. Provider comparison, caching/ToS research, and Geoapify cost estimate are in `docs/location-services-comparison.md`, including live-verification results against 5 real venues already in the `venue` table — confirmed real risks: stale/renamed business data (one venue resolved under a different name in OSM) and hours/phone/website coverage well below Google's. `investigate.ts` (admin "why isn't this venue found" diagnostic) and Monitoring's Places dashboard both need Geoapify-shaped equivalents, not mechanical swaps.
+
+**Progress (9-phase plan, see `docs/geoapify-migration-plan.md` for full detail on each):**
+
+- [x] Phase 1 — Geoapify-native client (`apps/api/src/places/geoapifyClient.ts`, `mockGeoapifyClient.ts`) — shipped v0.84.2, standalone/not yet wired in
+- [ ] Phase 2 — Category taxonomy remapping (`category.source_mapping_json.geoapify` per leaf category)
+- [ ] Phase 3 — Schema changes (rename `venue.google_place_id` → `geoapify_place_id`, trim `venue_enrichment_cache`)
+- [ ] Phase 4 — `sync.ts`/`geo.ts` wiring (depends on 1–3)
+- [ ] Phase 5 — Backfill existing venues via `locations/review.ts`'s admin diff flow (depends on 4)
+- [ ] Phase 6 — Map rendering: MapLibre GL JS + Geoapify vector tiles, replacing Google Maps JS SDK
+- [ ] Phase 7 — Monitoring: Geoapify-shaped `places_api_call_log`/cost tracking
+- [ ] Phase 8 — Cleanup/removal: delete Google Places code, keys, `docs/google-places-setup.md`
+- [ ] Phase 9 — Legal/docs: privacy page subprocessor entry, Geoapify/OSM attribution UI
 
 ### Additional app themes within brand guidelines
 
