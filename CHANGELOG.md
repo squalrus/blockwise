@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.2] — 2026-08-27
+
+### Added
+
+- **Geoapify Places API client** (`LiveGeoapifyClient` + `MockGeoapifyClient`), the first phase of migrating venue discovery and enrichment off Google Places API — Google's Places ToS forbids caching the fields Spored needs (name, address, rating, hours, photos), which is pure friction for a periodic bulk-sync pipeline rather than live per-visitor lookups. Standalone and not yet wired into the live sync pipeline (`places/sync.ts`, `app.ts`); no user-visible or behavioral change in this release. Full design, phased rollout, and live-verification findings against real venue data are in `docs/geoapify-migration-plan.md` and `docs/location-services-comparison.md`. (`apps/api/src/places/geoapifyClient.ts`, `mockGeoapifyClient.ts`, `geoapifyClient.test.ts`)
+
 ## [0.84.1] — 2026-08-26
 
 ### Changed
