@@ -40,3 +40,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# maplibre-gl worker files, copied from node_modules by predev/prebuild
+# (scripts/vendor-maplibre-worker.mjs) -- generated, not source
+/public/maplibre-gl-worker.mjs
+/public/maplibre-gl-shared.mjs
