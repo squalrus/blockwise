@@ -150,7 +150,7 @@ const TABS: {
     children: [
       { key: "overview", href: "", label: "Overview" },
       { key: "performance", href: "/performance", label: "Performance" },
-      { key: "places", href: "/places", label: "Google Places" },
+      { key: "places", href: "/places", label: "Geoapify" },
     ],
   },
   {

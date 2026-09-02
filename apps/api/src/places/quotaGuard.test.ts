@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { PlacesApiQuotaExceededError, PlacesApiQuotaGuard, QuotaGuardedPlacesClient } from "./quotaGuard";
 import type { GeoapifyPlaceDetails, GeoapifyPlaceDetailsClient } from "./geoapifyClient";
+import type { MonitoringPlacesApiDayToDate } from "@blockwise/types";
 
 class FakeInnerClient implements GeoapifyPlaceDetailsClient {
   calls: string[] = [];
@@ -11,43 +12,49 @@ class FakeInnerClient implements GeoapifyPlaceDetailsClient {
   }
 }
 
+function counts(rows: MonitoringPlacesApiDayToDate[]): () => Promise<MonitoringPlacesApiDayToDate[]> {
+  return async () => rows;
+}
+
 describe("PlacesApiQuotaGuard", () => {
-  it("is not near the limit well under the free tier", async () => {
-    const guard = new PlacesApiQuotaGuard(async () => 10);
-    // getPlaceDetails' free tier is 1,000/month (PLACES_API_PRICING).
-    expect(await guard.isNearLimit("getPlaceDetails")).toBe(false);
+  it("is not near the limit well under the shared daily free tier", async () => {
+    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "getPlaceDetails", count: 10 }]));
+    // GEOAPIFY_FREE_DAILY_CREDITS is 3,000/day; 10 credits is nowhere close.
+    expect(await guard.isNearLimit()).toBe(false);
   });
 
   it("trips at the 90% near-limit threshold, not just at 100%", async () => {
-    const guard = new PlacesApiQuotaGuard(async () => 900); // 90% of getPlaceDetails' 1,000 free tier
-    expect(await guard.isNearLimit("getPlaceDetails")).toBe(true);
+    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "getPlaceDetails", count: 2700 }])); // 90% of 3,000
+    expect(await guard.isNearLimit()).toBe(true);
   });
 
-  it("caches the count so repeated checks don't re-query", async () => {
-    const getMonthToDateCallCount = vi.fn().mockResolvedValue(10);
-    const guard = new PlacesApiQuotaGuard(getMonthToDateCallCount);
+  it("caches the total so repeated checks don't re-query", async () => {
+    const getDayToDateCallCounts = vi.fn().mockResolvedValue([{ endpoint: "getPlaceDetails", count: 10 }]);
+    const guard = new PlacesApiQuotaGuard(getDayToDateCallCounts);
 
-    await guard.isNearLimit("getPlaceDetails");
-    await guard.isNearLimit("getPlaceDetails");
+    await guard.isNearLimit();
+    await guard.isNearLimit();
 
-    expect(getMonthToDateCallCount).toHaveBeenCalledTimes(1);
+    expect(getDayToDateCallCounts).toHaveBeenCalledTimes(1);
   });
 
-  it("checks each endpoint's count independently", async () => {
-    const getMonthToDateCallCount = vi.fn().mockImplementation(async (endpoint: string) =>
-      endpoint === "getPlaceDetails" ? 950 : 10
+  it("sums credits across every endpoint toward the shared pool, not just one", async () => {
+    // Neither endpoint alone reaches 2,700, but their combined credit usage does --
+    // Geoapify meters one shared daily pool, not a separate tier per endpoint.
+    const guard = new PlacesApiQuotaGuard(
+      counts([
+        { endpoint: "searchPlaces", count: 1500 },
+        { endpoint: "getPlaceDetails", count: 1500 },
+      ])
     );
-    const guard = new PlacesApiQuotaGuard(getMonthToDateCallCount);
-
-    expect(await guard.isNearLimit("getPlaceDetails")).toBe(true);
-    expect(await guard.isNearLimit("searchPlaces")).toBe(false);
+    expect(await guard.isNearLimit()).toBe(true);
   });
 });
 
 describe("QuotaGuardedPlacesClient", () => {
   it("passes calls through when under the limit", async () => {
     const inner = new FakeInnerClient();
-    const guard = new PlacesApiQuotaGuard(async () => 0);
+    const guard = new PlacesApiQuotaGuard(counts([]));
     const client = new QuotaGuardedPlacesClient(inner, guard);
 
     await client.getPlaceDetails("place-1");
@@ -57,7 +64,7 @@ describe("QuotaGuardedPlacesClient", () => {
 
   it("throws PlacesApiQuotaExceededError instead of calling through when near the limit", async () => {
     const inner = new FakeInnerClient();
-    const guard = new PlacesApiQuotaGuard(async () => 1000); // at getPlaceDetails' free tier
+    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "getPlaceDetails", count: 3000 }])); // at the free tier
     const client = new QuotaGuardedPlacesClient(inner, guard);
 
     await expect(client.getPlaceDetails("place-1")).rejects.toThrow(PlacesApiQuotaExceededError);

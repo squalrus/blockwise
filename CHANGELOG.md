@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.8] — 2026-09-02
+
+### Changed
+
+- **Places monitoring reworked around Geoapify's actual daily-credit metering, replacing the old Google dollar-cost model** (Phase 7 of the Google Places → Geoapify migration): Google billed per-request ($/1000 calls, a separate free tier per endpoint), which never described how Geoapify actually bills — Geoapify sells fixed monthly plans sized to a *shared daily* credit ceiling (Free = 3,000 credits/day/$0). `PLACES_API_PRICING`'s monthly-$/free-events shape is replaced by `PLACES_API_CREDIT_COST` (a per-endpoint credits-per-request weight) and `GEOAPIFY_FREE_DAILY_CREDITS`; the cost guardrail (`PlacesApiQuotaGuard`) now sums weighted credit usage across *every* endpoint against that one shared pool each day, instead of checking `getPlaceDetails`' own count against its own tier — the old per-endpoint model would have missed the real risk of the shared pool being exhausted by other, admin-triggered endpoints. The billing-boundary functions move from a Pacific-Time monthly reset (Google, confirmed) to a UTC daily reset (Geoapify, whose docs don't state a timezone — a documented assumption, not a confirmed one). The Google-only `searchNearby`/`fetchPhotoMedia` endpoint values are fully removed from `PlacesApiEndpoint` and the `places_api_call_log` schema (their historical rows, logged before the Phase 4 cutover, are purged rather than carried forward under a metering model they were never subject to). Monitoring UI: the "Google Places" sub-nav tab and section copy are renamed to "Geoapify" throughout; the dollar-cost tiles/chart are replaced with credit counts; the free-tier widget is now one shared "daily credits" gauge against the 3,000 pool instead of a separate (and misleading) progress bar per endpoint. Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`packages/types/src/index.ts`, `apps/api/src/places/quotaGuard.ts`, `apps/api/src/app.ts`, `apps/api/src/monitoring/`, `apps/web/src/app/admin/super/monitoring/`, `apps/web/src/app/admin/super/layout.tsx`, `supabase/migrations/20260902010000_geoapify_credit_metering.sql`, `supabase/migrations/20260902020000_monitoring_analytics_fn_v8.sql`)
+
 ## [0.84.7] — 2026-09-02
 
 ### Changed

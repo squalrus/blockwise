@@ -3,9 +3,9 @@
 import { MonitoringProvider, RANGE_OPTIONS, domainLabel, useMonitoring } from "./MonitoringContext";
 
 // Super-admin Monitoring section (BACKLOG.md Ref 104): errors (API + web),
-// request volume/latency, and outbound Google Places API calls, rolled on
+// request volume/latency, and outbound Geoapify API calls, rolled on
 // Postgres rather than a third-party service. Split across Overview/
-// Performance/Google Places sub-pages (each its own route under the
+// Performance/Geoapify sub-pages (each its own route under the
 // "Monitoring" entry in AdminShell's left nav, see super/layout.tsx's TABS)
 // rather than one long scroll -- filters live here, above {children}, so
 // they're shared and persist across sub-pages instead of resetting on
@@ -30,7 +30,7 @@ function MonitoringHeader() {
       <div>
         <h1 className="font-heading text-4xl font-extrabold">Monitoring</h1>
         <p className="mt-1 text-[15px] text-body-text">
-          Errors, request activity, DB query latency, and outbound Google Places API calls.
+          Errors, request activity, DB query latency, and outbound Geoapify API calls.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2.5">

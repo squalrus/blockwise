@@ -9,8 +9,8 @@ function formatDay(date: string) {
   return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// Self-instrumented outbound Google Places API calls (InstrumentedPlacesClient),
-// not pulled from Google Cloud Monitoring -- mirrors ErrorsOverTimeChart/
+// Self-instrumented outbound Geoapify API calls (InstrumentedPlacesClient),
+// not pulled from Geoapify's own dashboard -- mirrors ErrorsOverTimeChart/
 // RequestVolumeChart's single-series shape.
 export function PlacesApiCallsChart({ data }: { data: MonitoringDailyCount[] }) {
   if (data.length === 0) {

@@ -1,52 +1,62 @@
-import { PLACES_API_NEAR_LIMIT_THRESHOLD, PLACES_API_PRICING, type PlacesApiEndpoint } from "@blockwise/types";
+import {
+  GEOAPIFY_FREE_DAILY_CREDITS,
+  PLACES_API_CREDIT_COST,
+  PLACES_API_NEAR_LIMIT_THRESHOLD,
+  type MonitoringPlacesApiDayToDate,
+  type PlacesApiEndpoint,
+} from "@blockwise/types";
 import type { GeoapifyPlaceDetails, GeoapifyPlaceDetailsClient } from "./geoapifyClient";
 
 export class PlacesApiQuotaExceededError extends Error {
   constructor(public readonly endpoint: PlacesApiEndpoint) {
-    super(`Places API monthly free-tier guardrail tripped for ${endpoint}`);
+    super(`Places API daily free-credit guardrail tripped for ${endpoint}`);
     this.name = "PlacesApiQuotaExceededError";
   }
 }
 
-// Cache TTL for the month-to-date count -- getPlaceDetails fires on ordinary
-// visitor page views (enrichment refresh), so checking the guard can't cost
-// a DB round trip on every single request. A few minutes of staleness just
-// means the guard trips a handful of calls late near the boundary, which is
-// fine for a cost guardrail.
+// Cache TTL for the day-to-date credit total -- getPlaceDetails fires on
+// ordinary visitor page views (enrichment refresh), so checking the guard
+// can't cost a DB round trip on every single request. A few minutes of
+// staleness just means the guard trips a handful of calls late near the
+// boundary, which is fine for a cost guardrail.
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 // Guards the one non-critical, high-frequency Places API endpoint
 // (getPlaceDetails -- see QuotaGuardedPlacesClient below) against runaway
-// cost: once this billing month's successful call count for an endpoint
-// nears its free tier (PLACES_API_PRICING), further calls are refused
-// rather than spending real money on a feature that degrades gracefully
-// without it. "This month" is computed by getMonthToDateCallCount
-// (SupabaseMonitoringRepository) rather than here, so it doesn't need its
-// own PST/PDT-aware date math (still keyed to Google's old billing-month
-// boundary function -- see that repository's comment; Phase 7 revisits this
-// for Geoapify's daily-credit model). searchPlaces/searchText aren't
-// guarded here -- both are admin-triggered (neighborhood sync, boundary
-// preview, investigate-missing-venue), bounded by an admin actually
-// clicking something rather than by page-view volume.
+// cost: once today's total credit usage across *every* endpoint nears
+// Geoapify's shared daily free tier (GEOAPIFY_FREE_DAILY_CREDITS), further
+// getPlaceDetails calls are refused rather than spending real money on a
+// feature that degrades gracefully without it. Unlike Google's old
+// per-endpoint monthly free tiers, Geoapify meters one shared daily credit
+// pool across the whole account, so the check has to sum every endpoint's
+// weighted usage, not just getPlaceDetails' own count in isolation.
+// searchPlaces/searchText/reverseGeocode still aren't gated here -- all
+// three are admin-triggered (neighborhood sync, boundary preview,
+// investigate-missing-venue), bounded by an admin actually clicking
+// something rather than by page-view volume -- but their credit usage still
+// counts toward the shared total this guard checks.
 export class PlacesApiQuotaGuard {
-  private readonly cache = new Map<PlacesApiEndpoint, { count: number; expiresAt: number }>();
+  private cached: { totalCredits: number; expiresAt: number } | undefined;
 
-  constructor(private readonly getMonthToDateCallCount: (endpoint: PlacesApiEndpoint) => Promise<number>) {}
+  constructor(private readonly getDayToDateCallCounts: () => Promise<MonitoringPlacesApiDayToDate[]>) {}
 
-  async isNearLimit(endpoint: PlacesApiEndpoint): Promise<boolean> {
-    const count = await this.getCount(endpoint);
-    const { freeMonthlyEvents } = PLACES_API_PRICING[endpoint];
-    return count >= freeMonthlyEvents * PLACES_API_NEAR_LIMIT_THRESHOLD;
+  async isNearLimit(): Promise<boolean> {
+    const totalCredits = await this.getTotalCredits();
+    return totalCredits >= GEOAPIFY_FREE_DAILY_CREDITS * PLACES_API_NEAR_LIMIT_THRESHOLD;
   }
 
-  private async getCount(endpoint: PlacesApiEndpoint): Promise<number> {
-    const cached = this.cache.get(endpoint);
+  private async getTotalCredits(): Promise<number> {
+    const cached = this.cached;
     const now = Date.now();
-    if (cached && cached.expiresAt > now) return cached.count;
+    if (cached && cached.expiresAt > now) return cached.totalCredits;
 
-    const count = await this.getMonthToDateCallCount(endpoint);
-    this.cache.set(endpoint, { count, expiresAt: now + CACHE_TTL_MS });
-    return count;
+    const counts = await this.getDayToDateCallCounts();
+    const totalCredits = counts.reduce(
+      (sum, { endpoint, count }) => sum + count * PLACES_API_CREDIT_COST[endpoint].creditsPerRequest,
+      0
+    );
+    this.cached = { totalCredits, expiresAt: now + CACHE_TTL_MS };
+    return totalCredits;
   }
 }
 
@@ -64,7 +74,7 @@ export class QuotaGuardedPlacesClient implements GeoapifyPlaceDetailsClient {
   ) {}
 
   async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {
-    if (await this.guard.isNearLimit("getPlaceDetails")) {
+    if (await this.guard.isNearLimit()) {
       throw new PlacesApiQuotaExceededError("getPlaceDetails");
     }
     return this.inner.getPlaceDetails(placeId);

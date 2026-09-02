@@ -338,9 +338,7 @@ function getPlacesClient(): GeoapifyPlacesClient & GeoapifyPlaceDetailsClient & 
 
 let placesApiQuotaGuard: PlacesApiQuotaGuard | undefined;
 function getPlacesApiQuotaGuard(): PlacesApiQuotaGuard {
-  placesApiQuotaGuard ??= new PlacesApiQuotaGuard((endpoint) =>
-    getMonitoringRepository().getMonthToDateCallCount(endpoint)
-  );
+  placesApiQuotaGuard ??= new PlacesApiQuotaGuard(() => getMonitoringRepository().getDayToDateCallCounts());
   return placesApiQuotaGuard;
 }
 
