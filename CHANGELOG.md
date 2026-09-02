@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.7] — 2026-09-02
+
+### Changed
+
+- **Map rendering moved from the Google Maps JavaScript API to MapLibre GL JS + Geoapify vector tiles** (Phase 6 of the Google Places → Geoapify migration): the neighborhood venue map (`MapView.tsx`, clustering + category-colored markers + popups) and the admin boundary-drawing tool (`BoundaryMap.tsx`) both now render Geoapify's vector tile styles via MapLibre instead of Google's SDK, consolidating map rendering onto the same vendor/API key as venue data. Boundary polygon drawing/editing switches to `@mapbox/mapbox-gl-draw` (MapLibre-compatible click-to-place-vertex + drag-to-adjust) in place of the old hand-rolled Google `Polygon` vertex-editing code. `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is replaced by `NEXT_PUBLIC_GEOAPIFY_API_KEY`. A new `predev`/`prebuild` step (`apps/web/scripts/vendor-maplibre-worker.mjs`) copies MapLibre's worker script into `public/` verbatim, working around a Turbopack/webpack bundling gap where the worker's own relative import otherwise breaks silently (map never finishes loading, no console error). Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`apps/web/src/app/neighborhoods/[slug]/MapView.tsx`, `apps/web/src/app/admin/neighborhood/BoundaryMap.tsx`, `apps/web/src/lib/maplibreWorker.ts`, `apps/web/src/lib/mapboxGlDraw.d.ts`, `apps/web/scripts/vendor-maplibre-worker.mjs`, `apps/web/.env.example`, `apps/web/package.json`)
+
 ## [0.84.6] — 2026-09-02
 
 ### Added
