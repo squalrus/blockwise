@@ -1266,6 +1266,7 @@ export interface GeoapifyMigrationPossibleMatch {
   location_id: string;
   existing_name: string;
   existing_address: string | null;
+  existing_status: VenueStatus;
   geoapify_place_id: string;
   matched_name: string;
   matched_address: string;
@@ -1299,18 +1300,51 @@ export interface GeoapifyMigrationLegacyLocation {
   id: string;
   name: string;
   address: string | null;
+  status: VenueStatus;
   geoapify_place_id: string;
+}
+
+// The complement of GeoapifyMigrationLegacyLocation -- geoapify_place_id is
+// nullable here (unlike the legacy shape) since it also includes a
+// manually-added POI never backed by a Places record at all, not just a
+// location holding a confirmed real (post-Phase-4) Geoapify ID.
+export interface GeoapifyMigrationLocation {
+  id: string;
+  name: string;
+  address: string | null;
+  status: VenueStatus;
+  geoapify_place_id: string | null;
+}
+
+// total_locations is every non-removed location in the neighborhood (both
+// kinds, active or hidden) -- legacy.length + migrated.length. Both lists
+// back the migration page's "2. Still-legacy locations" / "3. Migrated
+// locations" sections; total_locations lets the donut chart above them
+// compute migrated-vs-not without a second call.
+export interface GeoapifyMigrationLegacyLocationsResult {
+  total_locations: number;
+  legacy: GeoapifyMigrationLegacyLocation[];
+  migrated: GeoapifyMigrationLocation[];
 }
 
 // Free-text Geoapify search result for the manual attach step -- a subset
 // of PlacesInvestigationCandidate (no category/boundary/already-known
 // annotations, since this flow doesn't need them).
+//
+// distance_meters is always a real number (from the specific location being
+// reconciled, or the neighborhood centroid as a coarser fallback), never
+// null -- the guardrail this exists for (BACKLOG.md Ref 114: "Kipos Greek"
+// got silently attached to a same-named restaurant 2,500+ miles away in
+// Chapel Hill, NC, since nothing surfaced how far a free-text match
+// actually was) only works if distance is always shown, not sometimes
+// hidden behind an "unknown" state.
 export interface GeoapifyMigrationSearchCandidate {
   geoapify_place_id: string;
   name: string;
   address: string;
   lat: number;
   lng: number;
+  distance_meters: number;
 }
 
 export interface GeoapifyMigrationSearchReport {
@@ -1320,6 +1354,17 @@ export interface GeoapifyMigrationSearchReport {
 
 export interface GeoapifyMigrationAttachRequest {
   geoapify_place_id: string;
+}
+
+// Coordinate-based match (Ref 114 Phase 5's second matching strategy,
+// alongside free-text search above) -- reverse-geocodes a still-legacy
+// location's own stored lat/lng to suggest what's physically there today,
+// catching a renamed/rebranded business a name search would never connect.
+// Same candidate shape as a text search result; empty when Geoapify has no
+// named POI at that exact point (a bare "building" result, filtered out
+// server-side -- see GeoapifyTextSearchClient.reverseGeocode's comment).
+export interface GeoapifyMigrationReverseGeocodeResult {
+  candidates: GeoapifyMigrationSearchCandidate[];
 }
 
 // Only leaf categories (see supabase/migrations/.../category_taxonomy.sql)
@@ -1788,6 +1833,7 @@ export type PlacesApiEndpoint =
   | "searchNearby"
   | "searchPlaces"
   | "searchText"
+  | "reverseGeocode"
   | "getPlaceDetails"
   | "fetchPhotoMedia";
 
@@ -1864,6 +1910,7 @@ export const PLACES_API_PRICING: Record<PlacesApiEndpoint, PlacesApiPricingTier>
   searchNearby: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // Nearby Search Pro
   searchPlaces: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // placeholder, see comment above
   searchText: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // Text Search Pro
+  reverseGeocode: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // placeholder, same Geocoding API family as searchText
   getPlaceDetails: { ratePerThousand: 25, freeMonthlyEvents: 1000 }, // Place Details Enterprise + Atmosphere
   fetchPhotoMedia: { ratePerThousand: 7, freeMonthlyEvents: 1000 }, // Place Photo
 };

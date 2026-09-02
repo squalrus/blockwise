@@ -1,6 +1,6 @@
 {
   "name": "@blockwise/marketing",
-  "version": "0.84.5",
+  "version": "0.84.6",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3100",

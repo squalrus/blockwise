@@ -1,4 +1,4 @@
-import type { GeoJsonPolygon } from "@blockwise/types";
+import type { GeoJsonPolygon, VenueStatus } from "@blockwise/types";
 import { findDuplicate, nameSimilarity } from "../places/dedup";
 import type { GeoapifyPlacesClient } from "../places/geoapifyClient";
 import { isPointInPolygon } from "../places/geo";
@@ -71,6 +71,11 @@ export interface PossibleLocationMatch {
   locationId: string;
   existingName: string;
   existingAddress: string | null;
+  // Surfaced so an admin can tell a hidden (manually curated out of the
+  // normal Locations tab) location apart from an active one before
+  // approving a reidentification -- a hidden row's identity is just as
+  // real, but worth a glance since it's easy to forget it exists.
+  existingStatus: VenueStatus;
   geoapifyPlaceId: string;
   matchedName: string;
   matchedAddress: string;
@@ -140,7 +145,13 @@ export async function reviewNeighborhoodLocations(
   // dropped -- see PossibleLocationMatch's comment.
   const existingDedupList = existingLocations
     .filter((l): l is typeof l & { lat: number; lng: number } => l.lat !== null && l.lng !== null)
-    .map((l) => ({ id: l.id, name: l.name, address: l.address, location: { lat: l.lat, lng: l.lng } }));
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      address: l.address,
+      status: l.status,
+      location: { lat: l.lat, lng: l.lng },
+    }));
 
   // Grows as new candidates are accepted below, mirroring
   // syncNeighborhoodPlaces (sync.ts) -- catches two near-duplicate places
@@ -162,6 +173,7 @@ export async function reviewNeighborhoodLocations(
         locationId: existingMatch.id,
         existingName: existingMatch.name,
         existingAddress: existingMatch.address,
+        existingStatus: existingMatch.status,
         geoapifyPlaceId: place.raw.placeId,
         matchedName: place.name,
         matchedAddress: place.raw.formattedAddress,

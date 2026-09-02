@@ -2,6 +2,23 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.6] — 2026-09-02
+
+### Added
+
+- **"Reassign place ID" on the regular Locations tab** — a small, permanent action per location (business or POI) that opens the same reverse-geocode-suggestion-then-free-text-search flow as the disposable Geoapify migration tool, kept so this capability survives that tool's eventual teardown. Needed because Geoapify's own place IDs aren't as stable as assumed (an OSM name-tag edit alone can produce a new one) and a real venue can simply not be in OpenStreetMap's data yet. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/ReassignPlaceIdPanel.tsx`, `page.tsx`, `apps/api/src/app.ts`)
+- **Migration status donut chart, status badges, and a delete option on `/admin/super/geoapify-migration`**: a ring chart shows migrated-vs-not for active and hidden locations, "Hidden"/"Removed" status pills appear next to possible-match and still-legacy rows, a read-only "Migrated locations" section lists everything already reconciled, and still-legacy entries confirmed as junk can now be hard-deleted (blocked if there's real check-in/points/claim/coupon/event history — hide instead). (`apps/web/src/app/admin/super/geoapify-migration/`, `apps/api/src/app.ts`, `apps/api/src/locations/locations.ts`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Distance guardrail on every place-search and reverse-geocode result** used for reconciling a location's Geoapify place ID (both the migration tool and the new "Reassign place ID" action): every candidate now carries `distance_meters` from the specific location being reconciled, shown on-screen and requiring explicit confirmation past 500m — closes a real gap where a distance-blind free-text search silently attached the wrong, distant place to a real venue. Added coordinate-based reverse-geocode suggestions alongside the existing free-text search, catching a renamed/rebranded business a name search can't connect. (`apps/api/src/places/geoapifyClient.ts`, `mockGeoapifyClient.ts`, `instrumentedClient.ts`, `apps/api/src/app.ts`, `apps/web/src/app/admin/super/geoapify-migration/page.tsx`, `packages/types/src/index.ts`)
+- **Venue sync now revives a location whose status was "removed"** if it's rediscovered under its exact prior Geoapify place ID (e.g. a neighborhood boundary redrawn back out to re-include it, unchanged) — previously the refresh happened silently while the venue stayed invisible forever. A "hidden" location is left untouched either way, since that's a separate, deliberate admin curation choice. (`apps/api/src/places/sync.ts`, `repository.ts`, `supabaseRepository.ts`)
+- **"1. Possible matches" on the migration tool now checked by default** — every match already cleared a real bar (within 30m and a strong name similarity) before appearing, so an admin now unchecks anything that doesn't look right instead of opting in to each one individually. (`apps/web/src/app/admin/super/geoapify-migration/page.tsx`)
+
+### Fixed
+
+- **The migration tool's free-text search was silently returning zero results**: it assumed Geoapify's Geocoding API returned a flat `{results: [...]}` shape, but it actually returns a GeoJSON FeatureCollection (`{features: [{properties}]}`), same as every other Geoapify response. (`apps/api/src/places/geoapifyClient.ts`)
+
 ## [0.84.5] — 2026-08-28
 
 ### Changed

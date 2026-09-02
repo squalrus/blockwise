@@ -7,6 +7,7 @@ import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "../NeighborhoodAdminContext";
 import { PoiForm } from "../PoiForm";
 import { formatCooldownRemaining, useLocationsReviewCooldown } from "../useLocationsReviewCooldown";
+import { ReassignPlaceIdPanel } from "./ReassignPlaceIdPanel";
 
 type Filter = "business" | "poi";
 
@@ -55,6 +56,7 @@ export default function NeighborhoodAdminLocationsPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [editingPoi, setEditingPoi] = useState<Venue | null>(null);
   const [addingPoi, setAddingPoi] = useState(false);
+  const [reassigningId, setReassigningId] = useState<string | null>(null);
   const cooldown = useLocationsReviewCooldown(neighborhoodId);
 
   async function loadLocations(activeSearch: string) {
@@ -200,6 +202,11 @@ export default function NeighborhoodAdminLocationsPage() {
       return;
     }
     await loadLocations(search);
+  }
+
+  function handleReassigned() {
+    setReassigningId(null);
+    loadLocations(search);
   }
 
   function handlePoiCreated() {
@@ -560,6 +567,13 @@ export default function NeighborhoodAdminLocationsPage() {
                   >
                     → POI
                   </a>
+                  <button
+                    type="button"
+                    onClick={() => setReassigningId(reassigningId === loc.id ? null : loc.id)}
+                    className="text-xs font-extrabold text-foreground"
+                  >
+                    Reassign place ID
+                  </button>
 
                   {savingId === loc.id && <span className="text-xs font-bold text-muted">Saving…</span>}
                 </div>
@@ -609,6 +623,13 @@ export default function NeighborhoodAdminLocationsPage() {
                   </a>
                   <button
                     type="button"
+                    onClick={() => setReassigningId(reassigningId === loc.id ? null : loc.id)}
+                    className="text-xs font-extrabold text-foreground"
+                  >
+                    Reassign place ID
+                  </button>
+                  <button
+                    type="button"
                     disabled={savingId === loc.id}
                     onClick={() => handleDeletePoi(loc.id)}
                     className="text-xs font-extrabold text-red-600 dark:text-red-400"
@@ -626,6 +647,17 @@ export default function NeighborhoodAdminLocationsPage() {
                     existing={editingPoi}
                     onUpdated={handlePoiUpdated}
                     onCancel={() => setEditingPoi(null)}
+                  />
+                </div>
+              )}
+
+              {reassigningId === loc.id && (
+                <div className="pl-6">
+                  <ReassignPlaceIdPanel
+                    neighborhoodId={neighborhoodId}
+                    locationId={loc.id}
+                    onReassigned={handleReassigned}
+                    onCancel={() => setReassigningId(null)}
                   />
                 </div>
               )}

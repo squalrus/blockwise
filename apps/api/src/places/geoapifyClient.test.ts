@@ -22,6 +22,15 @@ describe("MockGeoapifyClient", () => {
     const unknown = await client.getPlaceDetails("does-not-exist");
     expect(unknown).toMatchObject({ placeId: "does-not-exist", name: null, categories: [] });
   });
+
+  it("reverseGeocode returns the fixture within 50m, nothing when too far away", async () => {
+    const client = new MockGeoapifyClient();
+    const nearby = await client.reverseGeocode({ lat: 47.6772, lng: -122.3549 });
+    expect(nearby.map((p) => p.name)).toContain("Diesel Fuel Coffee");
+
+    const farAway = await client.reverseGeocode({ lat: 47.5, lng: -122.2 });
+    expect(farAway).toEqual([]);
+  });
 });
 
 describe("LiveGeoapifyClient", () => {
@@ -71,6 +80,102 @@ describe("LiveGeoapifyClient", () => {
     expect(requestedUrl.searchParams.get("categories")).toBe("catering.cafe,commercial.books");
     expect(requestedUrl.searchParams.get("filter")).toBe("circle:-122.35,47.659,400");
     expect(requestedUrl.searchParams.get("apiKey")).toBe("test-key");
+  });
+
+  it("builds a proximity-biased searchText request and maps the FeatureCollection response", async () => {
+    // Regression test: the Geocoding API returns a GeoJSON FeatureCollection
+    // (features[].properties), same top-level shape as the Places API --
+    // not a flat `results` array. An earlier version of searchText assumed
+    // the latter and silently returned [] for every real search.
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        features: [
+          {
+            properties: {
+              place_id: "geo123",
+              name: "7-Eleven",
+              formatted: "7314 Aurora Ave N, Seattle, WA",
+              lat: 47.6826,
+              lon: -122.344,
+              category: "commercial.convenience",
+            },
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LiveGeoapifyClient("test-key");
+    const results = await client.searchText({ text: "7-Eleven", bias: { lat: 47.68, lng: -122.35 } });
+
+    expect(results).toEqual([
+      {
+        placeId: "geo123",
+        name: "7-Eleven",
+        formattedAddress: "7314 Aurora Ave N, Seattle, WA",
+        location: { lat: 47.6826, lng: -122.344 },
+        categories: ["commercial.convenience"],
+      },
+    ]);
+
+    const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(requestedUrl.origin + requestedUrl.pathname).toBe("https://api.geoapify.com/v1/geocode/search");
+    expect(requestedUrl.searchParams.get("text")).toBe("7-Eleven");
+    expect(requestedUrl.searchParams.get("bias")).toBe("proximity:-122.35,47.68");
+  });
+
+  it("reverseGeocode requests the reverse endpoint and keeps only named amenity results", async () => {
+    // Live-verified (Ref 114 Phase 5): reverse-geocoding a legacy venue's
+    // own coordinates can resolve to a nameless "building" result when
+    // Geoapify has no POI tagged at that exact point -- that's not a match
+    // and must not be surfaced as a false-confidence suggestion.
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        features: [
+          {
+            properties: {
+              place_id: "amenity-1",
+              name: "Sully's Snowgoose Saloon",
+              formatted: "6119 Phinney Avenue North, Seattle, WA 98103, United States of America",
+              lat: 47.6737,
+              lon: -122.3546,
+              category: "catering.bar",
+              result_type: "amenity",
+            },
+          },
+          {
+            properties: {
+              place_id: "building-1",
+              formatted: "100 NW 85th Street, Seattle, WA 98117, United States of America",
+              lat: 47.69197,
+              lon: -122.35869,
+              result_type: "building",
+            },
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LiveGeoapifyClient("test-key");
+    const results = await client.reverseGeocode({ lat: 47.6737, lng: -122.3546 });
+
+    expect(results).toEqual([
+      {
+        placeId: "amenity-1",
+        name: "Sully's Snowgoose Saloon",
+        formattedAddress: "6119 Phinney Avenue North, Seattle, WA 98103, United States of America",
+        location: { lat: 47.6737, lng: -122.3546 },
+        categories: ["catering.bar"],
+      },
+    ]);
+
+    const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(requestedUrl.origin + requestedUrl.pathname).toBe("https://api.geoapify.com/v1/geocode/reverse");
+    expect(requestedUrl.searchParams.get("lat")).toBe("47.6737");
+    expect(requestedUrl.searchParams.get("lon")).toBe("-122.3546");
   });
 
   it("maps a place-details response, tolerating missing optional fields", async () => {

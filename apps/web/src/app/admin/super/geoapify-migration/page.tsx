@@ -4,13 +4,17 @@ import { useEffect, useState } from "react";
 import type {
   GeoapifyMigrationCommitResult,
   GeoapifyMigrationLegacyLocation,
+  GeoapifyMigrationLegacyLocationsResult,
+  GeoapifyMigrationLocation,
   GeoapifyMigrationPossibleMatch,
+  GeoapifyMigrationReverseGeocodeResult,
   GeoapifyMigrationReviewResult,
   GeoapifyMigrationSearchCandidate,
   NeighborhoodSummary,
 } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { MigrationStatusDonut } from "./MigrationStatusDonut";
 
 // Disposable, one-time tool (BACKLOG.md Ref 114 Phase 5): every location
 // synced before the Geoapify migration's Phase 4 cutover still carries its
@@ -21,7 +25,8 @@ import { clientApiUrl } from "@/lib/clientApi";
 // migration" sidebar tab in ../layout.tsx -- can be deleted cleanly once
 // every location has a real Geoapify ID.
 //
-// Two steps, matching the two ways a location can fail to auto-match:
+// Three sections: the two ways a location can fail to auto-match, plus a
+// read-only record of what's already done.
 // 1. Possible matches -- a fresh boundary search fuzzy-matched (name +
 //    location) an existing location. Each needs an explicit approve before
 //    its geoapify_place_id is rewritten -- never automatic, since a wrong
@@ -30,6 +35,10 @@ import { clientApiUrl } from "@/lib/clientApi";
 //    that, i.e. Geoapify's boundary search never resurfaced it at all (a
 //    real, confirmed coverage gap -- docs/geoapify-migration-plan.md
 //    Phase 0). Search for it by hand and attach the right result.
+// 3. Migrated locations -- the complement of #2: every location that
+//    already holds a confirmed real Geoapify ID (or was never Places-backed
+//    at all, e.g. a manually-added POI), read-only, for confirming progress
+//    without leaving the page.
 
 type ReviewState =
   | { status: "idle" }
@@ -41,7 +50,12 @@ type ReviewState =
 type LegacyState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "loaded"; locations: GeoapifyMigrationLegacyLocation[] }
+  | {
+      status: "loaded";
+      totalLocations: number;
+      locations: GeoapifyMigrationLegacyLocation[];
+      migratedLocations: GeoapifyMigrationLocation[];
+    }
   | { status: "error"; message: string };
 
 type SearchState =
@@ -50,8 +64,37 @@ type SearchState =
   | { status: "results"; candidates: GeoapifyMigrationSearchCandidate[] }
   | { status: "error"; message: string };
 
+// Auto-run the moment "Find & attach" opens for a location -- reverse-
+// geocodes its own stored lat/lng rather than waiting on a manual query.
+// "none" (as opposed to "error") means the lookup succeeded but Geoapify
+// has no named POI at that exact point today, not a failure.
+type ReverseSuggestionState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "found"; candidates: GeoapifyMigrationSearchCandidate[] }
+  | { status: "none" };
+
+// Splits the legacy/migrated lists (already fetched for the "2."/"3."
+// sections below) by status, for the "Migration status" overview's
+// per-status meters -- avoids a second API round trip for a breakdown
+// that's just a different grouping of data already on the page.
+function statusBreakdown(
+  status: "active" | "hidden",
+  legacyLocations: GeoapifyMigrationLegacyLocation[],
+  migratedLocations: GeoapifyMigrationLocation[]
+): { total: number; migrated: number } {
+  const migrated = migratedLocations.filter((l) => l.status === status).length;
+  const legacy = legacyLocations.filter((l) => l.status === status).length;
+  return { total: migrated + legacy, migrated };
+}
+
 function matchKey(match: GeoapifyMigrationPossibleMatch): string {
   return `${match.location_id}:${match.geoapify_place_id}`;
+}
+
+function formatDistance(meters: number): string {
+  if (meters < 1000) return `${meters}m away`;
+  return `${(meters / 1000).toFixed(1)}km away`;
 }
 
 export default function GeoapifyMigrationPage() {
@@ -65,6 +108,9 @@ export default function GeoapifyMigrationPage() {
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState<SearchState>({ status: "idle" });
+  const [reverseSuggestion, setReverseSuggestion] = useState<ReverseSuggestionState>({ status: "idle" });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadNeighborhoods() {
@@ -88,7 +134,13 @@ export default function GeoapifyMigrationPage() {
       setLegacy({ status: "error", message: "Failed to load legacy locations" });
       return;
     }
-    setLegacy({ status: "loaded", locations: await res.json() });
+    const result: GeoapifyMigrationLegacyLocationsResult = await res.json();
+    setLegacy({
+      status: "loaded",
+      totalLocations: result.total_locations,
+      locations: result.legacy,
+      migratedLocations: result.migrated,
+    });
   }
 
   useEffect(() => {
@@ -115,7 +167,14 @@ export default function GeoapifyMigrationPage() {
       return;
     }
     const result: GeoapifyMigrationReviewResult = await res.json();
-    setApproved(new Set());
+    // Checked by default -- unlike the free-text search+attach flow
+    // (BACKLOG.md Ref 114: nothing bounded that search's results, which is
+    // how a same-named restaurant 2,500+ miles away got attached), every
+    // possible match here already cleared a real bar to exist at all:
+    // within 30m *and* >=60% name similarity (dedup.ts's isDuplicate).
+    // Still reversible before committing -- an admin can uncheck any one
+    // that still looks wrong.
+    setApproved(new Set(result.possible_matches.map(matchKey)));
     setReview({ status: "loaded", result });
   }
 
@@ -153,20 +212,35 @@ export default function GeoapifyMigrationPage() {
     void loadLegacyLocations(neighborhoodId);
   }
 
-  function startAttaching(location: GeoapifyMigrationLegacyLocation) {
+  async function startAttaching(location: GeoapifyMigrationLegacyLocation) {
     setAttachingId(location.id);
     setQuery(location.name);
     setSearch({ status: "idle" });
+    setReverseSuggestion({ status: "loading" });
+
+    const token = await getAccessToken();
+    const res = await fetch(
+      clientApiUrl(`/admin/geoapify-migration/neighborhoods/${neighborhoodId}/locations/${location.id}/reverse-geocode`),
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) {
+      setReverseSuggestion({ status: "none" });
+      return;
+    }
+    const body: GeoapifyMigrationReverseGeocodeResult = await res.json();
+    setReverseSuggestion(
+      body.candidates.length > 0 ? { status: "found", candidates: body.candidates } : { status: "none" }
+    );
   }
 
   async function runSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() || !attachingId) return;
     setSearch({ status: "loading" });
     const token = await getAccessToken();
     const res = await fetch(
       clientApiUrl(
-        `/admin/geoapify-migration/neighborhoods/${neighborhoodId}/investigate?query=${encodeURIComponent(query)}`
+        `/admin/geoapify-migration/neighborhoods/${neighborhoodId}/investigate?query=${encodeURIComponent(query)}&location_id=${attachingId}`
       ),
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -179,8 +253,24 @@ export default function GeoapifyMigrationPage() {
     setSearch({ status: "results", candidates: body.candidates });
   }
 
+  // A distance-blind attach is exactly how a wrong Geoapify place got
+  // silently attached to a real venue (BACKLOG.md Ref 114: "Kipos Greek"
+  // matched a same-named restaurant 2,500+ miles away in Chapel Hill, NC).
+  // Not a hard block -- a business can legitimately have moved a few blocks
+  // within the neighborhood -- but anything past a short walk requires an
+  // explicit, informed confirmation naming the actual distance.
+  const ATTACH_CONFIRM_DISTANCE_METERS = 500;
+
   async function attach(candidate: GeoapifyMigrationSearchCandidate) {
     if (!attachingId) return;
+    if (
+      candidate.distance_meters > ATTACH_CONFIRM_DISTANCE_METERS &&
+      !window.confirm(
+        `This result is ${formatDistance(candidate.distance_meters)} from the location you're reconciling. Attach it anyway?`
+      )
+    ) {
+      return;
+    }
     const token = await getAccessToken();
     const res = await fetch(
       clientApiUrl(`/admin/geoapify-migration/neighborhoods/${neighborhoodId}/locations/${attachingId}/attach`),
@@ -197,6 +287,29 @@ export default function GeoapifyMigrationPage() {
     }
     setAttachingId(null);
     setSearch({ status: "idle" });
+    setReverseSuggestion({ status: "idle" });
+    void loadLegacyLocations(neighborhoodId);
+  }
+
+  async function deleteLegacyLocation(location: GeoapifyMigrationLegacyLocation) {
+    if (!window.confirm(`Delete "${location.name}"? This can't be undone.`)) return;
+    setDeletingId(location.id);
+    setDeleteError(null);
+    const token = await getAccessToken();
+    const res = await fetch(
+      clientApiUrl(`/admin/geoapify-migration/neighborhoods/${neighborhoodId}/locations/${location.id}`),
+      { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+    );
+    setDeletingId(null);
+    if (res.status === 409) {
+      const body = await res.json().catch(() => ({}));
+      setDeleteError(body.error ?? "This location can't be deleted — hide it instead.");
+      return;
+    }
+    if (!res.ok) {
+      setDeleteError("Failed to delete location.");
+      return;
+    }
     void loadLegacyLocations(neighborhoodId);
   }
 
@@ -227,6 +340,20 @@ export default function GeoapifyMigrationPage() {
 
       {neighborhoodId && (
         <>
+          <section className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-3 text-xs font-extrabold tracking-wide text-muted uppercase">Migration status</h2>
+            {legacy.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
+            {legacy.status === "error" && <p className="text-sm text-red-600 dark:text-red-400">{legacy.message}</p>}
+            {legacy.status === "loaded" && (
+              <MigrationStatusDonut
+                totalLocations={legacy.totalLocations}
+                legacyCount={legacy.locations.length}
+                active={statusBreakdown("active", legacy.locations, legacy.migratedLocations)}
+                hidden={statusBreakdown("hidden", legacy.locations, legacy.migratedLocations)}
+              />
+            )}
+          </section>
+
           {/* --- Step 1: possible matches --- */}
           <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
             <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">
@@ -251,9 +378,9 @@ export default function GeoapifyMigrationPage() {
                 ) : (
                   <>
                     <p className="text-sm text-muted">
-                      Each of these is an existing location the search matched by name and location, not by place
-                      ID. Check the ones that are genuinely the same place before committing — nothing is written
-                      until you do.
+                      Each of these is an existing location the search matched by name and location (within 30m and
+                      a strong name match), not by place ID — checked by default. Uncheck any that don&apos;t
+                      actually look right before committing; nothing is written until you do.
                     </p>
                     <ul className="flex flex-col gap-2">
                       {review.result.possible_matches
@@ -272,9 +399,14 @@ export default function GeoapifyMigrationPage() {
                               onChange={() => toggleApproved(match)}
                             />
                             <div className="flex-1">
-                              <p className="font-extrabold text-foreground">
+                              <p className="flex flex-wrap items-center gap-1.5 font-extrabold text-foreground">
                                 {match.existing_name} <span className="font-normal text-muted">→</span>{" "}
                                 {match.matched_name}
+                                {match.existing_status === "hidden" && (
+                                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-extrabold text-muted">
+                                    Hidden
+                                  </span>
+                                )}
                               </p>
                               <p className="text-xs text-muted">
                                 {match.existing_address ?? "No address on file"} → {match.matched_address}
@@ -339,9 +471,11 @@ export default function GeoapifyMigrationPage() {
             <p className="text-sm text-muted">
               Everything left with a Google-shaped place ID after the boundary search above — either Geoapify
               never resurfaced it, or it didn&apos;t clear the fuzzy match. Search and attach the right result by
-              hand.
+              hand, or delete it if it&apos;s junk — a duplicate, or never a real place. Blocked only if it has real
+              check-in, points, claim, coupon, or event history — that gets hidden instead, not deleted.
             </p>
 
+            {deleteError && <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>}
             {legacy.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
             {legacy.status === "error" && <p className="text-sm text-red-600 dark:text-red-400">{legacy.message}</p>}
             {legacy.status === "loaded" && (
@@ -356,20 +490,75 @@ export default function GeoapifyMigrationPage() {
                       <li key={location.id} className="rounded-xl bg-card-alt px-3.5 py-2.5 text-sm">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <p className="font-extrabold text-foreground">{location.name}</p>
+                            <p className="flex flex-wrap items-center gap-1.5 font-extrabold text-foreground">
+                              {location.name}
+                              {location.status === "hidden" && (
+                                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-extrabold text-muted">
+                                  Hidden
+                                </span>
+                              )}
+                            </p>
                             <p className="text-xs text-muted">{location.address ?? "No address on file"}</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => startAttaching(location)}
-                            className="shrink-0 rounded-md border border-border px-3 py-1 text-xs font-extrabold text-foreground hover:bg-card"
-                          >
-                            {attachingId === location.id ? "Searching…" : "Find & attach"}
-                          </button>
+                          <div className="flex shrink-0 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startAttaching(location)}
+                              className="rounded-md border border-border px-3 py-1 text-xs font-extrabold text-foreground hover:bg-card"
+                            >
+                              {attachingId === location.id ? "Searching…" : "Find & attach"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteLegacyLocation(location)}
+                              disabled={deletingId === location.id}
+                              className="rounded-md border border-red-500/40 px-3 py-1 text-xs font-extrabold text-red-600 hover:bg-red-500/10 disabled:opacity-50 dark:text-red-400"
+                            >
+                              {deletingId === location.id ? "Deleting…" : "Delete"}
+                            </button>
+                          </div>
                         </div>
 
                         {attachingId === location.id && (
                           <div className="mt-2.5 flex flex-col gap-2 border-t border-border pt-2.5">
+                            {reverseSuggestion.status === "loading" && (
+                              <p className="text-xs text-muted">Checking what&apos;s at this location&apos;s coordinates now…</p>
+                            )}
+                            {reverseSuggestion.status === "found" && (
+                              <div className="flex flex-col gap-1.5">
+                                <p className="text-[10px] font-extrabold tracking-wide text-muted uppercase">
+                                  Suggested — same coordinates
+                                </p>
+                                <ul className="flex flex-col gap-1.5">
+                                  {reverseSuggestion.candidates.map((c) => (
+                                    <li
+                                      key={c.geoapify_place_id}
+                                      className="flex items-center justify-between gap-2 rounded-md bg-brand-green/10 px-2.5 py-1.5"
+                                    >
+                                      <div>
+                                        <p className="text-xs font-extrabold text-foreground">{c.name}</p>
+                                        <p className="text-[11px] text-muted">
+                                          {c.address} · {formatDistance(c.distance_meters)}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => attach(c)}
+                                        className="shrink-0 rounded-md bg-brand-green px-2.5 py-1 text-[11px] font-extrabold text-on-accent"
+                                      >
+                                        Attach
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {reverseSuggestion.status === "none" && (
+                              <p className="text-xs text-muted">
+                                Nothing named at this location&apos;s coordinates today — search by name instead.
+                              </p>
+                            )}
+
                             <form onSubmit={runSearch} className="flex gap-2">
                               <input
                                 type="text"
@@ -386,7 +575,10 @@ export default function GeoapifyMigrationPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setAttachingId(null)}
+                                onClick={() => {
+                                  setAttachingId(null);
+                                  setReverseSuggestion({ status: "idle" });
+                                }}
                                 className="rounded-md border border-border px-3 py-1 text-xs font-bold text-foreground"
                               >
                                 Cancel
@@ -409,7 +601,18 @@ export default function GeoapifyMigrationPage() {
                                   >
                                     <div>
                                       <p className="text-xs font-extrabold text-foreground">{c.name}</p>
-                                      <p className="text-[11px] text-muted">{c.address}</p>
+                                      <p className="text-[11px] text-muted">
+                                        {c.address}{" "}
+                                        <span
+                                          className={
+                                            c.distance_meters > ATTACH_CONFIRM_DISTANCE_METERS
+                                              ? "font-bold text-red-600 dark:text-red-400"
+                                              : undefined
+                                          }
+                                        >
+                                          · {formatDistance(c.distance_meters)}
+                                        </span>
+                                      </p>
                                     </div>
                                     <button
                                       type="button"
@@ -430,6 +633,49 @@ export default function GeoapifyMigrationPage() {
                 )}
               </>
             )}
+          </section>
+
+          {/* --- Step 3: migrated locations (read-only) --- */}
+          <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
+            <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">3. Migrated locations</h2>
+            <p className="text-sm text-muted">
+              Everything not on the still-legacy list above — already holds a real Geoapify place ID, or was never
+              backed by a Places record at all (e.g. a manually-added POI). Read-only.
+            </p>
+
+            {legacy.status === "loading" && <p className="text-sm text-muted">Loading…</p>}
+            {legacy.status === "error" && <p className="text-sm text-red-600 dark:text-red-400">{legacy.message}</p>}
+            {legacy.status === "loaded" &&
+              (legacy.migratedLocations.length === 0 ? (
+                <p className="text-sm text-muted">No migrated locations yet.</p>
+              ) : (
+                <ul className="flex max-h-96 flex-col gap-2 overflow-y-auto">
+                  {legacy.migratedLocations.map((location) => (
+                    <li
+                      key={location.id}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-card-alt px-3.5 py-2.5 text-sm"
+                    >
+                      <div>
+                        <p className="flex flex-wrap items-center gap-1.5 font-extrabold text-foreground">
+                          {location.name}
+                          {location.status === "hidden" && (
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-extrabold text-muted">
+                              Hidden
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-muted">{location.address ?? "No address on file"}</p>
+                      </div>
+                      <p
+                        className="max-w-[140px] shrink-0 truncate font-mono text-[11px] text-muted"
+                        title={location.geoapify_place_id ?? undefined}
+                      >
+                        {location.geoapify_place_id ?? "No Places ID"}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ))}
           </section>
         </>
       )}

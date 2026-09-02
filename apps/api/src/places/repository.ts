@@ -1,3 +1,4 @@
+import type { VenueStatus } from "@blockwise/types";
 import type { CategoryRecord } from "./categorize";
 
 export interface NeighborhoodRecord {
@@ -14,6 +15,7 @@ export interface ExistingVenue {
   lat: number;
   lng: number;
   claimedByBusiness: boolean;
+  status: VenueStatus;
 }
 
 export interface UpsertVenueInput {
@@ -24,6 +26,14 @@ export interface UpsertVenueInput {
   lng: number;
   address: string;
   neighborhoodId: string;
+  // Set only when this upsert is reviving a venue that matched by exact
+  // geoapify_place_id but was previously status "removed" (BACKLOG.md Ref
+  // 114's migration surfaced this gap: upsertVenue never touched status, so
+  // a boundary redrawn back out to re-include an unchanged venue refreshed
+  // its data but left it silently invisible forever). Never forces "hidden"
+  // back to "active" -- that's a separate, deliberate admin curation axis
+  // this sync pipeline must never override.
+  revive?: boolean;
 }
 
 // Abstracts persistence so the sync orchestrator (sync.ts) can be tested

@@ -173,6 +173,13 @@ export interface SyncReport {
   callsAtResultCap: number;
   inserted: string[];
   updated: string[];
+  // Subset of `updated` -- a venue rediscovered under its exact prior
+  // geoapify_place_id whose status was "removed" (BACKLOG.md Ref 114's
+  // migration surfaced this gap: upsertVenue never touched status, so a
+  // boundary redrawn back out to re-include an unchanged venue refreshed
+  // its data but left it silently invisible forever). See
+  // UpsertVenueInput.revive's comment.
+  revived: string[];
   skippedOutOfBoundary: number;
   skippedClosedPermanently: number;
   skippedClaimed: string[];
@@ -214,6 +221,7 @@ export async function syncNeighborhoodPlaces(
     callsAtResultCap: search.callsAtResultCap,
     inserted: [],
     updated: [],
+    revived: [],
     skippedOutOfBoundary: search.skippedOutOfBoundary,
     skippedClosedPermanently: search.skippedClosedPermanently,
     skippedClaimed: [],
@@ -237,10 +245,17 @@ export async function syncNeighborhoodPlaces(
         continue;
       }
 
+      // A removed venue rediscovered under its exact prior geoapify_place_id
+      // (e.g. a boundary redrawn back out to re-include it, unchanged) is
+      // revived to "active" -- see UpsertVenueInput.revive's comment. A
+      // "hidden" venue is left alone; that's a separate, deliberate admin
+      // curation choice this pipeline must never override.
+      const revive = existingByPlaceId.status === "removed";
       await repository.upsertVenue(
-        toUpsertInput(place, name, location, category?.id ?? null, neighborhood.id)
+        toUpsertInput(place, name, location, category?.id ?? null, neighborhood.id, revive)
       );
       report.updated.push(name);
+      if (revive) report.revived.push(name);
       continue;
     }
 
@@ -265,6 +280,7 @@ export async function syncNeighborhoodPlaces(
       lat: location.lat,
       lng: location.lng,
       claimedByBusiness: false,
+      status: "active",
     });
   }
 
@@ -276,7 +292,8 @@ function toUpsertInput(
   name: string,
   location: { lat: number; lng: number },
   categoryId: string | null,
-  neighborhoodId: string
+  neighborhoodId: string,
+  revive = false
 ) {
   return {
     geoapifyPlaceId: place.placeId,
@@ -286,5 +303,6 @@ function toUpsertInput(
     lng: location.lng,
     address: place.formattedAddress,
     neighborhoodId,
+    revive,
   };
 }

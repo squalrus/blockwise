@@ -40,7 +40,7 @@ export class SupabasePlacesRepository implements PlacesRepository {
   async listVenuesByNeighborhood(neighborhoodId: string): Promise<ExistingVenue[]> {
     const { data, error } = await this.supabase
       .from("venue")
-      .select("id, geoapify_place_id, name, lat, lng, claimed_by_business")
+      .select("id, geoapify_place_id, name, lat, lng, claimed_by_business, status")
       .eq("neighborhood_id", neighborhoodId);
 
     if (error) throw new Error(`listVenuesByNeighborhood failed: ${error.message}`);
@@ -52,6 +52,7 @@ export class SupabasePlacesRepository implements PlacesRepository {
       lat: row.lat,
       lng: row.lng,
       claimedByBusiness: row.claimed_by_business,
+      status: row.status,
     }));
   }
 
@@ -59,6 +60,12 @@ export class SupabasePlacesRepository implements PlacesRepository {
     // Conflict target matches venue_geoapify_place_id_neighborhood_id_key --
     // uniqueness is per neighborhood, not global, so the same Geoapify Place
     // can be claimed independently by more than one neighborhood.
+    //
+    // status is omitted from the payload except when reviving (see
+    // UpsertVenueInput.revive) -- Supabase's upsert only writes columns
+    // present here, so leaving it out means an existing row's status
+    // (active or a deliberately curated "hidden") passes through the
+    // conflict untouched.
     const { error } = await this.supabase.from("venue").upsert(
       {
         geoapify_place_id: venue.geoapifyPlaceId,
@@ -68,6 +75,7 @@ export class SupabasePlacesRepository implements PlacesRepository {
         lng: venue.lng,
         address: venue.address,
         neighborhood_id: venue.neighborhoodId,
+        ...(venue.revive ? { status: "active" as const } : {}),
       },
       { onConflict: "geoapify_place_id,neighborhood_id" }
     );

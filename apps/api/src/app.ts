@@ -154,7 +154,7 @@ import {
   type GeoapifyPlacesClient,
   type GeoapifyTextSearchClient,
 } from "./places/geoapifyClient";
-import { isValidPolygon } from "./places/geo";
+import { haversineMeters, isValidPolygon } from "./places/geo";
 import { InstrumentedPlacesClient } from "./places/instrumentedClient";
 import { investigateMissingLocation } from "./places/investigate";
 import { isLegacyGooglePlaceId } from "./places/legacyPlaceId";
@@ -331,6 +331,7 @@ function getPlacesClient(): GeoapifyPlacesClient & GeoapifyPlaceDetailsClient & 
   return {
     searchPlaces: (params) => live.searchPlaces(params),
     searchText: (params) => live.searchText(params),
+    reverseGeocode: (point) => live.reverseGeocode(point),
     getPlaceDetails: (placeId) => guarded.getPlaceDetails(placeId),
   };
 }
@@ -4614,6 +4615,7 @@ export function createApp() {
             location_id: m.locationId,
             existing_name: m.existingName,
             existing_address: m.existingAddress,
+            existing_status: m.existingStatus,
             geoapify_place_id: m.geoapifyPlaceId,
             matched_name: m.matchedName,
             matched_address: m.matchedAddress,
@@ -4679,18 +4681,33 @@ export function createApp() {
     async (req, res) => {
       try {
         const locations = await listLocationListItemsForNeighborhood(req.params.id, getLocationRepository());
-        const legacy = locations.filter(
-          (l): l is typeof l & { geoapify_place_id: string } =>
-            l.geoapify_place_id !== null && isLegacyGooglePlaceId(l.geoapify_place_id)
-        );
-        res.json(
-          legacy.map((l) => ({
+        const isLegacy = (l: (typeof locations)[number]) =>
+          l.geoapify_place_id !== null && isLegacyGooglePlaceId(l.geoapify_place_id);
+        const legacy = locations.filter(isLegacy);
+        // Everything not legacy -- includes both a real (post-Phase-4)
+        // Geoapify ID and a null one (a manually-added POI never backed by
+        // a Places record at all, so there was never a Google ID to
+        // migrate away from). Surfaced on the migration page's "Migrated
+        // locations" section as the complement of the legacy list, matching
+        // the donut chart's same total_locations - legacy.length math.
+        const migrated = locations.filter((l) => !isLegacy(l));
+        res.json({
+          total_locations: locations.length,
+          legacy: legacy.map((l) => ({
             id: l.id,
             name: l.name,
             address: l.address,
+            status: l.status,
             geoapify_place_id: l.geoapify_place_id,
-          }))
-        );
+          })),
+          migrated: migrated.map((l) => ({
+            id: l.id,
+            name: l.name,
+            address: l.address,
+            status: l.status,
+            geoapify_place_id: l.geoapify_place_id,
+          })),
+        });
       } catch (err) {
         console.error(`GET /admin/geoapify-migration/neighborhoods/${req.params.id}/legacy-locations failed:`, err);
         res.status(500).json({ error: "Failed to list legacy locations" });
@@ -4701,6 +4718,18 @@ export function createApp() {
   // Same free-text Geoapify lookup as .../locations/investigate
   // (neighborhoodAdminGate), just superAdminGate-scoped so this migration
   // tool doesn't require the operator to also be that neighborhood's admin.
+  //
+  // Biases by, and reports each result's distance from, the specific
+  // location being reconciled (?location_id) rather than just the
+  // neighborhood's centroid -- a distance-blind free-text search is exactly
+  // how a wrong Geoapify place got attached to a real Phinneywood venue
+  // (BACKLOG.md Ref 114: a nationwide name match for "Kipos Greek" outranked
+  // the real candidate and got attached with nothing surfacing that it was
+  // actually in Chapel Hill, NC, 2,500+ miles away). Falls back to the
+  // neighborhood centroid (still a real, meaningful reference point, just
+  // coarser) if location_id is omitted or the location has no stored
+  // coordinates -- distance_meters is always a real number, never a silent
+  // "unknown."
   app.get(
     "/admin/geoapify-migration/neighborhoods/:id/investigate",
     superAdminGate,
@@ -4718,10 +4747,19 @@ export function createApp() {
           return;
         }
 
+        let referencePoint = { lat: boundaryResult.boundary.centerLat, lng: boundaryResult.boundary.centerLng };
+        const locationId = req.query.location_id;
+        if (typeof locationId === "string" && locationId) {
+          const locationResult = await getLocationForNeighborhood(req.params.id, locationId, getLocationRepository());
+          if (locationResult.status === "found" && locationResult.location.lat !== null && locationResult.location.lng !== null) {
+            referencePoint = { lat: locationResult.location.lat, lng: locationResult.location.lng };
+          }
+        }
+
         const categories = await getPlacesRepository().listCategories();
         const candidates = await investigateMissingLocation(
           query,
-          { lat: boundaryResult.boundary.centerLat, lng: boundaryResult.boundary.centerLng },
+          referencePoint,
           boundaryResult.boundary.boundaryGeojson,
           getCachedPlacesClient(),
           categories,
@@ -4736,11 +4774,57 @@ export function createApp() {
             address: c.address,
             lat: c.lat,
             lng: c.lng,
+            distance_meters: Math.round(haversineMeters(referencePoint, { lat: c.lat, lng: c.lng })),
           })),
         });
       } catch (err) {
         console.error(`GET /admin/geoapify-migration/neighborhoods/${req.params.id}/investigate failed:`, err);
         res.status(500).json({ error: "Failed to investigate location" });
+      }
+    }
+  );
+
+  // Second matching strategy alongside .../investigate above: reverse-
+  // geocodes a legacy-locations punch-list entry's own stored lat/lng,
+  // rather than requiring the admin to guess a free-text query -- catches a
+  // renamed/rebranded business a name search would never connect (live-
+  // verified: "Sullys Ale House LLC" -> "Sully's Snowgoose Saloon", same
+  // point). Auto-run by the migration page the moment "Find & attach" opens
+  // for a location; the free-text search stays available as a fallback.
+  app.get(
+    "/admin/geoapify-migration/neighborhoods/:id/locations/:locationId/reverse-geocode",
+    superAdminGate,
+    async (req, res) => {
+      try {
+        const result = await getLocationForNeighborhood(req.params.id, req.params.locationId, getLocationRepository());
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Location not found" });
+          return;
+        }
+        if (result.location.lat === null || result.location.lng === null) {
+          res.json({ candidates: [] });
+          return;
+        }
+
+        const locationPoint = { lat: result.location.lat, lng: result.location.lng };
+        const candidates = await getCachedPlacesClient().reverseGeocode(locationPoint);
+
+        res.json({
+          candidates: candidates.map((c) => ({
+            geoapify_place_id: c.placeId,
+            name: c.name,
+            address: c.formattedAddress,
+            lat: c.location.lat,
+            lng: c.location.lng,
+            distance_meters: Math.round(haversineMeters(locationPoint, c.location)),
+          })),
+        });
+      } catch (err) {
+        console.error(
+          `GET /admin/geoapify-migration/neighborhoods/${req.params.id}/locations/${req.params.locationId}/reverse-geocode failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to reverse geocode location" });
       }
     }
   );
@@ -4777,6 +4861,50 @@ export function createApp() {
           err
         );
         res.status(500).json({ error: "Failed to attach place id" });
+      }
+    }
+  );
+
+  // Hard-delete for a still-legacy row an admin has confirmed is junk (never
+  // a real place, or a duplicate) rather than something to reidentify --
+  // deleteLocationForNeighborhood, but with allowBusinessKind: true, since
+  // most of this punch list is business-kind and the categorical "never a
+  // business" block that protects the regular neighborhood-admin Locations
+  // tab doesn't apply here: superAdminGate already scopes this to a
+  // deliberate cleanup action, not a click any neighborhood admin could
+  // make by accident. hasDependentActivity (checkin/point_event/challenge/
+  // favorite/business_claim/coupon/event) still blocks the delete either
+  // way -- that's the real safety net, not the kind check.
+  app.delete(
+    "/admin/geoapify-migration/neighborhoods/:id/locations/:locationId",
+    superAdminGate,
+    async (req, res) => {
+      try {
+        const result = await deleteLocationForNeighborhood(req.params.id, req.params.locationId, getLocationRepository(), {
+          allowBusinessKind: true,
+        });
+        switch (result.status) {
+          case "not_found":
+            res.status(404).json({ error: "Location not found" });
+            return;
+          case "business_kind":
+            res.status(409).json({ error: "A business can't be deleted — hide it instead" });
+            return;
+          case "has_dependent_activity":
+            res.status(409).json({
+              error: "This location has check-in, points, claim, coupon, or event history — hide it instead of deleting",
+            });
+            return;
+          case "deleted":
+            res.status(204).end();
+            return;
+        }
+      } catch (err) {
+        console.error(
+          `DELETE /admin/geoapify-migration/neighborhoods/${req.params.id}/locations/${req.params.locationId} failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to delete location" });
       }
     }
   );
@@ -5140,6 +5268,153 @@ export function createApp() {
       }
     }
   );
+
+  // ---------------------------------------------------------------------
+  // Reassign a location's Geoapify place ID (BACKLOG.md Ref 114) -- a
+  // small, permanent admin capability split out of the disposable
+  // geoapify-migration tool (Phase 5) before that tool gets torn down.
+  // Kept because the need for it doesn't end with the migration: Geoapify's
+  // own place IDs aren't as stable as assumed (live-verified -- "Kipos
+  // Greek" churned to a new ID after its OSM name tag was simply edited),
+  // and a real venue can also just not be in OSM yet at all ("Stevie's
+  // Famous Phinney Ridge" -- confirmed absent from reverse geocode, text
+  // search, and a category sweep alike), needing a manual fix whenever OSM
+  // data catches up later. Same three-part shape as the migration tool's
+  // own attach flow (reverse-geocode suggestion, free-text search fallback,
+  // explicit reassign), each carrying distance_meters from the location's
+  // own stored coordinates -- see .../geoapify-migration/.../investigate's
+  // comment for why that guardrail exists (a distance-blind search is
+  // exactly how "Kipos Greek" got attached to a same-named restaurant
+  // 2,500+ miles away in Chapel Hill, NC).
+  app.get(
+    "/neighborhood-admin/neighborhoods/:id/locations/:locationId/reassign-reverse-geocode",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      try {
+        const result = await getLocationForNeighborhood(req.params.id, req.params.locationId, getLocationRepository());
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Location not found" });
+          return;
+        }
+        if (result.location.lat === null || result.location.lng === null) {
+          res.json({ candidates: [] });
+          return;
+        }
+
+        const locationPoint = { lat: result.location.lat, lng: result.location.lng };
+        const candidates = await getCachedPlacesClient().reverseGeocode(locationPoint);
+
+        res.json({
+          candidates: candidates.map((c) => ({
+            geoapify_place_id: c.placeId,
+            name: c.name,
+            address: c.formattedAddress,
+            lat: c.location.lat,
+            lng: c.location.lng,
+            distance_meters: Math.round(haversineMeters(locationPoint, c.location)),
+          })),
+        });
+      } catch (err) {
+        console.error(
+          `GET /neighborhood-admin/neighborhoods/${req.params.id}/locations/${req.params.locationId}/reassign-reverse-geocode failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to reverse geocode location" });
+      }
+    }
+  );
+
+  app.get(
+    "/neighborhood-admin/neighborhoods/:id/locations/:locationId/reassign-search",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const query = req.query.query;
+      if (typeof query !== "string" || !query.trim()) {
+        res.status(400).json({ error: "query is required" });
+        return;
+      }
+
+      try {
+        const locationResult = await getLocationForNeighborhood(req.params.id, req.params.locationId, getLocationRepository());
+        if (locationResult.status === "not_found") {
+          res.status(404).json({ error: "Location not found" });
+          return;
+        }
+
+        const boundaryResult = await getNeighborhoodBoundary(req.params.id, getNeighborhoodRepository());
+        if (boundaryResult.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+
+        const referencePoint =
+          locationResult.location.lat !== null && locationResult.location.lng !== null
+            ? { lat: locationResult.location.lat, lng: locationResult.location.lng }
+            : { lat: boundaryResult.boundary.centerLat, lng: boundaryResult.boundary.centerLng };
+
+        const categories = await getPlacesRepository().listCategories();
+        const candidates = await investigateMissingLocation(
+          query,
+          referencePoint,
+          boundaryResult.boundary.boundaryGeojson,
+          getCachedPlacesClient(),
+          categories,
+          []
+        );
+
+        res.json({
+          query,
+          candidates: candidates.map((c) => ({
+            geoapify_place_id: c.raw.placeId,
+            name: c.name,
+            address: c.address,
+            lat: c.lat,
+            lng: c.lng,
+            distance_meters: Math.round(haversineMeters(referencePoint, { lat: c.lat, lng: c.lng })),
+          })),
+        });
+      } catch (err) {
+        console.error(
+          `GET /neighborhood-admin/neighborhoods/${req.params.id}/locations/${req.params.locationId}/reassign-search failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to search for a place to reassign" });
+      }
+    }
+  );
+
+  app.post(
+    "/neighborhood-admin/neighborhoods/:id/locations/:locationId/reassign-place-id",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { geoapify_place_id } = req.body ?? {};
+      if (typeof geoapify_place_id !== "string" || !geoapify_place_id) {
+        res.status(400).json({ error: "geoapify_place_id is required" });
+        return;
+      }
+
+      try {
+        const result = await reassignLocationPlaceIdForNeighborhood(
+          req.params.id,
+          req.params.locationId,
+          geoapify_place_id,
+          getLocationRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Location not found" });
+          return;
+        }
+        res.json(result.location);
+      } catch (err) {
+        console.error(
+          `POST /neighborhood-admin/neighborhoods/${req.params.id}/locations/${req.params.locationId}/reassign-place-id failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to reassign place id" });
+      }
+    }
+  );
+  // ---------------------------------------------------------------------
 
   return app;
 }
