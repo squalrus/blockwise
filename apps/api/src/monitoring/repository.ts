@@ -19,6 +19,12 @@ export interface PlacesApiCallEntry {
   success: boolean;
   durationMs: number;
   errorMessage?: string | null;
+  // Short, endpoint-specific description of what was actually requested
+  // (e.g. "placeId: 51d5f2d1..." for getPlaceDetails, `text: "..."` for
+  // searchText) -- InstrumentedPlacesClient builds this per call, so a
+  // failure like "Invalid Place ID" is traceable back to which place ID
+  // without needing to correlate against another table.
+  requestContext: string;
 }
 
 // Backs the super-admin Monitoring tab (BACKLOG.md Ref 104) -- writers

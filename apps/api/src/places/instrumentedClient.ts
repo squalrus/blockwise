@@ -26,32 +26,37 @@ export class InstrumentedPlacesClient
   ) {}
 
   async searchPlaces(params: GeoapifySearchParams): Promise<GeoapifyPlace[]> {
-    return this.timed("searchPlaces", () => this.inner.searchPlaces(params));
+    const context = `center: ${params.center.lat.toFixed(4)},${params.center.lng.toFixed(4)} · radius: ${params.radiusMeters}m · ${params.categories.length} categories`;
+    return this.timed("searchPlaces", () => this.inner.searchPlaces(params), context);
   }
 
   async searchText(params: GeoapifySearchTextParams): Promise<GeoapifyPlace[]> {
-    return this.timed("searchText", () => this.inner.searchText(params));
+    const context = `text: "${params.text}"`;
+    return this.timed("searchText", () => this.inner.searchText(params), context);
   }
 
   async reverseGeocode(point: LatLng): Promise<GeoapifyPlace[]> {
-    return this.timed("reverseGeocode", () => this.inner.reverseGeocode(point));
+    const context = `${point.lat.toFixed(5)},${point.lng.toFixed(5)}`;
+    return this.timed("reverseGeocode", () => this.inner.reverseGeocode(point), context);
   }
 
   async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {
-    return this.timed("getPlaceDetails", () => this.inner.getPlaceDetails(placeId));
+    const context = `placeId: ${placeId}`;
+    return this.timed("getPlaceDetails", () => this.inner.getPlaceDetails(placeId), context);
   }
 
   private async timed<T>(
     endpoint: "searchPlaces" | "searchText" | "reverseGeocode" | "getPlaceDetails",
-    fn: () => Promise<T>
+    fn: () => Promise<T>,
+    requestContext: string
   ): Promise<T> {
     const startedAt = Date.now();
     try {
       const result = await fn();
-      this.log(endpoint, true, Date.now() - startedAt, null);
+      this.log(endpoint, true, Date.now() - startedAt, null, requestContext);
       return result;
     } catch (err) {
-      this.log(endpoint, false, Date.now() - startedAt, err instanceof Error ? err.message : String(err));
+      this.log(endpoint, false, Date.now() - startedAt, err instanceof Error ? err.message : String(err), requestContext);
       throw err;
     }
   }
@@ -60,10 +65,11 @@ export class InstrumentedPlacesClient
     endpoint: "searchPlaces" | "searchText" | "reverseGeocode" | "getPlaceDetails",
     success: boolean,
     durationMs: number,
-    errorMessage: string | null
+    errorMessage: string | null,
+    requestContext: string
   ): void {
     this.getRepository()
-      .logPlacesApiCall({ endpoint, success, durationMs, errorMessage })
+      .logPlacesApiCall({ endpoint, success, durationMs, errorMessage, requestContext })
       .catch(() => {
         // Best-effort only, mirrors installErrorLogging/requestLoggingMiddleware.
       });

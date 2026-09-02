@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.84.9", date: "2026-09-02", summary: "Places API failure log entries now show what was actually requested (e.g. which place ID), plus which environment and app version logged them" },
   { version: "0.84.8", date: "2026-09-02", summary: "Places monitoring page reworked around Geoapify's actual daily-credit metering (seventh phase of the Geoapify migration) -- replaces the old Google dollar-cost estimate with credit counts and a shared daily free-tier gauge" },
   { version: "0.84.7", date: "2026-09-02", summary: "Neighborhood venue map and admin boundary drawing now render on MapLibre GL JS + Geoapify vector tiles instead of Google Maps (sixth phase of the Geoapify migration) -- boundary polygon editing gets a new draw tool" },
   { version: "0.84.6", date: "2026-09-02", summary: "Geoapify migration tool gets a distance guardrail, coordinate-based matching, and a status donut chart; a small permanent \"Reassign place ID\" action lands on the regular Locations tab so the capability survives the migration tool's eventual removal" },

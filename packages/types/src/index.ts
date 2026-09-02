@@ -1845,13 +1845,22 @@ export interface MonitoringPlacesApiByEndpoint {
 
 // Pairs with MonitoringPlacesApiByEndpoint's error_count -- the actual
 // failed calls behind that count, so a spike can be investigated rather than
-// just observed.
+// just observed. request_context/domain/app_version (20260902030000_places_
+// api_call_log_enrichment.sql) fill in what error_log/request_log rows
+// already carry -- which deployment logged it, which shipped version, and
+// (request_context, Places-specific) what was actually requested, e.g.
+// "placeId: 51d5f2d1..." for a failed getPlaceDetails call, so a "400
+// Invalid Place ID" is traceable back to which place ID without a second
+// lookup. Nullable since existing rows predate all three columns.
 export interface MonitoringPlacesApiFailure {
   id: string;
   endpoint: PlacesApiEndpoint;
   error_message: string | null;
+  request_context: string | null;
   duration_ms: number;
   created_at: string;
+  domain: string | null;
+  app_version: string | null;
 }
 
 // Same daily-count shape as MonitoringDailyCount, split out by endpoint --

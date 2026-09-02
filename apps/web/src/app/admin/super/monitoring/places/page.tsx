@@ -9,13 +9,15 @@ import { PlacesApiFreeTierStats } from "../PlacesApiFreeTierStats";
 
 // Monitoring > Geoapify -- outbound Geoapify API call volume, estimated
 // credit usage, and per-endpoint error rate, split out of the Overview
-// page (see ../layout.tsx). Unlike every other chart here, most of these
-// sections aren't scoped by the domain/version filters in the header
-// (places_api_call_log has no domain/app_version columns -- see
-// InstrumentedPlacesClient), only by days. The free-tier section is the one
-// exception even to the days filter -- it's always today to date on
-// Geoapify's own boundary (midnight UTC -- see
-// places_api_day_to_date_by_endpoint's own comment).
+// page (see ../layout.tsx). Every section here respects the header's
+// domain/version filters the same way Overview/Performance do (places_api_
+// call_log gained domain/app_version columns in 20260902030000_places_api_
+// call_log_enrichment.sql). The free-tier section is the one exception,
+// even to the days filter -- it's always today to date on Geoapify's own
+// boundary (midnight UTC -- see places_api_day_to_date_by_endpoint's own
+// comment) and deliberately ignores domain/version too, since it tracks
+// real shared-account credit spend regardless of which deployment or
+// version made the call.
 export default function MonitoringPlacesPage() {
   return (
     <MonitoringData>
