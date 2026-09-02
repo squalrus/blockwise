@@ -39,6 +39,9 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
       success: entry.success,
       duration_ms: entry.durationMs,
       error_message: entry.errorMessage ?? null,
+      request_context: entry.requestContext,
+      domain: getAppDomain(),
+      app_version: getAppVersion(),
     });
 
     if (error) throw new Error(`logPlacesApiCall failed: ${error.message}`);

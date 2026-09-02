@@ -29,7 +29,10 @@ function formatTimestamp(iso: string) {
 // the actual failed calls behind those counts (endpoint + the underlying
 // Geoapify API error, from InstrumentedPlacesClient's catch in
 // instrumentedClient.ts), so a spike can be investigated instead of just
-// observed.
+// observed. request_context/domain/app_version mirror what RecentErrorsTable/
+// RecentRequestsTable already show for error_log/request_log rows -- what
+// was actually requested (e.g. which place ID), which deployment logged it,
+// and which shipped version.
 export function PlacesApiFailuresList({ failures }: { failures: MonitoringPlacesApiFailure[] }) {
   if (failures.length === 0) {
     return <p className="text-sm text-muted">No failed calls in this window. 🎉</p>;
@@ -49,8 +52,13 @@ export function PlacesApiFailuresList({ failures }: { failures: MonitoringPlaces
             <div className="truncate text-sm font-bold text-foreground">
               {failure.error_message ?? "No error message recorded"}
             </div>
+            {failure.request_context && (
+              <div className="truncate text-[11px] font-bold text-muted-strong">{failure.request_context}</div>
+            )}
             <div className="text-[11px] text-muted">
               {formatTimestamp(failure.created_at)} · {failure.duration_ms}ms
+              {failure.domain && ` · ${failure.domain}`}
+              {failure.app_version && ` · v${failure.app_version}`}
             </div>
           </div>
         </li>

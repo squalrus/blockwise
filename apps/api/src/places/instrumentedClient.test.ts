@@ -40,7 +40,11 @@ describe("InstrumentedPlacesClient", () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(repo.logged).toHaveLength(1);
-    expect(repo.logged[0]).toMatchObject({ endpoint: "searchPlaces", success: true });
+    expect(repo.logged[0]).toMatchObject({
+      endpoint: "searchPlaces",
+      success: true,
+      requestContext: "center: 47.6000,-122.3000 · radius: 500m · 1 categories",
+    });
   });
 
   it("logs a failed call and still rethrows the underlying error", async () => {
@@ -58,6 +62,7 @@ describe("InstrumentedPlacesClient", () => {
       endpoint: "getPlaceDetails",
       success: false,
       errorMessage: "Geoapify getPlaceDetails failed: 500 boom",
+      requestContext: "placeId: place-1",
     });
   });
 });

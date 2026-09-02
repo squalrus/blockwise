@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.9] — 2026-09-02
+
+### Added
+
+- **Geoapify failure log entries now show what was actually requested, plus environment and version**: `places_api_call_log` gains `domain`, `app_version`, and `request_context` columns (the first two mirror what `error_log`/`request_log` already carry; `request_context` is a short, endpoint-specific description `InstrumentedPlacesClient` builds per call, e.g. `placeId: 51d5f2d1...` for a failed `getPlaceDetails` lookup, `text: "..."` for a text search). Previously a failure like "400 Invalid Place ID" gave no way to tell which place ID, which deployment (prod vs local), or which shipped version produced it. The `/admin/super/monitoring/places` page's failures list now surfaces all three inline, and every Places section now respects the header's domain/version filters the same way Overview/Performance already did (`places_api_call_log` had no domain/app_version columns to filter on before this). (`apps/api/src/places/instrumentedClient.ts`, `apps/api/src/monitoring/`, `apps/web/src/app/admin/super/monitoring/PlacesApiFailuresList.tsx`, `places/page.tsx`, `packages/types/src/index.ts`, `supabase/migrations/20260902030000_places_api_call_log_enrichment.sql`, `supabase/migrations/20260902040000_monitoring_analytics_fn_v9.sql`)
+
 ## [0.84.8] — 2026-09-02
 
 ### Changed
