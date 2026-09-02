@@ -471,7 +471,7 @@ export default function GeoapifyMigrationPage() {
             <p className="text-sm text-muted">
               Everything left with a Google-shaped place ID after the boundary search above — either Geoapify
               never resurfaced it, or it didn&apos;t clear the fuzzy match. Search and attach the right result by
-              hand, or delete it if it's junk — a duplicate, or never a real place. Blocked only if it has real
+              hand, or delete it if it&apos;s junk — a duplicate, or never a real place. Blocked only if it has real
               check-in, points, claim, coupon, or event history — that gets hidden instead, not deleted.
             </p>
 
