@@ -63,7 +63,7 @@ export function useMonitoring(): MonitoringContextValue {
 
 // Owns the Monitoring section's filters (days/domain/version/status class)
 // and the one get_monitoring_analytics fetch that backs every sub-page
-// (Overview/Performance/Google Places) -- mounted once in layout.tsx above
+// (Overview/Performance/Geoapify) -- mounted once in layout.tsx above
 // {children}, so switching between sub-pages re-renders only the page body,
 // not a fresh fetch or a filter reset. Mirrors the single-RPC-per-section
 // pattern the pages themselves already followed before the split.
@@ -151,7 +151,7 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
   // through pills doesn't spam browser history) -- default values are
   // omitted from the query string to keep shared/bookmarked links clean.
   // `pathname` tracks whichever sub-page is current, so switching between
-  // Overview/Performance/Google Places carries the filters along.
+  // Overview/Performance/Geoapify carries the filters along.
   useEffect(() => {
     const params = new URLSearchParams();
     if (days !== DEFAULT_DAYS) params.set("days", String(days));

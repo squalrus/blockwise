@@ -1822,24 +1822,21 @@ export interface MonitoringSlowQuery {
   total_exec_time: number;
 }
 
-// searchNearby/fetchPhotoMedia are Google-only and no longer produced by
-// InstrumentedPlacesClient (docs/geoapify-migration-plan.md Phase 4) -- kept
-// here only so historical places_api_call_log rows from before the cutover
-// still type-check. searchPlaces is Geoapify's Places API (replaces
-// searchNearby); searchText now backs investigate.ts's Geoapify Geocoding
-// API lookup instead of Google's Text Search, same name, different provider
-// underneath. Full rename/removal of the stale Google-only values is Phase 7.
-export type PlacesApiEndpoint =
-  | "searchNearby"
-  | "searchPlaces"
-  | "searchText"
-  | "reverseGeocode"
-  | "getPlaceDetails"
-  | "fetchPhotoMedia";
+// Geoapify's 4 endpoints our server actually calls (apps/api/src/places/
+// geoapifyClient.ts via InstrumentedPlacesClient). searchNearby/
+// fetchPhotoMedia (Google's old method names) were retired in Phase 4 and
+// fully removed here in Phase 7 -- their historical places_api_call_log rows
+// were purged in the same migration that tightened the CHECK constraint
+// (see 20260902010000_geoapify_credit_metering.sql), so there's nothing left
+// that needs those values to type-check. Map tile requests (MapView.tsx/
+// BoundaryMap.tsx) hit Geoapify directly from the browser and never pass
+// through our instrumented server client, so there's no "mapTile" endpoint
+// here -- nothing server-side could ever log one.
+export type PlacesApiEndpoint = "searchPlaces" | "searchText" | "reverseGeocode" | "getPlaceDetails";
 
-// Self-instrumented outbound Google Places API calls (InstrumentedPlacesClient
-// wraps LivePlacesClient) -- not pulled from Google Cloud Monitoring, so this
-// reflects what our server attempted, not GCP's own quota/cost accounting.
+// Self-instrumented outbound Geoapify API calls (InstrumentedPlacesClient
+// wraps LiveGeoapifyClient) -- not pulled from Geoapify's own dashboard, so
+// this reflects what our server attempted, not Geoapify's own metering.
 export interface MonitoringPlacesApiByEndpoint {
   endpoint: PlacesApiEndpoint;
   count: number;
@@ -1858,69 +1855,75 @@ export interface MonitoringPlacesApiFailure {
 }
 
 // Same daily-count shape as MonitoringDailyCount, split out by endpoint --
-// backs the Google Places page's cost-over-time chart. A plain daily total
-// can't be priced accurately since each endpoint bills at a different rate
-// (see PLACES_API_PRICING below), so the trend chart needs this breakdown
-// to sum count * rate per day rather than guessing a blended rate.
+// backs the Geoapify page's credits-over-time chart. A plain daily total
+// can't be weighted into credits accurately since each endpoint has its own
+// per-request credit cost (see PLACES_API_CREDIT_COST below), so the trend
+// chart needs this breakdown to sum count * weight per day rather than
+// guessing a blended rate.
 export interface MonitoringPlacesApiCallByDayAndEndpoint {
   date: string; // 'YYYY-MM-DD'
   endpoint: PlacesApiEndpoint;
   count: number;
 }
 
-// Month-to-date call counts per endpoint, independent of the Monitoring
-// tab's days/domain/version filters -- Google's Places API (New) free
-// monthly tier (see PLACES_API_PRICING) resets at midnight *Pacific Time*
-// on the 1st (confirmed against Google's docs, 2026-08-25) -- not UTC
-// midnight, and not a rolling window -- so "how much free quota is left
-// this month" has to be computed against that actual boundary
-// (google_places_billing_month_start() in Postgres, which uses 'America/
-// Los_Angeles' rather than a fixed offset so it stays correct across the
-// PST/PDT transition) regardless of which window an admin has picked to
-// look at. Only counts successful calls (mirrors the guardrail in
-// apps/api/src/places/quotaGuard.ts), since a failed request generally
-// isn't billed or counted against quota.
-export interface MonitoringPlacesApiMonthToDate {
+// Day-to-date call counts per endpoint, independent of the Monitoring tab's
+// days/domain/version filters -- Geoapify's free tier is a *daily* credit
+// pool (unlike Google's monthly one), so "how much free quota is left today"
+// has to be computed against that actual boundary
+// (geoapify_billing_day_start() in Postgres) regardless of which window an
+// admin has picked to look at. Geoapify's docs don't state which timezone
+// the daily reset happens in (unlike Google's confirmed Pacific-Time
+// monthly reset), so this uses UTC midnight as the simplest reasonable
+// assumption -- revisit if real usage ever shows a mismatch. Only counts
+// successful calls (mirrors the guardrail in apps/api/src/places/
+// quotaGuard.ts), on the same assumption Google's billing carried -- a
+// failed request generally isn't metered -- which hasn't been separately
+// confirmed against Geoapify's docs either.
+export interface MonitoringPlacesApiDayToDate {
   endpoint: PlacesApiEndpoint;
   count: number;
 }
 
-// Published per-1,000-request pricing for the Places API (New) SKUs each
-// endpoint always maps to -- each of the 4 methods in apps/api/src/places/
-// client.ts requests a fixed field mask (BASIC_FIELD_MASK or
-// DETAIL_FIELD_MASK), so unlike a general Places integration, the SKU per
-// endpoint here never varies call-to-call. Rates are the base (0-100k
-// requests/month) tier from Google's published pricing as of 2026-08;
-// Google also offers steep volume discounts above that and a small
-// free-tier credit each month, neither of which this accounts for -- treat
-// any cost figure derived from this as an upper-bound estimate of what our
-// server attempted, not GCP's actual bill (same caveat as
-// MonitoringPlacesApiByEndpoint above).
-export interface PlacesApiPricingTier {
-  ratePerThousand: number; // USD
-  freeMonthlyEvents: number;
+// Geoapify's actual metering unit: credits, not dollars. Unlike Google's
+// pay-per-request SKUs, Geoapify sells fixed monthly plans sized to a daily
+// credit ceiling (Free = 3,000/day/$0, then $59 for 10,000/day, $109 for
+// 25,000/day, ... -- see docs/location-services-comparison.md) rather than
+// billing per credit consumed, so there's no real $/request rate to surface
+// -- the Monitoring UI shows credits used against the daily free tier
+// instead of a dollar estimate. Geoapify's real formula also grants 1 extra
+// credit per 20 results beyond the first 20 on search-shaped endpoints
+// (searchPlaces/searchText/reverseGeocode); places_api_call_log doesn't
+// record a per-call result count, and real tiles/searches run well under 20
+// results each (docs/location-services-comparison.md's usage estimate), so
+// this flattens every endpoint to 1 credit/request rather than tracking
+// that bonus -- a deliberate simplification, same spirit as the old
+// $-estimate's "upper bound, not the actual bill" caveat.
+export interface PlacesApiEndpointCredits {
+  creditsPerRequest: number;
 }
 
-// searchPlaces has no real rate here yet -- Geoapify bills in daily credits
-// (1/search + 1/extra 20 results), not this shape's monthly-$/free-events
-// model, so this entry is a placeholder (matches searchNearby's old Google
-// rate) that keeps PLACES_API_PRICING exhaustive over PlacesApiEndpoint
-// without asserting a real cost. Phase 7 replaces the whole shape.
-export const PLACES_API_PRICING: Record<PlacesApiEndpoint, PlacesApiPricingTier> = {
-  searchNearby: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // Nearby Search Pro
-  searchPlaces: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // placeholder, see comment above
-  searchText: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // Text Search Pro
-  reverseGeocode: { ratePerThousand: 32, freeMonthlyEvents: 5000 }, // placeholder, same Geocoding API family as searchText
-  getPlaceDetails: { ratePerThousand: 25, freeMonthlyEvents: 1000 }, // Place Details Enterprise + Atmosphere
-  fetchPhotoMedia: { ratePerThousand: 7, freeMonthlyEvents: 1000 }, // Place Photo
+export const PLACES_API_CREDIT_COST: Record<PlacesApiEndpoint, PlacesApiEndpointCredits> = {
+  searchPlaces: { creditsPerRequest: 1 },
+  searchText: { creditsPerRequest: 1 },
+  reverseGeocode: { creditsPerRequest: 1 },
+  getPlaceDetails: { creditsPerRequest: 1 },
 };
 
-// Guardrail threshold (apps/api/src/places/quotaGuard.ts) for the two
-// non-critical, high-frequency endpoints (getPlaceDetails, fetchPhotoMedia)
-// that fire on ordinary visitor page views rather than an admin clicking a
-// button -- shared with the web app so the Monitoring page's free-tier
-// widget flags "guardrail active" at the same line the backend actually
-// stops calling Google at.
+// Geoapify Free plan's daily credit ceiling (docs/location-services-comparison.md).
+// Unlike Google's per-SKU free tiers, this is one shared pool across every
+// endpoint (and map tiles, at 0.25 credit each, which never reach this
+// budget check since they're never logged server-side -- see
+// PlacesApiEndpoint's own comment).
+export const GEOAPIFY_FREE_DAILY_CREDITS = 3000;
+
+// Guardrail threshold (apps/api/src/places/quotaGuard.ts) for the one
+// non-critical, high-frequency endpoint (getPlaceDetails) that fires on
+// ordinary visitor page views rather than an admin clicking a button --
+// shared with the web app so the Monitoring page's free-tier widget flags
+// "guardrail active" at the same line the backend actually stops calling
+// Geoapify at. Checked against the *shared* daily credit pool, not
+// getPlaceDetails' own count in isolation, since Geoapify doesn't meter
+// per-endpoint free tiers the way Google did.
 export const PLACES_API_NEAR_LIMIT_THRESHOLD = 0.9;
 
 export interface MonitoringAnalytics {
@@ -1938,7 +1941,7 @@ export interface MonitoringAnalytics {
   places_api_by_endpoint: MonitoringPlacesApiByEndpoint[];
   recent_places_api_failures: MonitoringPlacesApiFailure[];
   places_api_calls_by_day_and_endpoint: MonitoringPlacesApiCallByDayAndEndpoint[];
-  places_api_month_to_date_by_endpoint: MonitoringPlacesApiMonthToDate[];
+  places_api_day_to_date_by_endpoint: MonitoringPlacesApiDayToDate[];
   // Every domain (deployment) that has ever logged an error or request row,
   // regardless of the current days/domain filter -- backs the Monitoring
   // tab's domain picker (BACKLOG.md Ref 104 follow-up), so a future new

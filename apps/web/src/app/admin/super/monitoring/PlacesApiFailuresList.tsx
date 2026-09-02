@@ -1,25 +1,19 @@
 import type { MonitoringPlacesApiFailure } from "@blockwise/types";
 
-// See PlacesApiByEndpointStats' matching comment: searchNearby/fetchPhotoMedia
-// are Google-only and retired as of the Geoapify migration's Phase 4, kept
-// here only for historical rows; searchPlaces is Geoapify's replacement.
+// Same 4 endpoints/labels/colors as PlacesApiByEndpointStats, kept separate
+// rather than imported to avoid a cross-component coupling for four strings
+// and four hex values.
 const LABELS: Record<MonitoringPlacesApiFailure["endpoint"], string> = {
-  searchNearby: "Nearby search (retired)",
   searchPlaces: "Places search",
   searchText: "Text search",
   reverseGeocode: "Reverse geocode",
   getPlaceDetails: "Place details",
-  fetchPhotoMedia: "Photo media (retired)",
 };
-// Same mapping as PlacesApiByEndpointStats, kept separate rather than
-// imported to avoid a cross-component coupling for four hex strings.
 const COLORS: Record<MonitoringPlacesApiFailure["endpoint"], string> = {
-  searchNearby: "var(--brand-purple)",
   searchPlaces: "var(--brand-purple)",
   searchText: "var(--brand-amber)",
-  reverseGeocode: "var(--brand-amber)",
+  reverseGeocode: "var(--brand-orange)",
   getPlaceDetails: "var(--brand-green)",
-  fetchPhotoMedia: "var(--brand-orange)",
 };
 
 function formatTimestamp(iso: string) {
@@ -33,7 +27,7 @@ function formatTimestamp(iso: string) {
 
 // Pairs with PlacesApiByEndpointStats' per-endpoint "N failed" counts --
 // the actual failed calls behind those counts (endpoint + the underlying
-// Google API error, from InstrumentedPlacesClient's catch in
+// Geoapify API error, from InstrumentedPlacesClient's catch in
 // instrumentedClient.ts), so a spike can be investigated instead of just
 // observed.
 export function PlacesApiFailuresList({ failures }: { failures: MonitoringPlacesApiFailure[] }) {

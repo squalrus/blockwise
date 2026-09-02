@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.84.8", date: "2026-09-02", summary: "Places monitoring page reworked around Geoapify's actual daily-credit metering (seventh phase of the Geoapify migration) -- replaces the old Google dollar-cost estimate with credit counts and a shared daily free-tier gauge" },
   { version: "0.84.7", date: "2026-09-02", summary: "Neighborhood venue map and admin boundary drawing now render on MapLibre GL JS + Geoapify vector tiles instead of Google Maps (sixth phase of the Geoapify migration) -- boundary polygon editing gets a new draw tool" },
   { version: "0.84.6", date: "2026-09-02", summary: "Geoapify migration tool gets a distance guardrail, coordinate-based matching, and a status donut chart; a small permanent \"Reassign place ID\" action lands on the regular Locations tab so the capability survives the migration tool's eventual removal" },
   { version: "0.84.5", date: "2026-08-28", summary: "Venue sync, boundary preview, missing-venue search, and hours/phone/website enrichment now run on Geoapify instead of Google Places (fourth phase of the migration) -- category matching and \"open now\" both work again; a one-time admin tool reconciles venues synced before the cutover" },

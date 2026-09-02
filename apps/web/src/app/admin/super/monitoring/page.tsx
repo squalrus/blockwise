@@ -9,7 +9,7 @@ import { StatusCodeBreakdownStats } from "./StatusCodeBreakdownStats";
 
 // Monitoring > Overview -- errors and status codes, the "is something on
 // fire" view. Request/latency charts live under Performance, outbound
-// Google Places calls under Google Places (see layout.tsx and
+// Geoapify calls under Geoapify (see layout.tsx and
 // super/layout.tsx's TABS for the sub-nav).
 export default function MonitoringOverviewPage() {
   const { statusClass, setStatusClass } = useMonitoring();

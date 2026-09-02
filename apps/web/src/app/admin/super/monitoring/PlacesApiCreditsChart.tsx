@@ -2,7 +2,7 @@
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import type { MonitoringPlacesApiCallByDayAndEndpoint } from "@blockwise/types";
-import { estimateCost, formatUsd } from "./placesApiCost";
+import { estimateCredits } from "./placesApiCredits";
 
 const COLOR = "var(--brand-amber)";
 
@@ -10,24 +10,27 @@ function formatDay(date: string) {
   return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// Sums count * rate across endpoints per day -- can't reuse
+// Sums count * weight across endpoints per day -- can't reuse
 // places_api_calls_over_time's plain daily total for this since each
-// endpoint bills at a different rate (PLACES_API_PRICING); a day dominated
-// by cheap photo fetches and a day dominated by pricier searches would
-// otherwise show as the same "cost" for the same call count.
-function toDailyCost(data: MonitoringPlacesApiCallByDayAndEndpoint[]): { date: string; cost: number }[] {
+// endpoint has its own per-request credit cost (PLACES_API_CREDIT_COST); a
+// day dominated by cheap single-result searches and a day dominated by
+// pricier bulk ones would otherwise show as the same "credits" for the same
+// call count (once Geoapify's extra-results bonus is modeled -- today every
+// endpoint is a flat 1 credit/request, see PLACES_API_CREDIT_COST's comment).
+function toDailyCredits(data: MonitoringPlacesApiCallByDayAndEndpoint[]): { date: string; credits: number }[] {
   const byDate = new Map<string, number>();
   for (const row of data) {
-    byDate.set(row.date, (byDate.get(row.date) ?? 0) + estimateCost(row.count, row.endpoint));
+    byDate.set(row.date, (byDate.get(row.date) ?? 0) + estimateCredits(row.count, row.endpoint));
   }
-  return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, cost]) => ({ date, cost }));
+  return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, credits]) => ({ date, credits }));
 }
 
-// Estimated-cost counterpart to PlacesApiCallsChart -- same self-instrumented
+// Credits-counterpart to PlacesApiCallsChart -- same self-instrumented
 // source (places_api_call_log via InstrumentedPlacesClient), same caveat
-// (upper-bound estimate, not GCP's actual bill; see PLACES_API_PRICING).
-export function PlacesApiCostChart({ data }: { data: MonitoringPlacesApiCallByDayAndEndpoint[] }) {
-  const daily = toDailyCost(data);
+// (a lower-bound estimate, not Geoapify's exact metering; see
+// PLACES_API_CREDIT_COST).
+export function PlacesApiCreditsChart({ data }: { data: MonitoringPlacesApiCallByDayAndEndpoint[] }) {
+  const daily = toDailyCredits(data);
 
   if (daily.length === 0) {
     return <p className="text-sm text-muted">No Places API calls in this window yet.</p>;
@@ -46,14 +49,14 @@ export function PlacesApiCostChart({ data }: { data: MonitoringPlacesApiCallByDa
           minTickGap={24}
         />
         <YAxis
-          tickFormatter={(value) => formatUsd(Number(value ?? 0))}
+          allowDecimals={false}
           tick={{ fill: "var(--muted)", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
-          width={56}
+          width={48}
         />
         <Tooltip
-          formatter={(value) => [formatUsd(Number(value ?? 0)), "Est. cost"]}
+          formatter={(value) => [Number(value ?? 0).toLocaleString(), "Credits"]}
           labelFormatter={(label) => formatDay(String(label ?? ""))}
           contentStyle={{
             background: "var(--card)",
@@ -64,7 +67,7 @@ export function PlacesApiCostChart({ data }: { data: MonitoringPlacesApiCallByDa
           labelStyle={{ color: "var(--foreground)", fontWeight: 700 }}
           itemStyle={{ color: COLOR }}
         />
-        <Area type="monotone" dataKey="cost" stroke={COLOR} strokeWidth={2} fill={COLOR} fillOpacity={0.1} />
+        <Area type="monotone" dataKey="credits" stroke={COLOR} strokeWidth={2} fill={COLOR} fillOpacity={0.1} />
       </AreaChart>
     </ResponsiveContainer>
   );
