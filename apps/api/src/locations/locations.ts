@@ -304,24 +304,33 @@ export type DeleteLocationResult =
   | { status: "business_kind" }
   | { status: "has_dependent_activity" };
 
-// Hard delete, POI-kind only -- a business-kind location is always
-// sync-sourced-of-record and should only ever be hidden, never deleted
-// (mirroring the original venue/POI split's own delete restriction). Safe
-// for a POI with no dependent activity, since (unlike a business) it has no
-// other FK pointing at it in normal use. Blocks the delete outright (rather
-// than letting the DB's "on delete cascade" silently wipe that history)
-// whenever any dependent row exists; the caller should hide instead.
+// Hard delete. Blocks outright (rather than letting the DB's "on delete
+// cascade" silently wipe history) whenever hasDependentActivity finds any
+// dependent row -- checkin/point_event/challenge/favorite/business_claim/
+// coupon/event, so a business with a real claim on it is already covered by
+// that check alone, same as a POI with check-in history.
+//
+// business-kind locations are additionally blocked outright by default
+// (mirroring the original venue/POI split's own delete restriction) -- a
+// business is always sync-sourced-of-record and normally should only ever
+// be hidden. allowBusinessKind lifts just that extra layer, keeping the
+// activity check as the real safety net -- for the geoapify-migration
+// tool's superAdminGate-scoped cleanup of confirmed-junk legacy locations
+// (BACKLOG.md Ref 114 Phase 5), not the regular neighborhood-admin Locations
+// tab, where the categorical block stays (any neighborhood admin can reach
+// that delete button, not just a super admin doing deliberate cleanup).
 export async function deleteLocationForNeighborhood(
   neighborhoodId: string,
   locationId: string,
-  repository: LocationRepository
+  repository: LocationRepository,
+  options: { allowBusinessKind?: boolean } = {}
 ): Promise<DeleteLocationResult> {
   const locationNeighborhoodId = await repository.getLocationNeighborhoodId(locationId);
   if (locationNeighborhoodId !== neighborhoodId) return { status: "not_found" };
 
   const record = await repository.getLocationById(locationId);
   if (!record) return { status: "not_found" };
-  if (record.kind === "business") return { status: "business_kind" };
+  if (record.kind === "business" && !options.allowBusinessKind) return { status: "business_kind" };
 
   if (await repository.hasDependentActivity(locationId)) {
     return { status: "has_dependent_activity" };

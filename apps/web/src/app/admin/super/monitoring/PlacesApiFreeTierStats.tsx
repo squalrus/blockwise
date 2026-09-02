@@ -7,6 +7,7 @@ const LABELS: Record<MonitoringPlacesApiMonthToDate["endpoint"], string> = {
   searchNearby: "Nearby search (retired)",
   searchPlaces: "Places search",
   searchText: "Text search",
+  reverseGeocode: "Reverse geocode",
   getPlaceDetails: "Place details",
   fetchPhotoMedia: "Photo media (retired)",
 };
@@ -14,6 +15,7 @@ const ORDER: MonitoringPlacesApiMonthToDate["endpoint"][] = [
   "searchPlaces",
   "searchNearby",
   "searchText",
+  "reverseGeocode",
   "getPlaceDetails",
   "fetchPhotoMedia",
 ];
@@ -21,10 +23,13 @@ const ORDER: MonitoringPlacesApiMonthToDate["endpoint"][] = [
 // guarded (QuotaGuardedPlacesClient) as of Phase 4, since it's the one that
 // fires on ordinary visitor page views rather than an admin clicking a
 // button -- fetchPhotoMedia was guarded too before Phase 3 removed it.
+// reverseGeocode is admin-triggered (Ref 114 Phase 5's migration tool),
+// same as searchText/searchPlaces, so it isn't gated either.
 const GUARDED: Record<MonitoringPlacesApiMonthToDate["endpoint"], boolean> = {
   searchNearby: false,
   searchPlaces: false,
   searchText: false,
+  reverseGeocode: false,
   getPlaceDetails: true,
   fetchPhotoMedia: false,
 };

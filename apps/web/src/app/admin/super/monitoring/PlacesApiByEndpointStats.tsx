@@ -7,21 +7,26 @@ import { estimateCost, formatUsd } from "./placesApiCost";
 // here only so historical rows from before the cutover still render a
 // label/color; new rows never produce them. searchPlaces is Geoapify's
 // replacement for searchNearby, reusing its color slot below since only
-// one of the two is ever actively growing at a time. Full rename/cleanup
-// of this list is Phase 7.
+// one of the two is ever actively growing at a time. reverseGeocode (Ref
+// 114 Phase 5's coordinate-based migration match) is the same Geocoding
+// API family as searchText, reusing its slot for the same reason. Full
+// rename/cleanup of this list is Phase 7.
 const LABELS: Record<MonitoringPlacesApiByEndpoint["endpoint"], string> = {
   searchNearby: "Nearby search (retired)",
   searchPlaces: "Places search",
   searchText: "Text search",
+  reverseGeocode: "Reverse geocode",
   getPlaceDetails: "Place details",
   fetchPhotoMedia: "Photo media (retired)",
 };
-// Only 4 brand colors exist -- searchPlaces reuses searchNearby's slot (see
-// comment above) rather than introducing a 5th.
+// Only 4 brand colors exist -- searchPlaces/reverseGeocode reuse
+// searchNearby's/searchText's slots (see comment above) rather than
+// introducing a 5th and 6th.
 const COLORS: Record<MonitoringPlacesApiByEndpoint["endpoint"], string> = {
   searchNearby: "var(--brand-purple)",
   searchPlaces: "var(--brand-purple)",
   searchText: "var(--brand-amber)",
+  reverseGeocode: "var(--brand-amber)",
   getPlaceDetails: "var(--brand-green)",
   fetchPhotoMedia: "var(--brand-orange)",
 };
@@ -29,6 +34,7 @@ const ORDER: MonitoringPlacesApiByEndpoint["endpoint"][] = [
   "searchPlaces",
   "searchNearby",
   "searchText",
+  "reverseGeocode",
   "getPlaceDetails",
   "fetchPhotoMedia",
 ];

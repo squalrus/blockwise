@@ -128,13 +128,57 @@ describe("syncNeighborhoodPlaces", () => {
         lat: 47.6816,
         lng: -122.3552,
         claimedByBusiness: false,
+        status: "active",
       },
     ];
 
     const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
 
     expect(report.updated).toContain("Herkimer Coffee");
+    expect(report.revived).not.toContain("Herkimer Coffee");
     expect(repository.upsertCalls.some((v) => v.geoapifyPlaceId === "geoapify-mock-herkimer-coffee")).toBe(true);
+  });
+
+  it("revives a removed venue rediscovered under its exact prior place ID", async () => {
+    repository.venues = [
+      {
+        id: "existing-1",
+        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
+        name: "Herkimer Coffee",
+        lat: 47.6816,
+        lng: -122.3552,
+        claimedByBusiness: false,
+        status: "removed",
+      },
+    ];
+
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
+
+    expect(report.updated).toContain("Herkimer Coffee");
+    expect(report.revived).toContain("Herkimer Coffee");
+    const upsert = repository.upsertCalls.find((v) => v.geoapifyPlaceId === "geoapify-mock-herkimer-coffee");
+    expect(upsert?.revive).toBe(true);
+  });
+
+  it("leaves a hidden venue's status alone on re-sync -- that's a separate admin curation choice", async () => {
+    repository.venues = [
+      {
+        id: "existing-1",
+        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
+        name: "Herkimer Coffee",
+        lat: 47.6816,
+        lng: -122.3552,
+        claimedByBusiness: false,
+        status: "hidden",
+      },
+    ];
+
+    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
+
+    expect(report.updated).toContain("Herkimer Coffee");
+    expect(report.revived).not.toContain("Herkimer Coffee");
+    const upsert = repository.upsertCalls.find((v) => v.geoapifyPlaceId === "geoapify-mock-herkimer-coffee");
+    expect(upsert?.revive).toBe(false);
   });
 
   it("does not overwrite a claimed venue's data", async () => {
@@ -146,6 +190,7 @@ describe("syncNeighborhoodPlaces", () => {
         lat: 47.6742,
         lng: -122.3555,
         claimedByBusiness: true,
+        status: "active",
       },
     ];
 

@@ -7,6 +7,7 @@ const LABELS: Record<MonitoringPlacesApiFailure["endpoint"], string> = {
   searchNearby: "Nearby search (retired)",
   searchPlaces: "Places search",
   searchText: "Text search",
+  reverseGeocode: "Reverse geocode",
   getPlaceDetails: "Place details",
   fetchPhotoMedia: "Photo media (retired)",
 };
@@ -16,6 +17,7 @@ const COLORS: Record<MonitoringPlacesApiFailure["endpoint"], string> = {
   searchNearby: "var(--brand-purple)",
   searchPlaces: "var(--brand-purple)",
   searchText: "var(--brand-amber)",
+  reverseGeocode: "var(--brand-amber)",
   getPlaceDetails: "var(--brand-green)",
   fetchPhotoMedia: "var(--brand-orange)",
 };

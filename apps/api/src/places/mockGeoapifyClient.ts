@@ -1,3 +1,4 @@
+import { haversineMeters, type LatLng } from "./geo";
 import type {
   GeoapifyPlace,
   GeoapifyPlaceDetails,
@@ -107,6 +108,15 @@ export class MockGeoapifyClient
     const query = text.trim().toLowerCase();
     if (!query) return [];
     return FIXTURE_PLACES.filter((place) => place.name?.toLowerCase().includes(query));
+  }
+
+  // Nearest fixture within 50m, mirroring LiveGeoapifyClient's real-world
+  // behavior of resolving to whatever's physically closest to the point --
+  // empty when nothing fixture-shaped is nearby, same "nothing found" path
+  // as searchText above.
+  async reverseGeocode(point: LatLng): Promise<GeoapifyPlace[]> {
+    const nearest = FIXTURE_PLACES.filter((place) => haversineMeters(point, place.location) <= 50);
+    return nearest;
   }
 
   async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {

@@ -1,4 +1,5 @@
 import type { MonitoringRepository } from "../monitoring/repository";
+import type { LatLng } from "./geo";
 import type {
   GeoapifyPlace,
   GeoapifyPlaceDetails,
@@ -32,12 +33,16 @@ export class InstrumentedPlacesClient
     return this.timed("searchText", () => this.inner.searchText(params));
   }
 
+  async reverseGeocode(point: LatLng): Promise<GeoapifyPlace[]> {
+    return this.timed("reverseGeocode", () => this.inner.reverseGeocode(point));
+  }
+
   async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {
     return this.timed("getPlaceDetails", () => this.inner.getPlaceDetails(placeId));
   }
 
   private async timed<T>(
-    endpoint: "searchPlaces" | "searchText" | "getPlaceDetails",
+    endpoint: "searchPlaces" | "searchText" | "reverseGeocode" | "getPlaceDetails",
     fn: () => Promise<T>
   ): Promise<T> {
     const startedAt = Date.now();
@@ -52,7 +57,7 @@ export class InstrumentedPlacesClient
   }
 
   private log(
-    endpoint: "searchPlaces" | "searchText" | "getPlaceDetails",
+    endpoint: "searchPlaces" | "searchText" | "reverseGeocode" | "getPlaceDetails",
     success: boolean,
     durationMs: number,
     errorMessage: string | null

@@ -58,8 +58,17 @@ export interface GeoapifySearchTextParams {
 // location filters). Geocoding primarily indexes addresses but returns POI
 // results too via its `category`/`result_type: "amenity"` fields, which is
 // enough for "find this business by name."
+//
+// reverseGeocode (v1/geocode/reverse, same API family) is the Geoapify
+// migration's coordinate-based match (BACKLOG.md Ref 114 Phase 5): given a
+// legacy-ID location's own stored lat/lng, asks "what's physically here
+// today?" instead of matching by name -- catches a rebranded/renamed
+// business a name-similarity search would never connect (live-verified:
+// "Sullys Ale House LLC" -> "Sully's Snowgoose Saloon", "La Conasupo
+// Taqueria & Snack Shop" -> "Laem Buri", both 1-4m from the stored point).
 export interface GeoapifyTextSearchClient {
   searchText(params: GeoapifySearchTextParams): Promise<GeoapifyPlace[]>;
+  reverseGeocode(point: LatLng): Promise<GeoapifyPlace[]>;
 }
 
 export interface GeoapifyPlaceDetails {
@@ -102,10 +111,12 @@ interface GeoapifyFeatureCollection {
   features?: { properties: GeoapifyFeatureProperties }[];
 }
 
-// Geocoding API's format=json (the default) returns a flat `results` array
-// of the same field shape as Places API's GeoJSON `properties`, not a
-// FeatureCollection -- geocode search results have no `categories` array,
-// just a single `category` string (apidocs.geoapify.com/docs/geocoding),
+// Geocoding API's format=json (the default) returns a GeoJSON
+// FeatureCollection, same top-level shape as Places API's response
+// (confirmed live -- an earlier version of this code assumed a flat
+// `results` array, which silently returned zero results for every search)
+// -- geocode search results have no `categories` array though, just a
+// single `category` string (apidocs.geoapify.com/docs/geocoding),
 // normalized to GeoapifyPlace's array shape below.
 interface GeoapifyGeocodeResult {
   place_id: string;
@@ -114,10 +125,17 @@ interface GeoapifyGeocodeResult {
   lat?: number;
   lon?: number;
   category?: string;
+  // "amenity" means Geoapify has a named POI at this point; "building",
+  // "street", etc. mean it only resolved to a bare address/geometry with no
+  // business identity -- reverseGeocode filters to amenity-with-a-name only
+  // (live-verified: reverse-geocoding a legacy venue's own coordinates can
+  // resolve to a nameless "building" when Geoapify has no POI tagged there,
+  // which reverseGeocode's caller must not treat as a match).
+  result_type?: string;
 }
 
-interface GeoapifyGeocodeResponse {
-  results?: GeoapifyGeocodeResult[];
+interface GeoapifyGeocodeFeatureCollection {
+  features?: { properties: GeoapifyGeocodeResult }[];
 }
 
 function toGeoapifyPlaceFromGeocode(result: GeoapifyGeocodeResult): GeoapifyPlace {
@@ -167,8 +185,22 @@ export class LiveGeoapifyClient
       throw new Error(`Geoapify searchText failed: ${response.status} ${await response.text()}`);
     }
 
-    const body = (await response.json()) as GeoapifyGeocodeResponse;
-    return (body.results ?? []).map(toGeoapifyPlaceFromGeocode);
+    const body = (await response.json()) as GeoapifyGeocodeFeatureCollection;
+    return (body.features ?? []).map((feature) => toGeoapifyPlaceFromGeocode(feature.properties));
+  }
+
+  async reverseGeocode({ lat, lng }: LatLng): Promise<GeoapifyPlace[]> {
+    const params = new URLSearchParams({ lat: String(lat), lon: String(lng), apiKey: this.apiKey });
+
+    const response = await fetch(`https://api.geoapify.com/v1/geocode/reverse?${params}`);
+    if (!response.ok) {
+      throw new Error(`Geoapify reverseGeocode failed: ${response.status} ${await response.text()}`);
+    }
+
+    const body = (await response.json()) as GeoapifyGeocodeFeatureCollection;
+    return (body.features ?? [])
+      .filter((f) => f.properties.result_type === "amenity" && f.properties.name)
+      .map((feature) => toGeoapifyPlaceFromGeocode(feature.properties));
   }
 
   async searchPlaces({ center, radiusMeters, categories, limit }: GeoapifySearchParams): Promise<GeoapifyPlace[]> {
