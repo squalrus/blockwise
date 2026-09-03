@@ -18,7 +18,13 @@ type State =
 
 type TabKey = "overview" | "boundary" | "locations" | "claims" | "events" | "challenges" | "analytics";
 
-const TABS: { key: TabKey; href: string; label: string; icon: (props: { className?: string }) => React.ReactNode }[] = [
+const TABS: {
+  key: TabKey;
+  href: string;
+  label: string;
+  icon: (props: { className?: string }) => React.ReactNode;
+  children?: { key: string; href: string; label: string }[];
+}[] = [
   {
     key: "overview",
     href: "",
@@ -67,6 +73,11 @@ const TABS: { key: TabKey; href: string; label: string; icon: (props: { classNam
         <circle cx="10" cy="7.4" r="2" fill="currentColor" />
       </svg>
     ),
+    children: [
+      { key: "list", href: "", label: "Locations" },
+      { key: "review", href: "/review", label: "Reimport" },
+      { key: "troubleshooting", href: "/troubleshooting", label: "Troubleshooting" },
+    ],
   },
   {
     key: "claims",
@@ -259,7 +270,11 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
         </span>
       );
     }
-    return { key: tab.key, href, label: tab.label, icon: tab.icon, active, badge };
+    const children = tab.children?.map((child) => {
+      const childHref = `${href}${child.href}`;
+      return { key: child.key, href: childHref, label: child.label, active: pathname === childHref };
+    });
+    return { key: tab.key, href, label: tab.label, icon: tab.icon, active, badge, children };
   });
 
   return (

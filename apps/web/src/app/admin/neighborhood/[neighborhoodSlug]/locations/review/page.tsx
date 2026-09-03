@@ -167,13 +167,6 @@ export default function LocationReviewPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <a
-        href={`/admin/neighborhood/${slug}/locations`}
-        className="text-sm font-bold text-brand-purple hover:text-brand-orange"
-      >
-        ← Locations
-      </a>
-      <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Review Places</h2>
       <p className="text-sm text-muted">
         Queries Geoapify for the neighborhood&apos;s current boundary and lists anything not already a
         business or point of interest. This costs a real API call — run it deliberately, not on every visit.

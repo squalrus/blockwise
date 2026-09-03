@@ -2545,28 +2545,31 @@ export function createApp() {
     }
   });
 
-  // Super-admin Monitoring tab (BACKLOG.md Ref 104) -- ?days= clamped to
-  // [1, 90], defaulting to 7 (errors/requests are noisier day-to-day than
-  // neighborhood/venue analytics, so a shorter default window), backed by a
-  // single get_monitoring_analytics RPC covering all six charts. ?domain=
-  // and ?version= (BACKLOG.md Ref 104 follow-ups) narrow every chart to one
-  // deployment's rows (e.g. "app.tryspored.com") and/or one shipped release
-  // (e.g. "0.81.0") -- either omitted/empty keeps everything for that axis.
-  // ?status_class= (one of 2xx/3xx/4xx/5xx) narrows recent_requests to that
-  // family -- anything else is treated as absent rather than erroring, same
-  // as an unrecognized domain/version.
+  // Super-admin Monitoring tab (BACKLOG.md Ref 104) -- ?minutes= clamped to
+  // [5, 129600] (5 minutes .. 90 days), defaulting to 10080 (7 days;
+  // errors/requests are noisier day-to-day than neighborhood/venue
+  // analytics, so a shorter default window), backed by a single
+  // get_monitoring_analytics RPC covering all six charts. Minutes rather
+  // than days so the range control can offer 5-minute/1-hour options
+  // alongside 24h/7d/30d for watching a live incident, not just day-level
+  // history. ?domain= and ?version= (BACKLOG.md Ref 104 follow-ups) narrow
+  // every chart to one deployment's rows (e.g. "app.tryspored.com")
+  // and/or one shipped release (e.g. "0.81.0") -- either omitted/empty
+  // keeps everything for that axis. ?status_class= (one of 2xx/3xx/4xx/5xx)
+  // narrows recent_requests to that family -- anything else is treated as
+  // absent rather than erroring, same as an unrecognized domain/version.
   const STATUS_CLASSES = new Set(["2xx", "3xx", "4xx", "5xx"]);
   app.get("/admin/monitoring/analytics", superAdminGate, async (req, res) => {
     try {
-      const rawDays = Number(req.query.days);
-      const days = Number.isFinite(rawDays) ? Math.min(Math.max(Math.trunc(rawDays), 1), 90) : 7;
+      const rawMinutes = Number(req.query.minutes);
+      const minutes = Number.isFinite(rawMinutes) ? Math.min(Math.max(Math.trunc(rawMinutes), 5), 129600) : 10080;
       const rawDomain = req.query.domain;
       const domain = typeof rawDomain === "string" && rawDomain.trim() ? rawDomain.trim() : null;
       const rawVersion = req.query.version;
       const version = typeof rawVersion === "string" && rawVersion.trim() ? rawVersion.trim() : null;
       const rawStatusClass = req.query.status_class;
       const statusClass = typeof rawStatusClass === "string" && STATUS_CLASSES.has(rawStatusClass) ? rawStatusClass : null;
-      const analytics = await getMonitoringRepository().getAnalytics(days, domain, version, statusClass);
+      const analytics = await getMonitoringRepository().getAnalytics(minutes, domain, version, statusClass);
       res.json(analytics);
     } catch (err) {
       console.error("GET /admin/monitoring/analytics failed:", err);

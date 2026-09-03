@@ -1841,7 +1841,10 @@ export const GEOAPIFY_FREE_DAILY_CREDITS = 3000;
 export const PLACES_API_NEAR_LIMIT_THRESHOLD = 0.9;
 
 export interface MonitoringAnalytics {
-  days: number;
+  // Echoes the request's window in minutes (get_monitoring_analytics'
+  // p_minutes) -- minutes rather than days so the range control can offer
+  // sub-day granularity (5 min / 1 hour) alongside 24h/7d/30d.
+  window_minutes: number;
   errors_over_time: MonitoringDailyCount[];
   errors_by_source: MonitoringErrorsBySource[];
   recent_errors: MonitoringRecentError[];

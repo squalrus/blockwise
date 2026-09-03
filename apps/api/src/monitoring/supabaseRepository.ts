@@ -67,14 +67,14 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
   // 20260821060000_pg_stat_statements.sql). Fetched in parallel and merged
   // here so callers still see one method, one MonitoringAnalytics shape.
   async getAnalytics(
-    days: number,
+    minutes: number,
     domain?: string | null,
     version?: string | null,
     statusClass?: string | null
   ): Promise<MonitoringAnalytics> {
     const [analyticsResult, slowQueriesResult] = await Promise.all([
       this.supabase.rpc("get_monitoring_analytics", {
-        p_days: days,
+        p_minutes: minutes,
         p_domain: domain ?? null,
         p_version: version ?? null,
         p_status_class: statusClass ?? null,

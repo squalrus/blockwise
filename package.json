@@ -1,6 +1,6 @@
 {
   "name": "blockwise",
-  "version": "0.84.12",
+  "version": "0.84.13",
   "private": true,
   "workspaces": [
     "apps/*",
