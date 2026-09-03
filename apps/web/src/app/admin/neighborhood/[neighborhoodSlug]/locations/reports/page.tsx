@@ -115,7 +115,7 @@ type InvestigationState =
 // One report row, with its own "Quick investigate" (BACKLOG.md Ref 96) --
 // runs the same GET .../locations/investigate?query= lookup as the
 // standalone Investigate page, seeded with this row's reported venue_name,
-// so an admin can check Google Places without leaving the triage list.
+// so an admin can check Geoapify without leaving the triage list.
 function MissingVenueFeedbackRow({
   submission,
   neighborhoodId,
@@ -194,7 +194,7 @@ function MissingVenueFeedbackRow({
           Quick investigate
         </button>
       )}
-      {investigation.status === "loading" && <p className="text-xs text-muted">Searching Google Places…</p>}
+      {investigation.status === "loading" && <p className="text-xs text-muted">Searching Geoapify…</p>}
       {investigation.status === "error" && (
         <p className="text-xs text-red-600 dark:text-red-400">{investigation.message}</p>
       )}
@@ -204,7 +204,7 @@ function MissingVenueFeedbackRow({
           neighborhoodId={neighborhoodId}
           candidates={investigation.report.candidates}
           categories={categories}
-          emptyMessage={`Google Places returned nothing for "${submission.venue_name}".`}
+          emptyMessage={`Geoapify returned nothing for "${submission.venue_name}".`}
         />
       )}
     </li>

@@ -76,9 +76,9 @@ export default function InvestigateMissingLocationPage() {
       </a>
       <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Investigate a missing venue</h2>
       <p className="text-sm text-muted">
-        Search Google Places directly for a venue name or address a neighbor reported as missing. Unlike Reimport
+        Search Geoapify directly for a venue name or address a neighbor reported as missing. Unlike Reimport
         Locations, this isn&apos;t restricted to the saved boundary or to mapped business types, so it can turn up a
-        place the normal review flow never would — useful for telling a real gap in Google&apos;s data apart from a
+        place the normal review flow never would — useful for telling a real gap in Geoapify&apos;s data apart from a
         venue that&apos;s simply outside the boundary or already on record under a different name.
       </p>
 
@@ -109,7 +109,7 @@ export default function InvestigateMissingLocationPage() {
           categories={categories}
           emptyMessage={
             <>
-              Google Places returned nothing for &ldquo;{state.report.query}&rdquo;. See{" "}
+              Geoapify returned nothing for &ldquo;{state.report.query}&rdquo;. See{" "}
               <code>docs/investigating-missing-venues.md</code> for common reasons a venue doesn&apos;t turn up
               here at all.
             </>

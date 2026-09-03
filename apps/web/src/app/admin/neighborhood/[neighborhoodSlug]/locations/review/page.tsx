@@ -36,7 +36,7 @@ function removalKey(removal: LocationRemovalCandidate): string {
 }
 
 // Bulk Places review + boundary reconciliation wizard (BACKLOG.md Ref 29 +
-// Ref 54): reviews fresh Google Places candidates against the neighborhood's
+// Ref 54): reviews fresh Geoapify candidates against the neighborhood's
 // saved boundary and lets an admin bulk-classify each as a claimable
 // business, a neighborhood-owned POI, or omit it; separately, lists every
 // active venue/POI that no longer falls inside that boundary (e.g. after a
@@ -175,7 +175,7 @@ export default function LocationReviewPage() {
       </a>
       <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">Review Places</h2>
       <p className="text-sm text-muted">
-        Queries Google Places for the neighborhood&apos;s current boundary and lists anything not already a
+        Queries Geoapify for the neighborhood&apos;s current boundary and lists anything not already a
         business or point of interest. This costs a real API call — run it deliberately, not on every visit.
       </p>
 
@@ -197,7 +197,7 @@ export default function LocationReviewPage() {
         </div>
       )}
 
-      {state.status === "loading" && <p className="text-sm text-muted">Querying Google Places…</p>}
+      {state.status === "loading" && <p className="text-sm text-muted">Querying Geoapify…</p>}
 
       {state.status === "error" && <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>}
 

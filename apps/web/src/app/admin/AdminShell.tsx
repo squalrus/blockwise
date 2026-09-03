@@ -24,7 +24,7 @@ export interface AdminShellTab {
   active: boolean;
   badge?: React.ReactNode;
   // Rendered indented under this tab, only while it's active (e.g.
-  // Monitoring > Overview/Performance/Google Places) -- a section with
+  // Monitoring > Overview/Performance/Geoapify) -- a section with
   // sub-pages, not a second top-level surface, so it doesn't warrant its own
   // AdminShellTab entry.
   children?: AdminShellSubTab[];

@@ -2,6 +2,16 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.10] — 2026-09-02
+
+### Removed
+
+- **Google Places migration cleanup (Phase 8 of 9)**: deleted the disposable Phase 5 backfill tooling now that every location has been reconciled onto a real Geoapify place ID — `apps/api/src/places/legacyPlaceId.ts`, the `/admin/geoapify-migration/...` routes, and the `/admin/super/geoapify-migration` page/tab. Deleted `docs/google-places-setup.md`, obsolete since Phase 4 already removed the Google client itself and no `GOOGLE_PLACES_API_KEY`/`GOOGLE_MAPS_API_KEY` remain anywhere in code or env files. Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`apps/api/src/places/legacyPlaceId.ts`, `legacyPlaceId.test.ts`, `apps/api/src/app.ts`, `apps/web/src/app/admin/super/geoapify-migration/`, `apps/web/src/app/admin/super/layout.tsx`, `docs/google-places-setup.md`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Remaining "Google Places" references cleaned up across admin UI and docs** to describe current Geoapify/OpenStreetMap behavior, including removing a stale "permanently closed" filtering claim (OSM has no equivalent — already dropped from the investigate response back in Phase 4). The two Geoapify search/reverse-geocode shapes shared with the permanent "Reassign place ID" action were renamed off "Migration" naming (`GeoapifyPlaceCandidate`, `GeoapifyReverseGeocodeResult`) since they're no longer migration-specific, and `deleteLocationForNeighborhood`'s now-unused `allowBusinessKind` option (only ever called by the deleted migration route) was removed — it always blocks a business-kind delete again, matching the regular neighborhood-admin Locations tab. (`docs/investigating-missing-venues.md`, `docs/location-services-comparison.md`, `docs/url-map.md`, `README.md`, `CONTRIBUTING.md`, `apps/web/src/app/admin/AdminShell.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/`, `apps/api/src/locations/locations.ts`, `locations.test.ts`, `packages/types/src/index.ts`)
+
 ## [0.84.9] — 2026-09-02
 
 ### Added
