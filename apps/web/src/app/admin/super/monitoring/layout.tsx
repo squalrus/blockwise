@@ -1,11 +1,12 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { MonitoringProvider, RANGE_OPTIONS, domainLabel, useMonitoring } from "./MonitoringContext";
 
 // Super-admin Monitoring section (BACKLOG.md Ref 104): errors (API + web),
 // request volume/latency, and outbound Geoapify API calls, rolled on
 // Postgres rather than a third-party service. Split across Overview/
-// Performance/Geoapify sub-pages (each its own route under the
+// Errors/Performance/Geoapify sub-pages (each its own route under the
 // "Monitoring" entry in AdminShell's left nav, see super/layout.tsx's TABS)
 // rather than one long scroll -- filters live here, above {children}, so
 // they're shared and persist across sub-pages instead of resetting on
@@ -21,14 +22,37 @@ export default function MonitoringLayout({ children }: { children: React.ReactNo
   );
 }
 
+// The pathname suffix past "/admin/super/monitoring" for each sub-page --
+// used below to render a "Monitoring > Errors" style breadcrumb title
+// instead of a bare "Monitoring" on every route, so it's clear which
+// sub-page is current. Overview (the "" entry) isn't listed here: it's the
+// section root, so its title is just "Monitoring".
+const SUB_PAGES: { suffix: string; label: string }[] = [
+  { suffix: "/errors", label: "Errors" },
+  { suffix: "/performance", label: "Performance" },
+  { suffix: "/places", label: "Geoapify" },
+];
+
 function MonitoringHeader() {
-  const { days, setDays, domain, setDomain, version, setVersion, availableDomains, availableVersions } =
+  const pathname = usePathname();
+  const { windowMinutes, setWindowMinutes, domain, setDomain, version, setVersion, availableDomains, availableVersions } =
     useMonitoring();
+  const currentSubPage = SUB_PAGES.find((p) => pathname.endsWith(p.suffix));
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 className="font-heading text-4xl font-extrabold">Monitoring</h1>
+        <h1 className="font-heading text-4xl font-extrabold">
+          {currentSubPage ? (
+            <>
+              <span className="text-muted">Monitoring</span>
+              <span className="mx-2 text-muted">›</span>
+              {currentSubPage.label}
+            </>
+          ) : (
+            "Monitoring"
+          )}
+        </h1>
         <p className="mt-1 text-[15px] text-body-text">
           Errors, request activity, DB query latency, and outbound Geoapify API calls.
         </p>
@@ -89,11 +113,11 @@ function MonitoringHeader() {
         <div className="flex gap-1 rounded-full bg-card-alt p-1">
           {RANGE_OPTIONS.map((opt) => (
             <button
-              key={opt.days}
+              key={opt.minutes}
               type="button"
-              onClick={() => setDays(opt.days)}
+              onClick={() => setWindowMinutes(opt.minutes)}
               className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
-                days === opt.days ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                windowMinutes === opt.minutes ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
               }`}
             >
               {opt.label}

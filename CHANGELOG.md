@@ -2,6 +2,22 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.13] — 2026-09-02
+
+### Added
+
+- **Super-admin Monitoring is now a true overview dashboard**: `/admin/super/monitoring` shows one KPI strip (errors, requests, avg latency, Geoapify credits today) plus three summary cards (Errors, Performance, Geoapify) that each link to their full sub-page. The old Overview content (errors-over-time chart, errors-by-source, status codes, recent requests table) moved to a new `/admin/super/monitoring/errors` sub-page. Every Monitoring sub-page now shows a "Monitoring › Errors" (etc.) breadcrumb title instead of a bare repeated "Monitoring", so the hierarchy is clear; the overview itself still shows just "Monitoring". (`apps/web/src/app/admin/super/monitoring/page.tsx`, `errors/page.tsx`, `layout.tsx`, `apps/web/src/app/admin/super/layout.tsx`)
+- **Neighborhood-admin Locations gets the same sub-nav pattern**: a sidebar sub-nav under Locations (Locations / Reimport / Troubleshooting) with matching breadcrumb titles, mirroring Monitoring's structure. "Reported venues" and "Investigate a missing venue" — previously two separate pages — are merged into one **Troubleshooting** sub-page (reported-venue triage on top, ad-hoc Geoapify search below), sharing the same result list and category picker. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/layout.tsx`, `locations/troubleshooting/page.tsx`, `[neighborhoodSlug]/layout.tsx`)
+- **"+ Add point of interest" is now a modal** instead of an inline form that pushed the location list down. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/AddPoiModal.tsx`, `locations/page.tsx`)
+
+### Changed
+
+- **Monitoring's time-range control gains 5-minute and 1-hour options** alongside the existing 24 hours/7 days/30 days, for watching a live incident play out without waiting for a day-level bucket to fill. The range is now tracked in minutes end-to-end rather than days: `GET /admin/monitoring/analytics` takes `?minutes=` (clamped 5–129600) instead of `?days=` (clamped 1–90), `MonitoringAnalytics.days` is now `window_minutes`, and `get_monitoring_analytics` takes `p_minutes` instead of `p_days`. (`apps/web/src/app/admin/super/monitoring/MonitoringContext.tsx`, `apps/api/src/app.ts`, `apps/api/src/monitoring/`, `packages/types/src/index.ts`, `supabase/migrations/20260902050000_monitoring_analytics_fn_v10.sql`)
+
+### Removed
+
+- **`/admin/neighborhood/[slug]/locations/reports` and `/locations/investigate`** pages, superseded by the merged Troubleshooting sub-page above. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/reports/page.tsx`, `locations/investigate/page.tsx`)
+
 ## [0.84.12] — 2026-09-02
 
 ### Changed

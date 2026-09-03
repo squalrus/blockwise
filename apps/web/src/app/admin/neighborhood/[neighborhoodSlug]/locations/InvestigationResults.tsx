@@ -7,10 +7,10 @@ import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
 // Renders one Places investigation's candidates plus the "Add as venue"
-// shortcut (BACKLOG.md Ref 96) -- shared between the standalone Investigate
-// page (locations/investigate/page.tsx) and the neighborhood-admin
-// missing-venue feedback triage list's inline "Quick investigate" (BACKLOG.md
-// Ref 80/96), both of which run the same GET
+// shortcut (BACKLOG.md Ref 96) -- shared between the Troubleshooting page's
+// two sections (locations/troubleshooting/page.tsx): the ad-hoc search and
+// the missing-venue feedback triage list's inline "Quick investigate"
+// (BACKLOG.md Ref 80/96), both of which run the same GET
 // .../locations/investigate?query= lookup and need the identical
 // result-list/category-picker/add-as-venue UI on top of it.
 export function InvestigationResults({

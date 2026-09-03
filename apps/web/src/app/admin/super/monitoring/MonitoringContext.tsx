@@ -9,14 +9,19 @@ import { clientApiUrl } from "@/lib/clientApi";
 
 // Shorter default window than the neighborhood/venue Analytics tabs (30
 // days) -- errors and request volume are noisier day-to-day, so 24h/7d/30d
-// is more useful here than 7/30/90.
+// is more useful here than 7/30/90. The two short options (5 min / 1 hour)
+// exist for watching a live incident play out in near-real-time rather than
+// waiting for a day-level bucket to fill in -- everything is tracked in
+// minutes (not days) so those fit the same RANGE_OPTIONS shape as the rest.
 export const RANGE_OPTIONS = [
-  { days: 1, label: "24 hours" },
-  { days: 7, label: "7 days" },
-  { days: 30, label: "30 days" },
+  { minutes: 5, label: "5 min" },
+  { minutes: 60, label: "1 hour" },
+  { minutes: 1440, label: "24 hours" },
+  { minutes: 10080, label: "7 days" },
+  { minutes: 43200, label: "30 days" },
 ];
-const DEFAULT_DAYS = 7;
-const RANGE_DAYS = RANGE_OPTIONS.map((opt) => opt.days);
+const DEFAULT_MINUTES = 10080;
+const RANGE_MINUTES = RANGE_OPTIONS.map((opt) => opt.minutes);
 
 export type StatusClass = "2xx" | "3xx" | "4xx" | "5xx";
 const STATUS_CLASSES: StatusClass[] = ["2xx", "3xx", "4xx", "5xx"];
@@ -41,8 +46,8 @@ type State =
 
 interface MonitoringContextValue {
   state: State;
-  days: number;
-  setDays: (days: number) => void;
+  windowMinutes: number;
+  setWindowMinutes: (minutes: number) => void;
   domain: string | null;
   setDomain: (domain: string | null) => void;
   version: string | null;
@@ -61,7 +66,7 @@ export function useMonitoring(): MonitoringContextValue {
   return ctx;
 }
 
-// Owns the Monitoring section's filters (days/domain/version/status class)
+// Owns the Monitoring section's filters (window/domain/version/status class)
 // and the one get_monitoring_analytics fetch that backs every sub-page
 // (Overview/Performance/Geoapify) -- mounted once in layout.tsx above
 // {children}, so switching between sub-pages re-renders only the page body,
@@ -89,8 +94,10 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
   // Filters are mirrored to the URL (below) so a refresh or a shared link
   // keeps the same view -- read the starting values once from whatever was
   // already in the query string.
-  const initialDaysParam = Number(searchParams.get("days"));
-  const [days, setDays] = useState(RANGE_DAYS.includes(initialDaysParam) ? initialDaysParam : DEFAULT_DAYS);
+  const initialMinutesParam = Number(searchParams.get("minutes"));
+  const [windowMinutes, setWindowMinutes] = useState(
+    RANGE_MINUTES.includes(initialMinutesParam) ? initialMinutesParam : DEFAULT_MINUTES
+  );
   // null = "All domains" -- the safe default. Historical rows logged before
   // this filter existed have domain = NULL (no backfill), and the RPC's
   // `domain is null or domain = p_domain` filter only matches an exact
@@ -123,7 +130,7 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
     async function load() {
       setState((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
       const token = await getAccessToken();
-      const params = new URLSearchParams({ days: String(days) });
+      const params = new URLSearchParams({ minutes: String(windowMinutes) });
       if (domain) params.set("domain", domain);
       if (version) params.set("version", version);
       if (statusClass) params.set("status_class", statusClass);
@@ -145,27 +152,27 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [days, domain, version, statusClass]);
+  }, [windowMinutes, domain, version, statusClass]);
 
   // Keep the URL in sync with the filters (replace, not push, so clicking
   // through pills doesn't spam browser history) -- default values are
   // omitted from the query string to keep shared/bookmarked links clean.
   // `pathname` tracks whichever sub-page is current, so switching between
-  // Overview/Performance/Geoapify carries the filters along.
+  // Overview/Errors/Performance/Geoapify carries the filters along.
   useEffect(() => {
     const params = new URLSearchParams();
-    if (days !== DEFAULT_DAYS) params.set("days", String(days));
+    if (windowMinutes !== DEFAULT_MINUTES) params.set("minutes", String(windowMinutes));
     if (domain) params.set("domain", domain);
     if (version) params.set("version", version);
     if (statusClass) params.set("status_class", statusClass);
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [days, domain, version, statusClass, pathname, router]);
+  }, [windowMinutes, domain, version, statusClass, pathname, router]);
 
   const value: MonitoringContextValue = {
     state,
-    days,
-    setDays,
+    windowMinutes,
+    setWindowMinutes,
     domain,
     setDomain,
     version,

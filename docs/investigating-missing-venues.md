@@ -1,14 +1,14 @@
 # Investigating missing venues (BACKLOG.md Ref 96)
 
 A neighbor or admin reports a venue that isn't showing up in Blockwise. This
-is a runbook for figuring out why, using the **Investigate a missing venue**
-tool on the neighborhood-admin Locations tab
-(`/admin/neighborhood/[slug]/locations/investigate`).
+is a runbook for figuring out why, using the **Search Geoapify directly**
+section of the neighborhood-admin Locations tab's Troubleshooting sub-page
+(`/admin/neighborhood/[slug]/locations/troubleshooting`).
 
 ## Using the tool
 
-1. Open the neighborhood's admin Locations tab and click **Investigate a
-   missing venue**.
+1. Open the neighborhood's admin Locations tab, go to **Troubleshooting**
+   (sidebar sub-nav), and scroll to **Search Geoapify directly**.
 2. Search the venue's name or address. This runs a single Geoapify Geocoding
    search — unlike **Reimport Locations** (a full-boundary sweep restricted
    to the category taxonomy's mapped Geoapify categories), this search has no
@@ -63,10 +63,11 @@ missing venue" option under Send Feedback (any page), or the "Missing a
 venue?" row at the bottom of `/checkin`'s nearest-venues list -- both POST a
 `missing_venue`-type feedback submission (`venue_name` + `neighborhood_id`)
 that pushes-notifies that neighborhood's own admins (not super admins) and
-lands in `/admin/neighborhood/:slug/locations/reports`. Each report row has
-its own "Quick investigate" button running this same geocoding search lookup
-inline, so triage and investigation happen in one place rather than an admin
-copying a name over to this page by hand.
+lands in the Troubleshooting sub-page's **Reported venues** section (same
+route as above, above the ad-hoc search). Each report row has its own "Quick
+investigate" button running this same geocoding search lookup inline, so
+triage and investigation happen in one place rather than an admin copying a
+name over to the search box by hand.
 
 ## Open questions (not yet built)
 

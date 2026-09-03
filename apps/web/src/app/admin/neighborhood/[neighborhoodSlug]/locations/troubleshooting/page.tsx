@@ -13,7 +13,7 @@ import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "../../NeighborhoodAdminContext";
 import { InvestigationResults } from "../InvestigationResults";
 
-type State =
+type FeedbackLoadState =
   | { status: "loading" }
   | { status: "ready"; submissions: FeedbackSubmissionAdminView[] }
   | { status: "error"; message: string };
@@ -38,11 +38,6 @@ const STATE_BADGE_CLASS: Record<FeedbackState, string> = {
   removed: "bg-card-alt text-muted-strong",
 };
 
-// Duplicated from the super admin Feedback tab's own StateMultiSelect
-// (apps/web/src/app/admin/super/feedback/page.tsx) rather than shared --
-// the two pages otherwise diverge (this one drops the type filter, adds
-// per-row investigate), so the one small shared piece isn't worth a new
-// shared module for.
 function StateMultiSelect({
   selected,
   onChange,
@@ -106,15 +101,15 @@ function StateMultiSelect({
   );
 }
 
-type InvestigationState =
+type RowInvestigationState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "results"; report: PlacesInvestigationReport }
   | { status: "error"; message: string };
 
-// One report row, with its own "Quick investigate" (BACKLOG.md Ref 96) --
-// runs the same GET .../locations/investigate?query= lookup as the
-// standalone Investigate page, seeded with this row's reported venue_name,
+// One reported-venue row, with its own "Quick investigate" (BACKLOG.md Ref
+// 96) -- runs the same GET .../locations/investigate?query= lookup as the
+// ad-hoc search section below, seeded with this row's reported venue_name,
 // so an admin can check Geoapify without leaving the triage list.
 function MissingVenueFeedbackRow({
   submission,
@@ -129,9 +124,9 @@ function MissingVenueFeedbackRow({
   busy: boolean;
   onStateChange: (id: string, state: FeedbackState) => void;
 }) {
-  const [investigation, setInvestigation] = useState<InvestigationState>({ status: "idle" });
+  const [investigation, setInvestigation] = useState<RowInvestigationState>({ status: "idle" });
   // Forces InvestigationResults to remount per search -- see the same note
-  // on locations/investigate/page.tsx.
+  // on the ad-hoc search section below.
   const [searchCount, setSearchCount] = useState(0);
 
   async function runInvestigate() {
@@ -211,21 +206,40 @@ function MissingVenueFeedbackRow({
   );
 }
 
-// Missing-venue feedback triage (BACKLOG.md Ref 80/96) -- /admin/feedback's
-// sibling scoped to one neighborhood: submissions of feedback type
-// "missing_venue", reported through the Send Feedback menu or the /checkin
-// page's "Missing a venue?" row, both of which POST /me/feedback with this
-// neighborhood's id. Mirrors the super admin Feedback tab's loading/search/
-// state-filter shape (minus the type filter, since every row here is
-// already the same type) plus the per-row Quick investigate above.
-export default function MissingVenueFeedbackPage() {
-  const { neighborhoodId, slug } = useNeighborhoodAdmin();
-  const [state, setState] = useState<State>({ status: "loading" });
+type SearchState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "results"; report: PlacesInvestigationReport }
+  | { status: "error"; message: string };
+
+// Troubleshooting (formerly two separate sub-pages, BACKLOG.md Ref 80/96) --
+// merges the missing-venue feedback triage list ("Reported venues") with the
+// ad-hoc Geoapify search tool ("Investigate a missing venue") into one page,
+// since they're the same underlying lookup (GET .../locations/investigate?
+// query=, rendered by the shared InvestigationResults.tsx) aimed at the same
+// job: figuring out why a venue a neighbor expects isn't showing up. Reports
+// are the common case (a neighbor already told you what's missing) and stay
+// the primary section; the free-text search below is for the rarer case of
+// checking Geoapify directly with no report to start from -- unlike Reimport
+// Locations, neither is restricted to the saved boundary or mapped business
+// types, so either can turn up a place the normal review flow never would.
+export default function TroubleshootingPage() {
+  const { neighborhoodId } = useNeighborhoodAdmin();
+  const [feedbackState, setFeedbackState] = useState<FeedbackLoadState>({ status: "loading" });
   const [search, setSearch] = useState("");
   const [stateFilter, setStateFilter] = useState<Set<FeedbackState>>(() => new Set(DEFAULT_STATES));
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryOption[] | null>(null);
+
+  const [query, setQuery] = useState("");
+  const [searchState, setSearchState] = useState<SearchState>({ status: "idle" });
+  // Forces InvestigationResults to remount per search (rather than reusing
+  // one instance across searches) -- it owns its own categoryChoice/addedIds
+  // state internally, keyed off the candidates it was first given, which
+  // would otherwise carry over stale selections into a second search's
+  // different candidate set.
+  const [searchCount, setSearchCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -241,10 +255,10 @@ export default function MissingVenueFeedbackPage() {
       if (cancelled) return;
       if (categoriesRes.ok) setCategories(await categoriesRes.json());
       if (!feedbackRes.ok) {
-        setState({ status: "error", message: "Failed to load reports" });
+        setFeedbackState({ status: "error", message: "Failed to load reports" });
         return;
       }
-      setState({ status: "ready", submissions: await feedbackRes.json() });
+      setFeedbackState({ status: "ready", submissions: await feedbackRes.json() });
     }
 
     load();
@@ -254,7 +268,7 @@ export default function MissingVenueFeedbackPage() {
   }, [neighborhoodId]);
 
   function setSubmissions(update: (prev: FeedbackSubmissionAdminView[]) => FeedbackSubmissionAdminView[]) {
-    setState((prev) => (prev.status === "ready" ? { ...prev, submissions: update(prev.submissions) } : prev));
+    setFeedbackState((prev) => (prev.status === "ready" ? { ...prev, submissions: update(prev.submissions) } : prev));
   }
 
   async function handleStateChange(id: string, nextState: FeedbackState) {
@@ -276,7 +290,30 @@ export default function MissingVenueFeedbackPage() {
     setSubmissions((prev) => prev.map((s) => (s.id === id ? { ...s, ...updated } : s)));
   }
 
-  const submissions = state.status === "ready" ? state.submissions : null;
+  async function runSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!query.trim()) return;
+
+    setSearchState({ status: "loading" });
+    const token = await getAccessToken();
+    const res = await fetch(
+      clientApiUrl(
+        `/neighborhood-admin/neighborhoods/${neighborhoodId}/locations/investigate?query=${encodeURIComponent(query)}`
+      ),
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setSearchState({ status: "error", message: body.error ?? "Failed to investigate location" });
+      return;
+    }
+
+    const report: PlacesInvestigationReport = await res.json();
+    setSearchCount((c) => c + 1);
+    setSearchState({ status: "results", report });
+  }
+
+  const submissions = feedbackState.status === "ready" ? feedbackState.submissions : null;
 
   const filtered = useMemo(() => {
     if (!submissions) return null;
@@ -290,62 +327,109 @@ export default function MissingVenueFeedbackPage() {
     });
   }, [submissions, search, stateFilter]);
 
-  if (state.status === "loading") {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <MushroomLoader size={72} />
-      </div>
-    );
-  }
-  if (state.status === "error") {
-    return <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>;
-  }
-
   return (
-    <div className="flex flex-col gap-4">
-      <a
-        href={`/admin/neighborhood/${slug}/locations`}
-        className="text-sm font-bold text-brand-purple hover:text-brand-orange"
-      >
-        ← Locations
-      </a>
-      <div>
-        <h1 className="font-heading text-4xl font-extrabold">Reported venues</h1>
-        <p className="mt-1 text-[15px] text-body-text">
-          Missing-venue reports from neighbors, submitted through Send Feedback or the check-in page.
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="font-heading text-lg font-extrabold">Reported venues</h2>
+          <p className="mt-1 text-[15px] text-body-text">
+            Missing-venue reports from neighbors, submitted through Send Feedback or the check-in page.
+          </p>
+        </div>
 
-      {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
+        {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
 
-      <div className="flex flex-wrap gap-2">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search venue, notes, name, or email"
-          className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.25 text-[13px] text-foreground"
-        />
-        <StateMultiSelect selected={stateFilter} onChange={setStateFilter} />
-      </div>
+        {feedbackState.status === "loading" && (
+          <div className="flex min-h-[30vh] items-center justify-center">
+            <MushroomLoader size={72} />
+          </div>
+        )}
+        {feedbackState.status === "error" && (
+          <p className="text-sm text-red-600 dark:text-red-400">{feedbackState.message}</p>
+        )}
 
-      <p className="text-xs font-bold text-muted">
-        {filtered?.length ?? 0} of {submissions?.length ?? 0} reports
-      </p>
+        {feedbackState.status === "ready" && (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search venue, notes, name, or email"
+                className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.25 text-[13px] text-foreground"
+              />
+              <StateMultiSelect selected={stateFilter} onChange={setStateFilter} />
+            </div>
 
-      <ul className="flex flex-col gap-2">
-        {filtered?.map((submission) => (
-          <MissingVenueFeedbackRow
-            key={submission.id}
-            submission={submission}
-            neighborhoodId={neighborhoodId}
-            categories={categories}
-            busy={busyId === submission.id}
-            onStateChange={handleStateChange}
+            <p className="text-xs font-bold text-muted">
+              {filtered?.length ?? 0} of {submissions?.length ?? 0} reports
+            </p>
+
+            <ul className="flex flex-col gap-2">
+              {filtered?.map((submission) => (
+                <MissingVenueFeedbackRow
+                  key={submission.id}
+                  submission={submission}
+                  neighborhoodId={neighborhoodId}
+                  categories={categories}
+                  busy={busyId === submission.id}
+                  onStateChange={handleStateChange}
+                />
+              ))}
+            </ul>
+
+            {filtered?.length === 0 && <p className="text-sm text-muted">No reports match.</p>}
+          </>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-4 border-t border-border pt-6">
+        <div>
+          <h2 className="font-heading text-lg font-extrabold">Search Geoapify directly</h2>
+          <p className="mt-1 text-sm text-muted">
+            For a venue name or address a neighbor mentioned that has no report above. Unlike Reimport Locations,
+            this isn&apos;t restricted to the saved boundary or to mapped business types, so it can turn up a place
+            the normal review flow never would — useful for telling a real gap in Geoapify&apos;s data apart from a
+            venue that&apos;s simply outside the boundary or already on record under a different name.
+          </p>
+        </div>
+
+        <form onSubmit={runSearch} className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Venue name or address"
+            className="min-w-64 flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
           />
-        ))}
-      </ul>
+          <button
+            type="submit"
+            disabled={!query.trim() || searchState.status === "loading"}
+            className="rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {searchState.status === "loading" ? "Searching…" : "Search"}
+          </button>
+        </form>
 
-      {filtered?.length === 0 && <p className="text-sm text-muted">No reports match.</p>}
+        {searchState.status === "error" && (
+          <p className="text-sm text-red-600 dark:text-red-400">{searchState.message}</p>
+        )}
+
+        {searchState.status === "results" && (
+          <InvestigationResults
+            key={searchCount}
+            neighborhoodId={neighborhoodId}
+            candidates={searchState.report.candidates}
+            categories={categories}
+            emptyMessage={
+              <>
+                Geoapify returned nothing for &ldquo;{searchState.report.query}&rdquo;. See{" "}
+                <code>docs/investigating-missing-venues.md</code> for common reasons a venue doesn&apos;t turn up
+                here at all.
+              </>
+            }
+          />
+        )}
+      </section>
     </div>
   );
 }

@@ -5,8 +5,8 @@ import type { CategoryOption, LocationKind, LocationListItem, Venue, VenueStatus
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { useNeighborhoodAdmin } from "../NeighborhoodAdminContext";
+import { AddPoiModal } from "../AddPoiModal";
 import { PoiForm } from "../PoiForm";
-import { formatCooldownRemaining, useLocationsReviewCooldown } from "../useLocationsReviewCooldown";
 import { ReassignPlaceIdPanel } from "./ReassignPlaceIdPanel";
 
 type Filter = "business" | "poi";
@@ -43,8 +43,16 @@ const FALLBACK_GROUP_COLOR = "var(--muted)";
 // is an independent axis, not part of the toggle -- "show hidden" combines
 // with whichever kind is selected, so hiding a row from e.g. the Businesses
 // view doesn't force a tab switch just to keep seeing it.
+//
+// Reimport Locations / Reported venues / Investigate a missing venue used
+// to be a button + two links cluttering this header -- they're now reached
+// via the sidebar's Locations sub-nav instead (../layout.tsx's TABS), same
+// pattern as the super-admin Monitoring section, leaving this page just the
+// list and the one action (Add POI) that actually belongs here. "+ Add
+// point of interest" itself moved from an inline form pushed into the list
+// to a modal (AddPoiModal) so opening it doesn't shove every row down.
 export default function NeighborhoodAdminLocationsPage() {
-  const { neighborhoodId, slug } = useNeighborhoodAdmin();
+  const { neighborhoodId } = useNeighborhoodAdmin();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("business");
   const [showHidden, setShowHidden] = useState(true);
@@ -57,7 +65,6 @@ export default function NeighborhoodAdminLocationsPage() {
   const [editingPoi, setEditingPoi] = useState<Venue | null>(null);
   const [addingPoi, setAddingPoi] = useState(false);
   const [reassigningId, setReassigningId] = useState<string | null>(null);
-  const cooldown = useLocationsReviewCooldown(neighborhoodId);
 
   async function loadLocations(activeSearch: string) {
     setError(null);
@@ -304,57 +311,17 @@ export default function NeighborhoodAdminLocationsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-5">
         <div className="min-w-50 flex-1">
-          <h1 className="font-heading text-4xl font-extrabold">Locations</h1>
-          <p className="mt-1 text-[15px] text-body-text">
+          <p className="text-[15px] text-body-text">
             Every venue and point of interest in the neighborhood — curate what neighbors see.
           </p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          {cooldown && !cooldown.can_run ? (
-            <button
-              type="button"
-              disabled
-              title={`Available again ${cooldown.next_allowed_at ? formatCooldownRemaining(cooldown.next_allowed_at) : "later"}`}
-              className="cursor-not-allowed rounded-xl bg-brand-purple/50 px-4.5 py-2.75 font-heading text-sm font-bold text-on-accent whitespace-nowrap opacity-70"
-            >
-              Reimport Locations
-            </button>
-          ) : (
-            <a
-              href={`/admin/neighborhood/${slug}/locations/review`}
-              className="shrink-0 rounded-xl bg-brand-purple px-4.5 py-2.75 font-heading text-sm font-bold text-on-accent whitespace-nowrap"
-            >
-              Reimport Locations
-            </a>
-          )}
-          {cooldown && !cooldown.can_run && cooldown.next_allowed_at && (
-            <span className="text-xs font-bold text-muted">
-              Next available {formatCooldownRemaining(cooldown.next_allowed_at)}
-            </span>
-          )}
-        </div>
         <button
           type="button"
-          onClick={() => setAddingPoi((prev) => !prev)}
+          onClick={() => setAddingPoi(true)}
           className="shrink-0 rounded-xl bg-brand-green px-4.5 py-2.75 font-heading text-sm font-bold text-on-accent whitespace-nowrap"
         >
-          {addingPoi ? "Cancel" : "+ Add point of interest"}
+          + Add point of interest
         </button>
-      </div>
-
-      <div className="flex flex-wrap gap-4">
-        <a
-          href={`/admin/neighborhood/${slug}/locations/reports`}
-          className="text-sm font-bold text-brand-purple hover:text-brand-orange"
-        >
-          Reported venues →
-        </a>
-        <a
-          href={`/admin/neighborhood/${slug}/locations/investigate`}
-          className="text-sm font-bold text-brand-purple hover:text-brand-orange"
-        >
-          Investigate a missing venue →
-        </a>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -469,7 +436,7 @@ export default function NeighborhoodAdminLocationsPage() {
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {addingPoi && (
-        <PoiForm neighborhoodId={neighborhoodId} onCreated={handlePoiCreated} onCancel={() => setAddingPoi(false)} />
+        <AddPoiModal neighborhoodId={neighborhoodId} onCreated={handlePoiCreated} onClose={() => setAddingPoi(false)} />
       )}
 
       {filtered?.length === 0 && <p className="text-sm text-muted">No locations match.</p>}

@@ -51,7 +51,7 @@ export interface MonitoringRepository {
   // (e.g. "4xx") -- undefined/null keeps today's "everything" behavior for
   // any of the three.
   getAnalytics(
-    days: number,
+    minutes: number,
     domain?: string | null,
     version?: string | null,
     statusClass?: string | null
