@@ -17,3 +17,5 @@ Version is tracked in `package.json` (the `"version"` field). The repo has six `
 [BACKLOG.md](./BACKLOG.md) tracks proposed work. Items are candidates, not commitments.
 
 When shipping a backlog item: branch off `main` as `vX.Y.Z`, move the entry to CHANGELOG.md, bump `version` in all six `package.json` files, append one `{ version, date, summary }` entry to [apps/web/src/app/changelog/entries.ts](./apps/web/src/app/changelog/entries.ts) (a one-line, user-facing summary of the release -- the in-app `/changelog` page renders this list instead of parsing CHANGELOG.md's full bullet detail), build, commit, push, then open a PR with `gh pr create`. Requires [GitHub CLI](https://cli.github.com) installed and authenticated (`gh auth login`).
+
+`summary` must never exceed 75 characters -- keep each entry to a single tight clause; trim adjectives and parenthetical asides before cutting substance.
