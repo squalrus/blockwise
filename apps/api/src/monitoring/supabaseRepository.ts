@@ -70,7 +70,9 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
     minutes: number,
     domain?: string | null,
     version?: string | null,
-    statusClass?: string | null
+    statusClass?: string | null,
+    errorSource?: string | null,
+    routeScope?: string | null
   ): Promise<MonitoringAnalytics> {
     const [analyticsResult, slowQueriesResult] = await Promise.all([
       this.supabase.rpc("get_monitoring_analytics", {
@@ -78,6 +80,8 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
         p_domain: domain ?? null,
         p_version: version ?? null,
         p_status_class: statusClass ?? null,
+        p_source: errorSource ?? null,
+        p_route_scope: routeScope ?? null,
       }),
       this.supabase.rpc("get_slow_queries", { p_limit: 10 }),
     ]);

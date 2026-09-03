@@ -21,8 +21,8 @@ export function SlowestRoutesTable({ routes }: { routes: MonitoringSlowestRoute[
         <li key={route.path}>
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex items-baseline justify-between gap-2">
-              <span className="truncate font-mono text-sm font-bold text-foreground">{route.path}</span>
-              <span className="shrink-0 font-mono text-xs font-bold" style={{ color: COLOR }}>
+              <span className="truncate font-mono text-xs font-bold text-foreground">{route.path}</span>
+              <span className="shrink-0 font-mono text-[11px] font-bold" style={{ color: COLOR }}>
                 {route.avg_ms}ms avg · {route.request_count} req
               </span>
             </div>

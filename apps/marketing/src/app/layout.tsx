@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { baloo2, jetbrainsMono, nunito } from "@blockwise/ui";
 import { SITE_URL } from "@/lib/siteUrl";
+import { ClientErrorReporter } from "./ClientErrorReporter";
 import "./globals.css";
 
 const title = "Spored";
@@ -42,7 +43,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${baloo2.variable} ${nunito.variable} ${jetbrainsMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <ClientErrorReporter />
+      </body>
       {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
         <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
       )}

@@ -13,7 +13,10 @@ import { StatusCodeBreakdownStats } from "../StatusCodeBreakdownStats";
 // under Performance, outbound Geoapify calls under Geoapify (see
 // ../layout.tsx and super/layout.tsx's TABS for the sub-nav).
 export default function MonitoringErrorsPage() {
-  const { statusClass, setStatusClass } = useMonitoring();
+  // errorSource itself is set via the Source pill row in the shared header
+  // (shown only on this sub-page, see ../layout.tsx's MonitoringHeader) --
+  // read here only to ring the matching ErrorsBySourceStats tile.
+  const { statusClass, setStatusClass, errorSource } = useMonitoring();
 
   return (
     <MonitoringData>
@@ -28,8 +31,11 @@ export default function MonitoringErrorsPage() {
               a separate "Errors by source" card elsewhere on the page. */}
           <section className="rounded-3xl border border-border bg-card p-6">
             <h2 className="mb-3.5 font-heading text-lg font-extrabold">Errors</h2>
-            <ErrorsBySourceStats data={analytics.errors_by_source} />
-            <div className="mt-4">
+            <ErrorsBySourceStats data={analytics.errors_by_source} selected={errorSource} />
+            <p className="mt-4 mb-3 text-xs text-muted">
+              Use the Source filter above to narrow this list to one source -- App, API, or Marketing.
+            </p>
+            <div>
               <RecentErrorsTable errors={analytics.recent_errors} />
             </div>
           </section>

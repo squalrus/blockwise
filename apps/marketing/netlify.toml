@@ -10,3 +10,15 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Marketing has no co-located API function (unlike apps/web), but its client
+# error reporter (src/lib/reportClientError.ts) still needs to reach
+# app.tryspored.com's API to log to error_log. Proxying it through this
+# site's own /api/* keeps the request same-origin from the browser's
+# perspective, matching apps/web's existing "no cross-site CORS" approach
+# (see apps/web/next.config.ts) rather than opening up CORS on apps/api.
+[[redirects]]
+  from = "/api/*"
+  to = "https://app.tryspored.com/api/:splat"
+  status = 200
+  force = true

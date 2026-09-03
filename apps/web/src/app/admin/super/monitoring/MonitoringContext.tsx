@@ -26,6 +26,33 @@ const RANGE_MINUTES = RANGE_OPTIONS.map((opt) => opt.minutes);
 export type StatusClass = "2xx" | "3xx" | "4xx" | "5xx";
 const STATUS_CLASSES: StatusClass[] = ["2xx", "3xx", "4xx", "5xx"];
 
+// Backs the Source pill row in layout.tsx's MonitoringHeader (shown only on
+// the Errors sub-page) -- ERROR_SOURCE_OPTIONS carries display labels
+// alongside the values so that header doesn't need its own copy of
+// "web" -> "App". Order matches ErrorsBySourceStats' tile order.
+export type ErrorSource = "api" | "web" | "marketing";
+export const ERROR_SOURCE_OPTIONS: { value: ErrorSource; label: string }[] = [
+  { value: "web", label: "App" },
+  { value: "api", label: "API" },
+  { value: "marketing", label: "Marketing" },
+];
+const ERROR_SOURCES: ErrorSource[] = ERROR_SOURCE_OPTIONS.map((opt) => opt.value);
+
+// "admin" covers every owner/admin-gated dashboard (/admin/*,
+// /neighborhood-admin/*, /business/*), not just super-admin -- see
+// monitoring_route_scope() in the RPC migration for the exact path mapping.
+// Backs the Routes pill row in layout.tsx's MonitoringHeader (shown only on
+// the Performance sub-page) -- ROUTE_SCOPE_OPTIONS carries display labels
+// alongside the values so that header doesn't need its own copy of
+// "app" -> "App".
+export type RouteScope = "admin" | "auth" | "app";
+export const ROUTE_SCOPE_OPTIONS: { value: RouteScope; label: string }[] = [
+  { value: "app", label: "App" },
+  { value: "admin", label: "Admin" },
+  { value: "auth", label: "Auth" },
+];
+const ROUTE_SCOPES: RouteScope[] = ROUTE_SCOPE_OPTIONS.map((opt) => opt.value);
+
 // Friendly labels for the domains this project actually uses today --
 // anything else (a future dev.tryspored.com, or an unrecognized value)
 // still renders fine as its raw hostname, so a new deployment shows up
@@ -54,6 +81,10 @@ interface MonitoringContextValue {
   setVersion: (version: string | null) => void;
   statusClass: StatusClass | null;
   setStatusClass: (statusClass: StatusClass | null) => void;
+  errorSource: ErrorSource | null;
+  setErrorSource: (errorSource: ErrorSource | null) => void;
+  routeScope: RouteScope | null;
+  setRouteScope: (routeScope: RouteScope | null) => void;
   availableDomains: string[];
   availableVersions: string[];
 }
@@ -66,8 +97,9 @@ export function useMonitoring(): MonitoringContextValue {
   return ctx;
 }
 
-// Owns the Monitoring section's filters (window/domain/version/status class)
-// and the one get_monitoring_analytics fetch that backs every sub-page
+// Owns the Monitoring section's filters (window/domain/version/status class/
+// error source/route scope) and the one get_monitoring_analytics fetch that
+// backs every sub-page
 // (Overview/Performance/Geoapify) -- mounted once in layout.tsx above
 // {children}, so switching between sub-pages re-renders only the page body,
 // not a fresh fetch or a filter reset. Mirrors the single-RPC-per-section
@@ -117,6 +149,22 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
   const [statusClass, setStatusClass] = useState<StatusClass | null>(
     STATUS_CLASSES.includes(initialStatusClassParam as StatusClass) ? (initialStatusClassParam as StatusClass) : null
   );
+  // Set via the Source pill row in the shared header (shown only on the
+  // Errors sub-page, see layout.tsx's MonitoringHeader) -- narrows
+  // errors_over_time/recent_errors to one of api/web/marketing.
+  // errors_by_source itself stays unfiltered (see ErrorsBySourceStats).
+  const initialErrorSourceParam = searchParams.get("source");
+  const [errorSource, setErrorSource] = useState<ErrorSource | null>(
+    ERROR_SOURCES.includes(initialErrorSourceParam as ErrorSource) ? (initialErrorSourceParam as ErrorSource) : null
+  );
+  // Set via a pill row in the shared header (shown only on the Performance
+  // sub-page, see layout.tsx's MonitoringHeader) -- narrows every
+  // request_log-derived chart there to the public-facing app, an admin/
+  // business/neighborhood-admin dashboard, or auth endpoints.
+  const initialRouteScopeParam = searchParams.get("route_scope");
+  const [routeScope, setRouteScope] = useState<RouteScope | null>(
+    ROUTE_SCOPES.includes(initialRouteScopeParam as RouteScope) ? (initialRouteScopeParam as RouteScope) : null
+  );
   const [state, setState] = useState<State>({ status: "loading" });
   // Kept separate from `state` so the domain/version pickers' pills don't
   // disappear during a loading flicker between filter changes -- only ever
@@ -134,6 +182,8 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
       if (domain) params.set("domain", domain);
       if (version) params.set("version", version);
       if (statusClass) params.set("status_class", statusClass);
+      if (errorSource) params.set("source", errorSource);
+      if (routeScope) params.set("route_scope", routeScope);
       const res = await fetch(clientApiUrl(`/admin/monitoring/analytics?${params}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -152,7 +202,7 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [windowMinutes, domain, version, statusClass]);
+  }, [windowMinutes, domain, version, statusClass, errorSource, routeScope]);
 
   // Keep the URL in sync with the filters (replace, not push, so clicking
   // through pills doesn't spam browser history) -- default values are
@@ -165,9 +215,11 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
     if (domain) params.set("domain", domain);
     if (version) params.set("version", version);
     if (statusClass) params.set("status_class", statusClass);
+    if (errorSource) params.set("source", errorSource);
+    if (routeScope) params.set("route_scope", routeScope);
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [windowMinutes, domain, version, statusClass, pathname, router]);
+  }, [windowMinutes, domain, version, statusClass, errorSource, routeScope, pathname, router]);
 
   const value: MonitoringContextValue = {
     state,
@@ -179,6 +231,10 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
     setVersion,
     statusClass,
     setStatusClass,
+    errorSource,
+    setErrorSource,
+    routeScope,
+    setRouteScope,
     availableDomains,
     availableVersions,
   };

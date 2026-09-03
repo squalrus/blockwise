@@ -1,7 +1,7 @@
 import type { MonitoringAnalytics, MonitoringPlacesApiDayToDate, PlacesApiEndpoint } from "@blockwise/types";
 
 export interface ErrorLogEntry {
-  source: "api" | "web";
+  source: "api" | "web" | "marketing";
   message: string;
   stack?: string | null;
   context?: Record<string, unknown> | null;
@@ -48,12 +48,18 @@ export interface MonitoringRepository {
   // domain narrows every chart to one deployment's rows (e.g.
   // "app.tryspored.com"); version narrows to one shipped release (e.g.
   // "0.81.0"); statusClass narrows recent_requests to one status-code family
-  // (e.g. "4xx") -- undefined/null keeps today's "everything" behavior for
-  // any of the three.
+  // (e.g. "4xx"); errorSource narrows errors_over_time/recent_errors to one
+  // of api/web/marketing; routeScope narrows every request_log-derived chart
+  // (request volume, latency, status codes, slowest routes, recent requests)
+  // to one of admin/auth/app (see monitoring_route_scope() in the RPC
+  // migration for the path -> scope mapping) -- undefined/null keeps today's
+  // "everything" behavior for any of the five.
   getAnalytics(
     minutes: number,
     domain?: string | null,
     version?: string | null,
-    statusClass?: string | null
+    statusClass?: string | null,
+    errorSource?: string | null,
+    routeScope?: string | null
   ): Promise<MonitoringAnalytics>;
 }

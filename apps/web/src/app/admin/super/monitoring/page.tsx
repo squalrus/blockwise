@@ -53,7 +53,7 @@ export default function MonitoringOverviewPage() {
 
               <section className="flex flex-col gap-3.5 rounded-3xl border border-border bg-card p-5.5">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-heading text-[17px] font-extrabold">Performance</h2>
+                  <h2 className="font-heading text-[17px] font-extrabold">API Performance</h2>
                   <a href="/admin/super/monitoring/performance" className="text-xs font-bold text-brand-purple hover:text-brand-orange">
                     View all →
                   </a>
