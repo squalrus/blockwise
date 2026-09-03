@@ -12,6 +12,7 @@ import MapGL, {
 import type { GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@/lib/maplibreWorker";
+import { collapseMapAttribution } from "@/lib/mapAttribution";
 import type { VenueListItem } from "@blockwise/types";
 import { getCategoryColor, getCategoryLegend, type ColorMode } from "@/lib/categoryColors";
 import { getResolvedTheme, subscribeToThemeChanges } from "@/lib/theme";
@@ -145,6 +146,8 @@ export function MapView({ venues }: { venues: VenueListItem[] }) {
         interactiveLayerIds={["venue-clusters", "venue-points"]}
         onClick={handleClick}
         cursor="pointer"
+        attributionControl={{ compact: true }}
+        onLoad={() => collapseMapAttribution(mapRef.current?.getMap().getContainer())}
         // Survives React Strict Mode's dev-only double-mount: without this,
         // the phantom first unmount permanently destroys the WebGL context
         // (maplibre-gl's Map.remove()), leaving the real second mount with a

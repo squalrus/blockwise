@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PoweredByGoogle } from "@blockwise/ui";
+import { PoweredByGeoapify } from "@blockwise/ui";
 import { EnrichmentAbout } from "../../../EnrichmentSection";
 import { getLocation } from "../layout";
 
@@ -36,7 +36,7 @@ export default async function LocationAboutPage({
             : "No enrichment data available for this point of interest."
         }
       />
-      {location.enrichment && <PoweredByGoogle />}
+      {location.enrichment && <PoweredByGeoapify />}
     </div>
   );
 }

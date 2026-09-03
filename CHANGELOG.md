@@ -2,6 +2,20 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.11] — 2026-09-02
+
+### Added
+
+- **"Powered by Geoapify" + OpenStreetMap attribution (Phase 9 of 9 — Google Places → Geoapify migration complete)**: the venue About tab now shows a `PoweredByGeoapify` component (links to Geoapify and OpenStreetMap's copyright page) in place of the old `PoweredByGoogle`, required under Geoapify's Free plan terms. The privacy policy's "Who we share it with" section now names Geoapify/OpenStreetMap as a data subprocessor, and its "Last updated" date is bumped. `docs/location-services-comparison.md`'s conclusion is corrected to reflect the full-removal decision actually shipped (no hybrid Google-Details-for-reviews-photos layer was kept). Full plan in `docs/geoapify-migration-plan.md`; BACKLOG.md Ref 114 is now fully shipped. (`packages/ui/src/PoweredByGeoapify.tsx`, `apps/web/src/app/location/[id]/about/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `docs/location-services-comparison.md`)
+
+### Changed
+
+- **Neighborhood map and boundary-drawing tool now start with a compact attribution control** instead of the fully-expanded default: MapLibre's `compact: true` only collapses attribution once the user drags the map, so a small helper forces the same collapse immediately after load. (`apps/web/src/app/neighborhoods/[slug]/MapView.tsx`, `apps/web/src/app/admin/neighborhood/BoundaryMap.tsx`, `apps/web/src/lib/mapAttribution.ts`)
+
+### Removed
+
+- **`PoweredByGoogle` attribution component**, superseded by `PoweredByGeoapify` above. (`packages/ui/src/PoweredByGoogle.tsx`, `packages/ui/src/index.ts`)
+
 ## [0.84.10] — 2026-09-02
 
 ### Removed

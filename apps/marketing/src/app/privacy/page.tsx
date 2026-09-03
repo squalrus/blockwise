@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const UPDATED = "August 23, 2026";
+const UPDATED = "September 2, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -67,9 +67,10 @@ export default function PrivacyPage() {
           We don&apos;t sell your personal information. We share data with service providers who help us run Spored,
           under obligations to protect it — including Supabase (authentication and database hosting), Google
           (sign-in, Analytics, and delivering push notifications to Chrome/Android devices via Firebase Cloud
-          Messaging), Microsoft (sign-in), Apple (delivering push notifications to Safari/iOS devices), and Netlify
-          (hosting). These push delivery services see the encrypted notification envelope and your device&apos;s push
-          endpoint, not your account details. Other users can see information tied to your profile
+          Messaging), Microsoft (sign-in), Apple (delivering push notifications to Safari/iOS devices), Geoapify
+          (business/place data and map tiles, sourced from OpenStreetMap), and Netlify (hosting). These push
+          delivery services see the encrypted notification envelope and your device&apos;s push endpoint, not your
+          account details. Other users can see information tied to your profile
           according to your visibility setting (public or private) — for example, a public profile&apos;s badges,
           check-in count, and neighbor count are visible to others; private profiles are not. New accounts default
           to public; you can switch to private at any time from Account settings.

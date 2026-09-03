@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Map, { Marker, NavigationControl, useControl, type MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@/lib/maplibreWorker";
+import { collapseMapAttribution } from "@/lib/mapAttribution";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import type { Feature, Polygon } from "geojson";
@@ -202,8 +203,12 @@ export function BoundaryMap({
             : { longitude: (initialCenter ?? DEFAULT_CENTER).lng, latitude: (initialCenter ?? DEFAULT_CENTER).lat, zoom: 15 }
         }
         style={{ height: "60vh", width: "100%", borderRadius: "0.75rem" }}
-        onLoad={() => setStatus("ready")}
+        onLoad={() => {
+          setStatus("ready");
+          collapseMapAttribution(mapRef.current?.getMap().getContainer());
+        }}
         onError={() => setStatus("error")}
+        attributionControl={{ compact: true }}
         // Survives React Strict Mode's dev-only double-mount -- see the same
         // reuseMaps comment in neighborhoods/[slug]/MapView.tsx.
         reuseMaps
