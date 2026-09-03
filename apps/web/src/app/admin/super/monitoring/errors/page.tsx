@@ -6,10 +6,6 @@ import { ErrorsBySourceStats } from "../ErrorsBySourceStats";
 import { RecentErrorsTable } from "../RecentErrorsTable";
 import { RecentRequestsTable } from "../RecentRequestsTable";
 import { StatusCodeBreakdownStats } from "../StatusCodeBreakdownStats";
-import type { ErrorSource } from "../MonitoringContext";
-
-// "web" reads as "App" here, matching ErrorsBySourceStats' tile labeling.
-const ERROR_SOURCE_LABEL: Record<ErrorSource, string> = { api: "api", web: "app", marketing: "marketing" };
 
 // Monitoring > Errors -- errors and status codes, the "is something on
 // fire" view (formerly the Overview page itself; Overview is now a true
@@ -17,7 +13,10 @@ const ERROR_SOURCE_LABEL: Record<ErrorSource, string> = { api: "api", web: "app"
 // under Performance, outbound Geoapify calls under Geoapify (see
 // ../layout.tsx and super/layout.tsx's TABS for the sub-nav).
 export default function MonitoringErrorsPage() {
-  const { statusClass, setStatusClass, errorSource, setErrorSource } = useMonitoring();
+  // errorSource itself is set via the Source pill row in the shared header
+  // (shown only on this sub-page, see ../layout.tsx's MonitoringHeader) --
+  // read here only to ring the matching ErrorsBySourceStats tile.
+  const { statusClass, setStatusClass, errorSource } = useMonitoring();
 
   return (
     <MonitoringData>
@@ -31,21 +30,10 @@ export default function MonitoringErrorsPage() {
           {/* Summary tiles paired with the list they summarize, rather than
               a separate "Errors by source" card elsewhere on the page. */}
           <section className="rounded-3xl border border-border bg-card p-6">
-            <div className="mb-3.5 flex items-center justify-between gap-3">
-              <h2 className="font-heading text-lg font-extrabold">Errors</h2>
-              {errorSource && (
-                <button
-                  type="button"
-                  onClick={() => setErrorSource(null)}
-                  className="shrink-0 rounded-full bg-card-alt px-3 py-1 text-xs font-extrabold text-muted-strong hover:text-foreground"
-                >
-                  {ERROR_SOURCE_LABEL[errorSource]} only · clear
-                </button>
-              )}
-            </div>
-            <ErrorsBySourceStats data={analytics.errors_by_source} selected={errorSource} onSelect={setErrorSource} />
+            <h2 className="mb-3.5 font-heading text-lg font-extrabold">Errors</h2>
+            <ErrorsBySourceStats data={analytics.errors_by_source} selected={errorSource} />
             <p className="mt-4 mb-3 text-xs text-muted">
-              Click a tile above to narrow this list to one source -- App, API, or Marketing.
+              Use the Source filter above to narrow this list to one source -- App, API, or Marketing.
             </p>
             <div>
               <RecentErrorsTable errors={analytics.recent_errors} />

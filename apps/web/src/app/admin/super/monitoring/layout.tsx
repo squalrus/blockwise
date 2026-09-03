@@ -1,7 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { MonitoringProvider, RANGE_OPTIONS, ROUTE_SCOPE_OPTIONS, domainLabel, useMonitoring } from "./MonitoringContext";
+import {
+  ERROR_SOURCE_OPTIONS,
+  MonitoringProvider,
+  RANGE_OPTIONS,
+  ROUTE_SCOPE_OPTIONS,
+  domainLabel,
+  useMonitoring,
+} from "./MonitoringContext";
 
 // Super-admin Monitoring section (BACKLOG.md Ref 104): errors (API + web),
 // request volume/latency, and outbound Geoapify API calls, rolled on
@@ -44,6 +51,8 @@ function MonitoringHeader() {
     setVersion,
     routeScope,
     setRouteScope,
+    errorSource,
+    setErrorSource,
     availableDomains,
     availableVersions,
   } = useMonitoring();
@@ -140,6 +149,40 @@ function MonitoringHeader() {
                   onClick={() => setRouteScope(opt.value)}
                   className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
                     routeScope === opt.value ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* Error source only means anything for error_log-derived charts
+            (Errors' own content), so it's hidden on every other sub-page --
+            lives here rather than in errors/page.tsx for the same reason as
+            Routes above: identical row spacing to Domain/Range/Version.
+            ErrorsBySourceStats' tiles still show the full, unfiltered
+            breakdown regardless of this pill (see that component). */}
+        {currentSubPage?.suffix === "/errors" && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-extrabold text-muted-strong">Source:</span>
+            <div className="flex gap-1 rounded-full bg-card-alt p-1">
+              <button
+                type="button"
+                onClick={() => setErrorSource(null)}
+                className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                  errorSource === null ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                }`}
+              >
+                All
+              </button>
+              {ERROR_SOURCE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setErrorSource(opt.value)}
+                  className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                    errorSource === opt.value ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
                   }`}
                 >
                   {opt.label}

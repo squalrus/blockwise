@@ -26,8 +26,17 @@ const RANGE_MINUTES = RANGE_OPTIONS.map((opt) => opt.minutes);
 export type StatusClass = "2xx" | "3xx" | "4xx" | "5xx";
 const STATUS_CLASSES: StatusClass[] = ["2xx", "3xx", "4xx", "5xx"];
 
+// Backs the Source pill row in layout.tsx's MonitoringHeader (shown only on
+// the Errors sub-page) -- ERROR_SOURCE_OPTIONS carries display labels
+// alongside the values so that header doesn't need its own copy of
+// "web" -> "App". Order matches ErrorsBySourceStats' tile order.
 export type ErrorSource = "api" | "web" | "marketing";
-const ERROR_SOURCES: ErrorSource[] = ["api", "web", "marketing"];
+export const ERROR_SOURCE_OPTIONS: { value: ErrorSource; label: string }[] = [
+  { value: "web", label: "App" },
+  { value: "api", label: "API" },
+  { value: "marketing", label: "Marketing" },
+];
+const ERROR_SOURCES: ErrorSource[] = ERROR_SOURCE_OPTIONS.map((opt) => opt.value);
 
 // "admin" covers every owner/admin-gated dashboard (/admin/*,
 // /neighborhood-admin/*, /business/*), not just super-admin -- see
@@ -140,9 +149,10 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
   const [statusClass, setStatusClass] = useState<StatusClass | null>(
     STATUS_CLASSES.includes(initialStatusClassParam as StatusClass) ? (initialStatusClassParam as StatusClass) : null
   );
-  // Set by clicking an Errors-by-source tile on the Errors page -- same
-  // click-to-filter pattern as statusClass above, narrowing errors_over_time/
-  // recent_errors to one of api/web/marketing instead of a second filter row.
+  // Set via the Source pill row in the shared header (shown only on the
+  // Errors sub-page, see layout.tsx's MonitoringHeader) -- narrows
+  // errors_over_time/recent_errors to one of api/web/marketing.
+  // errors_by_source itself stays unfiltered (see ErrorsBySourceStats).
   const initialErrorSourceParam = searchParams.get("source");
   const [errorSource, setErrorSource] = useState<ErrorSource | null>(
     ERROR_SOURCES.includes(initialErrorSourceParam as ErrorSource) ? (initialErrorSourceParam as ErrorSource) : null
