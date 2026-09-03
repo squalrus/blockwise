@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.85.0] — 2026-09-02
+
+### Added
+
+- **`apps/marketing` reports its own client errors for the first time**: `ClientErrorReporter.tsx` (window.onerror/unhandledrejection) and `error.tsx`/`global-error.tsx` boundaries mirror `apps/web`'s, reporting through `POST /monitoring/client-errors` tagged `source: "marketing"`. Since marketing is a separate Netlify site with no co-located API function, the reporter goes through a new same-origin `/api/*` proxy (`apps/marketing/netlify.toml` redirect to `app.tryspored.com`, plus a matching local-dev rewrite) rather than opening CORS on `apps/api`. (`apps/marketing/src/app/ClientErrorReporter.tsx`, `error.tsx`, `global-error.tsx`, `src/lib/reportClientError.ts`, `netlify.toml`, `next.config.ts`)
+
+### Changed
+
+- **Monitoring's Errors sub-tab gains an App/API/Marketing source filter**: the errors-by-source tiles are now clickable filters narrowing "Errors over time" and "Recent errors" to one source, mirroring the existing status-code tile pattern. `error_log.source` now allows `marketing` alongside `api`/`web`, and `get_monitoring_analytics` (v11) takes a new `p_source` param, threaded through `GET /admin/monitoring/analytics`'s `?source=`. `POST /monitoring/client-errors` gained an optional `source` field (defaults to `"web"`). (`apps/web/src/app/admin/super/monitoring/`, `apps/api/src/app.ts`, `apps/api/src/monitoring/`, `packages/types/src/index.ts`, `supabase/migrations/20260902060000_error_log_marketing_source.sql`, `20260902070000_monitoring_analytics_fn_v11.sql`)
+- **Monitoring's Performance sub-tab (renamed "API Performance") gains an App/Admin/Auth route-scope filter**: a "Routes" pill row narrows every request_log-derived chart (request volume, latency, status codes, slowest routes, recent requests) to the public-facing app, an owner/admin dashboard (`/admin/*`, `/neighborhood-admin/*`, `/business/*`), or auth endpoints — derived from `request_log.path`, no new instrumentation needed. It lives in the shared Monitoring header (not the page body) so it lines up with the other filters, which are now ordered Domain → Range → Routes → Version everywhere and hidden on sub-pages they don't apply to (Routes only shows on API Performance). New `monitoring_route_scope()` SQL helper centralizes the path-prefix mapping; `get_monitoring_analytics` (v12) takes `p_route_scope`, threaded through `GET /admin/monitoring/analytics`'s `?route_scope=`. Unlike the Errors source filter, this isn't a per-frontend split — every chart on this page, including "App", is `apps/api` backend request/query timing, never frontend page-render time, which is why the page title and every section heading are now prefixed "API" for clarity. (`apps/web/src/app/admin/super/monitoring/performance/page.tsx`, `layout.tsx`, `MonitoringContext.tsx`, `page.tsx`, `SlowestRoutesTable.tsx`, `apps/web/src/app/admin/super/layout.tsx`, `apps/api/src/app.ts`, `apps/api/src/monitoring/`, `supabase/migrations/20260902080000_monitoring_analytics_fn_v12.sql`)
+
 ## [0.84.13] — 2026-09-02
 
 ### Added

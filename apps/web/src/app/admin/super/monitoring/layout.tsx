@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { MonitoringProvider, RANGE_OPTIONS, domainLabel, useMonitoring } from "./MonitoringContext";
+import { MonitoringProvider, RANGE_OPTIONS, ROUTE_SCOPE_OPTIONS, domainLabel, useMonitoring } from "./MonitoringContext";
 
 // Super-admin Monitoring section (BACKLOG.md Ref 104): errors (API + web),
 // request volume/latency, and outbound Geoapify API calls, rolled on
@@ -29,14 +29,24 @@ export default function MonitoringLayout({ children }: { children: React.ReactNo
 // section root, so its title is just "Monitoring".
 const SUB_PAGES: { suffix: string; label: string }[] = [
   { suffix: "/errors", label: "Errors" },
-  { suffix: "/performance", label: "Performance" },
+  { suffix: "/performance", label: "API Performance" },
   { suffix: "/places", label: "Geoapify" },
 ];
 
 function MonitoringHeader() {
   const pathname = usePathname();
-  const { windowMinutes, setWindowMinutes, domain, setDomain, version, setVersion, availableDomains, availableVersions } =
-    useMonitoring();
+  const {
+    windowMinutes,
+    setWindowMinutes,
+    domain,
+    setDomain,
+    version,
+    setVersion,
+    routeScope,
+    setRouteScope,
+    availableDomains,
+    availableVersions,
+  } = useMonitoring();
   const currentSubPage = SUB_PAGES.find((p) => pathname.endsWith(p.suffix));
 
   return (
@@ -62,68 +72,110 @@ function MonitoringHeader() {
             into its own rounded-full tray so it's visually obvious which
             pills toggle together, instead of nine pills reading as one flat
             row. */}
-        <div className="flex gap-1 rounded-full bg-card-alt p-1">
-          <button
-            type="button"
-            onClick={() => setDomain(null)}
-            className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
-              domain === null ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
-            }`}
-          >
-            All domains
-          </button>
-          {availableDomains.map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDomain(d)}
-              className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
-                domain === d ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
-              }`}
-            >
-              {domainLabel(d)}
-            </button>
-          ))}
-        </div>
-        {availableVersions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-extrabold text-muted-strong">Domain:</span>
           <div className="flex gap-1 rounded-full bg-card-alt p-1">
             <button
               type="button"
-              onClick={() => setVersion(null)}
+              onClick={() => setDomain(null)}
               className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
-                version === null ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                domain === null ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
               }`}
             >
-              All versions
+              All domains
             </button>
-            {availableVersions.map((v) => (
+            {availableDomains.map((d) => (
               <button
-                key={v}
+                key={d}
                 type="button"
-                onClick={() => setVersion(v)}
+                onClick={() => setDomain(d)}
                 className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
-                  version === v ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                  domain === d ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
                 }`}
               >
-                v{v}
+                {domainLabel(d)}
               </button>
             ))}
           </div>
-        )}
-        <div className="flex gap-1 rounded-full bg-card-alt p-1">
-          {RANGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.minutes}
-              type="button"
-              onClick={() => setWindowMinutes(opt.minutes)}
-              className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
-                windowMinutes === opt.minutes ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
         </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-extrabold text-muted-strong">Range:</span>
+          <div className="flex gap-1 rounded-full bg-card-alt p-1">
+            {RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.minutes}
+                type="button"
+                onClick={() => setWindowMinutes(opt.minutes)}
+                className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                  windowMinutes === opt.minutes ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Route scope only means anything for request_log-derived charts
+            (Performance's own content), so it's hidden on every other
+            sub-page rather than shown but inert -- lives here rather than in
+            performance/page.tsx purely so it gets identical row spacing to
+            Domain/Range/Version instead of a separate gap-5.5 page-body gap. */}
+        {currentSubPage?.suffix === "/performance" && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-extrabold text-muted-strong">Routes:</span>
+            <div className="flex gap-1 rounded-full bg-card-alt p-1">
+              <button
+                type="button"
+                onClick={() => setRouteScope(null)}
+                className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                  routeScope === null ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                }`}
+              >
+                All
+              </button>
+              {ROUTE_SCOPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setRouteScope(opt.value)}
+                  className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                    routeScope === opt.value ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {availableVersions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-extrabold text-muted-strong">Version:</span>
+            <div className="flex gap-1 rounded-full bg-card-alt p-1">
+              <button
+                type="button"
+                onClick={() => setVersion(null)}
+                className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                  version === null ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                }`}
+              >
+                All versions
+              </button>
+              {availableVersions.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVersion(v)}
+                  className={`rounded-full px-3.5 py-1.75 text-xs font-extrabold ${
+                    version === v ? "bg-foreground text-background" : "text-muted-strong hover:text-foreground"
+                  }`}
+                >
+                  v{v}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

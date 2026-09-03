@@ -586,17 +586,21 @@ export function createApp() {
   });
 
   // Web app's error boundaries and window.onerror/unhandledrejection
-  // listener report through here (BACKLOG.md Ref 104) -- public, no auth,
-  // since a client error can happen before a visitor is signed in at all.
+  // listener report through here (BACKLOG.md Ref 104), as does the marketing
+  // site's equivalent reporter (proxied same-origin via apps/marketing's own
+  // /api/* rewrite -- see its netlify.toml/next.config.ts -- so this never
+  // needs CORS) -- public, no auth, since a client error can happen before a
+  // visitor is signed in at all. `source` distinguishes the two; omitted
+  // (older/unpatched callers) defaults to "web".
   app.post("/monitoring/client-errors", async (req, res) => {
-    const { message, stack, context } = (req.body ?? {}) as Partial<ReportClientErrorRequest>;
+    const { message, stack, context, source } = (req.body ?? {}) as Partial<ReportClientErrorRequest>;
     if (typeof message !== "string" || message.length === 0) {
       res.status(400).json({ error: "message is required" });
       return;
     }
     try {
       await getMonitoringRepository().logError({
-        source: "web",
+        source: source === "marketing" ? "marketing" : "web",
         message,
         stack: typeof stack === "string" ? stack : null,
         context: context && typeof context === "object" ? context : null,
@@ -2559,6 +2563,8 @@ export function createApp() {
   // narrows recent_requests to that family -- anything else is treated as
   // absent rather than erroring, same as an unrecognized domain/version.
   const STATUS_CLASSES = new Set(["2xx", "3xx", "4xx", "5xx"]);
+  const ERROR_SOURCES = new Set(["api", "web", "marketing"]);
+  const ROUTE_SCOPES = new Set(["admin", "auth", "app"]);
   app.get("/admin/monitoring/analytics", superAdminGate, async (req, res) => {
     try {
       const rawMinutes = Number(req.query.minutes);
@@ -2569,7 +2575,18 @@ export function createApp() {
       const version = typeof rawVersion === "string" && rawVersion.trim() ? rawVersion.trim() : null;
       const rawStatusClass = req.query.status_class;
       const statusClass = typeof rawStatusClass === "string" && STATUS_CLASSES.has(rawStatusClass) ? rawStatusClass : null;
-      const analytics = await getMonitoringRepository().getAnalytics(minutes, domain, version, statusClass);
+      const rawErrorSource = req.query.source;
+      const errorSource = typeof rawErrorSource === "string" && ERROR_SOURCES.has(rawErrorSource) ? rawErrorSource : null;
+      const rawRouteScope = req.query.route_scope;
+      const routeScope = typeof rawRouteScope === "string" && ROUTE_SCOPES.has(rawRouteScope) ? rawRouteScope : null;
+      const analytics = await getMonitoringRepository().getAnalytics(
+        minutes,
+        domain,
+        version,
+        statusClass,
+        errorSource,
+        routeScope
+      );
       res.json(analytics);
     } catch (err) {
       console.error("GET /admin/monitoring/analytics failed:", err);

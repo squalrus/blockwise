@@ -1664,13 +1664,13 @@ export interface MonitoringDailyCount {
 }
 
 export interface MonitoringErrorsBySource {
-  source: "api" | "web";
+  source: "api" | "web" | "marketing";
   count: number;
 }
 
 export interface MonitoringRecentError {
   id: string;
-  source: "api" | "web";
+  source: "api" | "web" | "marketing";
   message: string;
   stack: string | null;
   context: Record<string, unknown> | null;
@@ -1878,6 +1878,10 @@ export interface ReportClientErrorRequest {
   message: string;
   stack?: string;
   context?: Record<string, unknown>;
+  // Which frontend reported this -- defaults to "web" (apps/web) server-side
+  // when omitted, since apps/web's existing reportClientError predates this
+  // field. apps/marketing's reporter always sends "marketing" explicitly.
+  source?: "web" | "marketing";
 }
 
 export * from "./mushroom";

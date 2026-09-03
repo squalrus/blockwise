@@ -6,6 +6,15 @@ import type { MonitoringRecentError } from "@blockwise/types";
 const SOURCE_COLOR: Record<MonitoringRecentError["source"], string> = {
   api: "var(--brand-orange)",
   web: "var(--brand-purple)",
+  marketing: "var(--brand-amber)",
+};
+// "web" reads as "App" here to match ErrorsBySourceStats' tile labeling --
+// the underlying source value stays "web" (it's what error_log/the RPC
+// already use) since apps/web is this dashboard's original "app" frontend.
+const SOURCE_LABEL: Record<MonitoringRecentError["source"], string> = {
+  api: "api",
+  web: "app",
+  marketing: "marketing",
 };
 
 function formatTimestamp(iso: string) {
@@ -42,7 +51,7 @@ export function RecentErrorsTable({ errors }: { errors: MonitoringRecentError[] 
                 className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase text-on-accent"
                 style={{ background: SOURCE_COLOR[err.source] }}
               >
-                {err.source}
+                {SOURCE_LABEL[err.source]}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-bold text-foreground">{err.message}</div>
