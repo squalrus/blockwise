@@ -168,7 +168,7 @@ export default function NeighborhoodBoundaryPage() {
           </div>
 
           <div className="rounded-2xl bg-card-alt p-4.5 text-[13px] leading-relaxed text-body-text">
-            The nightly Google Places sync uses this shape to decide which venues belong to this neighborhood.
+            The nightly Geoapify sync uses this shape to decide which venues belong to this neighborhood.
             Redrawing takes effect on the next sync.
           </div>
 

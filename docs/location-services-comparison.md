@@ -1,8 +1,10 @@
 # Location data services — comparison
 
-Google Places API (New) is what's implemented today ([Google Places setup](./google-places-setup.md),
-client in `apps/api/src/places/client.ts`, quota guard in
-`apps/api/src/places/quotaGuard.ts`). This doc compares it against alternative
+Geoapify is what's implemented today (BACKLOG.md Ref 114 migrated off Google
+Places API; client in `apps/api/src/places/geoapifyClient.ts`, quota guard in
+`apps/api/src/places/quotaGuard.ts`). This doc's research and comparison below
+predate that migration and describe the Google Places API (New) setup that
+was live at the time. This doc compares it against alternative
 location-data providers, with a focus on the question that actually matters
 for how Spored uses location data: **can the data be cached/stored, or does
 it have to be re-fetched live on every use?**

@@ -42,8 +42,8 @@ cp apps/web/.env.example apps/web/.env.local
 cp apps/marketing/.env.example apps/marketing/.env.local
 ```
 
-- `apps/api/.env.local` needs a Supabase project's URL + service-role key, and (optionally) a Google Places API key — see [docs/google-places-setup.md](./docs/google-places-setup.md) if you don't have one yet. It also takes a VAPID keypair for web push (`npx web-push generate-vapid-keys` to generate one) — the public half must match `apps/web/.env.local`'s `NEXT_PUBLIC_VAPID_PUBLIC_KEY`.
-- `apps/web/.env.local` needs the same Supabase project's URL + anon key (browser-side auth only), plus a Google Maps JavaScript API key for the map view, and the VAPID public key above.
+- `apps/api/.env.local` needs a Supabase project's URL + service-role key, and (optionally) a Geoapify API key for the real (non-mocked) Places sync. It also takes a VAPID keypair for web push (`npx web-push generate-vapid-keys` to generate one) — the public half must match `apps/web/.env.local`'s `NEXT_PUBLIC_VAPID_PUBLIC_KEY`.
+- `apps/web/.env.local` needs the same Supabase project's URL + anon key (browser-side auth only), plus a Geoapify API key for the map view (MapLibre GL JS + Geoapify vector tiles), and the VAPID public key above.
 - `apps/marketing/.env.local` — default (`http://localhost:3000`) already points at a locally running `apps/web`, no changes needed for local dev.
 - See [supabase/README.md](./supabase/README.md) for linking to the hosted project or running a local Postgres/Auth/Storage stack instead.
 
@@ -68,7 +68,6 @@ cd apps/api && npm test     # unit tests (vitest) — apps/api only, for now
 |---|---|
 | [docs/project-plan.md](./docs/project-plan.md) | The original architecture/build plan — data model, licensing constraints, monetization model, multi-neighborhood design, and every other numbered section (`§1`–`§14`) referenced elsewhere in this repo |
 | [docs/url-map.md](./docs/url-map.md) | Current inventory of every web route and API endpoint — keep it in sync when routes change (see [CONTRIBUTING.md](./CONTRIBUTING.md)) |
-| [docs/google-places-setup.md](./docs/google-places-setup.md) | One-time Google Cloud Console setup for the real (non-mocked) Places sync |
 | [BACKLOG.md](./BACKLOG.md) | Proposed features, improvements, and known issues — candidates, not commitments |
 | [CHANGELOG.md](./CHANGELOG.md) | Shipped, user-visible changes, newest first |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | Branching, versioning, and PR workflow for landing a change |

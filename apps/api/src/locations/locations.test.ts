@@ -512,19 +512,6 @@ describe("deleteLocationForNeighborhood", () => {
     expect(result).toEqual({ status: "business_kind" });
     expect(await repo.getLocationById("b1")).not.toBeNull();
   });
-
-  it("allowBusinessKind lifts the business-kind block, but hasDependentActivity still applies", async () => {
-    const repo = new FakeLocationRepository([makeBusiness({ id: "b1" })]);
-    const deleted = await deleteLocationForNeighborhood("neighborhood-1", "b1", repo, { allowBusinessKind: true });
-    expect(deleted).toEqual({ status: "deleted" });
-    expect(await repo.getLocationById("b1")).toBeNull();
-
-    const repo2 = new FakeLocationRepository([makeBusiness({ id: "b2" })]);
-    repo2.dependentActivity.add("b2");
-    const blocked = await deleteLocationForNeighborhood("neighborhood-1", "b2", repo2, { allowBusinessKind: true });
-    expect(blocked).toEqual({ status: "has_dependent_activity" });
-    expect(await repo2.getLocationById("b2")).not.toBeNull();
-  });
 });
 
 describe("listLocationListItemsForNeighborhood", () => {

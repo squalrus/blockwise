@@ -1250,95 +1250,13 @@ export interface AddInvestigatedLocationResult {
   created_businesses: string[];
 }
 
-// --- Geoapify migration backfill tooling (BACKLOG.md Ref 114 Phase 5) ---
-// Disposable, super-admin-only (apps/web/src/app/admin/super/geoapify-migration/,
-// matching apps/api/src/app.ts routes under /admin/geoapify-migration/...).
-// Every location synced before the Phase 4 cutover still carries its
-// original Google place ID; this whole block exists to reconcile that and
-// should be deleted once every location has a real Geoapify ID.
-
-// A search result that fuzzy-matched an existing location by name+location
-// (apps/api/src/places/dedup.ts) rather than a genuinely new place --
-// confidencePercent is that match's name-similarity score, surfaced so an
-// admin can scan a one-time batch and bulk-approve the obvious ones without
-// opening each individually. Never auto-applied -- see the commit endpoint.
-export interface GeoapifyMigrationPossibleMatch {
-  location_id: string;
-  existing_name: string;
-  existing_address: string | null;
-  existing_status: VenueStatus;
-  geoapify_place_id: string;
-  matched_name: string;
-  matched_address: string;
-  lat: number;
-  lng: number;
-  confidence_percent: number;
-}
-
-export interface GeoapifyMigrationReviewResult {
-  tiles_queried: number;
-  api_calls_made: number;
-  calls_at_result_cap: number;
-  possible_matches: GeoapifyMigrationPossibleMatch[];
-}
-
-export interface GeoapifyMigrationCommitRequest {
-  reidentifications: { location_id: string; geoapify_place_id: string }[];
-}
-
-export interface GeoapifyMigrationCommitResult {
-  reidentified: string[];
-  failed: { name: string; error: string }[];
-}
-
-// A location whose geoapify_place_id still looks Google-shaped after a
-// review run -- either never resurfaced by Geoapify's boundary sweep at all
-// (a real, confirmed-live-verification coverage gap, docs/geoapify-migration-plan.md
-// Phase 0) or resurfaced but didn't clear the fuzzy-match threshold. The
-// punch list for manual search-and-attach.
-export interface GeoapifyMigrationLegacyLocation {
-  id: string;
-  name: string;
-  address: string | null;
-  status: VenueStatus;
-  geoapify_place_id: string;
-}
-
-// The complement of GeoapifyMigrationLegacyLocation -- geoapify_place_id is
-// nullable here (unlike the legacy shape) since it also includes a
-// manually-added POI never backed by a Places record at all, not just a
-// location holding a confirmed real (post-Phase-4) Geoapify ID.
-export interface GeoapifyMigrationLocation {
-  id: string;
-  name: string;
-  address: string | null;
-  status: VenueStatus;
-  geoapify_place_id: string | null;
-}
-
-// total_locations is every non-removed location in the neighborhood (both
-// kinds, active or hidden) -- legacy.length + migrated.length. Both lists
-// back the migration page's "2. Still-legacy locations" / "3. Migrated
-// locations" sections; total_locations lets the donut chart above them
-// compute migrated-vs-not without a second call.
-export interface GeoapifyMigrationLegacyLocationsResult {
-  total_locations: number;
-  legacy: GeoapifyMigrationLegacyLocation[];
-  migrated: GeoapifyMigrationLocation[];
-}
-
-// Free-text Geoapify search result for the manual attach step -- a subset
-// of PlacesInvestigationCandidate (no category/boundary/already-known
-// annotations, since this flow doesn't need them).
-//
-// distance_meters is always a real number (from the specific location being
-// reconciled, or the neighborhood centroid as a coarser fallback), never
-// null -- the guardrail this exists for (BACKLOG.md Ref 114: "Kipos Greek"
-// got silently attached to a same-named restaurant 2,500+ miles away in
-// Chapel Hill, NC, since nothing surfaced how far a free-text match
-// actually was) only works if distance is always shown, not sometimes
-// hidden behind an "unknown" state.
-export interface GeoapifyMigrationSearchCandidate {
+// A Geoapify search/reverse-geocode candidate for the "Reassign place ID"
+// admin action (BACKLOG.md Ref 114) -- distance_meters is always a real
+// number (from the location being reassigned, or the neighborhood centroid
+// as a coarser fallback), never null, since a distance-blind attach is
+// exactly how a wrong place got attached to a real venue 2,500+ miles away
+// before this guardrail existed.
+export interface GeoapifyPlaceCandidate {
   geoapify_place_id: string;
   name: string;
   address: string;
@@ -1347,24 +1265,11 @@ export interface GeoapifyMigrationSearchCandidate {
   distance_meters: number;
 }
 
-export interface GeoapifyMigrationSearchReport {
-  query: string;
-  candidates: GeoapifyMigrationSearchCandidate[];
-}
-
-export interface GeoapifyMigrationAttachRequest {
-  geoapify_place_id: string;
-}
-
-// Coordinate-based match (Ref 114 Phase 5's second matching strategy,
-// alongside free-text search above) -- reverse-geocodes a still-legacy
-// location's own stored lat/lng to suggest what's physically there today,
-// catching a renamed/rebranded business a name search would never connect.
-// Same candidate shape as a text search result; empty when Geoapify has no
-// named POI at that exact point (a bare "building" result, filtered out
-// server-side -- see GeoapifyTextSearchClient.reverseGeocode's comment).
-export interface GeoapifyMigrationReverseGeocodeResult {
-  candidates: GeoapifyMigrationSearchCandidate[];
+// Empty candidates means Geoapify has no named POI at the location's exact
+// coordinates today (a bare "building" result, filtered out server-side),
+// not a failure.
+export interface GeoapifyReverseGeocodeResult {
+  candidates: GeoapifyPlaceCandidate[];
 }
 
 // Only leaf categories (see supabase/migrations/.../category_taxonomy.sql)

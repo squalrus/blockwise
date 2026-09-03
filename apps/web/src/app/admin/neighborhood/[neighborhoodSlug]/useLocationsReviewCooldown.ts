@@ -7,7 +7,7 @@ import { clientApiUrl } from "@/lib/clientApi";
 // button before the admin even navigates to the review page) and the review
 // page itself (BACKLOG.md "Reimport Locations") -- both need the same
 // once-per-24h cooldown status, read from a dedicated endpoint that never
-// touches Google Places itself.
+// touches Geoapify itself.
 export function useLocationsReviewCooldown(neighborhoodId: string): LocationsReviewCooldownStatus | null {
   const [status, setStatus] = useState<LocationsReviewCooldownStatus | null>(null);
 

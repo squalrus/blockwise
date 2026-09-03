@@ -1,29 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { GeoapifyMigrationReverseGeocodeResult, GeoapifyMigrationSearchCandidate } from "@blockwise/types";
+import type { GeoapifyReverseGeocodeResult, GeoapifyPlaceCandidate } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
-// Small, permanent version of the disposable geoapify-migration tool's
-// "Find & attach" flow (BACKLOG.md Ref 114), kept on the regular Locations
-// tab so this capability survives that tool's teardown -- see the matching
-// API routes' comment in app.ts for why it's still needed after the
-// migration itself is done (Geoapify's own place IDs can churn, and a real
-// venue can simply not be in OSM yet). Same distance guardrail as the
-// migration tool: a distance-blind search is exactly how a wrong place got
-// attached there before this guardrail existed.
+// Small, permanent "Find & attach" flow (BACKLOG.md Ref 114) on the regular
+// Locations tab -- see the matching API routes' comment in app.ts for why
+// it's still needed after the Geoapify migration itself is done (Geoapify's
+// own place IDs can churn, and a real venue can simply not be in OSM yet).
+// A distance-blind search is exactly how a wrong place got attached to a
+// real venue 2,500+ miles away before this guardrail existed.
 const ATTACH_CONFIRM_DISTANCE_METERS = 500;
 
 type ReverseSuggestionState =
   | { status: "loading" }
-  | { status: "found"; candidates: GeoapifyMigrationSearchCandidate[] }
+  | { status: "found"; candidates: GeoapifyPlaceCandidate[] }
   | { status: "none" };
 
 type SearchState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "results"; candidates: GeoapifyMigrationSearchCandidate[] }
+  | { status: "results"; candidates: GeoapifyPlaceCandidate[] }
   | { status: "error"; message: string };
 
 function formatDistance(meters: number): string {
@@ -60,7 +58,7 @@ export function ReassignPlaceIdPanel({
         setReverseSuggestion({ status: "none" });
         return;
       }
-      const body: GeoapifyMigrationReverseGeocodeResult = await res.json();
+      const body: GeoapifyReverseGeocodeResult = await res.json();
       setReverseSuggestion(body.candidates.length > 0 ? { status: "found", candidates: body.candidates } : { status: "none" });
     }
     void loadSuggestion();
@@ -85,11 +83,11 @@ export function ReassignPlaceIdPanel({
       setSearch({ status: "error", message: body.error ?? "Search failed" });
       return;
     }
-    const body: { candidates: GeoapifyMigrationSearchCandidate[] } = await res.json();
+    const body: { candidates: GeoapifyPlaceCandidate[] } = await res.json();
     setSearch({ status: "results", candidates: body.candidates });
   }
 
-  async function reassign(candidate: GeoapifyMigrationSearchCandidate) {
+  async function reassign(candidate: GeoapifyPlaceCandidate) {
     if (
       candidate.distance_meters > ATTACH_CONFIRM_DISTANCE_METERS &&
       !window.confirm(`This result is ${formatDistance(candidate.distance_meters)} from this location. Reassign anyway?`)
