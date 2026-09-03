@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.84.12] — 2026-09-02
+
+### Changed
+
+- **Changelog entry summaries capped at 75 characters**: `apps/web/src/app/changelog/entries.ts`'s `summary` field was unbounded — several past entries ran to 100+ characters, which could wrap awkwardly or overflow on the in-app `/changelog` page. All 120 existing entries were rewritten to fit within the limit, and CLAUDE.md's backlog-shipping steps now document the 75-character cap so future entries stay within it. (`apps/web/src/app/changelog/entries.ts`, `CLAUDE.md`)
+
 ## [0.84.11] — 2026-09-02
 
 ### Added
