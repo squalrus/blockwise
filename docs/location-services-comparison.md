@@ -52,15 +52,19 @@ on top of the same data) fits the bulk-sync model this app actually uses.
 ODbL permits indefinite storage at near-zero cost, with none of the
 "must re-fetch on render" restriction the commercial APIs impose.
 
-Tradeoff: no reviews, no photos, natively. If those stay "nice to have,"
-they'd be sourced separately per-venue — a thin, lazy, on-demand layer
-(similar to what `enrichment/refresh.ts` already does for Google Details),
-just against a much smaller call volume than running the entire discovery
-pipeline through a per-call metered API.
+Tradeoff: no reviews, no photos, natively. A hybrid was considered here —
+keeping Google Places Details as a thin, on-demand layer purely for
+reviews/photos on venues someone actually opens, while Geoapify/Overpass
+handled the bulk sync — but the migration (BACKLOG.md Ref 114) shipped a
+full removal instead: rating, reviews, and photo galleries were dropped
+outright as product features (Phase 3), rather than kept alive as a
+second, Google-keyed data source alongside Geoapify. That avoids running
+two location-data vendors long-term for a feature that a live check found
+patchy anyway (see Phase 0 findings above).
 
-**Suggested shape:** Geoapify or Overpass for the recurring bulk location
-sync (`places/sync.ts`), keep Google Places Details as a thin on-demand
-layer purely for reviews/photos on venues someone actually opens.
+**Shape shipped:** Geoapify for both the recurring bulk location sync
+(`places/sync.ts`) and on-demand Place Details enrichment — no Google
+Places dependency remains anywhere in the codebase.
 
 ## Geoapify deep dive
 

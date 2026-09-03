@@ -1,6 +1,6 @@
 export { GoogleIcon } from "./GoogleIcon";
 export { MicrosoftIcon } from "./MicrosoftIcon";
-export { PoweredByGoogle } from "./PoweredByGoogle";
+export { PoweredByGeoapify } from "./PoweredByGeoapify";
 export { MushroomLogo } from "./MushroomLogo";
 export { MushroomLoader } from "./MushroomLoader";
 export { MushroomMark, maxSpotCountForShape, mushroomOutline, spotShapeElement } from "./MushroomMark";
