@@ -1056,24 +1056,45 @@ export function createApp() {
       return;
     }
 
+    // Per-phase timing for the Monitoring > Performance "Check-in timing"
+    // chart (checkin_timing_log) -- fire-and-forget like every other
+    // monitoring write (requestLoggingMiddleware, InstrumentedPlacesClient),
+    // so a dropped sample never costs the check-in itself anything.
+    const requestStartedAt = Date.now();
+    function logCheckinTiming(
+      outcome: "created" | "too_far" | "cooldown" | "not_found",
+      phases: { geofenceMs: number; rewardsMs?: number; notifyMs?: number; collectionMs?: number }
+    ) {
+      getMonitoringRepository()
+        .logCheckinTiming({ outcome, totalMs: Date.now() - requestStartedAt, ...phases })
+        .catch(() => {
+          // Best-effort only, mirrors installErrorLogging/requestLoggingMiddleware.
+        });
+    }
+
     try {
+      const geofenceStartedAt = Date.now();
       const result = await performCheckin(
         req.params.id,
         req.appUser!.id,
         { lat, lng },
         getCheckinRepository()
       );
+      const geofenceMs = Date.now() - geofenceStartedAt;
 
       switch (result.status) {
         case "not_found":
+          logCheckinTiming("not_found", { geofenceMs });
           res.status(404).json({ error: "Location not found" });
           return;
         case "too_far":
+          logCheckinTiming("too_far", { geofenceMs });
           res
             .status(400)
             .json({ error: "Too far from location to check in", distance_meters: result.distanceMeters });
           return;
         case "cooldown":
+          logCheckinTiming("cooldown", { geofenceMs });
           res
             .status(429)
             .json({ error: "Check-in cooldown still active", retry_at: result.retryAt, scope: result.scope });
@@ -1089,6 +1110,7 @@ export function createApp() {
           // rewards-evaluation error -- but the response's rewards then just
           // report nothing earned, rather than failing the check-in.
           let rewards: CheckinRewardsSummary = { points_earned: 0, challenges_completed: [], badges_earned: [] };
+          const rewardsStartedAt = Date.now();
           try {
             const summary = await awardCheckinRewards(
               {
@@ -1112,6 +1134,7 @@ export function createApp() {
           } catch (err) {
             console.error(`awardCheckinRewards (location ${req.params.id}) failed:`, err);
           }
+          const rewardsMs = Date.now() - rewardsStartedAt;
 
           // BACKLOG.md Ref 91: notify the checking-in user's accepted
           // connections. Awaited (not fired-and-forgotten) for the same
@@ -1119,6 +1142,7 @@ export function createApp() {
           // container can freeze as soon as res.json() completes -- but a
           // failure here is swallowed the same way, since the check-in
           // already succeeded.
+          const notifyStartedAt = Date.now();
           try {
             const venue = await getLocationRepository().getLocationById(req.params.id);
             if (venue) {
@@ -1134,6 +1158,7 @@ export function createApp() {
           } catch (err) {
             console.error(`notifyConnectionsOfCheckin (location ${req.params.id}) failed:`, err);
           }
+          const notifyMs = Date.now() - notifyStartedAt;
 
           // BACKLOG.md Ref 98: forager collection -- collects this venue's
           // mushroom "species" the first time (bumps quantity on repeats),
@@ -1144,6 +1169,7 @@ export function createApp() {
           // CheckinResultCard's "unlocked" popup -- only the Badges tab's
           // *locked* preview hides un-earned forager tiers (BadgesPage.tsx),
           // since previewing all ~28 of them there would be noisy.
+          const collectionStartedAt = Date.now();
           try {
             const isNewSpecies = await getMushroomCollectionRepository().recordVenueCollection(
               result.checkin.user_id,
@@ -1163,7 +1189,9 @@ export function createApp() {
           } catch (err) {
             console.error(`recordVenueCollection (location ${req.params.id}) failed:`, err);
           }
+          const collectionMs = Date.now() - collectionStartedAt;
 
+          logCheckinTiming("created", { geofenceMs, rewardsMs, notifyMs, collectionMs });
           res.status(201).json({ ...result.checkin, rewards });
           return;
         }

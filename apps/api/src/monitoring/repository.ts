@@ -14,6 +14,19 @@ export interface RequestLogEntry {
   durationMs: number;
 }
 
+// One row per POST /locations/:id/checkins attempt (app.ts) -- totalMs is
+// always set, the four phase timings only as far as the request actually
+// got (see checkin_timing_log's migration comment for why a too_far/
+// cooldown/not_found outcome only ever carries geofenceMs).
+export interface CheckinTimingLogEntry {
+  outcome: "created" | "too_far" | "cooldown" | "not_found";
+  totalMs: number;
+  geofenceMs?: number | null;
+  rewardsMs?: number | null;
+  notifyMs?: number | null;
+  collectionMs?: number | null;
+}
+
 export interface PlacesApiCallEntry {
   endpoint: PlacesApiEndpoint;
   success: boolean;
@@ -42,6 +55,7 @@ export interface MonitoringRepository {
   logError(entry: ErrorLogEntry): Promise<void>;
   logRequest(entry: RequestLogEntry): Promise<void>;
   logPlacesApiCall(entry: PlacesApiCallEntry): Promise<void>;
+  logCheckinTiming(entry: CheckinTimingLogEntry): Promise<void>;
   // Today's (UTC) successful call count per endpoint, across all endpoints --
   // backs PlacesApiQuotaGuard (see apps/api/src/places/quotaGuard.ts), which
   // weights each endpoint's count by its credit cost and checks the total
