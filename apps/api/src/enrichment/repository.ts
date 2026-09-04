@@ -25,6 +25,15 @@ export interface OpenNowCandidate {
 export interface EnrichmentRepository {
   getEnrichment(locationId: string): Promise<VenueEnrichmentCache | null>;
   upsertEnrichment(input: UpsertEnrichmentInput): Promise<VenueEnrichmentCache>;
+  // Flags a failed Place Details fetch (refresh.ts) -- e.g. a cached
+  // geoapify_place_id has gone stale (see Venue.osm_type's comment in
+  // @blockwise/types) and needs a fresh one from the next sync/Import run.
+  // Only updates an *existing* enrichment row; a location that's never had a
+  // successful fetch at all has nothing to flag as newly-stale yet, so this
+  // is a no-op for one (upsertEnrichment's own next success still creates
+  // the row normally). Cleared back to null by upsertEnrichment's next
+  // success, not by this method.
+  recordEnrichmentFailure(locationId: string, message: string): Promise<void>;
   // Every active location in the neighborhood with cached hours, for the
   // Today tab's "open right now" section (BACKLOG.md Ref 27) --
   // callers run isOpenNow(hours) themselves since "now" is a runtime

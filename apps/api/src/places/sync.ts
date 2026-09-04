@@ -1,8 +1,6 @@
 import { buildGeoapifyCategoryIndex, matchCategory, type CategoryRecord } from "./categorize";
-import { findDuplicate } from "./dedup";
 import type { GeoapifyPlace, GeoapifyPlacesClient } from "./geoapifyClient";
 import { generateCoverageGrid, isPointInPolygon, subdivideCircle, type GeoJsonPolygon, type LatLng } from "./geo";
-import type { PlacesRepository } from "./repository";
 
 // Small enough that a dense commercial block is unlikely to exceed a
 // single tile's result cap (confirmed necessary in practice -- a single
@@ -96,14 +94,28 @@ export interface PlaceSearchResult {
   // change for a field that's simply always zero now.
   skippedClosedPermanently: number;
   skippedOutOfBoundary: number;
+  // A place Geoapify matched to one of our category tags but that carries no
+  // `name` in its own data -- almost always a road/way segment or a bare
+  // address point mistagged with a category, not a real business/POI (a
+  // genuinely nameless real venue would be exceedingly rare). Filtered here,
+  // before the name-or-address fallback below, so an address string never
+  // stands in for a name downstream -- previously these surfaced as
+  // "New entries" on the Import review page labeled with nothing but a
+  // street address (e.g. "2nd Avenue Northwest, Seattle, WA 98113").
+  skippedNoName: number;
   unmappedTypes: { name: string; types: string[] }[];
   places: PlaceSearchCandidate[];
 }
 
 // The tiling/search/boundary-filter/categorize pipeline (README §1.4 steps
-// 1-3), shared by the real sync (syncNeighborhoodPlaces, which additionally
-// dedupes and upserts) and the admin boundary-drawing dry-run preview
-// (preview.ts, which stops here -- BACKLOG.md Ref 8, project plan §12.6).
+// 1-3), shared by the admin boundary-drawing dry-run preview (preview.ts --
+// BACKLOG.md Ref 8, project plan §12.6) and the Import review/refresh flow
+// (review.ts's reviewNeighborhoodLocations, which additionally dedupes
+// against known locations, refreshes matches, and upserts new ones -- the
+// standalone CLI sync script that used to live here (syncNeighborhoodPlaces)
+// was retired once Import took over its one job of syncing an already-known
+// venue's data, per the "rely on the admin UI for these kinds of changes"
+// decision).
 export async function searchPlacesInPolygon(
   polygon: GeoJsonPolygon,
   client: GeoapifyPlacesClient,
@@ -136,6 +148,7 @@ export async function searchPlacesInPolygon(
   }
 
   let skippedOutOfBoundary = 0;
+  let skippedNoName = 0;
   const unmappedTypes: { name: string; types: string[] }[] = [];
   const places: PlaceSearchCandidate[] = [];
 
@@ -145,8 +158,12 @@ export async function searchPlacesInPolygon(
       skippedOutOfBoundary++;
       continue;
     }
+    if (!place.name) {
+      skippedNoName++;
+      continue;
+    }
 
-    const name = place.name ?? place.formattedAddress;
+    const name = place.name;
     const category = matchCategory({ categories: place.categories }, categoryIndex) ?? null;
     // Flagged every run a venue's category is still unmapped, not just the
     // run that first inserted it -- otherwise re-syncing a previously-seen,
@@ -162,147 +179,9 @@ export async function searchPlacesInPolygon(
     callsAtResultCap: outcomes.reduce((sum, o) => sum + o.callsAtResultCap, 0),
     skippedClosedPermanently: 0,
     skippedOutOfBoundary,
+    skippedNoName,
     unmappedTypes,
     places,
   };
 }
 
-export interface SyncReport {
-  tilesQueried: number;
-  apiCallsMade: number;
-  callsAtResultCap: number;
-  inserted: string[];
-  updated: string[];
-  // Subset of `updated` -- a venue rediscovered under its exact prior
-  // geoapify_place_id whose status was "removed" (BACKLOG.md Ref 114's
-  // migration surfaced this gap: upsertVenue never touched status, so a
-  // boundary redrawn back out to re-include an unchanged venue refreshed
-  // its data but left it silently invisible forever). See
-  // UpsertVenueInput.revive's comment.
-  revived: string[];
-  skippedOutOfBoundary: number;
-  skippedClosedPermanently: number;
-  skippedClaimed: string[];
-  skippedDuplicates: { candidate: string; matchedExisting: string }[];
-  unmappedTypes: { name: string; types: string[] }[];
-}
-
-// Runs the full ingestion pipeline (README §1.4 steps 1-3, 5) for one
-// neighborhood: seed sync -> boundary filter -> dedup -> categorize ->
-// upsert, respecting business-claimed venues as source-of-truth overrides.
-// Enrichment (§1.4 step 4) is separate -- it happens on-demand from venue
-// detail pages, not here.
-export async function syncNeighborhoodPlaces(
-  slug: string,
-  client: GeoapifyPlacesClient,
-  repository: PlacesRepository,
-  tileRadiusMeters = DEFAULT_TILE_RADIUS_METERS
-): Promise<SyncReport> {
-  const neighborhood = await repository.getNeighborhoodBySlug(slug);
-  if (!neighborhood) throw new Error(`No neighborhood found for slug "${slug}"`);
-  if (!neighborhood.boundaryGeojson) {
-    throw new Error(
-      `Neighborhood "${slug}" has no boundary_geojson set -- draw or seed a boundary before syncing`
-    );
-  }
-
-  const polygon = neighborhood.boundaryGeojson;
-
-  const [categories, existingVenuesFromRepo] = await Promise.all([
-    repository.listCategories(),
-    repository.listVenuesByNeighborhood(neighborhood.id),
-  ]);
-
-  const search = await searchPlacesInPolygon(polygon, client, categories, tileRadiusMeters);
-
-  const report: SyncReport = {
-    tilesQueried: search.tilesQueried,
-    apiCallsMade: search.apiCallsMade,
-    callsAtResultCap: search.callsAtResultCap,
-    inserted: [],
-    updated: [],
-    revived: [],
-    skippedOutOfBoundary: search.skippedOutOfBoundary,
-    skippedClosedPermanently: search.skippedClosedPermanently,
-    skippedClaimed: [],
-    skippedDuplicates: [],
-    unmappedTypes: search.unmappedTypes,
-  };
-
-  // Grows as new venues are inserted below, so two duplicate places returned
-  // in the *same* sync run (a place sometimes listed twice under different
-  // place IDs) are caught, not just duplicates against venues from a prior
-  // run.
-  const existingVenues = [...existingVenuesFromRepo];
-
-  for (const { raw: place, name, location, category } of search.places) {
-    const existingByPlaceId = existingVenues.find((v) => v.geoapifyPlaceId === place.placeId);
-
-    if (existingByPlaceId) {
-      if (existingByPlaceId.claimedByBusiness) {
-        // Business-submitted data overrides source data once claimed (§1.4 step 5).
-        report.skippedClaimed.push(name);
-        continue;
-      }
-
-      // A removed venue rediscovered under its exact prior geoapify_place_id
-      // (e.g. a boundary redrawn back out to re-include it, unchanged) is
-      // revived to "active" -- see UpsertVenueInput.revive's comment. A
-      // "hidden" venue is left alone; that's a separate, deliberate admin
-      // curation choice this pipeline must never override.
-      const revive = existingByPlaceId.status === "removed";
-      await repository.upsertVenue(
-        toUpsertInput(place, name, location, category?.id ?? null, neighborhood.id, revive)
-      );
-      report.updated.push(name);
-      if (revive) report.revived.push(name);
-      continue;
-    }
-
-    const duplicate = findDuplicate(
-      { name, location },
-      existingVenues.map((v) => ({ ...v, location: { lat: v.lat, lng: v.lng } }))
-    );
-
-    if (duplicate) {
-      report.skippedDuplicates.push({ candidate: name, matchedExisting: duplicate.name });
-      continue;
-    }
-
-    await repository.upsertVenue(
-      toUpsertInput(place, name, location, category?.id ?? null, neighborhood.id)
-    );
-    report.inserted.push(name);
-    existingVenues.push({
-      id: place.placeId,
-      geoapifyPlaceId: place.placeId,
-      name,
-      lat: location.lat,
-      lng: location.lng,
-      claimedByBusiness: false,
-      status: "active",
-    });
-  }
-
-  return report;
-}
-
-function toUpsertInput(
-  place: GeoapifyPlace,
-  name: string,
-  location: { lat: number; lng: number },
-  categoryId: string | null,
-  neighborhoodId: string,
-  revive = false
-) {
-  return {
-    geoapifyPlaceId: place.placeId,
-    name,
-    categoryId,
-    lat: location.lat,
-    lng: location.lng,
-    address: place.formattedAddress,
-    neighborhoodId,
-    revive,
-  };
-}

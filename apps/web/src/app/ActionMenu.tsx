@@ -6,6 +6,11 @@ export interface ActionMenuItem {
   label: string;
   onSelect: () => void;
   destructive?: boolean;
+  disabled?: boolean;
+  // Shown via the native title tooltip -- e.g. explaining why a disabled
+  // item is blocked, mirroring the aria-disabled+title pattern this menu
+  // replaced on the neighborhood-admin Locations rows.
+  title?: string;
 }
 
 // Generic three-dot row-actions menu -- first used by the super-admin Users
@@ -57,13 +62,15 @@ export function ActionMenu({ items, label = "Actions" }: { items: ActionMenuItem
             <button
               key={item.label}
               type="button"
+              disabled={item.disabled}
+              title={item.title}
               onClick={() => {
                 setIsOpen(false);
                 item.onSelect();
               }}
-              className={`block w-full truncate px-3.5 py-1.5 text-left text-[13px] font-bold hover:bg-card-alt ${
+              className={`block w-full truncate px-3.5 py-1.5 text-left text-[13px] font-bold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${
                 item.destructive ? "text-red-600 dark:text-red-400" : "text-foreground"
-              }`}
+              } hover:bg-card-alt`}
             >
               {item.label}
             </button>

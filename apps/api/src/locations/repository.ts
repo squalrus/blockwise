@@ -12,7 +12,12 @@ import type {
 export interface LocationRecord {
   id: string;
   neighborhoodId: string;
+  // Cache only, not identity -- see Venue.osm_type's comment in
+  // @blockwise/types. Optional (not required-nullable) purely to limit
+  // test-fixture churn -- production code always sets them explicitly.
   geoapifyPlaceId: string | null;
+  osmType?: string | null;
+  osmId?: number | null;
   name: string;
   kind: LocationKind;
   categoryId: string | null;
@@ -71,6 +76,14 @@ export interface CreateLocationInput {
   lat: number;
   lng: number;
   geoapifyPlaceId: string | null;
+  // Present when created from an Import candidate sourced from the Places
+  // API (which carries OSM data -- see Venue.osm_type's comment); absent for
+  // a manually added location (PoiForm/AddLocationModal) or one sourced from
+  // Geoapify's Geocoding API (Troubleshoot's free-text search/add flow),
+  // neither of which have it to give. That blank state is expected and
+  // supported -- a future sync/Import run may still link it later.
+  osmType?: string | null;
+  osmId?: number | null;
   address: string | null;
   // Defaults to the DB's "active" default when omitted -- set explicitly to
   // "hidden" when persisting an omitted review candidate (BACKLOG.md
@@ -96,6 +109,19 @@ export interface CategoryRecord {
   id: string;
   name: string;
   groupName: string | null;
+}
+
+// Thrown by LocationRepository.updateLocationIdentity when the target
+// osm_type+osm_id already belongs to a different location in the same
+// neighborhood -- see that method's comment.
+export class LocationIdentityConflictError extends Error {
+  constructor(
+    readonly osmType: string,
+    readonly osmId: number
+  ) {
+    super(`osm_type/osm_id ${osmType}/${osmId} is already used by another location in this neighborhood`);
+    this.name = "LocationIdentityConflictError";
+  }
 }
 
 // Abstracts persistence so location business logic (locations.ts) can be
@@ -140,12 +166,33 @@ export interface LocationRepository {
   setLocationKind(locationId: string, input: SetLocationKindInput): Promise<LocationRecord>;
   updateLocationCategory(locationId: string, categoryId: string): Promise<LocationRecord>;
   // Geoapify migration backfill (BACKLOG.md Ref 114 Phase 5) -- re-points an
-  // existing location at a real Geoapify place ID, either from an admin's
-  // explicit "possible match" approval on a review run, or a manual
-  // investigate-and-attach for a venue neither place-ID nor fuzzy name/
-  // location matching caught. Never called for a brand-new location (those
-  // get their geoapify_place_id at creation via createLocation/upsertVenue).
-  updateLocationPlaceId(locationId: string, geoapifyPlaceId: string): Promise<LocationRecord>;
+  // existing location at a real identity, either from an admin's explicit
+  // "possible match" approval on a review run, a manual investigate-and-
+  // attach for a venue neither auto-matching nor fuzzy name/location
+  // matching caught, or the standalone Reassign Place ID panel. Never called
+  // for a brand-new location (those get their identity at creation via
+  // createLocation/upsertVenue). geoapifyPlaceId is always set (refreshing
+  // the enrichment-fetch cache -- see Venue.osm_type's comment); osmType/
+  // osmId are set only when known at call time -- when the caller only has
+  // a place_id (e.g. the standalone panel, sourced from Geoapify's Geocoding
+  // API, which never exposes OSM data), locations.ts resolves them via a
+  // Place Details lookup before calling this, rather than persisting a
+  // place_id with no identity fix at all.
+  //
+  // Must throw LocationIdentityConflictError (not just any Error) when
+  // osmType/osmId already belong to a different location in the same
+  // neighborhood -- venue's (osm_type, osm_id, neighborhood_id) unique
+  // constraint rejects it outright, which happens whenever the two rows are
+  // themselves an already-existing duplicate (e.g. a prior Import run
+  // created a fresh row for a business under its renamed Geoapify listing
+  // before this reassign flow existed to catch the rename instead).
+  // reassignLocationIdentityForNeighborhood needs the distinct error type to
+  // turn that into an actionable "these look like duplicates" message
+  // instead of a generic 500.
+  updateLocationIdentity(
+    locationId: string,
+    identity: { geoapifyPlaceId: string; osmType: string | null; osmId: number | null }
+  ): Promise<LocationRecord>;
   // Only leaf categories (those with a parent_category_id) -- the 6
   // top-level group rows are organizational only.
   listCategories(): Promise<CategoryRecord[]>;

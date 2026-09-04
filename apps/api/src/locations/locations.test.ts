@@ -12,10 +12,12 @@ import {
   listLocationListItemsForNeighborhood,
   listLocationsForNeighborhood,
   reassignLocationCategoryForNeighborhood,
+  reassignLocationIdentityForNeighborhood,
   switchLocationKindForNeighborhood,
   updateLocationForNeighborhood,
   updateLocationStatusForNeighborhood,
 } from "./locations";
+import { LocationIdentityConflictError } from "./repository";
 import type {
   CategoryRecord,
   CreateLocationInput,
@@ -81,6 +83,8 @@ class FakeLocationRepository implements LocationRepository {
       id: `location-${this.nextId++}`,
       neighborhoodId: input.neighborhoodId,
       geoapifyPlaceId: input.geoapifyPlaceId,
+      osmType: input.osmType ?? null,
+      osmId: input.osmId ?? null,
       name: input.name,
       kind: input.kind,
       categoryId: input.categoryId,
@@ -128,9 +132,27 @@ class FakeLocationRepository implements LocationRepository {
     return location;
   }
 
-  async updateLocationPlaceId(locationId: string, geoapifyPlaceId: string): Promise<LocationRecord> {
+  async updateLocationIdentity(
+    locationId: string,
+    identity: { geoapifyPlaceId: string; osmType: string | null; osmId: number | null }
+  ): Promise<LocationRecord> {
     const location = this.locations.find((l) => l.id === locationId)!;
-    location.geoapifyPlaceId = geoapifyPlaceId;
+    // Mirrors venue's real (osm_type, osm_id, neighborhood_id) unique
+    // constraint -- never conflicts when either side lacks OSM data, since
+    // Postgres treats every NULL as distinct from every other NULL.
+    if (identity.osmType !== null && identity.osmId !== null) {
+      const conflict = this.locations.find(
+        (l) =>
+          l.id !== locationId &&
+          l.neighborhoodId === location.neighborhoodId &&
+          l.osmType === identity.osmType &&
+          l.osmId === identity.osmId
+      );
+      if (conflict) throw new LocationIdentityConflictError(identity.osmType, identity.osmId);
+    }
+    location.geoapifyPlaceId = identity.geoapifyPlaceId;
+    location.osmType = identity.osmType;
+    location.osmId = identity.osmId;
     return location;
   }
 
@@ -438,6 +460,267 @@ describe("reassignLocationCategoryForNeighborhood", () => {
     const result = await reassignLocationCategoryForNeighborhood("neighborhood-1", "b1", "coffee-shop", repo);
     expect(result.status).toBe("updated");
     if (result.status === "updated") expect(result.location.category_id).toBe("coffee-shop");
+  });
+});
+
+class FakePlaceDetailsClient implements GeoapifyPlaceDetailsClient {
+  constructor(private readonly details: Record<string, GeoapifyPlaceDetails>) {}
+
+  async getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails> {
+    const found = this.details[placeId];
+    if (!found) throw new Error(`FakePlaceDetailsClient: no fixture for ${placeId}`);
+    return found;
+  }
+}
+
+describe("reassignLocationIdentityForNeighborhood", () => {
+  it("attaches osm identity from a fresh Place Details lookup, even when the caller already had it", async () => {
+    // The "Possible matches -> Attach" path already has osm_type/osm_id
+    // from its own Places API search result, but Place Details is still
+    // consulted -- it's the one call that also carries fresh lat/lng, used
+    // below to refresh basic info.
+    const repo = new FakeLocationRepository([makeBusiness({ id: "b1", geoapifyPlaceId: "old-id" })]);
+    const placesClient = new FakePlaceDetailsClient({
+      "new-id": {
+        placeId: "new-id",
+        osmType: "w",
+        osmId: 123,
+        name: "Diesel Fuel Coffee",
+        formattedAddress: "5629 University Way NE, Seattle, WA",
+        location: { lat: 47.6772, lng: -122.3549 },
+        categories: [],
+      },
+    });
+    const result = await reassignLocationIdentityForNeighborhood(
+      "neighborhood-1",
+      "b1",
+      { geoapifyPlaceId: "new-id", osmType: "w", osmId: 123 },
+      repo,
+      placesClient,
+      []
+    );
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      expect(result.location.geoapify_place_id).toBe("new-id");
+      expect(result.location.osm_type).toBe("w");
+      expect(result.location.osm_id).toBe(123);
+    }
+  });
+
+  it("resolves osm identity via Place Details when the caller only has a place_id", async () => {
+    // The standalone Reassign Place ID panel's path -- sourced from
+    // Geoapify's Geocoding API, which never exposes OSM data (see
+    // GeoapifyPlace.osmType's comment), so it's resolved here instead.
+    const repo = new FakeLocationRepository([makeBusiness({ id: "b1", geoapifyPlaceId: "old-id" })]);
+    const placesClient = new FakePlaceDetailsClient({
+      "geocoding-id": {
+        placeId: "refreshed-id",
+        osmType: "w",
+        osmId: 491979147,
+        name: "Salon Opal",
+        formattedAddress: "549 N 85th St",
+        location: { lat: 47.6902, lng: -122.3705 },
+        categories: [],
+      },
+    });
+    const result = await reassignLocationIdentityForNeighborhood(
+      "neighborhood-1",
+      "b1",
+      { geoapifyPlaceId: "geocoding-id" },
+      repo,
+      placesClient,
+      []
+    );
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      // Place Details' own placeId is cached, not the Geocoding-sourced one
+      // the caller passed in -- see GeoapifyPlace.osmType's comment on why
+      // Geoapify's place_id itself varies by endpoint.
+      expect(result.location.geoapify_place_id).toBe("refreshed-id");
+      expect(result.location.osm_type).toBe("w");
+      expect(result.location.osm_id).toBe(491979147);
+    }
+  });
+
+  it("still refreshes the place_id cache even when Place Details can't resolve osm identity", async () => {
+    const repo = new FakeLocationRepository([makeBusiness({ id: "b1", geoapifyPlaceId: "old-id" })]);
+    const placesClient = new FakePlaceDetailsClient({
+      "geocoding-id": {
+        placeId: "geocoding-id",
+        osmType: null,
+        osmId: null,
+        name: "Some Place",
+        formattedAddress: "123 Main St",
+        location: { lat: 47.6, lng: -122.3 },
+        categories: [],
+      },
+    });
+    const result = await reassignLocationIdentityForNeighborhood(
+      "neighborhood-1",
+      "b1",
+      { geoapifyPlaceId: "geocoding-id" },
+      repo,
+      placesClient,
+      []
+    );
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      expect(result.location.geoapify_place_id).toBe("geocoding-id");
+      expect(result.location.osm_type).toBeNull();
+    }
+  });
+
+  it("also refreshes name/lat/lng/address/category from the fresh Place Details data", async () => {
+    // User-requested follow-up ("when reassigning to a known place, should
+    // the name update?") -- yes, from the same authoritative lookup already
+    // made for the identity fix.
+    const repo = new FakeLocationRepository([
+      makeBusiness({ id: "b1", name: "Sullys Ale House LLC", lat: 0, lng: 0, address: "stale address" }),
+    ]);
+    const placesClient = new FakePlaceDetailsClient({
+      "geoapify-id": {
+        placeId: "geoapify-id",
+        osmType: "n",
+        osmId: 2462448959,
+        name: "Sully's Snowgoose Saloon",
+        formattedAddress: "6119 15th Ave NW, Seattle, WA",
+        location: { lat: 47.668, lng: -122.383 },
+        categories: ["catering.cafe.coffee_shop"],
+      },
+    });
+    const categories = [
+      { id: "coffee-shop", name: "Coffee Shop", source_mapping_json: { geoapify: ["catering.cafe.coffee_shop"] } },
+    ];
+
+    const result = await reassignLocationIdentityForNeighborhood(
+      "neighborhood-1",
+      "b1",
+      { geoapifyPlaceId: "geoapify-id" },
+      repo,
+      placesClient,
+      categories
+    );
+
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      expect(result.location.name).toBe("Sully's Snowgoose Saloon");
+      expect(result.location.lat).toBe(47.668);
+      expect(result.location.lng).toBe(-122.383);
+      expect(result.location.address).toBe("6119 15th Ave NW, Seattle, WA");
+      expect(result.location.category_id).toBe("coffee-shop");
+    }
+  });
+
+  it("never overwrites a claimed business's basic info, only its identity cache", async () => {
+    const repo = new FakeLocationRepository([
+      makeBusiness({ id: "b1", name: "Business-Submitted Name", claimedByBusiness: true, categoryId: "bakery" }),
+    ]);
+    const placesClient = new FakePlaceDetailsClient({
+      "geoapify-id": {
+        placeId: "geoapify-id",
+        osmType: "w",
+        osmId: 1,
+        name: "Source Data Name",
+        formattedAddress: "Source address",
+        location: { lat: 1, lng: 2 },
+        categories: ["catering.cafe.coffee_shop"],
+      },
+    });
+    const categories = [
+      { id: "coffee-shop", name: "Coffee Shop", source_mapping_json: { geoapify: ["catering.cafe.coffee_shop"] } },
+    ];
+
+    const result = await reassignLocationIdentityForNeighborhood(
+      "neighborhood-1",
+      "b1",
+      { geoapifyPlaceId: "geoapify-id" },
+      repo,
+      placesClient,
+      categories
+    );
+
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      expect(result.location.name).toBe("Business-Submitted Name");
+      expect(result.location.category_id).toBe("bakery");
+      // Identity cache still refreshes -- claimed status only guards
+      // business-visible fields, not the enrichment-fetch plumbing.
+      expect(result.location.geoapify_place_id).toBe("geoapify-id");
+      expect(result.location.osm_type).toBe("w");
+    }
+  });
+
+  it("only fills category when currently unset, never overwrites an existing manual assignment", async () => {
+    const repo = new FakeLocationRepository([makeBusiness({ id: "b1", categoryId: "bakery" })]);
+    const placesClient = new FakePlaceDetailsClient({
+      "geoapify-id": {
+        placeId: "geoapify-id",
+        osmType: "w",
+        osmId: 1,
+        name: "Refreshed Name",
+        formattedAddress: "Refreshed address",
+        location: { lat: 1, lng: 2 },
+        categories: ["catering.cafe.coffee_shop"],
+      },
+    });
+    const categories = [
+      { id: "coffee-shop", name: "Coffee Shop", source_mapping_json: { geoapify: ["catering.cafe.coffee_shop"] } },
+    ];
+
+    const result = await reassignLocationIdentityForNeighborhood(
+      "neighborhood-1",
+      "b1",
+      { geoapifyPlaceId: "geoapify-id" },
+      repo,
+      placesClient,
+      categories
+    );
+
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      // Name still refreshes -- only category (BACKLOG.md Ref 56/57's
+      // manual override) is fill-only-if-unset.
+      expect(result.location.name).toBe("Refreshed Name");
+      expect(result.location.category_id).toBe("bakery");
+    }
+  });
+
+  it("reports a conflict, naming the other location, instead of throwing raw", async () => {
+    // Mirrors a real duplicate-locations situation: a rename already got
+    // imported as a brand-new row ("Salon Opal") before this reassign flow
+    // could catch it as the same place as the old row ("Salon Opal a
+    // Collective Workspace").
+    const repo = new FakeLocationRepository([
+      makeBusiness({ id: "old", name: "Salon Opal a Collective Workspace", osmType: "w", osmId: 1 }),
+      makeBusiness({ id: "new", name: "Salon Opal", osmType: "w", osmId: 2 }),
+    ]);
+    const placesClient = new FakePlaceDetailsClient({});
+    const result = await reassignLocationIdentityForNeighborhood(
+      "neighborhood-1",
+      "old",
+      { geoapifyPlaceId: "current-id", osmType: "w", osmId: 2 },
+      repo,
+      placesClient,
+      []
+    );
+    expect(result).toEqual({ status: "conflict", conflictingLocationName: "Salon Opal" });
+  });
+
+  it("does not treat a conflict against a different neighborhood's location", async () => {
+    const repo = new FakeLocationRepository([
+      makeBusiness({ id: "b1", neighborhoodId: "neighborhood-1", osmType: "w", osmId: 1 }),
+      makeBusiness({ id: "b2", neighborhoodId: "neighborhood-2", osmType: "w", osmId: 2 }),
+    ]);
+    const placesClient = new FakePlaceDetailsClient({});
+    const result = await reassignLocationIdentityForNeighborhood(
+      "neighborhood-1",
+      "b1",
+      { geoapifyPlaceId: "shared-id", osmType: "w", osmId: 2 },
+      repo,
+      placesClient,
+      []
+    );
+    expect(result.status).toBe("updated");
   });
 });
 

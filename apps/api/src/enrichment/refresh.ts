@@ -69,9 +69,19 @@ export async function getFreshEnrichment(
       // doesn't read as an incident, but the fallback-to-cached-data path
       // below is identical either way.
       if (err instanceof PlacesApiQuotaExceededError) {
+        // Expected throttling, not a sign the cached place_id itself is
+        // broken -- doesn't warrant flagging "needs reimport".
         console.warn(`enrichment refresh skipped for location ${locationId}: ${err.message}`);
       } else {
         console.error(`enrichment refresh failed for location ${locationId}:`, err);
+        try {
+          await repository.recordEnrichmentFailure(
+            locationId,
+            err instanceof Error ? err.message : "Unknown error"
+          );
+        } catch (recordErr) {
+          console.error(`failed to record enrichment failure for location ${locationId}:`, recordErr);
+        }
       }
     }
   }

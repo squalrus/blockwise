@@ -2,6 +2,30 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.87.0] — 2026-09-04
+
+### Added
+
+- **Locations now key on OpenStreetMap's own identity (`osm_type`/`osm_id`), not Geoapify's `place_id`.** Live-verified that Geoapify returns a different `place_id` for the same physical business depending on which of its endpoints you ask, which was causing reassigned/renamed locations to keep reappearing as duplicates in Import. `geoapify_place_id` is kept as a soft enrichment-fetch cache, refreshed opportunistically rather than treated as identity. A one-time `npm run backfill:osm-identity` script resolves existing rows. (`supabase/migrations/20260904010000_venue_osm_identity.sql`, `apps/api/src/places/geoapifyClient.ts`, `apps/api/src/locations/`, `apps/api/src/scripts/backfillOsmIdentity.ts`, `packages/types/src/index.ts`)
+- **Import now refreshes already-known locations, not just new ones.** Running Import also brings an unclaimed business's name/lat/lng/address/category up to date from the latest Geoapify data (category only fills in if unset) and refreshes its cached `geoapify_place_id` so enrichment keeps working — claimed businesses and POIs are left alone. The review report now shows how many existing locations were refreshed. Reassigning a location to a Geoapify place does the same refresh for that one location, including POIs. (`apps/api/src/locations/review.ts`, `apps/api/src/locations/locations.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/import/page.tsx`)
+- **Enrichment fetch failures are now recorded on the location** (`last_error_at`/`last_error_message`), so an admin can tell a location needs re-importing to refresh its Geoapify link instead of just seeing it silently fall back to stale cached data. (`apps/api/src/enrichment/`, `supabase/migrations/20260904010000_venue_osm_identity.sql`)
+- **"Add location" supports both Business and POI.** The Locations tab's add-location modal gained a Business/POI toggle (previously POI-only). (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/AddLocationModal.tsx`)
+- **"Uncategorized" filter chip** on the Locations tab surfaces businesses with no category assigned yet. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`)
+- **Connected/unconnected indicator** next to each location's name on the Locations tab shows at a glance whether it's linked to a known Geoapify/OSM place (richer enrichment available) or was added by hand. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`)
+- **Pending-count badges** for incoming neighbor requests (account Neighbors tab) and outstanding venue reports (neighborhood-admin Troubleshoot tab, bubbled up to the parent Locations tab too). (`apps/web/src/app/account/AccountTabs.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/AdminShell.tsx`)
+
+### Changed
+
+- **Neighborhood-admin Locations tab redesigned as a table**, matching the layout used by `/admin/super/users`, replacing the separate Business/POI card lists. Per-row actions (Edit, Hide/Show, Convert, Reassign place ID, Delete) are now consolidated into a three-dot menu, and editing a business's category or Geoapify link now happens through an Edit modal instead of always-visible inline controls. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`, `EditLocationModal.tsx`, `apps/web/src/app/ActionMenu.tsx`)
+- **Renamed the Locations sub-nav**: children are now Manage / Import / Troubleshoot (previously Locations / Reimport / Troubleshooting); the top-level nav item stays "Locations". (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `locations/layout.tsx`)
+- **Retired `npm run sync:places`.** Its one useful behavior — refreshing an already-known venue's data — is now covered by Import and Reassign; use the admin UI for these changes going forward. (`apps/api/src/scripts/syncPlaces.ts`, `apps/api/package.json`, `apps/api/src/places/sync.ts`)
+- **Widened duplicate detection to catch OSM name simplifications** (e.g. "Kipos Greek" → "Kipos") that a plain name-similarity check was missing, which had been letting reassigned locations reappear as "New entries" in Import. (`apps/api/src/places/dedup.ts`)
+
+### Fixed
+
+- **Boundary-drawing map's polygon/trash controls were unclickable** due to a CSS class mismatch between mapbox-gl-draw's control markup and maplibre-gl's pointer-events rule. (`apps/web/src/app/admin/neighborhood/BoundaryMap.tsx`)
+- **Reassigning a location to an already-claimed Geoapify place showed a raw database error** instead of a clear message pointing at the conflicting duplicate location. (`apps/api/src/locations/`, `apps/api/src/app.ts`)
+
 ## [0.86.0] — 2026-09-03
 
 ### Added

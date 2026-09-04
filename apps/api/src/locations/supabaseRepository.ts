@@ -16,6 +16,7 @@ import {
   resolveTopVisitors,
   toMushroomConfig,
 } from "../checkins/checkin";
+import { LocationIdentityConflictError } from "./repository";
 import type {
   CategoryRecord,
   CreateLocationInput,
@@ -59,12 +60,14 @@ function categoryGroupName(embed: CategoryEmbed[] | CategoryEmbed | null): strin
 }
 
 const LOCATION_COLUMNS =
-  "id, neighborhood_id, geoapify_place_id, name, kind, category_id, description, lat, lng, address, claimed_by_business, status, created_at, category:category_id(name, parent:parent_category_id(name))";
+  "id, neighborhood_id, geoapify_place_id, osm_type, osm_id, name, kind, category_id, description, lat, lng, address, claimed_by_business, status, created_at, category:category_id(name, parent:parent_category_id(name))";
 
 interface LocationRow {
   id: string;
   neighborhood_id: string;
   geoapify_place_id: string | null;
+  osm_type: string | null;
+  osm_id: number | null;
   name: string;
   kind: "business" | "poi";
   category_id: string | null;
@@ -83,6 +86,8 @@ function toRecord(row: LocationRow): LocationRecord {
     id: row.id,
     neighborhoodId: row.neighborhood_id,
     geoapifyPlaceId: row.geoapify_place_id,
+    osmType: row.osm_type,
+    osmId: row.osm_id,
     name: row.name,
     kind: row.kind,
     categoryId: row.category_id,
@@ -307,6 +312,8 @@ export class SupabaseLocationRepository implements LocationRepository {
         lat: input.lat,
         lng: input.lng,
         geoapify_place_id: input.geoapifyPlaceId,
+        osm_type: input.osmType ?? null,
+        osm_id: input.osmId ?? null,
         address: input.address,
         ...(input.status ? { status: input.status } : {}),
       })
@@ -380,15 +387,31 @@ export class SupabaseLocationRepository implements LocationRepository {
     return toRecord(data as unknown as LocationRow);
   }
 
-  async updateLocationPlaceId(locationId: string, geoapifyPlaceId: string): Promise<LocationRecord> {
+  async updateLocationIdentity(
+    locationId: string,
+    identity: { geoapifyPlaceId: string; osmType: string | null; osmId: number | null }
+  ): Promise<LocationRecord> {
     const { data, error } = await this.supabase
       .from("venue")
-      .update({ geoapify_place_id: geoapifyPlaceId })
+      .update({
+        geoapify_place_id: identity.geoapifyPlaceId,
+        osm_type: identity.osmType,
+        osm_id: identity.osmId,
+      })
       .eq("id", locationId)
       .select(LOCATION_COLUMNS)
       .single();
 
-    if (error) throw new Error(`updateLocationPlaceId failed: ${error.message}`);
+    if (error) {
+      // Postgres unique_violation on venue_osm_ref_neighborhood_id_key --
+      // see LocationIdentityConflictError's comment. Only possible when
+      // osmType/osmId are both non-null (Postgres never treats a NULL as
+      // conflicting with anything, including another NULL).
+      if (error.code === "23505" && identity.osmType !== null && identity.osmId !== null) {
+        throw new LocationIdentityConflictError(identity.osmType, identity.osmId);
+      }
+      throw new Error(`updateLocationIdentity failed: ${error.message}`);
+    }
     return toRecord(data as unknown as LocationRow);
   }
 

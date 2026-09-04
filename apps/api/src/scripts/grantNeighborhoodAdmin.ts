@@ -12,7 +12,7 @@ try {
 
 // Grants an account admin access to a neighborhood (BACKLOG.md "Neighborhood
 // admin invites") -- the CLI-only replacement for a self-service invite UI at
-// this project's current scale, mirroring sync:places. Usage:
+// this project's current scale, mirroring backfill:osm-identity. Usage:
 // npm run grant:admin -- <email> <neighborhood-slug>
 async function main() {
   const [email, slug] = process.argv.slice(2);

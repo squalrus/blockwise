@@ -70,7 +70,22 @@ export type LocationKind = "business" | "poi";
 
 export interface Venue {
   id: string;
+  // Cache only, not identity -- see osm_type/osm_id's comment. Retained
+  // purely because Geoapify's Place Details API (enrichment) has no
+  // lookup-by-osm-reference mode, so *some* Geoapify-native place_id is
+  // still needed to fetch hours/phone/website; opportunistically refreshed
+  // whenever a sync/Import run re-matches this location by osm_type+osm_id.
   geoapify_place_id: string | null;
+  // The actual identity key (OpenStreetMap's own type+id pair, e.g. "w" +
+  // 491979147) -- live-verified 2026-09-04 that geoapify_place_id itself
+  // varies by which Geoapify endpoint returned it, even for the identical
+  // real-world place at the same instant, so it can't be trusted for
+  // dedup/"already known" matching. Null for a manually added location
+  // (PoiForm/AddLocationModal, or an Import "omit" placeholder) until some
+  // future sync/Import run happens to match it by name+location -- that's
+  // an expected, supported state, not a data gap to force-fill.
+  osm_type: string | null;
+  osm_id: number | null;
   name: string;
   kind: LocationKind;
   category_id: string | null;
@@ -106,6 +121,14 @@ export interface VenueEnrichmentCache {
   hours: string[] | null;
   editorial_summary: string | null;
   fetched_at: string;
+  // Set when the most recent Place Details fetch failed (e.g. a cached
+  // geoapify_place_id has gone stale -- see Venue.osm_type's comment);
+  // cleared back to null on the next successful fetch, so its mere presence
+  // means "still failing as of last attempt," not "failed once, ever."
+  // Surfaces to an admin as "this location's enrichment link needs
+  // refreshing" rather than only ever showing up in server logs.
+  last_error_at: string | null;
+  last_error_message: string | null;
 }
 
 // Venue detail page DTOs (BACKLOG "Venue detail pages with enrichment cache").
@@ -1055,6 +1078,12 @@ export interface CreateLocationRequest {
   lng: number;
   address?: string;
   geoapify_place_id?: string;
+  // Present when created from an Import candidate sourced from the Places
+  // API (v2/places carries datasource.raw.osm_type/osm_id; Geocoding-API-
+  // sourced flows like Troubleshoot's free-text search don't have it to
+  // give, and that's fine -- see Venue.osm_type's comment on the blank case.
+  osm_type?: string;
+  osm_id?: number;
 }
 
 // Location edit (BACKLOG.md Ref 29, generalized from POI-only), all optional
@@ -1134,7 +1163,12 @@ export interface LocationListItem {
   // always populated for businesses.
   lat: number | null;
   lng: number | null;
+  // Cache only -- see Venue.osm_type's comment for why this can't be
+  // trusted as identity. osm_type/osm_id below are the real signal for
+  // "connected to a known location."
   geoapify_place_id: string | null;
+  osm_type: string | null;
+  osm_id: number | null;
 }
 
 // Bulk Places review (BACKLOG.md Ref 29) -- a Google Places entity inside the
@@ -1142,6 +1176,10 @@ export interface LocationListItem {
 // (costs a real Places API query each run), not surfaced automatically.
 export interface LocationReviewCandidate {
   geoapify_place_id: string;
+  // From the Places API's datasource.raw -- see Venue.osm_type's comment.
+  // Always populated here since Import's search only ever queries v2/places.
+  osm_type: string | null;
+  osm_id: number | null;
   name: string;
   lat: number;
   lng: number;
@@ -1162,12 +1200,44 @@ export interface LocationRemovalCandidate {
   address: string | null;
 }
 
+// A fresh Geoapify result that fuzzy-matched an existing location (name +
+// location, within dedup.ts's thresholds) closely enough to flag for a
+// human decision, but not closely/exactly enough to silently treat as
+// already-known -- e.g. a business renamed in OSM (place_id and/or name
+// changed) at its same physical spot. "Attach" re-points the existing
+// location at this fresh geoapify_place_id (POST .../reassign-place-id);
+// "Not the same place" dismisses it as a coincidental nearby match, leaving
+// it to be manually added later (Troubleshoot page) if it's genuinely new.
+export interface LocationPossibleMatch {
+  location_id: string;
+  existing_name: string;
+  existing_address: string | null;
+  existing_status: VenueStatus;
+  geoapify_place_id: string;
+  // From the fresh Places API result (see Venue.osm_type's comment) -- what
+  // "Attach" actually fixes going forward is these two fields, not just the
+  // geoapify_place_id cache.
+  osm_type: string | null;
+  osm_id: number | null;
+  matched_name: string;
+  matched_address: string;
+  lat: number;
+  lng: number;
+  confidence_percent: number;
+}
+
 export interface LocationReviewReport {
   tiles_queried: number;
   api_calls_made: number;
   calls_at_result_cap: number;
   new_candidates: LocationReviewCandidate[];
   proposed_removals: LocationRemovalCandidate[];
+  possible_matches: LocationPossibleMatch[];
+  // Names of already-known locations whose cached geoapify_place_id/osm ref
+  // and/or basic info (name/lat/lng/address/category) this run refreshed
+  // from fresh Geoapify data -- see reviewNeighborhoodLocations's
+  // refreshMatchedLocation comment (apps/api/src/locations/review.ts).
+  refreshed: string[];
   last_reviewed_at: string;
   next_allowed_at: string;
 }
@@ -1187,6 +1257,8 @@ export type LocationClassification = "business" | "poi" | "omit";
 
 export interface LocationReviewClassificationInput {
   geoapify_place_id: string;
+  osm_type?: string;
+  osm_id?: number;
   name: string;
   lat: number;
   lng: number;

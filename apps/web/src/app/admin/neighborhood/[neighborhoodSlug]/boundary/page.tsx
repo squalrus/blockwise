@@ -198,10 +198,10 @@ export default function NeighborhoodBoundaryPage() {
             <p className="flex flex-wrap items-center gap-3 text-sm text-brand-green">
               Boundary saved.
               <a
-                href={`/admin/neighborhood/${slug}/locations/review`}
+                href={`/admin/neighborhood/${slug}/locations/import`}
                 className="rounded-md border border-border px-3 py-1 text-foreground hover:bg-card-alt"
               >
-                Review changes now →
+                Import changes now →
               </a>
             </p>
           )}

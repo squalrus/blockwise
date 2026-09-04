@@ -1,11 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CategoryRecord } from "./categorize";
-import type {
-  ExistingVenue,
-  NeighborhoodRecord,
-  PlacesRepository,
-  UpsertVenueInput,
-} from "./repository";
+import type { NeighborhoodRecord, PlacesRepository, UpsertVenueInput } from "./repository";
 
 export class SupabasePlacesRepository implements PlacesRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -37,49 +32,25 @@ export class SupabasePlacesRepository implements PlacesRepository {
     return data ?? [];
   }
 
-  async listVenuesByNeighborhood(neighborhoodId: string): Promise<ExistingVenue[]> {
-    const { data, error } = await this.supabase
-      .from("venue")
-      .select("id, geoapify_place_id, name, lat, lng, claimed_by_business, status")
-      .eq("neighborhood_id", neighborhoodId);
-
-    if (error) throw new Error(`listVenuesByNeighborhood failed: ${error.message}`);
-
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      geoapifyPlaceId: row.geoapify_place_id,
-      name: row.name,
-      lat: row.lat,
-      lng: row.lng,
-      claimedByBusiness: row.claimed_by_business,
-      status: row.status,
-    }));
-  }
-
+  // Always a fresh insert -- the caller (review.ts's commitLocationReview
+  // "business" classification) only ever reaches here for a place that
+  // already went through reviewNeighborhoodLocations's own identity/dedup
+  // check, so this is never an existing row. Refreshing an
+  // already-known location's data instead goes through LocationRepository's
+  // updateLocation/updateLocationCategory/updateLocationIdentity (see
+  // locations.ts's refreshLocationBasicInfo), not here.
   async upsertVenue(venue: UpsertVenueInput): Promise<void> {
-    // Conflict target matches venue_geoapify_place_id_neighborhood_id_key --
-    // uniqueness is per neighborhood, not global, so the same Geoapify Place
-    // can be claimed independently by more than one neighborhood.
-    //
-    // status is omitted from the payload except when reviving (see
-    // UpsertVenueInput.revive) -- Supabase's upsert only writes columns
-    // present here, so leaving it out means an existing row's status
-    // (active or a deliberately curated "hidden") passes through the
-    // conflict untouched.
-    const { error } = await this.supabase.from("venue").upsert(
-      {
-        geoapify_place_id: venue.geoapifyPlaceId,
-        name: venue.name,
-        category_id: venue.categoryId,
-        lat: venue.lat,
-        lng: venue.lng,
-        address: venue.address,
-        neighborhood_id: venue.neighborhoodId,
-        ...(venue.revive ? { status: "active" as const } : {}),
-      },
-      { onConflict: "geoapify_place_id,neighborhood_id" }
-    );
-
+    const { error } = await this.supabase.from("venue").insert({
+      geoapify_place_id: venue.geoapifyPlaceId,
+      osm_type: venue.osmType,
+      osm_id: venue.osmId,
+      name: venue.name,
+      category_id: venue.categoryId,
+      lat: venue.lat,
+      lng: venue.lng,
+      address: venue.address,
+      neighborhood_id: venue.neighborhoodId,
+    });
     if (error) throw new Error(`upsertVenue failed: ${error.message}`);
   }
 }

@@ -68,6 +68,8 @@ describe("LiveGeoapifyClient", () => {
     expect(results).toEqual([
       {
         placeId: "abc123",
+        osmType: null,
+        osmId: null,
         name: "Caffe Vita",
         formattedAddress: "4301 Fremont Ave N, Seattle, WA",
         location: { lat: 47.659, lng: -122.35 },
@@ -80,6 +82,41 @@ describe("LiveGeoapifyClient", () => {
     expect(requestedUrl.searchParams.get("categories")).toBe("catering.cafe,commercial.books");
     expect(requestedUrl.searchParams.get("filter")).toBe("circle:-122.35,47.659,400");
     expect(requestedUrl.searchParams.get("apiKey")).toBe("test-key");
+  });
+
+  it("extracts osm_type/osm_id from datasource.raw when present", async () => {
+    // Live-verified 2026-09-04 (see dedup.test.ts's "Kipos"/"Salon Opal"
+    // cases): this is the one field that stays identical across Geoapify
+    // endpoints for the same real-world place, unlike place_id itself.
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        features: [
+          {
+            properties: {
+              place_id: "5100d6f4ea6d965ec05947bf6cf15fd84740f00102f9018b01531d0000000092030a53616c6f6e204f70616c",
+              name: "Salon Opal",
+              formatted: "549 North 85th Street, Seattle, WA 98103, United States of America",
+              lat: 47.69042795,
+              lon: -122.35045885,
+              categories: ["service.beauty.hairdresser"],
+              datasource: { sourcename: "openstreetmap", raw: { osm_type: "w", osm_id: 491979147 } },
+            },
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LiveGeoapifyClient("test-key");
+    const results = await client.searchPlaces({
+      center: { lat: 47.6904, lng: -122.3505 },
+      radiusMeters: 100,
+      categories: ["service.beauty.hairdresser"],
+    });
+
+    expect(results[0].osmType).toBe("w");
+    expect(results[0].osmId).toBe(491979147);
   });
 
   it("builds a proximity-biased searchText request and maps the FeatureCollection response", async () => {
@@ -112,6 +149,8 @@ describe("LiveGeoapifyClient", () => {
     expect(results).toEqual([
       {
         placeId: "geo123",
+        osmType: null,
+        osmId: null,
         name: "7-Eleven",
         formattedAddress: "7314 Aurora Ave N, Seattle, WA",
         location: { lat: 47.6826, lng: -122.344 },
@@ -165,6 +204,10 @@ describe("LiveGeoapifyClient", () => {
     expect(results).toEqual([
       {
         placeId: "amenity-1",
+        // Geoapify's Geocoding API (v1/geocode/*) never exposes datasource.raw
+        // at all, unlike the Places API -- see GeoapifyPlace.osmType's comment.
+        osmType: null,
+        osmId: null,
         name: "Sully's Snowgoose Saloon",
         formattedAddress: "6119 Phinney Avenue North, Seattle, WA 98103, United States of America",
         location: { lat: 47.6737, lng: -122.3546 },
@@ -202,14 +245,43 @@ describe("LiveGeoapifyClient", () => {
 
     expect(details).toEqual({
       placeId: "abc123",
+      osmType: null,
+      osmId: null,
       name: "Book Larder",
       formattedAddress: "4252 Fremont Ave N, Seattle, WA",
+      location: { lat: 0, lng: 0 },
       categories: ["commercial.books"],
       phone: undefined,
       website: undefined,
       openingHours: "Mo-Fr 11:00-18:00",
       description: undefined,
     });
+  });
+
+  it("place-details extracts osm_type/osm_id from datasource.raw too", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        features: [
+          {
+            properties: {
+              place_id: "5101d6f4ea6d965ec059f4c46cf15fd84740f00102f9018b01531d0000000092030a53616c6f6e204f70616c",
+              name: "Salon Opal",
+              formatted: "549 North 85th Street, Seattle, WA 98103, United States of America",
+              categories: ["service.beauty.hairdresser"],
+              datasource: { sourcename: "openstreetmap", raw: { osm_type: "w", osm_id: 491979147 } },
+            },
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LiveGeoapifyClient("test-key");
+    const details = await client.getPlaceDetails("some-id");
+
+    expect(details.osmType).toBe("w");
+    expect(details.osmId).toBe(491979147);
   });
 
   it("throws when getPlaceDetails returns no feature", async () => {

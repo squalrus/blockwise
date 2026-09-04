@@ -10,8 +10,10 @@ import type {
 import { VENUE_LEADERBOARD_LIMIT } from "../checkins/checkin";
 import type { EnrichmentRepository } from "../enrichment/repository";
 import { getFreshEnrichment } from "../enrichment/refresh";
+import { buildGeoapifyCategoryIndex, matchCategory, type CategoryRecord as GeoapifyCategoryRecord } from "../places/categorize";
 import type { GeoapifyPlaceDetailsClient } from "../places/geoapifyClient";
 import { resolveOpenStatus } from "./hours";
+import { LocationIdentityConflictError } from "./repository";
 import type {
   CategoryRecord,
   CreateLocationInput,
@@ -24,6 +26,8 @@ function toVenue(record: LocationRecord): Venue {
   return {
     id: record.id,
     geoapify_place_id: record.geoapifyPlaceId,
+    osm_type: record.osmType ?? null,
+    osm_id: record.osmId ?? null,
     name: record.name,
     kind: record.kind,
     category_id: record.categoryId,
@@ -47,6 +51,11 @@ export interface CreateLocationRequestInput {
   lat: number;
   lng: number;
   geoapifyPlaceId?: string;
+  // Present when created from an Import candidate (Places-API-sourced, see
+  // Venue.osm_type's comment); absent for a manual add or a Geocoding-API-
+  // sourced one (Troubleshoot) -- both expected, supported blank states.
+  osmType?: string;
+  osmId?: number;
   address?: string;
   // Defaults to "active" (the DB default) when omitted -- passed explicitly
   // as "hidden" when persisting an omitted review candidate (BACKLOG.md
@@ -68,6 +77,8 @@ export async function createLocation(
     lat: input.lat,
     lng: input.lng,
     geoapifyPlaceId: input.geoapifyPlaceId ?? null,
+    osmType: input.osmType ?? null,
+    osmId: input.osmId ?? null,
     address: input.address ?? null,
     status: input.status,
   } satisfies CreateLocationInput);
@@ -234,26 +245,155 @@ export async function reassignLocationCategoryForNeighborhood(
   return { status: "updated", location: toVenue(updated) };
 }
 
-export type ReassignLocationPlaceIdResult = { status: "updated"; location: Venue } | { status: "not_found" };
+export interface FreshBasicInfo {
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+  categoryId: string | null;
+}
+
+// Shared guard for both Import's per-match refresh (review.ts's
+// reviewNeighborhoodLocations) and Reassign (below) -- business-submitted
+// data overrides source data once claimed (mirrors places/sync.ts's
+// skippedClaimed precedent), and an existing manual category assignment (the
+// admin category dropdown, BACKLOG.md Ref 56/57) is only ever filled in when
+// unset, never silently overwritten by an automated refresh. Returns
+// whether anything actually changed, so callers can report it without a
+// needless write (and updated_at bump) on every routine run.
+export async function refreshLocationBasicInfo(
+  record: LocationRecord,
+  fresh: FreshBasicInfo,
+  repository: LocationRepository
+): Promise<boolean> {
+  if (record.claimedByBusiness) return false;
+
+  let changed = false;
+
+  if (
+    record.name !== fresh.name ||
+    record.lat !== fresh.lat ||
+    record.lng !== fresh.lng ||
+    record.address !== fresh.address
+  ) {
+    await repository.updateLocation(record.id, {
+      name: fresh.name,
+      lat: fresh.lat,
+      lng: fresh.lng,
+      address: fresh.address,
+    });
+    changed = true;
+  }
+
+  if (!record.categoryId && fresh.categoryId) {
+    await repository.updateLocationCategory(record.id, fresh.categoryId);
+    changed = true;
+  }
+
+  return changed;
+}
+
+export type ReassignLocationIdentityResult =
+  | { status: "updated"; location: Venue }
+  | { status: "not_found" }
+  // The venue table's (osm_type, osm_id, neighborhood_id) unique constraint
+  // rejected it -- some other location in this neighborhood already holds
+  // this exact OSM identity, which almost always means the two rows are
+  // themselves an existing duplicate (e.g. a rename that already got
+  // imported as a brand-new location before this reassign flow existed to
+  // catch it instead). Named when the conflicting row's name is known (it
+  // always should be, short of a race with a delete), so the caller can
+  // point the admin at exactly which two locations to reconcile.
+  | { status: "conflict"; conflictingLocationName: string | null };
+
+export interface ReassignLocationIdentityInput {
+  geoapifyPlaceId: string;
+  // Known already when the caller is Import's "Possible matches" (sourced
+  // from the Places API, which carries OSM data -- see Venue.osm_type's
+  // comment). Omitted when the caller only has a place_id, e.g. the
+  // standalone Reassign Place ID panel (sourced from Geoapify's Geocoding
+  // API, which never exposes OSM data) -- resolved via a Place Details
+  // lookup below instead of persisting a place_id with no identity fix.
+  osmType?: string | null;
+  osmId?: number | null;
+}
 
 // Geoapify migration backfill (BACKLOG.md Ref 114 Phase 5) -- manually
-// attaches a real Geoapify place ID to an existing location, for the
-// "investigate a missing venue" tool's attach action once an admin has
-// confirmed a search result is the same physical place. Same
-// cross-neighborhood ownership check as every other admin mutation; no
-// validation that geoapifyPlaceId is well-formed since the caller always
-// sources it from a real Geoapify search result, never free text.
-export async function reassignLocationPlaceIdForNeighborhood(
+// attaches a real identity to an existing location, for the "investigate a
+// missing venue" tool's attach action once an admin has confirmed a search
+// result is the same physical place. Same cross-neighborhood ownership
+// check as every other admin mutation; no validation that geoapifyPlaceId
+// is well-formed since the caller always sources it from a real Geoapify
+// search result, never free text.
+//
+// Always resolves a fresh Place Details lookup (not just when osmType/osmId
+// are unknown), so a Reassign also refreshes name/lat/lng/address/category
+// (user-requested follow-up: "when reassigning to a known place, should the
+// name update?") from the one authoritative source, rather than trusting
+// whatever stale fields the caller happened to already have. Unlike Import's
+// per-match refresh (review.ts's reviewNeighborhoodLocations), this applies
+// regardless of location kind -- a Reassign is always a deliberate, one-off
+// admin action on a single row, not an unattended scheduled sweep, so
+// refreshing a POI's basic info here is a supervised choice, not a risk of
+// silently clobbering manual curation.
+export async function reassignLocationIdentityForNeighborhood(
   neighborhoodId: string,
   locationId: string,
-  geoapifyPlaceId: string,
-  repository: LocationRepository
-): Promise<ReassignLocationPlaceIdResult> {
-  const locationNeighborhoodId = await repository.getLocationNeighborhoodId(locationId);
-  if (locationNeighborhoodId !== neighborhoodId) return { status: "not_found" };
+  input: ReassignLocationIdentityInput,
+  repository: LocationRepository,
+  placesClient: GeoapifyPlaceDetailsClient,
+  categories: GeoapifyCategoryRecord[]
+): Promise<ReassignLocationIdentityResult> {
+  const record = await repository.getLocationById(locationId);
+  if (!record || record.neighborhoodId !== neighborhoodId) return { status: "not_found" };
 
-  const updated = await repository.updateLocationPlaceId(locationId, geoapifyPlaceId);
-  return { status: "updated", location: toVenue(updated) };
+  let geoapifyPlaceId = input.geoapifyPlaceId;
+  let osmType = input.osmType ?? null;
+  let osmId = input.osmId ?? null;
+  let freshBasicInfo: FreshBasicInfo | null = null;
+
+  // A failed lookup or a non-OSM result here isn't fatal -- the
+  // enrichment-fetch cache (geoapify_place_id) still gets refreshed either
+  // way below (using whatever the caller already supplied), just without a
+  // basic-info/identity refresh this time.
+  try {
+    const details = await placesClient.getPlaceDetails(geoapifyPlaceId);
+    osmType = details.osmType ?? osmType;
+    osmId = details.osmId ?? osmId;
+    // Place Details hands back yet another placeId of its own (see
+    // GeoapifyPlace.osmType's comment) -- cache the freshest one seen.
+    geoapifyPlaceId = details.placeId;
+    if (details.name && details.location) {
+      const categoryIndex = buildGeoapifyCategoryIndex(categories);
+      freshBasicInfo = {
+        name: details.name,
+        lat: details.location.lat,
+        lng: details.location.lng,
+        address: details.formattedAddress,
+        categoryId: matchCategory({ categories: details.categories }, categoryIndex)?.id ?? null,
+      };
+    }
+  } catch (err) {
+    console.error(`reassignLocationIdentityForNeighborhood: place-details lookup failed for ${geoapifyPlaceId}:`, err);
+  }
+
+  try {
+    await repository.updateLocationIdentity(locationId, { geoapifyPlaceId, osmType, osmId });
+  } catch (err) {
+    if (!(err instanceof LocationIdentityConflictError)) throw err;
+    const existing = await repository.listLocationsForNeighborhood(neighborhoodId);
+    const conflicting = existing.find(
+      (l) => (l.osmType ?? null) === err.osmType && (l.osmId ?? null) === err.osmId && l.id !== locationId
+    );
+    return { status: "conflict", conflictingLocationName: conflicting?.name ?? null };
+  }
+
+  if (freshBasicInfo) {
+    await refreshLocationBasicInfo(record, freshBasicInfo, repository);
+  }
+
+  const finalRecord = await repository.getLocationById(locationId);
+  return { status: "updated", location: toVenue(finalRecord ?? record) };
 }
 
 export type SwitchLocationKindResult =
@@ -355,5 +495,7 @@ export async function listLocationListItemsForNeighborhood(
     lat: r.lat,
     lng: r.lng,
     geoapify_place_id: r.geoapifyPlaceId,
+    osm_type: r.osmType ?? null,
+    osm_id: r.osmId ?? null,
   }));
 }

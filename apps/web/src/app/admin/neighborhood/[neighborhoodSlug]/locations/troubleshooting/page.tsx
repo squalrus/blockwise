@@ -220,7 +220,7 @@ type SearchState =
 // job: figuring out why a venue a neighbor expects isn't showing up. Reports
 // are the common case (a neighbor already told you what's missing) and stay
 // the primary section; the free-text search below is for the rarer case of
-// checking Geoapify directly with no report to start from -- unlike Reimport
+// checking Geoapify directly with no report to start from -- unlike Import
 // Locations, neither is restricted to the saved boundary or mapped business
 // types, so either can turn up a place the normal review flow never would.
 export default function TroubleshootingPage() {
@@ -386,7 +386,7 @@ export default function TroubleshootingPage() {
         <div>
           <h2 className="font-heading text-lg font-extrabold">Search Geoapify directly</h2>
           <p className="mt-1 text-sm text-muted">
-            For a venue name or address a neighbor mentioned that has no report above. Unlike Reimport Locations,
+            For a venue name or address a neighbor mentioned that has no report above. Unlike Import Locations,
             this isn&apos;t restricted to the saved boundary or to mapped business types, so it can turn up a place
             the normal review flow never would — useful for telling a real gap in Geoapify&apos;s data apart from a
             venue that&apos;s simply outside the boundary or already on record under a different name.

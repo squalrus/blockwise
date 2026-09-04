@@ -134,6 +134,19 @@ function DrawControl({
         draw.changeMode("draw_polygon");
       }
 
+      // mapbox-gl-draw's control container keeps mapbox-gl's classes
+      // ("mapboxgl-ctrl-group"/"mapboxgl-ctrl") rather than maplibre-gl's
+      // renamed ones. maplibre-gl.css sets `pointer-events: none` on the
+      // corner positioning div and only re-enables it (`pointer-events:
+      // auto`) for descendants classed ".maplibregl-ctrl" -- since draw's
+      // container never gets that class, its polygon/trash buttons render
+      // (styled by mapbox-gl-draw.css) but silently eat no clicks. Tagging
+      // the container with maplibre's class opts it back into that rule.
+      map
+        .getContainer()
+        .querySelector(".mapboxgl-ctrl-group")
+        ?.classList.add("maplibregl-ctrl");
+
       const emit = () => onPolygonChange(drawFeatureToPolygon(draw.getAll().features[0]));
       emitRef.current = emit;
       // mapbox-gl-draw fires these through the map's own Evented bus at

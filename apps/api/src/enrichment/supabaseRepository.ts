@@ -2,7 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LocationKind, VenueEnrichmentCache } from "@blockwise/types";
 import type { EnrichmentRepository, OpenNowCandidate, UpsertEnrichmentInput } from "./repository";
 
-const ENRICHMENT_COLUMNS = "venue_id, source, phone, website, hours, editorial_summary, fetched_at";
+const ENRICHMENT_COLUMNS =
+  "venue_id, source, phone, website, hours, editorial_summary, fetched_at, last_error_at, last_error_message";
 
 function single<T>(embed: T[] | T | null | undefined): T | null {
   if (embed === undefined || embed === null) return null;
@@ -50,6 +51,10 @@ export class SupabaseEnrichmentRepository implements EnrichmentRepository {
           hours: input.hours,
           editorial_summary: input.editorialSummary,
           fetched_at: new Date().toISOString(),
+          // A successful fetch clears any previously-flagged failure --
+          // see recordEnrichmentFailure's comment.
+          last_error_at: null,
+          last_error_message: null,
         },
         { onConflict: "venue_id,source" }
       )
@@ -58,6 +63,16 @@ export class SupabaseEnrichmentRepository implements EnrichmentRepository {
 
     if (error) throw new Error(`upsertEnrichment failed: ${error.message}`);
     return data as VenueEnrichmentCache;
+  }
+
+  async recordEnrichmentFailure(locationId: string, message: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("venue_enrichment_cache")
+      .update({ last_error_at: new Date().toISOString(), last_error_message: message })
+      .eq("venue_id", locationId)
+      .eq("source", "geoapify");
+
+    if (error) throw new Error(`recordEnrichmentFailure failed: ${error.message}`);
   }
 
   async listOpenNowCandidates(neighborhoodId: string): Promise<OpenNowCandidate[]> {

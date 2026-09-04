@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Venue } from "@blockwise/types";
+import type { LocationKind, Venue } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 
@@ -9,21 +9,28 @@ type Status = { state: "idle" | "submitting" | "error"; message?: string };
 
 export function PoiForm({
   neighborhoodId,
+  kind = "poi",
   onCreated,
   onUpdated,
   onCancel,
   existing,
 }: {
   neighborhoodId: string;
-  onCreated?: (poi: Venue) => void;
+  // Create mode only -- which kind of location to create (AddLocationModal's
+  // POI/Business toggle); ignored in edit mode, where kind is fixed to
+  // `existing.kind` and changed only via the row's own "→ Business"/"→ POI"
+  // switch-kind action, never through this form.
+  kind?: LocationKind;
+  onCreated?: (location: Venue) => void;
   // Edit mode (BACKLOG.md Ref 29): when `existing` is set, submitting PATCHes
-  // that POI instead of POSTing a new one, reusing the same fields/layout.
-  onUpdated?: (poi: Venue) => void;
+  // that location instead of POSTing a new one, reusing the same fields/layout.
+  onUpdated?: (location: Venue) => void;
   onCancel?: () => void;
   existing?: Venue;
 }) {
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const isEdit = existing !== undefined;
+  const label = (isEdit ? existing.kind : kind) === "business" ? "business" : "point of interest";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,7 +39,7 @@ export function PoiForm({
     const form = e.currentTarget;
     const data = new FormData(form);
     const body = {
-      ...(isEdit ? {} : { kind: "poi" as const }),
+      ...(isEdit ? {} : { kind }),
       name: String(data.get("name") ?? ""),
       description: String(data.get("description") ?? "") || undefined,
       address: String(data.get("address") ?? "") || undefined,
@@ -63,11 +70,11 @@ export function PoiForm({
       } else {
         setStatus({
           state: "error",
-          message: responseBody.error ?? `Failed to ${isEdit ? "update" : "create"} point of interest`,
+          message: responseBody.error ?? `Failed to ${isEdit ? "update" : "create"} ${label}`,
         });
       }
     } catch {
-      setStatus({ state: "error", message: `Failed to ${isEdit ? "update" : "create"} point of interest` });
+      setStatus({ state: "error", message: `Failed to ${isEdit ? "update" : "create"} ${label}` });
     }
   }
 
@@ -77,7 +84,7 @@ export function PoiForm({
         name="name"
         required
         defaultValue={existing?.name}
-        placeholder="Name (e.g. Woodland Park)"
+        placeholder={label === "business" ? "Name (e.g. The Daily Grind)" : "Name (e.g. Woodland Park)"}
         className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
       />
       <textarea
@@ -125,7 +132,7 @@ export function PoiForm({
               : "Adding…"
             : isEdit
               ? "Save changes"
-              : "Add point of interest"}
+              : `Add ${label}`}
         </button>
         {onCancel && (
           <button

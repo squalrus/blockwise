@@ -3,7 +3,7 @@ import { createApp } from "./app";
 // Local-only entrypoint (unlike apps/api/netlify/functions, where Netlify
 // injects environment variables directly) so it loads apps/api/.env.local
 // itself -- nothing else in the process does that automatically. See
-// scripts/syncPlaces.ts.
+// scripts/backfillOsmIdentity.ts.
 try {
   process.loadEnvFile(".env.local");
 } catch {

@@ -52,11 +52,28 @@ export function nameSimilarity(a: string, b: string): number {
   return 1 - levenshteinDistance(normA, normB) / maxLength;
 }
 
+// A name that's merely a prefix/truncation of the other (not just similar)
+// is enough on its own within the same DEDUP_RADIUS_METERS as the general
+// similarity check -- an OSM name simplification can drop a trailing word
+// (live-verified: "Kipos Greek" -> "Kipos" scores nameSimilarity ~0.45, well
+// under NAME_SIMILARITY_THRESHOLD) without the underlying place moving more
+// than a few meters, if at all, but real-world coordinate noise (the tagged
+// node/way centroid shifting slightly along with the rename) means an
+// artificially tighter radius than the one already used for a mere
+// "similar" name would just miss real renames for no real safety gain: the
+// prefix relationship itself is the actual discriminator against two
+// unrelated businesses merely sharing an address (a strip mall, a
+// multi-tenant building) -- those essentially never share a name prefix,
+// regardless of how close together they are.
+function isPrefixOfOther(a: string, b: string): boolean {
+  return a.length > 0 && b.length > 0 && (a.startsWith(b) || b.startsWith(a));
+}
+
 export function isDuplicate(a: DedupCandidate, b: DedupCandidate): boolean {
-  return (
-    haversineMeters(a.location, b.location) < DEDUP_RADIUS_METERS &&
-    nameSimilarity(a.name, b.name) >= NAME_SIMILARITY_THRESHOLD
-  );
+  const distanceMeters = haversineMeters(a.location, b.location);
+  if (distanceMeters >= DEDUP_RADIUS_METERS) return false;
+  if (nameSimilarity(a.name, b.name) >= NAME_SIMILARITY_THRESHOLD) return true;
+  return isPrefixOfOther(normalizeName(a.name), normalizeName(b.name));
 }
 
 export function findDuplicate<T extends DedupCandidate>(

@@ -19,6 +19,22 @@ export interface GeoapifyPlace {
   // needing a single "best" category must pick a strategy over this array
   // themselves rather than relying on an index-0 convention here.
   categories: string[];
+  // OpenStreetMap's own type+id pair (from datasource.raw), e.g. "w" +
+  // 491979147 -- the actual stable identity for a place; placeId itself is
+  // NOT (live-verified 2026-09-04: the same physical business returned
+  // three different placeId strings from three different Geoapify endpoints
+  // -- v1/geocode/reverse, v2/places, v2/place-details -- at the same
+  // instant). Only present for OSM-sourced results from the Places API
+  // (v2/places) and Place Details (v2/place-details); Geoapify's Geocoding
+  // API (v1/geocode/search, v1/geocode/reverse -- used by investigate.ts and
+  // the standalone Reassign Place ID panel's candidates) doesn't expose
+  // datasource.raw at all, so those always come back null here. Optional
+  // (rather than required-nullable) purely so hand-built test fixtures
+  // don't all need updating for a field production code always sets
+  // explicitly either way; treat an omitted value the same as null, never
+  // as "unknown."
+  osmType?: string | null;
+  osmId?: number | null;
 }
 
 export interface GeoapifySearchParams {
@@ -73,8 +89,19 @@ export interface GeoapifyTextSearchClient {
 
 export interface GeoapifyPlaceDetails {
   placeId: string;
+  // See GeoapifyPlace.osmType's comment -- Place Details is one of the two
+  // endpoints that does carry this.
+  osmType?: string | null;
+  osmId?: number | null;
   name: string | null;
   formattedAddress: string;
+  // Absent (rather than nullable) purely to limit pre-existing hand-built
+  // test fixtures (locations.test.ts, refresh.test.ts) that don't exercise
+  // basic-info refresh -- production code always sets it. Added for the
+  // Reassign/Import basic-info-refresh feature (see
+  // locations.ts's refreshLocationBasicInfo), which needs fresh lat/lng from
+  // the same Place Details call already made for identity resolution.
+  location?: LatLng;
   categories: string[];
   phone?: string;
   website?: string;
@@ -94,6 +121,16 @@ export interface GeoapifyPlaceDetailsClient {
   getPlaceDetails(placeId: string): Promise<GeoapifyPlaceDetails>;
 }
 
+// Present on v2/places and v2/place-details results sourced from
+// OpenStreetMap (the overwhelming majority) -- absent for results from
+// whatever other data layers Geoapify blends in, which is the one case
+// osmType/osmId legitimately come back null from a Places-API-family
+// response (see GeoapifyPlace.osmType's comment for the Geocoding-API case).
+interface GeoapifyDatasource {
+  sourcename?: string;
+  raw?: { osm_type?: string; osm_id?: number };
+}
+
 interface GeoapifyFeatureProperties {
   place_id: string;
   name?: string;
@@ -105,6 +142,7 @@ interface GeoapifyFeatureProperties {
   website?: string;
   opening_hours?: string;
   description?: string;
+  datasource?: GeoapifyDatasource;
 }
 
 interface GeoapifyFeatureCollection {
@@ -141,6 +179,10 @@ interface GeoapifyGeocodeFeatureCollection {
 function toGeoapifyPlaceFromGeocode(result: GeoapifyGeocodeResult): GeoapifyPlace {
   return {
     placeId: result.place_id,
+    // Geoapify's Geocoding API never exposes datasource.raw -- see
+    // GeoapifyPlace.osmType's comment.
+    osmType: null,
+    osmId: null,
     name: result.name ?? null,
     formattedAddress: result.formatted ?? "",
     location: { lat: result.lat ?? 0, lng: result.lon ?? 0 },
@@ -151,6 +193,8 @@ function toGeoapifyPlaceFromGeocode(result: GeoapifyGeocodeResult): GeoapifyPlac
 function toGeoapifyPlace(properties: GeoapifyFeatureProperties): GeoapifyPlace {
   return {
     placeId: properties.place_id,
+    osmType: properties.datasource?.raw?.osm_type ?? null,
+    osmId: properties.datasource?.raw?.osm_id ?? null,
     name: properties.name ?? null,
     formattedAddress: properties.formatted ?? "",
     location: { lat: properties.lat ?? 0, lng: properties.lon ?? 0 },
@@ -161,8 +205,11 @@ function toGeoapifyPlace(properties: GeoapifyFeatureProperties): GeoapifyPlace {
 function toGeoapifyPlaceDetails(properties: GeoapifyFeatureProperties): GeoapifyPlaceDetails {
   return {
     placeId: properties.place_id,
+    osmType: properties.datasource?.raw?.osm_type ?? null,
+    osmId: properties.datasource?.raw?.osm_id ?? null,
     name: properties.name ?? null,
     formattedAddress: properties.formatted ?? "",
+    location: { lat: properties.lat ?? 0, lng: properties.lon ?? 0 },
     categories: properties.categories ?? [],
     phone: properties.contact?.phone,
     website: properties.website,

@@ -1,13 +1,13 @@
 {
   "name": "@blockwise/api",
-  "version": "0.86.0",
+  "version": "0.87.0",
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit -p tsconfig.functions.json",
-    "sync:places": "tsx src/scripts/syncPlaces.ts",
+    "backfill:osm-identity": "tsx src/scripts/backfillOsmIdentity.ts",
     "grant:admin": "tsx src/scripts/grantNeighborhoodAdmin.ts",
     "grant:super-admin": "tsx src/scripts/grantSuperAdmin.ts",
     "test": "vitest run"
