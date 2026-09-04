@@ -76,7 +76,7 @@ const TABS: {
     children: [
       { key: "list", href: "", label: "Manage" },
       { key: "import", href: "/import", label: "Import" },
-      { key: "troubleshooting", href: "/troubleshooting", label: "Troubleshoot" },
+      { key: "troubleshooting", href: "/troubleshooting", label: "Troubleshooting" },
     ],
   },
   {
