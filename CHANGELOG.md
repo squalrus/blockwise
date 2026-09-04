@@ -5,13 +5,1343 @@ User-visible changes, newest first. Follows [Keep a Changelog](https://keepachan
 ## [0.86.0] — 2026-09-03
 
 ### Added
+
 - **Nightly auto-sync for neighborhood event feeds.** A neighborhood admin can turn on nightly auto-sync for a saved iCal/webcal feed instead of clicking "Sync now" by hand. Newly-imported events default to a "pending" status requiring admin review (Approve or Hide) unless a per-feed "trust this feed" toggle is on, in which case they publish immediately as before. The Events sidebar tab now shows a pending-count badge, mirroring the existing Business claims badge. (`apps/api/netlify/functions/ical-nightly-sync.ts`, `apps/api/src/events/`, `apps/api/src/neighborhoods/`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/IcalFeedForm.tsx`, `.../events/page.tsx`, `.../layout.tsx`)
 - **"+ New event" opens a modal.** Creating an event on the neighborhood Events tab now opens a modal instead of pushing an inline form into the page layout. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `EventForm.tsx`)
 
 ### Changed
+
 - **Deleting an event is now restricted to manually-created events.** A calendar-imported event can only be hidden or approved, never deleted, since a future re-sync would just recreate it. Applies on both the neighborhood-admin and business Events tabs. (`apps/api/src/events/events.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `apps/web/src/app/admin/business/[venueId]/events/page.tsx`)
 - **Renamed "Super admin mode" to "Super admin"** in the admin switcher. (`apps/web/src/app/AdminSwitcher.tsx`)
 - **Neighborhood Events tab layout is now responsive**, giving the calendar feeds panel more room on smaller screens. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/events/page.tsx`)
 
 ### Fixed
+
 - **Admin modals no longer show a horizontal scrollbar or render stuck in the upper-left corner.** (`apps/web/src/app/admin/AdminModal.tsx`)
+
+## [0.85.0] — 2026-09-02
+
+### Added
+
+- **`apps/marketing` reports its own client errors for the first time**: `ClientErrorReporter.tsx` (window.onerror/unhandledrejection) and `error.tsx`/`global-error.tsx` boundaries mirror `apps/web`'s, reporting through `POST /monitoring/client-errors` tagged `source: "marketing"`. Since marketing is a separate Netlify site with no co-located API function, the reporter goes through a new same-origin `/api/*` proxy (`apps/marketing/netlify.toml` redirect to `app.tryspored.com`, plus a matching local-dev rewrite) rather than opening CORS on `apps/api`. (`apps/marketing/src/app/ClientErrorReporter.tsx`, `error.tsx`, `global-error.tsx`, `src/lib/reportClientError.ts`, `netlify.toml`, `next.config.ts`)
+
+### Changed
+
+- **Monitoring's Errors sub-tab gains an App/API/Marketing source filter**: a "Source" pill row in the shared Monitoring header (shown only on Errors, alongside the always-present Domain/Range/Version) narrows "Errors over time" and "Recent errors" to one source. The errors-by-source tiles keep showing the true, unfiltered breakdown (`errors_by_source` itself was never filtered by source) and just ring whichever tile matches the active Source pill. `error_log.source` now allows `marketing` alongside `api`/`web`, and `get_monitoring_analytics` (v11) takes a new `p_source` param, threaded through `GET /admin/monitoring/analytics`'s `?source=`. `POST /monitoring/client-errors` gained an optional `source` field (defaults to `"web"`). (`apps/web/src/app/admin/super/monitoring/`, `apps/api/src/app.ts`, `apps/api/src/monitoring/`, `packages/types/src/index.ts`, `supabase/migrations/20260902060000_error_log_marketing_source.sql`, `20260902070000_monitoring_analytics_fn_v11.sql`)
+- **Monitoring's Performance sub-tab (renamed "API Performance") gains an App/Admin/Auth route-scope filter**: a "Routes" pill row narrows every request_log-derived chart (request volume, latency, status codes, slowest routes, recent requests) to the public-facing app, an owner/admin dashboard (`/admin/*`, `/neighborhood-admin/*`, `/business/*`), or auth endpoints — derived from `request_log.path`, no new instrumentation needed. It lives in the shared Monitoring header (not the page body) so it lines up with the other filters, which are now ordered Domain → Range → Routes → Version everywhere and hidden on sub-pages they don't apply to (Routes only shows on API Performance). New `monitoring_route_scope()` SQL helper centralizes the path-prefix mapping; `get_monitoring_analytics` (v12) takes `p_route_scope`, threaded through `GET /admin/monitoring/analytics`'s `?route_scope=`. Unlike the Errors source filter, this isn't a per-frontend split — every chart on this page, including "App", is `apps/api` backend request/query timing, never frontend page-render time, which is why the page title and every section heading are now prefixed "API" for clarity. (`apps/web/src/app/admin/super/monitoring/performance/page.tsx`, `layout.tsx`, `MonitoringContext.tsx`, `page.tsx`, `SlowestRoutesTable.tsx`, `apps/web/src/app/admin/super/layout.tsx`, `apps/api/src/app.ts`, `apps/api/src/monitoring/`, `supabase/migrations/20260902080000_monitoring_analytics_fn_v12.sql`)
+
+## [0.84.13] — 2026-09-02
+
+### Added
+
+- **Super-admin Monitoring is now a true overview dashboard**: `/admin/super/monitoring` shows one KPI strip (errors, requests, avg latency, Geoapify credits today) plus three summary cards (Errors, Performance, Geoapify) that each link to their full sub-page. The old Overview content (errors-over-time chart, errors-by-source, status codes, recent requests table) moved to a new `/admin/super/monitoring/errors` sub-page. Every Monitoring sub-page now shows a "Monitoring › Errors" (etc.) breadcrumb title instead of a bare repeated "Monitoring", so the hierarchy is clear; the overview itself still shows just "Monitoring". (`apps/web/src/app/admin/super/monitoring/page.tsx`, `errors/page.tsx`, `layout.tsx`, `apps/web/src/app/admin/super/layout.tsx`)
+- **Neighborhood-admin Locations gets the same sub-nav pattern**: a sidebar sub-nav under Locations (Locations / Reimport / Troubleshooting) with matching breadcrumb titles, mirroring Monitoring's structure. "Reported venues" and "Investigate a missing venue" — previously two separate pages — are merged into one **Troubleshooting** sub-page (reported-venue triage on top, ad-hoc Geoapify search below), sharing the same result list and category picker. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/layout.tsx`, `locations/troubleshooting/page.tsx`, `[neighborhoodSlug]/layout.tsx`)
+- **"+ Add point of interest" is now a modal** instead of an inline form that pushed the location list down. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/AddPoiModal.tsx`, `locations/page.tsx`)
+
+### Changed
+
+- **Monitoring's time-range control gains 5-minute and 1-hour options** alongside the existing 24 hours/7 days/30 days, for watching a live incident play out without waiting for a day-level bucket to fill. The range is now tracked in minutes end-to-end rather than days: `GET /admin/monitoring/analytics` takes `?minutes=` (clamped 5–129600) instead of `?days=` (clamped 1–90), `MonitoringAnalytics.days` is now `window_minutes`, and `get_monitoring_analytics` takes `p_minutes` instead of `p_days`. (`apps/web/src/app/admin/super/monitoring/MonitoringContext.tsx`, `apps/api/src/app.ts`, `apps/api/src/monitoring/`, `packages/types/src/index.ts`, `supabase/migrations/20260902050000_monitoring_analytics_fn_v10.sql`)
+
+### Removed
+
+- **`/admin/neighborhood/[slug]/locations/reports` and `/locations/investigate`** pages, superseded by the merged Troubleshooting sub-page above. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/reports/page.tsx`, `locations/investigate/page.tsx`)
+
+## [0.84.12] — 2026-09-02
+
+### Changed
+
+- **Changelog entry summaries capped at 75 characters**: `apps/web/src/app/changelog/entries.ts`'s `summary` field was unbounded — several past entries ran to 100+ characters, which could wrap awkwardly or overflow on the in-app `/changelog` page. All 120 existing entries were rewritten to fit within the limit, and CLAUDE.md's backlog-shipping steps now document the 75-character cap so future entries stay within it. (`apps/web/src/app/changelog/entries.ts`, `CLAUDE.md`)
+
+## [0.84.11] — 2026-09-02
+
+### Added
+
+- **"Powered by Geoapify" + OpenStreetMap attribution (Phase 9 of 9 — Google Places → Geoapify migration complete)**: the venue About tab now shows a `PoweredByGeoapify` component (links to Geoapify and OpenStreetMap's copyright page) in place of the old `PoweredByGoogle`, required under Geoapify's Free plan terms. The privacy policy's "Who we share it with" section now names Geoapify/OpenStreetMap as a data subprocessor, and its "Last updated" date is bumped. `docs/location-services-comparison.md`'s conclusion is corrected to reflect the full-removal decision actually shipped (no hybrid Google-Details-for-reviews-photos layer was kept). Full plan in `docs/geoapify-migration-plan.md`; BACKLOG.md Ref 114 is now fully shipped. (`packages/ui/src/PoweredByGeoapify.tsx`, `apps/web/src/app/location/[id]/about/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `docs/location-services-comparison.md`)
+
+### Changed
+
+- **Neighborhood map and boundary-drawing tool now start with a compact attribution control** instead of the fully-expanded default: MapLibre's `compact: true` only collapses attribution once the user drags the map, so a small helper forces the same collapse immediately after load. (`apps/web/src/app/neighborhoods/[slug]/MapView.tsx`, `apps/web/src/app/admin/neighborhood/BoundaryMap.tsx`, `apps/web/src/lib/mapAttribution.ts`)
+
+### Removed
+
+- **`PoweredByGoogle` attribution component**, superseded by `PoweredByGeoapify` above. (`packages/ui/src/PoweredByGoogle.tsx`, `packages/ui/src/index.ts`)
+
+## [0.84.10] — 2026-09-02
+
+### Removed
+
+- **Google Places migration cleanup (Phase 8 of 9)**: deleted the disposable Phase 5 backfill tooling now that every location has been reconciled onto a real Geoapify place ID — `apps/api/src/places/legacyPlaceId.ts`, the `/admin/geoapify-migration/...` routes, and the `/admin/super/geoapify-migration` page/tab. Deleted `docs/google-places-setup.md`, obsolete since Phase 4 already removed the Google client itself and no `GOOGLE_PLACES_API_KEY`/`GOOGLE_MAPS_API_KEY` remain anywhere in code or env files. Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`apps/api/src/places/legacyPlaceId.ts`, `legacyPlaceId.test.ts`, `apps/api/src/app.ts`, `apps/web/src/app/admin/super/geoapify-migration/`, `apps/web/src/app/admin/super/layout.tsx`, `docs/google-places-setup.md`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Remaining "Google Places" references cleaned up across admin UI and docs** to describe current Geoapify/OpenStreetMap behavior, including removing a stale "permanently closed" filtering claim (OSM has no equivalent — already dropped from the investigate response back in Phase 4). The two Geoapify search/reverse-geocode shapes shared with the permanent "Reassign place ID" action were renamed off "Migration" naming (`GeoapifyPlaceCandidate`, `GeoapifyReverseGeocodeResult`) since they're no longer migration-specific, and `deleteLocationForNeighborhood`'s now-unused `allowBusinessKind` option (only ever called by the deleted migration route) was removed — it always blocks a business-kind delete again, matching the regular neighborhood-admin Locations tab. (`docs/investigating-missing-venues.md`, `docs/location-services-comparison.md`, `docs/url-map.md`, `README.md`, `CONTRIBUTING.md`, `apps/web/src/app/admin/AdminShell.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/`, `apps/api/src/locations/locations.ts`, `locations.test.ts`, `packages/types/src/index.ts`)
+
+## [0.84.9] — 2026-09-02
+
+### Added
+
+- **Geoapify failure log entries now show what was actually requested, plus environment and version**: `places_api_call_log` gains `domain`, `app_version`, and `request_context` columns (the first two mirror what `error_log`/`request_log` already carry; `request_context` is a short, endpoint-specific description `InstrumentedPlacesClient` builds per call, e.g. `placeId: 51d5f2d1...` for a failed `getPlaceDetails` lookup, `text: "..."` for a text search). Previously a failure like "400 Invalid Place ID" gave no way to tell which place ID, which deployment (prod vs local), or which shipped version produced it. The `/admin/super/monitoring/places` page's failures list now surfaces all three inline, and every Places section now respects the header's domain/version filters the same way Overview/Performance already did (`places_api_call_log` had no domain/app_version columns to filter on before this). (`apps/api/src/places/instrumentedClient.ts`, `apps/api/src/monitoring/`, `apps/web/src/app/admin/super/monitoring/PlacesApiFailuresList.tsx`, `places/page.tsx`, `packages/types/src/index.ts`, `supabase/migrations/20260902030000_places_api_call_log_enrichment.sql`, `supabase/migrations/20260902040000_monitoring_analytics_fn_v9.sql`)
+
+## [0.84.8] — 2026-09-02
+
+### Changed
+
+- **Places monitoring reworked around Geoapify's actual daily-credit metering, replacing the old Google dollar-cost model** (Phase 7 of the Google Places → Geoapify migration): Google billed per-request ($/1000 calls, a separate free tier per endpoint), which never described how Geoapify actually bills — Geoapify sells fixed monthly plans sized to a *shared daily* credit ceiling (Free = 3,000 credits/day/$0). `PLACES_API_PRICING`'s monthly-$/free-events shape is replaced by `PLACES_API_CREDIT_COST` (a per-endpoint credits-per-request weight) and `GEOAPIFY_FREE_DAILY_CREDITS`; the cost guardrail (`PlacesApiQuotaGuard`) now sums weighted credit usage across *every* endpoint against that one shared pool each day, instead of checking `getPlaceDetails`' own count against its own tier — the old per-endpoint model would have missed the real risk of the shared pool being exhausted by other, admin-triggered endpoints. The billing-boundary functions move from a Pacific-Time monthly reset (Google, confirmed) to a UTC daily reset (Geoapify, whose docs don't state a timezone — a documented assumption, not a confirmed one). The Google-only `searchNearby`/`fetchPhotoMedia` endpoint values are fully removed from `PlacesApiEndpoint` and the `places_api_call_log` schema (their historical rows, logged before the Phase 4 cutover, are purged rather than carried forward under a metering model they were never subject to). Monitoring UI: the "Google Places" sub-nav tab and section copy are renamed to "Geoapify" throughout; the dollar-cost tiles/chart are replaced with credit counts; the free-tier widget is now one shared "daily credits" gauge against the 3,000 pool instead of a separate (and misleading) progress bar per endpoint. Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`packages/types/src/index.ts`, `apps/api/src/places/quotaGuard.ts`, `apps/api/src/app.ts`, `apps/api/src/monitoring/`, `apps/web/src/app/admin/super/monitoring/`, `apps/web/src/app/admin/super/layout.tsx`, `supabase/migrations/20260902010000_geoapify_credit_metering.sql`, `supabase/migrations/20260902020000_monitoring_analytics_fn_v8.sql`)
+
+## [0.84.7] — 2026-09-02
+
+### Changed
+
+- **Map rendering moved from the Google Maps JavaScript API to MapLibre GL JS + Geoapify vector tiles** (Phase 6 of the Google Places → Geoapify migration): the neighborhood venue map (`MapView.tsx`, clustering + category-colored markers + popups) and the admin boundary-drawing tool (`BoundaryMap.tsx`) both now render Geoapify's vector tile styles via MapLibre instead of Google's SDK, consolidating map rendering onto the same vendor/API key as venue data. Boundary polygon drawing/editing switches to `@mapbox/mapbox-gl-draw` (MapLibre-compatible click-to-place-vertex + drag-to-adjust) in place of the old hand-rolled Google `Polygon` vertex-editing code. `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is replaced by `NEXT_PUBLIC_GEOAPIFY_API_KEY`. A new `predev`/`prebuild` step (`apps/web/scripts/vendor-maplibre-worker.mjs`) copies MapLibre's worker script into `public/` verbatim, working around a Turbopack/webpack bundling gap where the worker's own relative import otherwise breaks silently (map never finishes loading, no console error). Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`apps/web/src/app/neighborhoods/[slug]/MapView.tsx`, `apps/web/src/app/admin/neighborhood/BoundaryMap.tsx`, `apps/web/src/lib/maplibreWorker.ts`, `apps/web/src/lib/mapboxGlDraw.d.ts`, `apps/web/scripts/vendor-maplibre-worker.mjs`, `apps/web/.env.example`, `apps/web/package.json`)
+
+## [0.84.6] — 2026-09-02
+
+### Added
+
+- **"Reassign place ID" on the regular Locations tab** — a small, permanent action per location (business or POI) that opens the same reverse-geocode-suggestion-then-free-text-search flow as the disposable Geoapify migration tool, kept so this capability survives that tool's eventual teardown. Needed because Geoapify's own place IDs aren't as stable as assumed (an OSM name-tag edit alone can produce a new one) and a real venue can simply not be in OpenStreetMap's data yet. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/ReassignPlaceIdPanel.tsx`, `page.tsx`, `apps/api/src/app.ts`)
+- **Migration status donut chart, status badges, and a delete option on `/admin/super/geoapify-migration`**: a ring chart shows migrated-vs-not for active and hidden locations, "Hidden"/"Removed" status pills appear next to possible-match and still-legacy rows, a read-only "Migrated locations" section lists everything already reconciled, and still-legacy entries confirmed as junk can now be hard-deleted (blocked if there's real check-in/points/claim/coupon/event history — hide instead). (`apps/web/src/app/admin/super/geoapify-migration/`, `apps/api/src/app.ts`, `apps/api/src/locations/locations.ts`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Distance guardrail on every place-search and reverse-geocode result** used for reconciling a location's Geoapify place ID (both the migration tool and the new "Reassign place ID" action): every candidate now carries `distance_meters` from the specific location being reconciled, shown on-screen and requiring explicit confirmation past 500m — closes a real gap where a distance-blind free-text search silently attached the wrong, distant place to a real venue. Added coordinate-based reverse-geocode suggestions alongside the existing free-text search, catching a renamed/rebranded business a name search can't connect. (`apps/api/src/places/geoapifyClient.ts`, `mockGeoapifyClient.ts`, `instrumentedClient.ts`, `apps/api/src/app.ts`, `apps/web/src/app/admin/super/geoapify-migration/page.tsx`, `packages/types/src/index.ts`)
+- **Venue sync now revives a location whose status was "removed"** if it's rediscovered under its exact prior Geoapify place ID (e.g. a neighborhood boundary redrawn back out to re-include it, unchanged) — previously the refresh happened silently while the venue stayed invisible forever. A "hidden" location is left untouched either way, since that's a separate, deliberate admin curation choice. (`apps/api/src/places/sync.ts`, `repository.ts`, `supabaseRepository.ts`)
+- **"1. Possible matches" on the migration tool now checked by default** — every match already cleared a real bar (within 30m and a strong name similarity) before appearing, so an admin now unchecks anything that doesn't look right instead of opting in to each one individually. (`apps/web/src/app/admin/super/geoapify-migration/page.tsx`)
+
+### Fixed
+
+- **The migration tool's free-text search was silently returning zero results**: it assumed Geoapify's Geocoding API returned a flat `{results: [...]}` shape, but it actually returns a GeoJSON FeatureCollection (`{features: [{properties}]}`), same as every other Geoapify response. (`apps/api/src/places/geoapifyClient.ts`)
+
+## [0.84.5] — 2026-08-28
+
+### Changed
+
+- **Full cutover from Google Places API to Geoapify** (Phase 4 of the Google Places → Geoapify migration): neighborhood venue sync, admin boundary preview, the "investigate missing venue" text search, and venue enrichment (hours/phone/website refresh) now all call the real Geoapify client instead of Google's — `apps/api/src/places/client.ts` and `mockClient.ts` are deleted outright, replaced everywhere by `geoapifyClient.ts`/`mockGeoapifyClient.ts`, keyed by a new `GEOAPIFY_API_KEY` env var (`GOOGLE_PLACES_API_KEY` is no longer read). Category matching now actually works again (Phases 2/3's temporary uncategorized-venue regression is resolved): every taxonomy-configured Geoapify tag is sent as the search's category filter, since Geoapify requires at least one non-empty category per request. Opening hours are now parsed from Geoapify's raw OSM `opening_hours` syntax via a new compatibility parser (`apps/api/src/enrichment/openingHours.ts`) so the "open now" indicator keeps working. The per-tile result cap rises from Google's fixed 20 to Geoapify's documented max of 500 (real-world saturation behavior at this cap is unverified). The admin investigate tool's "closed business" badge is removed — OSM data has no equivalent to Google's `businessStatus`. Places API monitoring (`/admin/super/monitoring/places`) now labels and tracks `searchPlaces` (Geoapify) alongside the retired `searchNearby`/`fetchPhotoMedia` (kept only so historical rows still render). Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`apps/api/src/places/`, `apps/api/src/enrichment/`, `apps/api/src/locations/`, `apps/api/src/app.ts`, `apps/api/src/scripts/syncPlaces.ts`, `apps/web/src/app/admin/super/monitoring/`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/`, `packages/types/src/index.ts`, `supabase/migrations/20260828030000_places_api_call_log_geoapify_endpoints.sql`)
+- **One-time super-admin tool to reconcile pre-migration venues onto real Geoapify place IDs** (Phase 5 of the same migration): every location synced before the Phase 4 cutover still carries its original Google place ID in the `geoapify_place_id` column. The new `/admin/super/geoapify-migration` page runs a fresh boundary search per neighborhood, surfaces fuzzy name/location matches against existing venues for explicit admin approval (nothing is rewritten automatically), and lists whatever's still unmatched afterward for manual search-and-attach. Disposable tooling, meant to be deleted once every location has a real Geoapify ID. (`apps/web/src/app/admin/super/geoapify-migration/`, `apps/api/src/places/legacyPlaceId.ts`, `apps/api/src/locations/review.ts`, `apps/api/src/app.ts`, `packages/types/src/index.ts`)
+
+## [0.84.4] — 2026-08-28
+
+### Changed
+
+- **`venue.google_place_id` renamed to `geoapify_place_id`, and `venue_enrichment_cache` trimmed down to what Geoapify's Place Details API can actually provide** (Phase 3 of the Google Places → Geoapify migration): the `rating`, `reviews`, `photo_refs`, `price_tier`, and `atmosphere` columns are dropped, and `source` now reads `'geoapify'` instead of `'google'`. Ratings, reviews, and photo galleries are removed as product features entirely — no Geoapify equivalent exists — taking the rating stat tile, the Reviews tab, the About-tab photo strip, `aggregateRating` JSON-LD, the photo-based Open Graph image, and the `GET /locations/:id/photo` proxy route with them. Schema-only step: `sync.ts`/`review.ts`/`investigate.ts`/`refresh.ts` still call Google's live API under the hood until Phase 4 rewires the actual client, so `geoapify_place_id` holds a real Google place ID for now — an accepted temporary regression, matching Phase 2's category-taxonomy rename. Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`supabase/migrations/20260828020000_geoapify_venue_schema.sql`, `apps/api/src/enrichment/`, `apps/api/src/locations/`, `apps/api/src/places/`, `apps/api/src/app.ts`, `apps/web/src/app/location/[id]/`, `apps/web/src/app/EnrichmentSection.tsx`, `packages/types/src/index.ts`)
+
+## [0.84.3] — 2026-08-28
+
+### Changed
+
+- **Category taxonomy remapped from Google Places types to Geoapify's OSM category tags** (Phase 2 of the Google Places → Geoapify migration): every leaf category's `source_mapping_json.google` is replaced by `.geoapify`, mapped from Geoapify's published category list, and `categorize.ts` now does longest-prefix matching against Geoapify's dot-hierarchical tags (e.g. `catering.restaurant.italian` matches a category configured with `catering.restaurant`) instead of exact-matching Google's flat type strings. The super-admin category taxonomy tool (`/admin/super/category-taxonomy`) and its API now read/write `geoapify_categories` instead of `google_types`. No user-visible change yet — the live sync/investigate pipeline still runs on the Google client (Phase 4 not done), so venue categorization is temporarily inert until that rewiring lands; the Nearby Search `includedTypes` restriction was also dropped (search now runs unrestricted per tile) since Geoapify's tags aren't valid Google type strings to send. Full plan in `docs/geoapify-migration-plan.md`, progress tracked under BACKLOG.md Ref 114. (`supabase/migrations/20260828010000_geoapify_category_mapping.sql`, `apps/api/src/places/categorize.ts`, `sync.ts`, `investigate.ts`, `apps/api/src/categoryAdmin/`, `apps/web/src/app/admin/super/category-taxonomy/page.tsx`, `packages/types/src/index.ts`)
+
+## [0.84.2] — 2026-08-27
+
+### Added
+
+- **Geoapify Places API client** (`LiveGeoapifyClient` + `MockGeoapifyClient`), the first phase of migrating venue discovery and enrichment off Google Places API — Google's Places ToS forbids caching the fields Spored needs (name, address, rating, hours, photos), which is pure friction for a periodic bulk-sync pipeline rather than live per-visitor lookups. Standalone and not yet wired into the live sync pipeline (`places/sync.ts`, `app.ts`); no user-visible or behavioral change in this release. Full design, phased rollout, and live-verification findings against real venue data are in `docs/geoapify-migration-plan.md` and `docs/location-services-comparison.md`. (`apps/api/src/places/geoapifyClient.ts`, `mockGeoapifyClient.ts`, `geoapifyClient.test.ts`)
+
+## [0.84.1] — 2026-08-26
+
+### Changed
+
+- **Notification category toggles on Account Settings now hidden until push notifications are enabled** — the per-category list (Neighbor check-ins, Connection requests, Connection accepted, Event reminders, New coupons) is meaningless before push is turned on, so it no longer shows until the master "Get push notifications on this device" toggle reports enabled. (`apps/web/src/app/NotificationToggle.tsx`, `apps/web/src/app/NotificationPreferencesToggles.tsx`, `apps/web/src/app/account/settings/page.tsx`)
+
+## [0.84.0] — 2026-08-25
+
+### Added
+
+- **Estimated cost and monthly free-tier visibility on the Google Places monitoring sub-page**: a "Monthly free tier" section (now the top section on the page) shows month-to-date progress per endpoint against Google's free allowance, an "Estimated cost" chart sums each day's calls at their actual per-endpoint rate (search, place details, and photo calls bill at different SKU tiers), and the by-endpoint breakdown now shows a per-endpoint and total cost estimate with a disclaimer that it's an upper bound. Free-tier month-to-date is computed on Google's own billing boundary — midnight Pacific Time on the 1st, not UTC. (`apps/web/src/app/admin/super/monitoring/PlacesApiCostChart.tsx`, `PlacesApiFreeTierStats.tsx`, `placesApiCost.ts`, `PlacesApiByEndpointStats.tsx`, `places/page.tsx`, `apps/api/src/monitoring/`, `packages/types/src/index.ts`, `supabase/migrations/20260825120000_monitoring_analytics_fn_v7.sql`, `supabase/migrations/20260825140000_places_api_billing_month_pacific_time.sql`)
+- **Cost guardrail on the two highest-frequency Google Places endpoints** (`getPlaceDetails`, `fetchPhotoMedia`): once month-to-date calls reach 90% of Google's free tier, further live calls are skipped for the rest of the billing month rather than risking runaway charges — enrichment falls back to whatever's already cached, and a guarded photo request returns 404 instead of hitting Google. (`apps/api/src/places/quotaGuard.ts`, `apps/api/src/app.ts`, `apps/api/src/enrichment/refresh.ts`)
+
+### Changed
+
+- **Google Places photo gallery capped at 4 photos per venue** (previously up to 10) and photos now lazy-load — since Places API photos have no caching exception under Google's Terms of Service (only `place_id` and lat/lng do), requesting fewer photos per venue is the only compliant lever for controlling `fetchPhotoMedia` cost. A photo strip with no photos, or where every photo fails to load (e.g. the guardrail is active), now renders nothing instead of an empty placeholder box. (`apps/api/src/enrichment/refresh.ts`, `apps/web/src/app/EnrichmentSection.tsx`, `apps/web/src/app/EnrichmentPhotoGallery.tsx`)
+- **Turbo bumped to 2.10.12** (routine dependency update, no behavior change). (`package.json`, `turbo.json`)
+
+### Removed
+
+- **Server-side caching of Google Places photos**, added earlier and removed after confirming it violates Google Maps Platform's Terms of Service (Section 3.2.3(b) "No Caching" — only `place_id` and lat/lng have caching exceptions; photos don't). (`supabase/migrations/20260825150000_drop_places_photo_cache.sql`)
+
+## [0.83.0] — 2026-08-25
+
+### Added
+
+- **Super-admin Monitoring tab split into three sub-pages** (Overview, Performance, Google Places), sharing one filter bar (days/domain/app-version) and a single `MonitoringContext` fetch instead of each pill reloading the whole page — filters persist across sub-page navigation and survive a refresh via URL query params. Overview merges the errors-by-source tiles directly above the recent-errors list and the status-code tiles above a new recent-requests table; each status-code tile is now a clickable filter (2xx/3xx/4xx/5xx) narrowing that table, so a "4xx: 1" summary count can be drilled into the actual request row instead of staying an unexplained number. (`apps/web/src/app/admin/super/monitoring/`, `apps/api/src/monitoring/`, `apps/api/src/app.ts`, `supabase/migrations/20260825070000_monitoring_analytics_fn_v5.sql`)
+- **Google Places API failures are now visible on the Places sub-page**: outbound Places calls capture the thrown error's message on failure (previously only success/failure timing was logged), surfaced as a recent-failures list (endpoint, error message, duration, timestamp). (`apps/api/src/places/instrumentedClient.ts`, `apps/web/src/app/admin/super/monitoring/PlacesApiFailuresList.tsx`, `supabase/migrations/20260825080000_places_api_call_log_error_message.sql`, `supabase/migrations/20260825090000_monitoring_analytics_fn_v6.sql`)
+- **Event-follow analytics on the business Analytics tab**: a follows-over-time chart and a top-followed-events list (with occurrence date, since a recurring event can share a title across dates), mirroring the existing coupon-claims and top-venues breakdowns. (`apps/web/src/app/admin/business/[venueId]/analytics/`, `supabase/migrations/20260825110000_venue_analytics_fn_v3.sql`, `packages/types/src/index.ts`)
+- **Coupons and Events tiles on the business dashboard Overview**, joining the existing Followers/Check-ins pair so all four top-line counts are visible without switching tabs. (`apps/web/src/app/admin/business/[venueId]/BusinessVenueDashboard.tsx`)
+
+### Changed
+
+- **Points tile removed from the profile summary card's stat strip** — it duplicated the points total already shown in the card's header next to the level progress bar. The strip is now 5 columns (Collection/Check-ins/Badges/Challenges/Neighbors) instead of 6. (`apps/web/src/app/account/ProfileSummaryCard.tsx`)
+- **Activity feed rows shrunk from `text-sm` to `text-xs`**, tightening the neighborhood Spore feed, `/account` Spore Feed, and `/account/activity` My Activity tabs. (`apps/web/src/app/ActivityFeed.tsx`)
+
+### Fixed
+
+- **Stat tiles no longer break column alignment on long labels** (e.g. "4xx Client error") — the tile and its label now allow text to wrap within the grid column instead of overflowing. (`apps/web/src/app/StatTile.tsx`)
+
+## [0.82.0] — 2026-08-25
+
+### Added
+
+- **Three-dot row-actions menu on the super-admin Users table**, replacing the always-visible inline "send test push" form — "Send test push" now opens as a modal with title, body, and an optional URL field (opens that URL when the notification is tapped). The same `ActionMenu` pattern (open/click-outside/Escape) already used by `AccountNav`/`AdminSwitcher` is now a shared component for row-level actions elsewhere in admin. (`apps/web/src/app/ActionMenu.tsx`, `apps/web/src/app/SendTestPushModal.tsx`, `apps/web/src/app/admin/super/users/page.tsx`)
+- **"Last login" column on the super-admin Users table**: a new `app_user.last_login_at` column is stamped on every real `POST /auth/complete-login` (not on every `/auth/me` poll), defaulting to signup time so it's populated immediately rather than reading blank until a second visit. (`supabase/migrations/20260825010000_last_login_at.sql`, `apps/api/src/auth/`, `apps/api/src/users/`, `packages/types/src/index.ts`)
+- **Domain and version filters on the super-admin Monitoring tab**: error and request logs now record which deployment (`app.tryspored.com`, `localhost`, and any future domain like `dev.tryspored.com`) and which shipped app version logged them, with filter pills to narrow every chart down to one domain and/or one of the last 8 versions — lets production issues be isolated from local-dev noise. A backfill migration recovers `domain` for historical web-sourced errors (which already carried the page URL) from before the column existed; API errors and request-log rows have no URL captured, so those stay unlabeled but remain visible under "All domains". (`supabase/migrations/20260825020000_monitoring_domain.sql` and four related migrations, `apps/api/src/monitoring/`, `apps/web/src/app/admin/super/monitoring/`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Admin header nav now prefers Super Admin mode** when available, falling back to neighborhood admin, then business admin — previously it always preferred neighborhood/business and never routed a super admin straight into `/admin/super`. The `AdminSwitcher` dropdown's "Platform" group also moved to the top of the list, ahead of Neighborhoods/Businesses. (`apps/web/src/app/admin/page.tsx`, `apps/web/src/app/AdminSwitcher.tsx`, `apps/web/src/app/AccountNav.tsx`)
+
+## [0.81.0] — 2026-08-25
+
+### Added
+
+- **Neighborhood-specific badges and challenges**: badges and challenges can now be scoped to a single neighborhood instead of always being app-wide — `Badge`/`Challenge` both gained a nullable `neighborhood_id` (null = app-wide), with a scope pill on the account/profile Badges pages and the neighborhood Challenges view showing which is which. Eight existing challenge-earned badges and their challenges (Coffee Crawler, Neighborhood Explorer, POI Completionist, Bar Hopper, Bakery Tourist, Retail Therapist, Phinneywood Foodie, Welcome Neighbor) were scoped to Phinneywood and renamed to say so, dropping stale "Summer Series"/"July" wording. (`packages/types/src/index.ts`, `apps/api/src/gamification/`, `apps/web/src/app/account/(tabs)/badges/page.tsx`, `apps/web/src/app/account/(tabs)/challenges/page.tsx`, `apps/web/src/app/profile/[username]/BadgesSection.tsx`, `apps/web/src/app/profile/[username]/ChallengesSection.tsx`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`, `supabase/migrations/20260824010000_app_wide_challenges.sql` and four related migrations)
+- **Super-admin Challenges and Badges management pages** (`/admin/super/challenges`, `/admin/super/badges`): full create/edit for both app-wide and neighborhood-specific challenges and badges, with scope filters, family grouping, and a shared icon-code dropdown. A challenge's badge can be picked from an existing one, created inline, or edited in place, all from the Challenges modal — the standalone Badges page remains fully separate for direct badge management. (`apps/web/src/app/admin/super/challenges/`, `apps/web/src/app/admin/super/badges/`, `apps/web/src/app/admin/AdminModal.tsx`, `apps/api/src/gamification/challengeAdmin.ts`, `apps/api/src/gamification/badgeAdmin.ts`, `apps/api/src/app.ts`)
+- **Neighborhood-admin Challenges tab now authors badges too**: every neighborhood challenge is created together with its own badge in one form (name/description/icon), replacing the separate neighborhood Badges page. A challenge (and its badge) can no longer be edited once anyone has completed it, so a completer's earned badge can't be changed out from under them after the fact — this restriction doesn't apply to super admins. Editing a challenge, on both admin surfaces, can now also change its target (category vs. any-POI/any-check-in, including the "All POIs" live count) rather than only being fixed at creation. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/challenges/`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/api/src/gamification/challengeAdmin.ts`, `apps/api/src/gamification/repository.ts`, `apps/api/src/gamification/supabaseRepository.ts`)
+
+### Changed
+
+- **Challenge target pill reads "All POI"** instead of "Any POI" for a live/completionist challenge, and the Ends date field in every challenge modal now has a one-click Clear control. (`apps/web/src/app/admin/super/challenges/page.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/challenges/page.tsx`)
+
+## [0.80.0] — 2026-08-24
+
+### Added
+
+- **Activity feed rows show an actor's real mushroom look plus context**: each row's leading avatar now uses the actor's actual saved customizer choice instead of always falling back to a deterministic seeded look, and overlaps it with a second icon giving context for the row — the venue's business/POI mark for check-ins/favorites, the other person's mushroom for neighbor connections, a calendar mark for event follows, and a star for badges/challenge completions. (`apps/web/src/app/ActivityFeed.tsx`, `apps/web/src/app/EntityTile.tsx`, `apps/api/src/activity/`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Component library moved from `/dev/components` to `/admin/super/components`**: the internal component-preview gallery was previously reachable by anyone who knew the URL — it's now gated behind super admin (client-side `is_super_admin` check + server-side `superAdminGate`) and reachable via a new "Components" tab in the super admin sidebar. Coverage also expanded with new pages for badges/challenges sections, event list items, Top Caps, and "entities" pages showing every UI representation of a neighborhood/business/POI/user/event on one page. `robots.ts` no longer needs its own `/dev/` disallow rule since `/admin/` already covers it. (`apps/web/src/app/admin/super/components/`, `apps/web/src/app/admin/super/layout.tsx`, `apps/web/src/app/robots.ts`, `docs/url-map.md`)
+
+## [0.79.0] — 2026-08-24
+
+### Added
+
+- **Admin action to activate a neighborhood**: an "Activate neighborhood" button on the neighborhood-admin Overview tab flips a neighborhood from `onboarding` to `active` (one-way), shown next to a Live/Onboarding status pill. `neighborhood.status` was previously write-only — set at creation and never read back anywhere — so there was no way to actually take a second neighborhood live. Gated to super admins, same as neighborhood creation itself. (`apps/api/src/neighborhoods/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/page.tsx`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Neighborhood slugs are now derived automatically** from name + city (e.g. `phinneywood-seattle`) instead of accepted as free-form text — the admin "create neighborhood" form's manual slug field is now a read-only preview, and the API derives its own copy server-side rather than trusting the client, so the format holds even against a direct API call. (`apps/web/src/app/admin/neighborhood/new/page.tsx`, `apps/api/src/neighborhoods/neighborhoods.ts`, `apps/api/src/app.ts`)
+- **Neighborhood creation form polish**: "State" relabeled to "State/territory"; Country and Timezone are now dropdowns (a short hardcoded country list, and the browser's full IANA timezone list via `Intl.supportedValuesOf`) instead of free text, preventing typos like malformed timezone strings. (`apps/web/src/app/admin/neighborhood/new/page.tsx`)
+
+## [0.78.0] — 2026-08-23
+
+### Added
+
+- **Type badges for business, POI, and neighborhood icons**: the identity tile on business/POI/neighborhood pages now shows a colored ring (amber/purple/green) plus a small corner glyph (storefront/map-pin/leaf) so the three read as distinct from each other and from a person's avatar at a glance — previously business and POI shared an identical plain orange tile. The same system extends to the account Collection tab: each card's thin inner frame now recolors by source type with a matching corner glyph (plus a new person glyph for species collected from a neighbor), replacing the old species-initial corner marks. (`apps/web/src/app/EntityTile.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/account/(tabs)/collection/`, `apps/api/src/mushroomCollection/`, `packages/types/src/index.ts`)
+
+## [0.77.0] — 2026-08-23
+
+### Added
+
+- **Public profile page visual redesign** with activity tabs matching the Account page layout: mutual-neighbor count before connecting, a share/copy-link button visible on your own profile, Top Caps section showing where you rank #1 by 60-day check-ins across venues and neighborhoods, and paginated badges/challenges sections (10 items visible with a "Show X more" button). Recent check-ins now render via the day-grouped ActivityFeed instead of the old Timeline, with optional activity points display. (`apps/web/src/app/profile/[username]/`, `apps/web/src/app/profile/[username]/BadgesSection.tsx`, `apps/web/src/app/profile/[username]/ChallengesSection.tsx`, `apps/web/src/app/profile/[username]/TopCapsSection.tsx`, `apps/web/src/app/profile/[username]/ShareProfileButton.tsx`, `apps/api/src/app.ts`)
+- **Three new "Top Cap" badges** for ranking #1 by 60-day check-in count: Business Top Cap (ranked #1 at a business), Landmark Top Cap (ranked #1 at a POI), and Neighborhood Top Cap (ranked #1 across an entire neighborhood), evaluated on every check-in alongside the existing badge rule engine. (`apps/api/src/gamification/`, `supabase/migrations/20260823020000_rank_reached_badges.sql`)
+- **Activity points tracking** in all feeds: each point-earning activity now shows a "+N pts" pill if it contributed to the user's score, sourced from the `point_event` table rather than recalculated. (`apps/web/src/app/ActivityFeed.tsx`, `apps/api/src/activity/supabaseRepository.ts`, `packages/types/src/index.ts`)
+- **Location leaderboard on the neighborhood Leaderboard tab**, showing the top venues by 60-day check-in count alongside the Top Caps (users) and Lifetime points sections, with links to each venue's detail page. (`apps/web/src/app/neighborhoods/[slug]/leaderboard/page.tsx`, `apps/api/src/checkins/supabaseRepository.ts`, `packages/types/src/index.ts`)
+- **Level badges through level 20**, extending the existing level-reached tier ladder (v0.50.0 shipped levels 1–10) to accommodate higher-level players and growing community point totals. (`supabase/migrations/20260823010000_level_20_badges.sql`)
+- **Tiered badge hiding until earned** for ladders that gate features (Collection `forager_`, Levels `level_`, Neighbors `good_neighbor_`, Daily Venues `day_tripper_`), so players see only badges they've earned plus the next tier to unlock, rather than preview all future tiers. (`apps/web/src/app/account/(tabs)/badges/page.tsx`)
+
+### Changed
+
+- **Neighborhood challenges section reordered** to surface actionable challenges first: In progress → Not started → Completed, matching the prioritization on the account Challenges tab (v0.74.1). (`apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+- **Location photo strip moved to the About tab** instead of always showing on load, reducing initial page scroll and keeping the photo strip content alongside the description (About) rather than separated into the summary section. (`apps/web/src/app/location/[id]/layout.tsx`, `apps/web/src/app/location/[id]/about/page.tsx`)
+- **Recent check-ins now use ActivityFeed** instead of the deprecated Timeline component, for consistent day-grouped, avatar-per-row styling across all feeds (Spore Feed, My Activity, neighborhood Spore Feed). (`apps/web/src/app/ActivityFeed.tsx`, `apps/api/src/activity/supabaseRepository.ts`)
+
+### Removed
+
+- **`Timeline.tsx` and `CheckinTimeline.tsx`** are now fully unused after ActivityFeed migration and have been deleted. (`apps/web/src/app/`)
+
+## [0.76.0] — 2026-08-23
+
+### Added
+
+- **A dedicated Leaderboard tab on every business and POI page**, ranking its top 10 most frequent visitors within the rolling 60-day window (`GET /venues/:id/leaderboard`) — the same ranking behind the summary card's "Top Caps" badges, now with room to see further down the list. (`apps/api/src/locations/locations.ts`, `apps/api/src/checkins/checkin.ts`, `apps/web/src/app/location/[id]/leaderboard/page.tsx`)
+- **An "Open now · until X" pill** on business/POI pages and the neighborhood Today tab's Open Now list, computed server-side from cached hours so it renders correctly on first paint. (`apps/api/src/locations/hours.ts`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/today/OpenNowRow.tsx`)
+
+### Changed
+
+- **Location detail page redesigned into a route-per-tab bar** (Spore Feed / About / Reviews / Coupons / Events / Leaderboard), mirroring the Account and Neighborhood page redesigns — `location/[id]/` gained a shared `layout.tsx` (back link, summary card, photo strip, tab bar, claim form) with one route per tab instead of one long stacked page, so each tab is directly linkable and fetches only its own data. Spore Feed is a new per-venue check-in feed (`GET /venues/:id/activity`), replacing the old inline photo/about/reviews stack. (`apps/web/src/app/location/[id]/`, `apps/api/src/activity/`, `docs/url-map.md`)
+- **Business/POI pages now show the "Top Caps" 3-badge visitor cluster** (introduced for neighborhoods in v0.75.0) in place of the old single-visitor "Mayor" sign, for a consistent look across neighborhood, business, and POI pages. (`apps/api/src/checkins/checkin.ts`, `packages/types/src/mushroom.ts`, `apps/web/src/app/MushroomField.tsx`)
+- **Location summary card restyled** to match the Account/Neighborhood card language: a divided 2-or-3-column stat strip (adding a Rating column when available) replaces the old boxed check-in/favorite stat cards, and the card gains a deterministic per-venue identity icon. The claim-business prompt is now collapsed by default behind a "Own this business?" row instead of always showing the full form. (`apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/location/[id]/ClaimBusinessForm.tsx`, `apps/web/src/app/StatCard.tsx`)
+- **FAQ and Privacy Policy** updated to describe Top Caps on business/POI pages and the new Leaderboard tab, replacing the retired single-visitor "Mayor" language. (`apps/marketing/src/app/faq/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`)
+
+### Removed
+
+- **`StatCard.tsx`** and the pill-variant/in-page `onSelect` mode of `TabNav.tsx`, both now fully unused now that every stat display and tab bar in the app uses the newer divided-strip and route-driven-underline patterns respectively. (`apps/web/src/app/StatCard.tsx`, `apps/web/src/app/TabNav.tsx`)
+
+## [0.75.0] — 2026-08-23
+
+### Added
+
+- **"Top Caps"**: a neighborhood page now shows up to 3 named badges for its most frequent visitors over the last 60 days (falling through to the next-ranked visitor if one is private or unnamed, rather than skipping the whole cluster), alongside the existing single-visitor "Mayor" sign on business/POI pages. The leaderboard tab now shows two clearly-labeled, separately-ranked sections — "Top Caps · most check-ins, last 60 days" above "Lifetime points" — since the two rank by different things (recent visit frequency vs. all-time points). (`apps/api/src/checkins/checkin.ts`, `apps/api/src/checkins/repository.ts`, `apps/api/src/checkins/supabaseRepository.ts`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/neighborhoods/[slug]/leaderboard/page.tsx`, `packages/types/src/index.ts`, `packages/types/src/mushroom.ts`)
+- **Neighborhoods are now a collectible forager species**: joining a neighborhood unlocks its own mushroom "species" in your account's Collection tab, same as checking in at a venue or connecting with a neighbor — rejoining after leaving bumps the count instead of duplicating. Existing memberships were retroactively backfilled (unrevealed, so existing accounts get to flip through them like any other newly-found species). (`apps/api/src/app.ts`, `apps/api/src/mushroomCollection/`, `apps/web/src/app/account/(tabs)/collection/`, `packages/types/src/index.ts`, `supabase/migrations/20260822030000_mushroom_collection_neighborhood.sql`, `supabase/migrations/20260822040000_backfill_neighborhood_collection.sql`)
+
+### Changed
+
+- **Neighborhood page visual redesign**: the summary card gains a neighborhood mark icon and a divided 4-column stat strip (mirroring the Account page's stat tiles), and the tab bar switches from pill to underline style to match the Account redesign (v0.74.1). (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `apps/web/src/app/globals.css`)
+- **FAQ and Privacy Policy** updated to explain Top Caps (both the neighborhood 3-badge and business/POI single-sign forms) and the neighborhood collection species, alongside the existing venue/neighbor collection explanation. (`apps/marketing/src/app/faq/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`)
+
+## [0.74.1] — 2026-08-22
+
+### Changed
+
+- **Account page visual redesign**: the profile card's avatar now sits inside a circular level-progress ring with an "LV N" pill instead of a separate progress bar, the header text condenses to one line ("`{points} pts · {pointsToNext} pts to Level {level+1}`"), and the six stat tiles (Collection/Check-ins/Points/Badges/Challenges/Neighbors) become a single divided 6-column strip instead of individually-backgrounded tiles. The account page's tab bar switches to an underline style (other tab bars, e.g. a neighborhood's, keep the existing pill style). (`apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/TabNav.tsx`, `apps/web/src/app/account/AccountTabs.tsx`)
+- **Collection tab restyled as playing cards**: each collected species now renders with corner index marks (initial + tiny mushroom glyph, top-left and bottom-right), a centered soft-circle mark backdrop, and a qty badge; the not-yet-revealed card back gets a fixed diamond-lattice pattern replacing the old per-entry seeded grunge texture. The detail modal gained labeled Shape/Spots/Collected/Found/Unlocked rows, a 5-card preload window (so swiping twice never mounts a card mid-swipe), and peeking neighbor cards that tilt like loose physical cards and straighten as they come into focus. (`apps/web/src/app/account/(tabs)/collection/page.tsx`, `apps/web/src/app/account/(tabs)/collection/CollectionDetailModal.tsx`, `apps/web/src/app/account/(tabs)/collection/CornerMark.tsx`)
+- **Spore Feed and My Activity feeds are now day-grouped**, showing an uppercase "Today"/"Yesterday"/date header above each day's rows instead of one flat dot-and-line timeline, with a small mushroom avatar per row (deterministic per actor) and a short clock time on the right. Shared by the neighborhood-wide Spore feed tab too. (`apps/web/src/app/ActivityFeed.tsx`)
+
+## [0.74.0] — 2026-08-22
+
+### Added
+
+- **Push notification when a followed event starts** (BACKLOG.md Ref 102), firing ~15 minutes ahead via a new Netlify scheduled function (`event-reminders.ts`, every 5 minutes) — the first time-based (rather than request-driven) push trigger in this repo. A 30-minute grace window covers a delayed sweep, and a new `event_follow.notified_at` column prevents re-notifying the same follower for the same event. (`apps/api/netlify/functions/event-reminders.ts`, `apps/api/src/eventFollows/eventReminders.ts`, `apps/api/src/eventFollows/repository.ts`, `apps/api/src/eventFollows/supabaseRepository.ts`, `supabase/migrations/20260822010000_event_follow_reminder_notified_at.sql`, `apps/web/netlify.toml`)
+- **Per-category push notification toggles on Account Settings**, replacing the previous all-or-nothing push switch with individual opt-outs for neighbor check-ins, connection requests, connection accepted, event reminders, and new coupons at a favorited venue — all default-on so existing behavior is unchanged until a user opts out. Backed by a new `notification_preferences` jsonb column on `app_user`, merged (not replaced) on each `PATCH /me/profile` update so toggling one category leaves the others untouched. (`apps/web/src/app/NotificationPreferencesToggles.tsx`, `apps/web/src/app/account/settings/page.tsx`, `apps/api/src/auth/`, `apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `packages/types/src/index.ts`, `supabase/migrations/20260822020000_notification_preferences.sql`)
+- **Push notification when a favorited venue launches a new coupon**, notifying every user who favorites that venue as soon as a business creates one (`POST /business/venues/:id/coupons`) — gated by the new "new coupons" preference above. (`apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `apps/api/src/favorites/repository.ts`, `apps/api/src/favorites/supabaseRepository.ts`, `apps/api/src/app.ts`)
+
+## [0.73.0] — 2026-08-22
+
+### Added
+
+- **A custom, on-brand 404 page for the marketing site**, matching `apps/web`'s existing one (same copy, MushroomLogo, link back home) but restyled with the marketing site's fixed hex palette and wrapped in its own `MarketingNav`/`MarketingFooter` chrome, replacing Next.js's generic default. (`apps/marketing/src/app/not-found.tsx`, `docs/url-map.md`)
+- **Two new marketing homepage sections** covering features the homepage previously didn't mention: a Notifications teaser (push notifications for neighbor check-ins, using the real notification copy format) and a Collection & customize teaser (the Forager mushroom collection and mushroom profile customization). Existing sections got copy touch-ups to mention neighborhood challenges and the mushroom collection alongside points/badges, and the neighborhood-coverage copy now reflects "more Seattle neighborhoods launching soon" instead of "let's start one." (`apps/marketing/src/app/page.tsx`)
+- **A `SeamSprouts` component**: decorative mushrooms now sprout up out of the ground at the boundary between a section and the brown/ink section below it, growing in with a staggered one-shot animation (via `IntersectionObserver`) as the visitor scrolls, then holding still — replacing the previous ambient "floating" spore decorations that were only in the Hero and Final CTA sections. Deterministic per-seam mushroom variety (shape/color/spot pattern) via a seeded PRNG, since the page is statically prerendered; respects `prefers-reduced-motion`. (`apps/marketing/src/app/SeamSprouts.tsx`, `apps/marketing/src/app/globals.css`, `apps/marketing/src/app/page.tsx`)
+
+## [0.72.0] — 2026-08-22
+
+### Added
+
+- **"Continue with Microsoft" sign-in**, alongside the existing Google option, for both login and signup (BACKLOG.md Ref 72) — the server-side auth path already reads the provider generically off `app_metadata`, so this is client-side only: a new Supabase `azure` OAuth call and button. Privacy policy updated to name Microsoft alongside Google as a sign-in data source and subprocessor. (`packages/ui/src/MicrosoftIcon.tsx`, `apps/web/src/lib/auth.ts`, `apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `apps/marketing/public/.well-known/microsoft-identity-association.json`)
+
+## [0.71.1] — 2026-08-21
+
+### Fixed
+
+- **Venue/POI enrichment refresh was failing outright against Google's Places API** with a 400 `INVALID_ARGUMENT` ("Unknown name \"reviewsSort\"") on every call, since the New Places API's `places.get` endpoint has no query parameter for review ordering (that was a legacy-API-only param) — reviews are now sorted newest-first client-side after fetching instead, preserving the "Latest 3" behavior on the venue page. (`apps/api/src/places/client.ts`, `apps/api/src/enrichment/refresh.ts`, `apps/web/src/app/EnrichmentSection.tsx`)
+
+## [0.71.0] — 2026-08-21
+
+### Added
+
+- **Monitoring and error tracking, rolled on Postgres rather than a third-party service** (BACKLOG.md Ref 104), surfaced on a new "Monitoring" tab in the super-admin sidebar: errors-over-time and errors-by-source charts, an expandable recent-errors list (with stack traces), request-volume and latency (avg/p95) charts, a status-code breakdown, a slowest-routes leaderboard, a slowest-queries list, and Google Places API call volume/breakdown-by-endpoint, all on a 24h/7d/30d range toggle backed by a single `get_monitoring_analytics` Postgres function (plus a second, separately-privileged `get_slow_queries` RPC for the query-latency piece). API-side error capture wraps `console.error` itself (`apps/api/src/monitoring/errorLogging.ts`) so every one of the ~120 existing `"<label> failed:", err` call sites across `app.ts` now also persists a row to a new `error_log` table, without touching each site individually — plus new `process.on("unhandledRejection"/"uncaughtException")` handlers, neither of which existed before. Request volume/latency are logged per-request to a new `request_log` table via a single Express middleware. DB-level query latency comes from Postgres's own `pg_stat_statements` extension, pairing with the route-level latency to show whether a slow route is slow because of the app or the query. Outbound Google Places API calls are self-instrumented (a new `InstrumentedPlacesClient` wrapping the real client, not the local mock) rather than pulled from Google Cloud Monitoring, so no new vendor credential was needed. Web-side: new `error.tsx`/`global-error.tsx` React error boundaries (Next.js convention, neither existed before) and a `ClientErrorReporter` (`window.onerror`/`unhandledrejection` listener) both report to a new public `POST /monitoring/client-errors` endpoint, so a render crash or an uncaught browser error is now captured even for a signed-out visitor. (`supabase/migrations/20260821030000_monitoring.sql`, `supabase/migrations/20260821040000_monitoring_analytics_fn.sql`, `supabase/migrations/20260821050000_places_api_call_log.sql`, `supabase/migrations/20260821060000_pg_stat_statements.sql`, `supabase/migrations/20260821070000_monitoring_analytics_fn_v2.sql`, `packages/types/src/index.ts`, `apps/api/src/monitoring/`, `apps/api/src/places/instrumentedClient.ts`, `apps/api/src/app.ts`, `apps/web/src/app/admin/super/monitoring/`, `apps/web/src/app/admin/super/layout.tsx`, `apps/web/src/app/error.tsx`, `apps/web/src/app/global-error.tsx`, `apps/web/src/app/ClientErrorReporter.tsx`, `apps/web/src/lib/reportClientError.ts`, `apps/web/src/app/layout.tsx`, `docs/url-map.md`)
+- **A custom, on-brand 404 page** (BACKLOG.md Ref 91), replacing Next.js's generic default not-found page with one that matches the rest of the site's mushroom/nav visual language, plus a link back home. (`apps/web/src/app/not-found.tsx`)
+
+## [0.70.0] — 2026-08-21
+
+### Added
+
+- **An Analytics tab in the business-admin sidebar**, mirroring the neighborhood-admin Analytics tab shipped earlier the same day: charts and breakdowns of a single venue's own activity, with the same 7/30/90-day range toggle. Check-ins over time and an activity-by-type count (check-ins/favorites/challenge completions) carry over directly from the neighborhood version; the neighborhood-only locations-by-category breakdown and top-venues leaderboard don't apply to a single venue, so this tab substitutes a check-ins-by-day-of-week chart (which days this venue is busiest) and a coupon-claims-over-time chart (offer performance) instead. Backed by a single `get_venue_analytics` Postgres function (`?days=` clamped 1-90), plus a new `point_event_venue_id_idx` index since `point_event` previously only indexed by neighborhood. (`supabase/migrations/20260821020000_venue_analytics_fn.sql`, `packages/types/src/index.ts`, `apps/api/src/locations/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/business/[venueId]/analytics/`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`, `docs/url-map.md`)
+
+## [0.69.0] — 2026-08-21
+
+### Added
+
+- **An Analytics tab in the neighborhood-admin sidebar** — charts and breakdowns of the neighborhood's locations and activity: check-ins over time (7/30/90-day range toggle), a locations-by-category breakdown, a top-10 venues by check-ins leaderboard, and an activity-by-type count (check-ins/favorites/challenge completions). Backed by a single `get_neighborhood_analytics` Postgres function (`?days=` clamped 1-90) rather than four separate round trips, since all four charts are always requested together by this one tab. First charting library in the repo: Recharts, used for the check-ins-over-time and locations-by-category charts; the leaderboard and activity counts are plain HTML meter bars and stat tiles instead, since a categorical color palette isn't the right encoding for either. (`supabase/migrations/20260821010000_neighborhood_analytics_fn.sql`, `packages/types/src/index.ts`, `apps/api/src/neighborhoods/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/analytics/`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `docs/url-map.md`)
+
+## [0.68.1] — 2026-08-20
+
+### Added
+
+- **A GitHub Actions CI workflow** (BACKLOG.md Ref 25) running lint, typecheck, and unit tests on every pull request and push to `main` — the first automated correctness gate beyond the manual `npm run build` CONTRIBUTING.md previously called for. Also adds a `typecheck` script (`tsc --noEmit`) to `apps/web` and `apps/marketing`, wired into Turborepo alongside the existing `lint`/`test` tasks. Netlify preview deploys still need dashboard-side setup that's out of scope for this change. (`.github/workflows/ci.yml`, `turbo.json`, `package.json`, `apps/web/package.json`, `apps/marketing/package.json`)
+
+### Fixed
+
+- **14 failing API unit tests** in `challenges.test.ts`/`rewards.test.ts`, caused by a frozen test clock: both files build fixtures around a fixed simulated "now" and a default challenge end date, but the source code they exercise compares against the real wall clock — once real time passed that end date, every default-dated fixture challenge looked already-ended and got filtered out. Fixed by pinning the clock to the simulated "now" with vitest fake timers, rather than pushing the hardcoded date further out (which would only have delayed the same failure). (`apps/api/src/gamification/challenges.test.ts`, `apps/api/src/gamification/rewards.test.ts`)
+- **Marketing legal pages and several internal web links** failed the newly-enforced lint gate: 51 unescaped `'`/`"` characters in `privacy`/`terms` copy (JSX-entity-escaped with no change to rendered text or wording) and 9 internal navigation links using a plain `<a>` instead of Next.js's `<Link>` (causing an unnecessary full-page reload) across the marketing nav/footer/FAQ and several web admin/account pages. (`apps/marketing/src/app/privacy/page.tsx`, `apps/marketing/src/app/terms/page.tsx`, `apps/marketing/src/app/MarketingNav.tsx`, `apps/marketing/src/app/MarketingFooter.tsx`, `apps/marketing/src/app/faq/page.tsx`, `apps/web/src/app/AdminSwitcher.tsx`, `apps/web/src/app/account/(tabs)/layout.tsx`, `apps/web/src/app/account/settings/page.tsx`, `apps/web/src/app/admin/page.tsx`, `apps/web/src/app/admin/neighborhood/new/page.tsx`)
+- **10 real `apps/web` React strict-mode hook violations** (BACKLOG.md Ref 106) across 7 files, initially downgraded to a lint warning to unblock the CI rollout above rather than rushed — now fixed properly and restored to a lint error. `SlideTrack.tsx`'s parked-at-end thumb position no longer reads a ref during render (CSS `right`-anchoring instead of a pixel offset), its `snapBack` reset moved from an effect to React's documented render-time prop-comparison pattern, `NearestVenues.tsx`/`BoundaryMap.tsx`/`MapView.tsx` derive a couple of prop/env-driven states directly at render time instead of via effect + `setState` (also fixing a 1-frame loading flash on `NearestVenues.tsx`), and 3 `Date.now()` calls in coupon/event admin pages are snapshotted once via `useState` instead of read fresh on every render. `InstallPrompt.tsx`/`ThemeToggle.tsx` keep their effect-driven `setState` (React's own documented "match SSR markup, sync after hydration" pattern) with an inline suppress comment instead. (`apps/web/src/app/SlideTrack.tsx`, `apps/web/src/app/InstallPrompt.tsx`, `apps/web/src/app/ThemeToggle.tsx`, `apps/web/src/app/checkin/NearestVenues.tsx`, `apps/web/src/app/admin/neighborhood/BoundaryMap.tsx`, `apps/web/src/app/neighborhoods/[slug]/MapView.tsx`, `apps/web/src/app/admin/business/[venueId]/coupons/page.tsx`, `apps/web/src/app/admin/business/[venueId]/events/page.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `apps/web/eslint.config.mjs`)
+
+### Changed
+
+- **24 stale `eslint-disable-next-line react-hooks/...` comments removed** across `apps/web` — the rule never actually flags a `setState` call made from an async function invoked synchronously in an effect (the fetch-then-`setState` pattern used throughout this codebase), only a genuinely-synchronous one, so these predated this release and were always dead weight. The 3 identical `window.location.href = "/"` calls after `logOut()` (a deliberate hard reload, since `logOut()` only clears the Supabase session and one cached-user variable, not every mounted component's own local state) now carry a documented suppress comment instead of tripping an unaddressed lint warning.
+
+## [0.68.0] — 2026-08-20
+
+### Added
+
+- **A detail view for collected species.** Tapping any revealed tile on the Collection tab now opens a modal showing the specimen at a larger size, its full (non-truncated) name, when it was first unlocked, and a clickable link to the venue or neighbor it was collected from. The card sits in a swipeable carousel — drag, use the arrow buttons below it, or use the arrow keys — with the neighboring entry visibly sliding in as you swipe, a centered N/total counter, and a close button. (`packages/types/src/index.ts`, `apps/api/src/mushroomCollection/`, `apps/web/src/app/account/(tabs)/collection/CollectionDetailModal.tsx`, `apps/web/src/app/account/(tabs)/collection/page.tsx`)
+- **Push notifications now deep-link to what they're about.** Tapping a neighbor check-in alert opens that venue's page; a connection request or acceptance opens Neighbors; a new-signup or feedback alert opens the relevant admin tab; a missing-venue report opens that neighborhood's Locations reports. Previously every notification just opened the app's home page regardless of what it was announcing — the service worker already supported a per-notification link, it just wasn't being sent. (`apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `apps/api/src/app.ts`)
+
+### Changed
+
+- **Next.js upgraded from 16.2.10 to 16.3.1** across the web and marketing apps. (`apps/web/package.json`, `apps/marketing/package.json`)
+
+## [0.67.0] — 2026-08-19
+
+### Added
+
+- **A "Getting started" checklist for new accounts**, tracking five first-run steps — join a neighborhood, add a username, customize your mushroom, check in somewhere, and make a friend — computed entirely from data that already exists (neighborhood membership, username, mushroom customization, check-in history, accepted connections) rather than a dedicated onboarding table. Stays out of the way: a small orange dot on the account menu's avatar is the only signal while incomplete, with a "Getting started X/5" entry appearing above "My account" in the dropdown; both disappear once every step is done. The checklist itself lives at `/account/getting-started`, reachable only from that menu entry. (`packages/types/src/index.ts`, `apps/api/src/app.ts`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/AccountMenu.tsx`, `apps/web/src/app/account/getting-started/page.tsx`, `docs/url-map.md`)
+- **A proactive banner nudging eligible users to turn on push notifications.** (BACKLOG.md Ref 99) Mirrors the existing PWA-install banner: shown to signed-in users whose browser supports push and who haven't already subscribed or dismissed it, with an inline "Enable" button that reuses the same subscribe flow and eligibility checks as the `/account/settings` toggle, so the two can never disagree about whether push is actually usable. Dismissing (or enabling) it doesn't nag again; the settings toggle remains available to opt in later regardless. (`apps/web/src/app/NotificationToggle.tsx`, `apps/web/src/app/PushOptInPrompt.tsx`, `apps/web/src/app/SiteChrome.tsx`)
+
+### Changed
+
+- **The Collection tab's unrevealed species cards no longer hint at the mushroom shape underneath.** The card back's silhouette watermarks are now drawn from a pool that excludes the actual species' shape (and never repeats the same silhouette twice on one card), closing a preview leak where an attentive player could sometimes guess the answer before tapping. The flip animation also now respects reduced-motion preferences instead of always playing its 3D rotation. (`apps/web/src/app/account/(tabs)/collection/page.tsx`)
+- **The profile summary card's stat tiles are now links** to their matching account tab (Collection, Check-ins, Badges, Challenges, Neighbors) when shown on your own account page — tapping "12 Badges" jumps straight to the Badges tab instead of requiring a separate tap on the tab nav below. Points has no matching tab, so it stays a plain tile; the public profile page's tiles also stay non-interactive, since they show someone else's counts. (`apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/account/(tabs)/layout.tsx`)
+- **The mushroom customizer's spot-count and spot-shape pickers are easier to read.** Spot count buttons now show the number directly instead of a tiny rendered mushroom (hard to make out on some shapes); spot-shape buttons now show a cap-colored circle with a single representative spot in the chosen color and shape, instead of a full miniature mushroom that could render too small or faint to tell shapes apart. (`apps/web/src/app/account/MushroomCustomizer.tsx`, `packages/ui/src/MushroomMark.tsx`, `packages/ui/src/index.ts`)
+
+### Fixed
+
+- **The check-in page's first nearby venue now collapses like any other row.** Previously the top spot's slide-to-check-in control was hardcoded to always stay open regardless of which row was selected; it now participates in the same single-select accordion as the rest of the list, defaulting to open on load but collapsing when another venue is expanded. (`apps/web/src/app/checkin/NearestVenues.tsx`)
+
+## [0.66.0] — 2026-08-18
+
+### Added
+
+- **Forager collection: a per-venue and per-neighbor mushroom "species" catalog.** (BACKLOG.md Ref 98) Checking in at a venue for the first time, or connecting with a neighbor for the first time, now "collects" a unique deterministic mushroom species tied to that venue/person — revisiting or reconnecting bumps a "Nx" counter instead of adding a duplicate. A new `/account/collection` tab (sorted most-collected first) shows only species discovered so far, unlike the Badges tab's locked-placeholder catalog. Every species — including ones from check-ins/connections that predate this feature — starts as a face-down "New species to reveal" card that flips over with a tap; the Collection tab shows a count badge of how many are still waiting to be revealed. The account and public profile summary cards' "Favorites" stat tile is now "Collection" (distinct species count). A new tier of "N-Species Forager" badges (10 through 1000, steps of 10 then 50) awards on the same milestone — flashed in the check-in "unlocked" popup when earned, but excluded from the Badges tab's locked preview since previewing all ~28 tiers there would be noisy. Existing check-in and connection history was backfilled into the new collection table. (`supabase/migrations/20260818010000_mushroom_collection.sql`, `supabase/migrations/20260818020000_collection_milestone_badges.sql`, `supabase/migrations/20260818030000_backfill_mushroom_collection.sql`, `supabase/migrations/20260818040000_collection_milestone_badges_100_to_1000.sql`, `supabase/migrations/20260818050000_mushroom_collection_reveal.sql`, `packages/types/src/mushroom.ts`, `packages/types/src/index.ts`, `apps/api/src/mushroomCollection/`, `apps/api/src/gamification/badges.ts`, `apps/api/src/gamification/repository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/account/(tabs)/collection/page.tsx`, `apps/web/src/app/account/(tabs)/badges/page.tsx`, `apps/web/src/app/account/(tabs)/layout.tsx`, `apps/web/src/app/account/AccountTabs.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/app/TabNav.tsx`, `docs/url-map.md`)
+
+## [0.65.0] — 2026-08-17
+
+### Added
+
+- **Leaderboard is its own neighborhood tab again.** Split back out of the Challenges tab (merged together in v0.39.0) into a new `/neighborhoods/:slug/leaderboard` route, after the two grew crowded stacked in one tab. The Challenges tab now shows only challenges. (`apps/web/src/app/neighborhoods/[slug]/leaderboard/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/challenges/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `docs/url-map.md`)
+
+### Changed
+
+- **Chanterelle and enoki mushroom silhouettes now support the full 1-6 spot range**, instead of being capped at 3. Chanterelle's three big spots sit at deliberately uneven heights/spacing rather than mirrored across the center, with smaller spots layered in for counts 4-6; enoki's three big spots are each pushed off their tiny cap's center instead of pinned to the middle, with a second, smaller off-center spot per cap added for counts 4-6. (`packages/ui/src/MushroomMark.tsx`)
+- **The admin sidebar's account menu now matches the main nav's**, showing the same My account / home neighborhood / Settings / What's new / Send feedback / Admin / Log out items instead of a shorter version missing the home-neighborhood link and Admin item. (`apps/web/src/app/admin/AdminShell.tsx`)
+- **Neighborhood profile's "Recent activity" tab renamed "Spore feed" and moved to the default route** (`/neighborhoods/:slug`, was `/activity`), matching `/account`'s "Spore Feed" tab already being that page's default. "Today" (the previous default) moved to its own `/today` route. New tab order: Spore feed → Today → Upcoming events → Locations → Challenges → Leaderboard. (`apps/web/src/app/neighborhoods/[slug]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/today/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `apps/web/src/app/ActivityFeed.tsx`, `apps/web/src/app/Timeline.tsx`, `apps/web/src/app/account/(tabs)/page.tsx`, `apps/api/src/activity/activity.ts`, `apps/api/src/app.ts`, `apps/web/src/app/dev/components/neighborhood-page/page.tsx`, `docs/url-map.md`)
+
+## [0.64.0] — 2026-08-17
+
+### Added
+
+- **Reporting a missing venue, and a toolkit for admins to investigate it.** (BACKLOG.md Ref 80, Ref 96) Signed-in users can now report a venue the app doesn't have yet — either via a new "Missing venue" option in the Send Feedback modal (reachable from anywhere), or a "Missing a venue?" row at the bottom of the `/checkin` page's nearest-venues list — naming the venue and picking which neighborhood it belongs to (defaulted to home). The report notifies that neighborhood's own admins (push + a new triage page), not super admins, since only they can act on it. `feedback_submission` gained a third type, `missing_venue`, plus nullable `neighborhood_id`/`venue_name` columns, reusing the existing state machine rather than a new table. Neighborhood admins get a new `/admin/neighborhood/:slug/locations/reports` triage page (mirroring the super-admin Feedback tab: searchable, state-filterable, per-row state select) with a "Quick investigate" button per report that runs a free-text Google Places Text Search inline — no boundary or type restriction, unlike the existing sync/review flow — flagging each result as outside-boundary, already-on-record, or permanently-closed, with a one-click "Add as venue" shortcut. The same investigation tool is also available standalone at `/admin/neighborhood/:slug/locations/investigate` for a venue name typed in directly rather than reported. See `docs/investigating-missing-venues.md`. (`supabase/migrations/20260817010000_missing_venue_feedback.sql`, `packages/types/src/index.ts`, `apps/api/src/feedback/`, `apps/api/src/admin/repository.ts`, `apps/api/src/admin/supabaseRepository.ts`, `apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `apps/api/src/places/client.ts`, `apps/api/src/places/mockClient.ts`, `apps/api/src/places/investigate.ts`, `apps/api/src/app.ts`, `apps/web/src/app/FeedbackModal.tsx`, `apps/web/src/app/MissingVenueReportForm.tsx`, `apps/web/src/app/checkin/MissingVenueRow.tsx`, `apps/web/src/app/checkin/NearestVenues.tsx`, `apps/web/src/app/checkin/page.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/InvestigationResults.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/investigate/page.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/reports/page.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`, `docs/url-map.md`, `docs/investigating-missing-venues.md`)
+
+## [0.63.0] — 2026-08-17
+
+### Added
+
+- **Events from favorited venues now surface in the Spore Feed.** The "Today" pin on your account page now shows active events from every venue you favorite, alongside events you explicitly followed, so you can discover events at places you already care about without a separate per-event follow step — mirroring how coupons work. Events you've both followed and favorited the venue of appear only once, de-duped. (`apps/api/src/events/repository.ts`, `apps/api/src/events/supabaseRepository.ts`, `apps/api/src/events/events.ts`, `apps/api/src/app.ts`, `apps/web/src/app/account/(tabs)/page.tsx`, `docs/url-map.md`)
+
+### Changed
+
+- **Admin surfaces are now mobile-friendly.** The neighborhood-admin, business-admin, and super-admin shells now collapse their fixed sidebars into an off-canvas hamburger menu at mobile widths (`md` breakpoint and below), and the Locations tab header no longer overflows horizontally on narrow screens. A shared `AdminShell` component replaces the duplicated sidebar logic across all three admin entry points. (`apps/web/src/app/admin/AdminShell.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`, `apps/web/src/app/admin/super/layout.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`)
+- **Admin Events tabs hide past events by default.** Both the neighborhood-admin and business-admin Events tabs now exclude events whose end time has already passed from the default view, behind a "Show past" toggle (mirroring the Locations tab's "Show hidden" pattern) — keeping the admin "Upcoming" list focused on what's actually coming up while still preserving old events for audit/history. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `apps/web/src/app/admin/business/[venueId]/events/page.tsx`)
+- **Events that are currently in progress are now followable from venue detail pages.** The venue page's Events section now renders a follow button on each event, including events happening right now, matching the pattern already used on neighborhood admin tabs. (`apps/web/src/app/location/[id]/page.tsx`)
+
+## [0.62.0] — 2026-08-16
+
+### Added
+
+- **Ten new mushroom silhouettes** (button, parasol, bell, chanterelle, morel, enoki, porcini, oyster, puffball, shiitake), drawn from the "Spored Shape Study" design exploration — silhouette is now a fifth generative axis alongside cap, stalk, spot color, and background, so every auto-assigned mushroom (and every existing user's, since the shape hash shuffles prior assignments) can vary in outline, not just color. Chanterelle and enoki cap outlines don't have room for a full 6-spot layout, so their spot count is capped at 3 in both auto-assignment and the customizer. The account customizer gained a new "Shape" section (now the default landing section) with a swatch grid for all ten; venue/POI list pins (`PlaceListItem`) now vary silhouette per venue via a salted hash instead of always rendering the original button cap. The marketing `/brand` guidelines page documents the new fifth part with a full silhouette grid and updated anatomy/usage copy. (`packages/types/src/mushroom.ts`, `packages/types/src/index.ts`, `packages/ui/src/MushroomMark.tsx`, `packages/ui/src/MushroomLogo.tsx`, `packages/ui/src/index.ts`, `apps/api/src/app.ts`, `apps/api/src/checkins/checkin.ts`, `apps/web/src/app/Avatar.tsx`, `apps/web/src/app/SlideTrack.tsx`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/PlaceListItem.tsx`, `apps/web/src/app/account/(tabs)/layout.tsx`, `apps/web/src/app/account/MushroomSection.tsx`, `apps/web/src/app/account/MushroomCustomizer.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/claims/page.tsx`, `apps/marketing/src/app/brand/BrandMushroom.tsx`, `apps/marketing/src/app/brand/page.tsx`)
+- **Super admin Users list redesigned as a column-aligned table**, with a mushroom-avatar column (each account's real current look — a saved customizer choice when present, not just its hash-derived default), a "Via" column showing how the account signed up (Google vs. email, from Supabase's `auth_provider`), and a "Push" column showing whether the account has any active push subscription. Previously the list only showed name/email, account type, role badges, and join date in a loosely-wrapped row. (`apps/web/src/app/admin/super/users/page.tsx`, `packages/types/src/index.ts`, `apps/api/src/users/users.ts`, `apps/api/src/users/repository.ts`, `apps/api/src/users/supabaseRepository.ts`)
+
+## [0.61.0] — 2026-08-16
+
+### Added
+
+- **A "Top Cap" sign names the top visitor next to a neighborhood/location's mushroom mosaic, and every profile's own mushroom patch.** The visitor with the most check-ins within the mosaic's rolling 60-day window (already the biggest mushroom in the mosaic, per the "Mayor" size mechanic shipped in v0.60.0) now gets a small wooden sign next to the patch naming them — but only if their profile is public, mirroring the neighborhood leaderboard's own visibility rule; a private top visitor's mushroom still renders, just unnamed. The same sign renders on every account and public profile page too, naming that profile's own owner (display name, falling back to username) next to their personal growth patch. New `LocationMayor` type and `mayor` field on `VenueDetail`/`NeighborhoodProfile`; a `resolveMayor` helper picks the named visitor without ever falling through to a lower-ranked one (so the name always matches the mushroom drawn beside it). Privacy Policy and FAQ updated to disclose the new visibility rule. (`packages/types/src/mushroom.ts`, `packages/types/src/index.ts`, `apps/api/src/checkins/checkin.ts`, `apps/api/src/checkins/repository.ts`, `apps/api/src/checkins/supabaseRepository.ts`, `apps/api/src/locations/repository.ts`, `apps/api/src/locations/supabaseRepository.ts`, `apps/api/src/locations/locations.ts`, `apps/api/src/app.ts`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/globals.css`, `apps/marketing/src/app/privacy/page.tsx`, `apps/marketing/src/app/faq/page.tsx`)
+
+## [0.60.1] — 2026-08-16
+
+### Fixed
+
+- **Hydration mismatch crash (React error #418) on event/timeline dates, and a no-op service worker fetch handler flagged by Chrome DevTools.** `EventListItem` and `Timeline` formatted timestamps with `toLocaleString`/`toLocaleTimeString` directly during render; since Next.js server-renders `"use client"` components too, a server (UTC) render and a visitor's local-timezone hydration pass could disagree on the date/time text for anything near a local day boundary, crashing hydration. `VenueHours`' "today's hours" line had the same bug via a bare `new Date()`. All three now go through a new shared `useLocalDateTime` hook, which renders a stable placeholder through hydration and fills in the real, locale-formatted value from an effect afterward. Also removed the service worker's empty `fetch` listener (`self.addEventListener("fetch", () => {})`), added under the mistaken belief it was required for installability — Chrome hasn't required a fetch handler for that since Chrome 68, and an empty one only adds per-request overhead, which Chrome's DevTools now calls out explicitly. (`apps/web/src/app/useLocalDateTime.ts`, `apps/web/src/app/EventListItem.tsx`, `apps/web/src/app/Timeline.tsx`, `apps/web/src/app/VenueHours.tsx`, `apps/web/public/service-worker.js`)
+
+## [0.60.0] — 2026-08-15
+
+### Added
+
+- **Neighborhood/location card mushroom mosaics now reflect the last 60 days of activity, at live likeness, with a "Mayor" size boost for repeat visitors.** Previously these mosaics pulled the *all-time* most recent check-ins with no time floor, and froze each visitor's look at the moment they checked in (`checkin.mushroom_snapshot`) — a visitor from a year ago could still occupy a slot, and nobody's mushroom ever reflected a later customization. The mosaic now scopes to a rolling 60-day window, resolves each distinct visitor's *current* live mushroom, and scales an individual visitor's mushroom size by how many times they checked in within that window (sqrt-curve, capped), so a repeat regular reads visibly larger than a one-time visitor — ordered most-visits-first. The distinct-visitor cap rose from 12 to 40 to match `MushroomField`'s existing rendering ceiling. The "Check-ins" stat itself is unchanged (still all-time). A new `checkin (venue_id, checked_in_at desc)` index backs the venue-scoped query. (BACKLOG.md Ref 94; `packages/types/src/mushroom.ts`, `packages/types/src/index.ts`, `apps/api/src/checkins/checkin.ts`, `apps/api/src/checkins/supabaseRepository.ts`, `apps/api/src/locations/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `supabase/migrations/20260815010000_checkin_venue_checked_in_at_idx.sql`)
+- **Profile card's neighbor mosaic now shows one live mushroom per connected neighbor**, instead of a `sqrt`-compressed count of frozen snapshots taken at the moment each connection was accepted. A neighbor who later changes their look shows up as they look today, both on your own account page and on public profiles. (BACKLOG.md Ref 97; `packages/types/src/index.ts`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/account/(tabs)/layout.tsx`, `apps/api/src/app.ts`)
+
+### Removed
+
+- **The old frozen-at-the-moment mushroom snapshot mechanic** (`checkin.mushroom_snapshot`, `user_connection.requester_mushroom_snapshot`/`recipient_mushroom_snapshot`, plus `snapshotMushroomForUser`/`MushroomSnapshot`/`MUSHROOM_SNAPSHOT_VERSION`), no longer needed now that its only two consumers (the neighborhood/location mosaics above, and the profile card's neighbor mosaic) both switched to always-live resolution. Nothing read these fields anymore — they were write-only overhead. A new migration drops all three columns. (`packages/types/src/mushroom.ts`, `packages/types/src/index.ts`, `packages/ui/src/index.ts`, `apps/api/src/checkins/`, `apps/api/src/connections/`, `apps/api/src/coupons/coupons.ts`, `apps/api/src/app.ts`, `supabase/migrations/20260816010000_drop_mushroom_snapshots.sql`)
+
+### Added
+
+- **New-feedback count badge on the super admin Feedback tab.** The nav sidebar now shows how many feedback submissions are still in the "new" state directly on the tab itself (an orange pill next to the label), instead of requiring a click into the tab to find out anything needs triage. (`apps/web/src/app/admin/super/layout.tsx`)
+- **Review dates on venue/POI pages, and requesting Google's newest reviews first.** `GET /locations/:id`'s enrichment now carries each review's `published_at` (Google's `publishTime`), and the Places Details fetch now requests `reviewsSort=newest` so "latest reviews" means newest-first rather than Google's default "most relevant" ordering. The Reviews section shows each review's date when Google provided one, and now caps the list at the latest 3 reviews (down from effectively however many Google returned, ~5). (`packages/types/src/index.ts`, `apps/api/src/places/client.ts`, `apps/api/src/enrichment/refresh.ts`, `apps/web/src/app/EnrichmentSection.tsx`)
+
+### Changed
+
+- **Super admin overview page now uses a 2-column layout**, matching the neighborhood admin dashboard's pattern: "Recent feedback" on the left half, "More on the way" on the right half, instead of stacked full-width sections. (`apps/web/src/app/admin/super/page.tsx`)
+- **Consistent sizing and placement for the Join/Favorite/Connect action buttons** on neighborhood, location, and profile summary cards. All three now share the same compact size (previously the neighborhood and location buttons were larger than the profile one), and the location page's Favorite button moved from the card's info row up into the header's upper-right corner, matching where the neighborhood and profile cards already place their action. The star-rating badge that used to sit in that same header spot moved down into the Reviews section, next to the "Reviews" heading, so it doesn't collide with the relocated Favorite button — and now also renders there for POIs and businesses with only an aggregate rating and no individual written reviews. A favorited location's button now fills green (`bg-brand-green`), matching the already-green "Joined"/"Connected" states on the other two cards. (`apps/web/src/app/location/[id]/FavoriteButton.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/location/[id]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/JoinNeighborhoodButton.tsx`, `apps/web/src/app/EnrichmentSection.tsx`)
+- **`/dev/components` split into one URL per section** (`/dev/components`, `/neighborhood-card`, `/location-card`, `/place-list-item`) instead of one page with in-page tab state, so a specific component's demo states are directly linkable and shareable rather than requiring a manual tab click after page load. Each route now also demonstrates both the "on" and "off" states of its action button (joined/not-joined, favorited/not-favorited) side by side via new `mockJoined`/`mockFavorited`/`mockNeighborState` preview props on `JoinNeighborhoodButton`, `FavoriteButton`, and `NeighborRequestButton` — none passed in real usage, where those components still fetch live status as before. Demo fixture data centralized into a new `demoData.ts` shared by all four routes. (`apps/web/src/app/dev/components/`)
+
+### Removed
+
+- **The neighborhood profile page's "Manage" shortcut button**, in favor of a single consistent action slot (Join/Joined) matching the profile and location cards' one-button layout. Neighborhood admins can still reach the admin dashboard via the account menu / admin switcher. (`apps/web/src/app/neighborhoods/[slug]/ManageNeighborhoodButton.tsx`, `apps/web/src/app/neighborhoods/[slug]/layout.tsx`)
+
+## [0.59.1] — 2026-08-15
+
+### Fixed
+
+- **POIs were missing from the check-in page.** `GET /neighborhoods/:id/venues` only ever returns business-kind locations, so the check-in page's nearby list (`NearestVenues`) never included POIs (curated points of interest at multi-POI venues like markets/food halls) — users standing at a POI-only location had nothing to check into. It now also fetches the neighborhood's public profile (`GET /neighborhoods/:slug`, which already includes `pois`) and merges the two lists before the existing proximity sort, so POIs are woven in by distance alongside businesses rather than missing entirely. The neighborhood Locations tab had a related gap — it already merged POIs in, but appended them after every business rather than interleaving, so the list wasn't truly alphabetical; it now sorts the merged list by name. (BACKLOG.md Ref 93; `apps/web/src/app/checkin/NearestVenues.tsx`, `apps/web/src/app/checkin/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/locations/page.tsx`)
+
+## [0.59.0] — 2026-08-14
+
+### Added
+
+- **Super admin Feedback tab, plus a "someone submitted feedback" push notification.** `GET /admin/feedback`/`PATCH /admin/feedback/:id` (shipped v0.55.0 with no UI to use them) are now surfaced at `/admin/super/feedback`: a searchable, type-filterable triage list with a multiselect state dropdown (defaults to hiding Done/Removed, all four states still reachable) and a per-row inline state control. Both routes' gate tightened from `adminGate` to `superAdminGate`, mirroring the Category taxonomy tab's earlier move, since feedback isn't scoped to any one neighborhood or business. The Overview tab gained "Feedback submissions"/"Needs triage" stat tiles and a "Recent feedback" preview (latest 5 non-resolved submissions, linking to the full tab). Submitting feedback (`POST /me/feedback`) now also pushes every super admin ("{name} submitted a bug report/feature request"), reusing the `sendPushToUsers` fan-out v0.58.0's notification triggers introduced. (BACKLOG.md Ref 90; `apps/web/src/app/admin/super/feedback/`, `apps/web/src/app/admin/super/page.tsx`, `apps/web/src/app/admin/super/layout.tsx`, `apps/api/src/app.ts`, `apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Dependency bump: Netlify's Next.js plugin and Turborepo.** `@netlify/plugin-nextjs` `^5.7.4` → `^5.15.13` (both `apps/web` and `apps/marketing`, per Netlify's "outdated plugin" build notice); `turbo` `^2.1.3` → `^2.10.10` at the root, plus a new `npm run clean` script (clears every workspace's `.turbo` cache directory via plain Node `fs.rmSync` rather than `rm -rf`, so it works on Windows too). (`apps/web/package.json`, `apps/marketing/package.json`, `package.json`, `turbo.json`, `package-lock.json`)
+
+### Fixed
+
+- **"Send feedback" in the account menu didn't match the color of the menu items around it.** My account/Settings/What's new are `<a>` tags, which inherit the app-wide purple link color from a global base rule; "Send feedback" is a `<button>` (it opens a modal rather than navigating), so it fell back to plain foreground text instead. Colored it to match. (BACKLOG.md Ref 92; `apps/web/src/app/AccountMenu.tsx`)
+
+## [0.58.0] — 2026-08-14
+
+### Added
+
+- **Push notifications now fire on real app events.** v0.57.0 shipped the delivery pipeline but wired it to nothing beyond an admin test-send button; this fills in the first four real triggers. Checking in at a venue notifies every one of your accepted connections ("{name} checked in at {venue}"), regardless of your profile's public/private visibility setting — a direct connection is treated as a closer relationship than the general public. Sending or receiving a neighbor connection request notifies the other party ("{name} wants to connect", then "You and {name} are now connected" once accepted, from either the explicit-accept flow or the mutual-interest auto-accept path). And a brand-new signup now pings every super admin ("{name} just joined Spored") rather than requiring a manual check of the Users tab. All four are best-effort — a failed send is logged and swallowed rather than failing the triggering action — and reuse the single push toggle from v0.57.0 rather than adding per-notification opt-outs. (BACKLOG.md Ref 91; `apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `apps/api/src/admin/repository.ts`, `apps/api/src/admin/supabaseRepository.ts`, `apps/api/src/app.ts`)
+
+## [0.57.0] — 2026-08-14
+
+### Added
+
+- **PWA install prompt and web push notifications.** Spored can now be installed to a home screen and send push notifications. Installability: a typed `apps/web/src/app/manifest.ts` (name/icons/start_url/standalone display/theme color) plus `appleWebApp` metadata, new 192×192/512×512 app icons, a custom "Install" banner that captures Chrome/Android's `beforeinstallprompt` (Chrome no longer auto-banners), and a "tap Share → Add to Home Screen" banner for iOS Safari, which has no install-prompt API at all. A hand-written `apps/web/public/service-worker.js` (fetch passthrough, `push`/`notificationclick` handlers) is registered site-wide and gets a `no-cache` header in `netlify.toml` so already-installed clients pick up updates. Push delivery: a new `push_subscription` table and `apps/api/src/pushSubscriptions/` module wrap the `web-push` npm package and a VAPID keypair; `POST`/`DELETE /me/push-subscriptions` back a new Notifications toggle on `/account/settings`. Sending isn't wired to any real app event yet — the only sender today is a super-admin-only "Send test push" action (targetable at any user) on `/admin/super/users`, backed by `POST /admin/push-subscriptions/test-send`. The first real trigger (neighbor check-in notifications) is a separate follow-up. Updated the Privacy Policy (push subscription data, Google/Apple as delivery processors) and FAQ (installing + enabling notifications) to match. (BACKLOG.md Ref 89; `apps/web/src/app/manifest.ts`, `apps/web/src/app/InstallPrompt.tsx`, `apps/web/src/app/NotificationToggle.tsx`, `apps/web/src/app/ServiceWorkerRegistration.tsx`, `apps/web/public/service-worker.js`, `apps/api/src/pushSubscriptions/`, `supabase/migrations/20260814010000_push_subscriptions.sql`, `apps/web/src/app/admin/super/users/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `apps/marketing/src/app/faq/page.tsx`)
+
+### Fixed
+
+- **Local API dev server silently loaded no environment variables after `apps/api/.env` was renamed to `.env.local`.** `process.loadEnvFile()` (used by the local entrypoint and three CLI scripts) only looks for a file literally named `.env`; the rename made every call fail and get silently swallowed, breaking Supabase/Google Places/VAPID config with no visible error. Now explicitly loads `.env.local`, matching `apps/web`/`apps/marketing`'s existing convention. (`apps/api/src/index.ts`, `apps/api/src/scripts/syncPlaces.ts`, `apps/api/src/scripts/grantSuperAdmin.ts`, `apps/api/src/scripts/grantNeighborhoodAdmin.ts`, `README.md`)
+
+## [0.56.0] — 2026-08-14
+
+### Added
+
+- **Super admin interface, starting with a platform user list and the category taxonomy.** New `/admin/super` sidebar shell (Overview stat tiles, Users tab, Category taxonomy tab) reachable from AdminSwitcher's new "Platform" group ("Super admin mode") — a third standalone admin shell alongside the neighborhood and business ones. New `GET /admin/users` (superAdminGate) backs the Users tab: a searchable, sortable (newest/oldest/name/email) list of every account on the platform. Category taxonomy management (create/rename/archive) moved here from the old standalone `/admin/category-taxonomy`, which had no nav entry point at all — its API gate also tightened from `adminGate` to `superAdminGate` in the move, and the old unlinked page was deleted. First cut of BACKLOG.md Ref 85 ("Super admin interface for app-level badges, challenges, and config"). (`apps/api/src/users/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/super/`, `apps/web/src/app/AdminSwitcher.tsx`, `apps/web/src/app/SiteChrome.tsx`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **A hidden location can now be flagged for boundary removal, not just an active one.** The Locations review wizard's boundary check previously only reconsidered active venues/POIs against a redrawn boundary — a hidden row silently stayed attached even if it fell outside. Hidden is a manual curation choice, a separate axis from geography, so it's now checked too; already-removed rows are still skipped. (`apps/api/src/locations/review.ts`)
+- **Neighborhood-admin Locations tab: dropped the "All" filter and scoped category chips to Businesses.** The kind toggle is now a forced Businesses/POIs choice (no "All"), and the category-group filter chips — always business-only, since POIs carry no classification of their own — now only render on the Businesses tab instead of showing (and doing nothing) on POIs too. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/page.tsx`)
+
+### Fixed
+
+- **A Google Place removed from one neighborhood could never be claimed by another.** `venue.google_place_id` was globally unique, so a place dropped from one neighborhood (kept as a `"removed"` row for check-in/favorite/point-event history) permanently blocked every other neighborhood from ever claiming that same place — a border business, or a place one neighborhood dropped that another later covers, would silently reassign the old removed row instead of getting its own. Uniqueness is now scoped to `(google_place_id, neighborhood_id)`, so each neighborhood can claim the same place independently. (`supabase/migrations/20260729040000_venue_google_place_id_per_neighborhood.sql`, `apps/api/src/places/supabaseRepository.ts`)
+
+## [0.55.2] — 2026-07-29
+
+### Changed
+
+- **Username field now accepts uppercase letters while editing.** The account settings form's HTML `pattern` validation was lowercase-only (`[a-z0-9_-]`), which blocked submission the moment a user typed a capital letter — even though the API already lowercases and validates the trimmed value server-side (`app.ts`), and the database stores it lowercase too. Relaxed the client-side pattern to `[A-Za-z0-9_-]` so typing `ChadS` no longer fails before the request is even sent; it still saves and routes as `chads`. (`apps/web/src/app/account/ProfileForm.tsx`)
+
+### Removed
+
+- **`app_user.phone` column.** SMS/phone signup is disabled (`enable_signup = false` in `supabase/config.toml`) and the only signup paths are email/password and Google OAuth, so this column was always null in practice — plumbed through from Supabase Auth's user object shape but never actually populated. Dropped the column and all associated type/repository plumbing. (`supabase/migrations/20260729030000_drop_app_user_phone.sql`, `apps/api/src/auth/`, `packages/types/src/index.ts`)
+
+## [0.55.1] — 2026-07-29
+
+### Changed
+
+- **Marketing homepage polish.** "How Spored works" now blends gamification with neighborhood exploration (its three step icons switched from the static nav mark to the same generative mushroom-avatar builder used elsewhere on the app), the stats/leaderboard teaser and events teaser now show real Phinneywood numbers and upcoming events instead of placeholder data, and the neighborhood-coverage and final-CTA sections now honestly frame Spored as piloting in one neighborhood (Phinneywood) with a "reach out to start your own" mailto CTA in place of the old "browse all neighborhoods" framing. The business pitch section's feature list was corrected to match what businesses can actually do (check-in lists/leaderboards, coupons, events — not challenges or reviews, neither of which exists on the business side), its dead `/business` link now points at the real `/admin` entry point, and the "Own this business?" teaser dropped its non-functional "Your name" input. The hero section also gained several more floating decorative mushrooms of varied sizes. (`apps/marketing/src/app/page.tsx`)
+
+## [0.55.0] — 2026-07-29
+
+### Added
+
+- **Feedback submissions.** Signed-in users can submit a bug report or feature request from a new "Send feedback" item in the account menu (reachable from the main nav and both admin sidebar shells, no dedicated page needed) — pick Bug report or Feature idea and describe it in a few sentences. Submitting awards a one-off "Feedback Giver" badge. No admin triage UI yet, but `GET /admin/feedback` (list, joined with submitter name/email) and `PATCH /admin/feedback/:id` (state transition) exist so submissions are reachable via a direct API call in the meantime; marking one "done" awards a one-off "Contributor" badge to the submitter. (`supabase/migrations/20260729010000_feedback_submissions.sql`, `supabase/migrations/20260729020000_feedback_badges.sql`, `apps/api/src/feedback/`, `apps/api/src/gamification/feedbackBadges.ts`, `apps/web/src/app/FeedbackModal.tsx`, `apps/web/src/app/AccountMenu.tsx`)
+
+### Changed
+
+- **"BETA" label added ahead of the v1.0.0 launch.** Shows next to the version string in the app footer and both admin sidebar shells, plus a pill next to the wordmark on the marketing site's nav — all meant to be removed once v1.0.0 ships. (`apps/web/src/app/Footer.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`, `apps/marketing/src/app/MarketingNav.tsx`)
+- **Points needed per level raised from 50 to 100.** Level is always computed live from a user's total points rather than stored, so every account's displayed level recalculates under the new threshold automatically — no migration needed. (`apps/api/src/gamification/points.ts`)
+- **`/account`'s tabs are now dedicated URLs.** Spore Feed, Favorites, Badges, Challenges, Neighbors, and My Activity each have their own route (`/account`, `/account/favorites`, `/account/badges`, `/account/challenges`, `/account/neighbors`, `/account/activity`) instead of client-side tab state on one page, mirroring `/neighborhoods/:slug`'s layout+subnav pattern — each tab now fetches only its own data. `/account/settings` is unaffected. (`apps/web/src/app/account/(tabs)/`, `apps/web/src/app/account/AccountContext.tsx`, `apps/web/src/app/account/AccountTabs.tsx`)
+- **FAQ and Privacy Policy updated** for the new feedback feature (a new question, and a new data-collection bullet). (`apps/marketing/src/app/faq/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`)
+
+### Fixed
+
+- **Invisible active-toggle text on the neighborhood Locations tab.** The List/Map and A-Z/Nearest toggle pills paired a dark background with dark text in light mode (`bg-foreground text-ink` — those two colors are identical in light mode), making the active option's label disappear. Swapped to `text-on-accent`, matching the pattern already used elsewhere (`TabNav.tsx`). (`apps/web/src/app/neighborhoods/[slug]/VenuesView.tsx`)
+
+### Removed
+
+- **`/account`'s "Wishlist" and "Coupons" placeholder tiles.** Replaced by the more actionable feedback entry point above; also dropped the `GET /me/coupons` fetch that only backed the Coupons tile's count. (`apps/web/src/app/account/(tabs)/layout.tsx`)
+
+## [0.54.0] — 2026-07-20
+
+### Added
+
+- **Venue coupons.** A claimed business can post a limited-quantity, date-ranged coupon (title, description, optional terms). Followers unlock one of the N copies by checking in at the venue — or automatically, with a one-tap yes/no confirm, if they already checked in within the existing 4-hour cooldown window — then redeem it in person with a slide-to-redeem gesture shown to staff. Redeeming also counts as a check-in if the caller's cooldown has elapsed. Active coupons at a favorited venue are pinned to the top of the Spore Feed alongside today's followed events, and show on the venue's own page. The business-admin dashboard gained separate Events and Coupons tabs (split out of Overview, mirroring the neighborhood-admin Events tab) for posting and tracking claimed/redeemed counts. Completes BACKLOG.md Ref 83 (also resolves the venue-facing half of Ref 5, supersedes Ref 20's "attach coupon to Announcement" shape, and folds in Ref 3's "redemption also checks you in"). (`supabase/migrations/20260720030000_venue_coupons.sql`, `supabase/migrations/20260720040000_fix_claim_coupon_ambiguous_column.sql`, `apps/api/src/coupons/`, `apps/api/src/app.ts`, `apps/web/src/app/location/[id]/CouponsSection.tsx`, `apps/web/src/app/location/[id]/CouponCard.tsx`, `apps/web/src/app/SlideToRedeem.tsx`, `apps/web/src/app/useRedeemCoupon.ts`, `apps/web/src/app/admin/business/[venueId]/CouponForm.tsx`, `apps/web/src/app/admin/business/[venueId]/coupons/page.tsx`, `apps/web/src/app/admin/business/[venueId]/events/page.tsx`, `apps/web/src/app/account/page.tsx`)
+
+### Changed
+
+- **SlideToCheckIn and SlideToRedeem now share one drag control.** Both slide-to-confirm gestures use a new shared `SlideTrack` component: the same slim pill styling, drag mechanics, and a personalized mushroom-avatar thumb (replacing SlideToRedeem's static ticket emoji) instead of two near-duplicate implementations. Check-in keeps its 3D flip into a result card revealing badges/challenges earned; redeem stays flatter since it has no reward payload. (`apps/web/src/app/SlideTrack.tsx`, `apps/web/src/app/SlideToCheckIn.tsx`, `apps/web/src/app/SlideToRedeem.tsx`)
+- **Business admin dashboard split into Overview / Events / Coupons tabs**, matching the neighborhood-admin sidebar's tab pattern; Overview now only carries stat tiles and social links. (`apps/web/src/app/admin/business/[venueId]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/BusinessVenueDashboard.tsx`)
+
+### Removed
+
+- **Business announcements.** The `announcement` table, its API module, and the owner-authoring form are gone, replaced by venue coupons above. (`apps/api/src/announcements/`, `apps/web/src/app/admin/business/[venueId]/AnnouncementForm.tsx`)
+
+## [0.53.1] — 2026-07-20
+
+### Changed
+
+- **Business claims now require a signed-in account, and drop the "business domain" contact method.** `POST /venues/:id/claims` requires auth (`business_claim.claimed_by_user_id` is now `NOT NULL`) so a claim is always tied to a specific account instead of allowing anonymous, hard-to-follow-up submissions. The claim form now tells the signer which account will be linked to their submission, and shows a sign-in prompt instead of the form when signed out. Also drops "business domain" as a contact method (phone/email remain) since a bare domain doesn't actually help an admin verify ownership. Completes BACKLOG.md Ref 32. (`apps/api/src/app.ts`, `apps/api/src/claims/`, `apps/web/src/app/location/[id]/ClaimBusinessForm.tsx`, `supabase/migrations/20260720010000_business_claim_requires_account.sql`, `supabase/migrations/20260720020000_business_claim_drop_domain_contact_method.sql`)
+- **Neighborhood-admin claims list now shows the linked account.** Each claim card in `/admin/neighborhood/:slug/claims` displays the submitter's display name, `@username`, and email (joined from the account behind the claim), alongside the contact info they typed in, so an admin can cross-check the two. (`apps/api/src/claims/`, `packages/types/src/index.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/claims/page.tsx`)
+
+### Fixed
+
+- **`dark:` utility classes now respect an explicit "Light" theme selection.** Error-text/border accents styled with Tailwind's `dark:` variant (e.g. form error messages) previously followed the OS's raw `prefers-color-scheme` regardless of the app's own Light/Dark/System toggle, so choosing "Light" while the OS was in dark mode left those accents in their dark-mode color. A `@custom-variant dark` now ties `dark:` to the same forced-theme logic the rest of the app's theming already uses. (`apps/web/src/app/globals.css`)
+- **Neighborhood activity feed showed timestamps in the wrong timezone.** The shared `Timeline` component (used by the neighborhood-wide Recent activity tab and `/account`'s activity feeds) formatted timestamps using `toLocaleString()` without forcing client-side rendering; since the neighborhood activity page renders server-side, that produced the *server's* local time there instead of the visitor's, while the same timestamp on `/account` (a client-rendered page) showed correctly. `Timeline` is now a client component, matching the same fix already in place for `EventListItem`. (`apps/web/src/app/Timeline.tsx`)
+
+## [0.53.0] — 2026-07-17
+
+### Added
+
+- **Follow events.** Signed-in users can now follow/bookmark events from any neighborhood's Events tab or Today tab, with a compact "+ Follow" / "✓ Following" toggle. Followed events show up on `/account`'s Favorites tab (a new Events section) and drop off the list once they're over. Completes BACKLOG.md Ref 81. (`supabase/migrations/20260717180000_event_follows.sql`, `apps/api/src/eventFollows`, `apps/web/src/app/FollowEventButton.tsx`, `apps/web/src/app/account/page.tsx`)
+- **Followed events and neighbor connections in activity feeds.** The neighborhood-wide Recent Activity tab and `/account`'s Spore Feed now include "X followed Y event" rows; the Spore Feed also surfaces "X connected with Y" when one of your neighbors connects with someone else, since a connection isn't neighborhood-scoped. (`apps/api/src/activity`, `apps/web/src/app/ActivityFeed.tsx`)
+- **"Event Scout" badge**, a one-off award for a user's first-ever event follow. (`supabase/migrations/20260717190000_event_scout_badge.sql`, `apps/api/src/gamification/eventFollowBadge.ts`)
+- **Today's followed events pinned to the top of the Spore Feed**, as a same-day reminder above the chronological activity log. (`apps/web/src/app/account/page.tsx`)
+
+### Changed
+
+- **`/account`'s Check-ins tab renamed "My Activity"**, moved to the last tab position, and now shows every activity type for your own actions (check-ins, favorites, badges, challenges, event follows, neighbor connections) instead of just check-ins — never masked by visibility, since it's your own data. New `GET /me/activity`. (`apps/api/src/app.ts`, `apps/api/src/activity/activity.ts`, `apps/web/src/app/account/page.tsx`)
+- **Favorites tab reordered**, with followed Events now listed above favorite Venues. (`apps/web/src/app/account/page.tsx`)
+- **Account menu dropdown reordered**: My account, {neighborhood}, Settings, What's new, then (if applicable) Admin, then Log out. (`apps/web/src/app/AccountMenu.tsx`)
+
+### Fixed
+
+- **Check-in slider's grabbable area enlarged on iOS**, without changing its visual size — the tappable/draggable hit target was smaller than iOS's recommended touch target, making the slide-to-check-in gesture harder to grab precisely. (`apps/web/src/app/SlideToCheckIn.tsx`)
+
+## [0.52.1] — 2026-07-17
+
+### Changed
+
+- **Removed the anonymous-account concept.** Signed-out visitors can still browse everything (neighborhoods, businesses, POIs, events, challenges/leaderboards), but checking in and favoriting now require a real signed-in account, prompted inline right where you tap "check in" or "favorite" instead of a device-scoped anonymous identity accumulating history that might never get claimed. Completes BACKLOG.md Ref 86. (`apps/api/src/checkins`, `apps/api/src/favorites`, `apps/api/src/auth`, `apps/web/src/app/SignInPrompt.tsx`, `apps/web/src/app/SlideToCheckIn.tsx`, `apps/web/src/app/location/[id]/FavoriteButton.tsx`)
+
+### Fixed
+
+- **Email/password sign-up no longer gets stuck after confirming your email.** Clicking the confirmation link previously landed back on the app with no session and no account created, since Supabase's confirmation redirect wasn't wired to the app's sign-in completion flow — you'd confirm your email successfully but then couldn't log in. (`apps/web/src/lib/auth.ts`, `apps/web/src/app/auth/callback/page.tsx`)
+
+### Removed
+
+- **Anonymous check-in/favorite history.** The 8 anonymous `app_user` rows accumulated before this account model existed, and the `is_anonymous`/`anonymous_device_id` columns and device-merge logic backing them, were deleted from the database. (`supabase/migrations/20260717173504_remove_anonymous_accounts.sql`)
+
+## [0.52.0] — 2026-07-16
+
+### Added
+
+- **FAQ page.** A new `/faq` page on the marketing site answers common questions (what Spored is, pricing, how check-ins/points/badges/events/business claims work), grouped into General, Check-ins/points/badges, Events, For businesses, and Privacy/account. Linked from the marketing footer. (`apps/marketing/src/app/faq/page.tsx`, `apps/marketing/src/app/MarketingFooter.tsx`)
+- **Marketing homepage events section.** A new "Know what's happening, before it happens" section between the leaderboard teaser and the neighborhood map, calling out the events feature (block parties, farmers markets, business specials synced from organizers' calendars) that the homepage previously didn't mention at all. (`apps/marketing/src/app/page.tsx`)
+- **In-app changelog.** A new `/changelog` page in the main app shows a condensed, one-line-per-version summary of every release (v0.1.0 through this one), rather than the full bullet-point detail in this file. Linked from the account menu ("What's new") and from the "Spored v{version}" text in the site footer and both admin sidebars. (`apps/web/src/app/changelog/page.tsx`, `apps/web/src/app/changelog/entries.ts`, `apps/web/src/app/AccountMenu.tsx`, `apps/web/src/app/Footer.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`)
+- **"Powered by Google" attribution.** Venue/POI detail pages showing Google Places-sourced data (photos, rating, hours, reviews) now show a small "Powered by Google" credit, satisfying Google Maps Platform attribution terms for Places data displayed without an accompanying map (the two existing map widgets already show Google's own default logo). OpenStreetMap attribution remains out of scope since OSM isn't used as a data source. (`packages/ui/src/PoweredByGoogle.tsx`, `apps/web/src/app/location/[id]/page.tsx`)
+
+### Changed
+
+- **Marketing homepage CTA buttons renamed "Sign up"**, matching the header nav's button instead of reading "Get the app — it's free" / "Get the app" — applies to both the hero and final-CTA sections. (`apps/marketing/src/app/page.tsx`)
+- **"Browse all 154 neighborhoods" renamed "Browse all neighborhoods"** on the marketing homepage, dropping a specific count that wasn't being kept in sync with reality. (`apps/marketing/src/app/page.tsx`)
+
+### Fixed
+
+- **Category dropdown in the Locations review wizard now sorts alphabetically.** The classification picker on `/admin/neighborhood/:slug/locations/review` was still listing categories in raw API order (by bare leaf name) even though the visible label is "{group} / {name}" — categories from different groups interleaved out of alphabetical order on screen. Now sorts client-side by the same composed label it displays, matching the fix already shipped for the Locations tab's reassign-category dropdown in v0.44.1. Completes BACKLOG.md Ref 57. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/review/page.tsx`)
+
+## [0.51.0] — 2026-07-16
+
+### Added
+
+- **iCal/webcal event feed import.** A neighborhood or a claimed business can now publish an external `.ics`/webcal calendar feed URL and trigger a manual "Sync now" to pull its events straight into Blockwise, instead of re-keying every event by hand — manual entry via the existing event form remains the fallback for anyone without an external calendar. Recurring events (`RRULE`) are expanded into individual occurrences within a bounded 180-day/25-occurrence window. Re-syncing updates existing imported events rather than duplicating them, keyed off the feed's own iCalendar UID. (`apps/api/src/events/icalFeed.ts`, `apps/api/src/events/icalSync.ts`, `apps/web/src/app/admin/business/[venueId]/IcalFeedForm.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/IcalFeedForm.tsx`, `supabase/migrations/20260716030000_ical_event_feed_import.sql`)
+- **Neighborhood-admin Events tab**, split out of the Overview tab into its own sidebar entry: calendar feed settings and a manual "Create event" form on the left, an "Upcoming" list with per-event Hide/Unhide and Delete actions on the right. A new shared `EventListItem` component (date badge, title, time/venue/location, feed-vs-manual source pill, click-to-expand description) now backs this tab as well as the public Upcoming events and Today tabs. Events can also be hidden (survives a future feed re-sync, unlike delete) or hard-deleted from either the neighborhood-admin or business-owner dashboard. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/events/page.tsx`, `apps/web/src/app/EventListItem.tsx`, `supabase/migrations/20260716050000_event_status.sql`)
+
+### Changed
+
+- **Neighborhood profile's default tab renamed "Happening now" → "Today"**, and broadened from strictly-in-progress events to anything happening today (in progress or later today), not just events overlapping the current instant. (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `apps/api/src/locations/happeningNow.ts`)
+- **Imported events now carry a location.** A neighborhood-owned import keeps the feed's own per-event location as-is; a venue-owned import always shows that venue's own address instead, since a business's events are always at that business. (`supabase/migrations/20260716040000_event_location.sql`)
+
+## [0.50.0] — 2026-07-16
+
+### Added
+
+- **Neighborhood switcher on the check-in page.** A pill dropdown next to the "Check in" heading lists every neighborhood you belong to and lets you switch which one's venues `/checkin` shows — always visible, even with just one neighborhood, so there's context for which one you're in. Switching updates your active neighborhood server-side (the same endpoint `/account/settings` uses), so it's remembered on your next visit. (`apps/web/src/app/checkin/NeighborhoodSwitcher.tsx`, `apps/web/src/app/checkin/page.tsx`, `apps/web/src/app/checkin/NearestVenues.tsx`)
+- **"View public" button on the account page's profile card**, linking straight to your own public profile — shown whenever your account is public and has a username set. (`apps/web/src/app/account/page.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`)
+
+### Changed
+
+- **"Home neighborhood" is now called your "Active" neighborhood** throughout the UI — the check-in page's neighborhood switcher sets it, and Settings now reads "Set as active" / "· Active" instead of "Set as home" / "· Home." User-facing rename only; the underlying `is_primary` field and API are unchanged. (`apps/web/src/app/account/settings/page.tsx`, `apps/web/src/app/checkin/page.tsx`)
+- **Account menu is now the account pill itself** — clicking your name/avatar opens a dropdown (home neighborhood, My account, Settings, Admin, Log out) instead of a separate hamburger button next to it. The same pattern now backs the account menu inside the business and neighborhood admin sidebars too, so admins can reach Settings/Log out without leaving the admin shell. Signed-out visitors still get the old hamburger (Log in / Sign up / Theme). (`apps/web/src/app/AccountMenu.tsx`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`)
+- **Theme toggle moved from the account dropdown menu to `/account/settings`**, its own section next to Account details and Profile. (`apps/web/src/app/account/settings/page.tsx`)
+- **Neighbor mushroom stamps now merge into your profile's main mushroom field** instead of showing in a separate "Neighbors" card — the field reads as both your own growth (level) and your reach with others (one mosaic mushroom stamp per accepted neighbor), on both `/account` and public profiles. (`apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/profile/[username]/page.tsx`)
+- **New accounts are now Public by default instead of Private** — badges, check-in count, and neighbor count are visible to others from signup unless you switch to Private in Account settings. Only affects new signups; existing accounts keep their current visibility. (`supabase/migrations/20260716010000_public_visibility_default.sql`, `apps/web/src/app/account/ProfileForm.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `apps/api/src/auth/auth.test.ts`)
+- **Mushroom customizer's six swatch pickers (Cap, Stalk, Spots, Background, Spot count, Spot shape) now collapse into accordion sections**, one open at a time, instead of all six always expanded. Picking a swatch near the bottom used to push the live preview well out of view; capping the expanded content to one section at a time keeps the preview close by no matter which category you're tweaking. (`apps/web/src/app/account/MushroomCustomizer.tsx`)
+- **"Save profile" and "Save mushroom" buttons now show a "Saved" disabled state** when there's nothing pending, alongside "Saving…" and the active save label — both forms track live edits against what's actually persisted rather than only distinguishing idle from submitting. (`apps/web/src/app/account/ProfileForm.tsx`, `apps/web/src/app/account/MushroomSection.tsx`)
+- **Avatar picker now shows Mushroom avatar first/left and Social photo second/right**, and new accounts now default to the Mushroom avatar style instead of Social. Only affects new signups; existing accounts keep their current avatar style. (`apps/web/src/app/account/ProfileForm.tsx`, `supabase/migrations/20260716020000_mushroom_avatar_default.sql`, `apps/api/src/auth/auth.test.ts`)
+
+### Fixed
+
+- **Fixed a migration version collision that broke `supabase db push`.** Two unrelated migrations shipped in v0.48.0 and v0.49.0 accidentally shared the same version timestamp (`20260715030000`), which corrupted the hosted database's migration history bookkeeping and caused pushes to fail with "relation already exists." Renamed the older migration to a unique version and repaired the remote history to match. (`supabase/migrations/20260715031000_super_admin.sql`)
+
+## [0.49.0] — 2026-07-15
+
+### Added
+
+- **Prominent "join a neighborhood" prompt on the account page.** A signed-in user with zero neighborhood memberships now sees a dark callout card at the top of `/account` (mirroring the admin dashboard's `bg-nav` styling) explaining what they're missing and linking to `/neighborhoods` to browse and join — previously the page gave no indication anything was missing, and the only hint lived several taps away in Settings. (`apps/web/src/app/account/page.tsx`)
+- **Custom brand-colored loading indicator (`MushroomLoader`).** Replaces generic spinners across the app with a mushroom-shaped loader in the brand palette (Chanterelle cap, Cream spots, Cocoa stalk on light backgrounds, swapping to Cream on dark) on `/checkin`, `/account`, `/account/settings`, `/admin`, and every admin sub-page, plus `/login` and `/signup` while checking whether the visitor's already signed in. (`packages/ui/src/MushroomLoader.tsx`, `packages/ui/src/index.ts`)
+
+### Changed
+
+- **Joining your first neighborhood now sets it as your home neighborhood automatically.** Previously every join left "home" unset until manually chosen in Settings, so a brand-new member's `/checkin` page kept showing "Set a home neighborhood below" even right after they joined one. A second or later join is unaffected — it never overrides a home you already have. (`apps/api/src/neighborhoodMembers/neighborhoodMembers.ts`)
+- **Checkin and account buttons in the header unified into the same pill design**, both now showing an icon plus label ("Check In" / your display name) in a `bg-card-alt` pill instead of the previous icon-only account button next to a differently-styled check-in button. The account menu's "Account settings" item is now labeled "Settings" to match. (`apps/web/src/app/AccountNav.tsx`)
+- **Checkin page now lists the 7 nearest venues instead of 5.** Only the top spot shows its slide-to-check-in control by default; tapping any of the other 6 rows expands it in place to reveal the same control, rather than showing all 7 controls at once. (`apps/web/src/app/checkin/NearestVenues.tsx`, `apps/web/src/app/PlaceListItem.tsx`)
+- **Removed the redundant "Settings" link from the `/account` page heading** — it's still reachable from the header menu (now labeled just "Settings"), so this dropped a second, identically-purposed link next to "My account." (`apps/web/src/app/account/page.tsx`)
+- **"Everybody's Neighbor" easter-egg badge no longer appears in the locked-badge list.** It stays hidden from `GET /badges`'s public catalog so it isn't spoiled as a visible goal; a user who actually earns it still sees it normally via their own earned badges. (`apps/api/src/app.ts`)
+- **Mushroom avatar palette: Cream is now the first cap color choice, and Amber is gone entirely** as a stalk/spot/background option (previously only available in combination with a Cocoa cap) — simplifies the customizer and auto-assignment logic since there's no longer a cap-dependent exception to validate against. (`packages/types/src/mushroom.ts`, `apps/api/src/app.ts`, `apps/web/src/app/account/MushroomCustomizer.tsx`)
+- **`/account/settings`'s "no neighborhoods joined" message now links to `/neighborhoods`** instead of `/`, which no longer hosts a neighborhood browse/join UI (that moved to its own page a few versions back) and had become a dead end. (`apps/web/src/app/account/settings/page.tsx`)
+- Marketing homepage's nav CTA button now reads "Sign up" instead of "Get the app." (`apps/marketing/src/app/MarketingNav.tsx`)
+- Already-signed-in visitors who land on `/login` or `/signup` (a stale bookmark, the back button) are now bounced straight to `/account` instead of seeing a login/signup form for an account they're already in. (`apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`)
+
+### Removed
+
+- **The "Type" field for points of interest is gone**, from the database column through the API to every admin/reimport form. POI cards on venue and neighborhood location lists now show a static "Point of interest" label instead of a per-POI type value, which had never been more than free text with no real taxonomy behind it. (`supabase/migrations/20260715030000_drop_poi_type.sql`, `packages/types/src/index.ts`, `apps/api/src/locations/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/PoiForm.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/locations/page.tsx`)
+
+### Fixed
+
+- **Mushroom avatar thumb on the check-in slider no longer "pops in" after page load.** Every component that needed the current user (`SlideToCheckIn` and 14 others) fetched `/auth/me` independently on mount, so the slider's thumb rendered a generic fallback icon until its own fetch resolved, even though other components on the same page had already gotten the same data. `getCurrentUser()` now caches the in-flight request at the module level so every component mounted in the same navigation shares one fetch and resolves together. (`apps/web/src/lib/auth.ts`)
+- **Blank gap between the checkin page's loading animation and its content appearing.** The page-level loader covered the initial `/me/neighborhoods` fetch, but `NearestVenues`' own loading phase (venues fetch plus a often-slower, permission-prompt-gated geolocation lookup) rendered nothing in between, leaving a visible blank beat. It now shows the same `MushroomLoader` during its own loading state, so the handoff from one loader to the next is seamless. (`apps/web/src/app/checkin/NearestVenues.tsx`)
+
+## [0.48.0] — 2026-07-15
+
+### Added
+
+- **"Reimport Locations" button on the Locations tab, replacing the small "Review Places →" text link.** Re-runs the bulk Google Places sync/reconciliation wizard on demand, rate-limited to once per 24 hours per neighborhood since each run costs a real Google Places API query — the button shows a countdown while on cooldown, and the underlying endpoint 429s if called early regardless. Review-wizard behavior also changed: an "omit" decision on a new candidate is now saved as a hidden point of interest instead of silently skipped, so it won't keep resurfacing on every re-run; approved boundary removals now mark a location "removed" (a new status distinct from "hidden") so it's fully excluded from the Locations tab, even with "Show hidden" on, and is treated as a brand-new candidate if a later boundary redraw brings it back inside. (`apps/api/src/locations/review.ts`, `apps/api/src/neighborhoods/`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/locations/`, `supabase/migrations/20260715020000_locations_reimport_cooldown_and_removed_status.sql`)
+- **Super admin role.** A new role above neighborhood admin — for now, the only role allowed to create a brand-new neighborhood (`POST /admin/neighborhoods` moved off the general admin gate to a dedicated super-admin gate), and one that can bypass the new 24-hour Reimport Locations cooldown. Granted via a new CLI script, `npm run grant:super-admin -- <email>`, mirroring the existing `grant:admin` script. (`apps/api/src/admin/requireSuperAdmin.ts`, `apps/api/src/scripts/grantSuperAdmin.ts`, `supabase/migrations/20260715030000_super_admin.sql`)
+
+### Changed
+
+- Neighborhood-admin sidebar's "Locations" tab now stays highlighted while on the Reimport review sub-page, instead of appearing unselected. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`)
+- Removed the neighborhood Overview tab's read-only "Points of interest" list, now redundant with the Locations tab. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/page.tsx`)
+- Removed the redundant "← Admin" back-link from both admin sidebar shells now that the `AdminSwitcher` dropdown covers cross-navigation. (`apps/web/src/app/admin/business/[venueId]/layout.tsx`, `apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`)
+
+### Fixed
+
+- **Places sync no longer silently drops venues in dense areas.** When a search tile hit Google's 20-result-per-request cap, any venues beyond the cap were dropped with no retry. The sync now automatically re-queries a saturated tile as a fixed fan-out of 4 smaller, overlapping sub-circles (bounded to one extra level deep, to keep worst-case API usage predictable) to catch the overflow. (`apps/api/src/places/geo.ts`, `apps/api/src/places/sync.ts`)
+
+## [0.47.0] — 2026-07-15
+
+### Added
+
+- **Mushroom fingerprint stamps on connections and check-ins.** When a user checks in to a location or accepts a connection, a frozen snapshot of their mushroom look at that moment is permanently recorded (`checkin.mushroom_snapshot`, `user_connection.requester_mushroom_snapshot`/`recipient_mushroom_snapshot`). This replaces the previously fabricated "who's foraged here" mosaics (`MushroomField`'s `distinctMushrooms` mode) with real visitor history — venue detail pages and public profiles now show actual mushroom-avatar snapshots from people who checked in or connected, rather than pseudo-random decorative icons. Snapshots are immutable: if a user later edits their mushroom customization, prior check-ins and connections retain their original stamped look. (`supabase/migrations/20260715010000_mushroom_fingerprint_snapshots.sql`, `packages/types/src/mushroom.ts`, `apps/api/src/checkins/`, `apps/api/src/connections/`, `apps/api/src/locations/`, `apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/profile/[username]/page.tsx`, `packages/ui/src/index.ts`)
+
+## [0.46.2] — 2026-07-15
+
+### Changed
+
+- **Google sign-in's OAuth consent screen now shows Spored's own branding** (app name, logo, support email) instead of default/placeholder details from initial setup. Configuration change in Google Cloud Console — no code change.
+- **Neighborhood-admin and business-admin dashboard sidebars' mushroom logo switched from amber to orange**, matching the cap color used everywhere else (marketing nav, main site nav) instead of a one-off amber. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`)
+
+### Fixed
+
+- **The admin dashboard sidebar's account pill (avatar/name/"admin" tag) is now a link back to `/account`** — previously inert. (`apps/web/src/app/admin/neighborhood/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/admin/business/[venueId]/layout.tsx`)
+- **"Visit every POI" challenge's progress denominator is now live-computed instead of a stale snapshot.** Its `target_count` was fixed at whatever the active POI count happened to be when the challenge template was created (3), so it silently fell out of sync as POIs were added or hidden afterward (4 active today). Completionist-style challenges now carry a `target_count_live` flag; when set, progress is checked against a live count of active locations of that kind rather than the stored column. (`supabase/migrations/20260714060000_live_challenge_target_count.sql`, `apps/api/src/gamification/challenges.ts`, `apps/api/src/gamification/repository.ts`, `apps/api/src/gamification/supabaseRepository.ts`)
+
+## [0.46.1] — 2026-07-14
+
+### Changed
+
+- **Business admin and neighborhood admin unified under a single `/admin` namespace, sharing one sidebar-shell UI.** `/business/:venueId` moved to `/admin/business/:venueId` and was restyled to match the neighborhood-admin shell (stat tiles, rounded cards, sidebar nav) instead of its old plain single-column layout; `/neighborhood-admin/:slug` moved to `/admin/neighborhood/:slug`. The old plain `/business` and `/neighborhood-admin` list pages were removed — an account can administer many neighborhoods and/or own many businesses (independent `account_type`/`is_neighborhood_admin` flags), so a single "your list" page no longer fit. (`apps/web/src/app/admin/business/[venueId]/`, `apps/web/src/app/admin/neighborhood/`)
+- **New `/admin` landing page** redirects straight to the first neighborhood you admin, else the first business you own, else shows a "nothing to admin yet" state (become a business owner / create a neighborhood, as applicable). (`apps/web/src/app/admin/page.tsx`)
+- **New `AdminSwitcher` sidebar dropdown** (replacing the old static "back to the list" card) lists every neighborhood and business the signed-in account administers, so you can jump between them without leaving either shell. (`apps/web/src/app/AdminSwitcher.tsx`)
+- **`AccountNav`'s "Business portal" and "Neighborhood admin" menu items collapsed into one "Admin" link.** (`apps/web/src/app/AccountNav.tsx`)
+- Extracted a shared `StatTile` component (icon/label/value stat tile) used by both admin shells' Overview tabs, and restyled the business admin's forms to match the neighborhood-admin versions' input/button treatment. (`apps/web/src/app/StatTile.tsx`)
+- Marketing homepage's "Claim your business" CTAs now point at `/admin` instead of the removed `/business`. (`apps/marketing/src/app/page.tsx`)
+
+## [0.46.0] — 2026-07-14
+
+### Added
+
+- **In-progress challenges on the account page.** The Challenges tab now has an "In progress" section (challenges started but not yet completed, across every neighborhood the user belongs to, sorted by percent-complete descending) above the existing "Completed" list, each with a progress bar and "X of Y" count. Backed by a new `GET /me/challenges/active` endpoint. (`apps/api/src/gamification/challenges.ts`, `apps/api/src/app.ts`, `apps/web/src/app/account/page.tsx`, `packages/types/src/index.ts`)
+- **Same In progress / Completed grouping on the neighborhood page's Challenges tab**, plus a new "Not started" section listing every challenge template the user hasn't begun. (`apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+- **"Everybody's Neighbor" easter-egg badge.** Connecting with @squalrus (Spored's answer to Tom, everyone's first friend on Myspace) now awards a one-off badge to the other party. (`supabase/migrations/20260714050000_squalrus_connection_badge.sql`, `apps/api/src/gamification/squalrusBadge.ts`, `apps/api/src/app.ts`)
+
+### Changed
+
+- **Forager level badges now use a mushroom emoji** instead of a generic star, and the "Neighbor" connection badges use a handshake emoji. (`supabase/migrations/20260714020000_forager_badge_mushroom_icon.sql`, `apps/web/src/app/BadgeIcon.tsx`)
+- **"Founder" badge renamed to "Early Sprout"** with a seedling icon, and its description updated from "Blockwise" to "Spored". (`supabase/migrations/20260714030000_founder_badge_seedling_icon.sql`, `supabase/migrations/20260714040000_founder_badge_spored_rename.sql`, `apps/api/src/gamification/founderBadge.ts`)
+- **Badge and challenge icon backgrounds switched from amber to purple** for better contrast — many badge/challenge emoji are yellow-heavy and blended into the previous amber circle. (`apps/web/src/app/CheckinResultCard.tsx`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+- **Favorite venues list is now alphabetized** rather than returned in insertion order. (`apps/api/src/favorites/supabaseRepository.ts`)
+
+### Fixed
+
+- **Challenges that were already complete before their template existed (or before their first qualifying check-in was evaluated) now auto-complete on read**, instead of showing 100% progress forever without ever awarding points or a badge. (`apps/api/src/gamification/challenges.ts`)
+- **A challenge's bonus points now count toward the same check-in's badge level-up evaluation.** Challenge completion and badge-rule evaluation ran in parallel, so a check-in that both completed a challenge and crossed a level threshold could evaluate the level badge against a stale points total; they now run sequentially. (`apps/api/src/gamification/rewards.ts`)
+
+## [0.45.0] — 2026-07-14
+
+### Added
+
+- **Mushroom avatar customizer.** Completes BACKLOG.md Ref 75. A new always-visible "Mushroom avatar" section in Account Settings (a sibling to Profile, independent of which avatar style is currently active) lets a signed-in user override their hash-derived mushroom look with a deliberate choice: cap, stalk, spots, and background colors, plus spot count (0–6) and spot shape. A live preview updates as swatches are picked; "Use auto-assigned look" reverts to the hash-derived default. Saved as a new nullable `app_user.mushroom_customization` jsonb column, validated server-side against the same approved palette the customizer offers (amber stalk/spots/background only paired with a Cocoa cap, mirroring auto-assignment's own contrast rule) — `PATCH /me/profile` accepts and clears it independently of other profile fields. Falls back to the existing hash-derived auto-assignment (`mushroomConfigForUser`) whenever nothing's been saved. The saved look renders everywhere an avatar already did: the account page, the top nav, the neighborhood-admin sidebar, the neighbors list, public profiles, the business-claims list, and the check-in slider's thumb (previously a generic fixed icon). (`supabase/migrations/20260714010000_mushroom_customization.sql`, `apps/web/src/app/account/MushroomSection.tsx`, `.../MushroomCustomizer.tsx`, `apps/api/src/app.ts`, `apps/api/src/auth/*.ts`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Spot pattern system redesigned as two independent choices: count and shape.** Replaced the six fused named patterns (none/solo/classic/rings/sparks/halftone) with an independent spot count (0–6) and spot shape — any count now pairs with any shape, rather than each pattern name baking in both. Added three new shapes (star, triangle, cross) alongside the existing circle/ring/sparks, for six total. `MushroomMark`'s `pattern` prop and `SporePattern` type are gone, replaced by `spotCount`/`spotShape`/`SpotShape` everywhere (mushroom auto-assignment, the customizer, the API, and the `/brand` page's examples). (`packages/ui/src/MushroomMark.tsx`, `packages/ui/src/mushroomConfig.ts`)
+- **Stalk, spots, and background are now independently colorable**, instead of spots always mirroring the stalk color and background tint going unused by every avatar. The shared accent palette grew from 3 colors (Cream, Cocoa, Amber) to 9 (added Wheat, Meadow, Lilac, Oat, Sage, Mist, Clay), and the cap palette grew from 5 to 8 (added Indigo, Russula, Blusher). (`packages/ui/src/mushroomConfig.ts`, `packages/ui/src/colors.ts`)
+- **Background shape (circle vs. squircle) option removed.** It was documented on the brand page but never actually offered by any avatar surface; `MushroomMark`'s `bgShape` prop and the brand-page community mosaic's random square backgrounds are gone, so every mushroom background renders as a circle. (`packages/ui/src/MushroomMark.tsx`, `apps/marketing/src/app/brand/BrandMushroom.tsx`)
+- **`/brand` guidelines page overhauled** to match all of the above and to fix several stale/incorrect details found along the way: logo-lockup stem colors fixed for contrast against their card backgrounds, Chanterelle orange replaces Golden/Amber as the primary cap color throughout (nav, favicon, lockups, reversed-on-dark card), a new "Spot count & shape" section replaces the old fixed 6-pattern grid, the Anatomy section's four part-cards now describe the actual independent color choices instead of stale "cream or cocoa"/"circle or squircle" text, and the "your mushroom" section no longer claims per-user customization isn't exposed. (`apps/marketing/src/app/brand/page.tsx`, `apps/marketing/src/app/brand/BrandMushroom.tsx`, `apps/marketing/src/app/MarketingNav.tsx`)
+- **Favicon and app icon regenerated** for both apps (`icon.svg`, `apple-icon.png`, `favicon.ico`) with the Chanterelle cap and cream spots/stem, replacing the old golden cap. (`apps/marketing/src/app/{icon.svg,apple-icon.png,favicon.ico}`, `apps/web/src/app/{icon.svg,apple-icon.png,favicon.ico}`)
+- **Marketing homepage's decorative floating "spores" now vary spot count and shape** via the real generator instead of one fixed pattern repeated in different cap colors, and its phone-mockup nav logo and the real app's header logo (`AccountNav`) both switched from amber to orange to match the rest of the refresh. (`apps/marketing/src/app/page.tsx`, `apps/web/src/app/AccountNav.tsx`)
+
+## [0.44.1] — 2026-07-13
+
+### Changed
+
+- **Neighborhood-admin dashboard redesigned as a standalone sidebar shell.** Imported from a Claude Design mockup ("Spored Admin") and completes BACKLOG.md Ref 31 "SimCity-style UI redesign for neighborhood management." `/neighborhood-admin/:slug/*` now renders its own dark sidebar (logo, neighborhood switcher, Overview/Boundary/Locations/Business claims nav with live location and pending-claim counts, "View public page" link) instead of the site's usual AccountNav/Footer plus a pill tab bar — a new `SiteChrome.tsx` hides the site chrome specifically for these routes. The Overview tab gained stat tiles (businesses, points of interest, members, check-ins, sourced from the existing public neighborhood-profile counts) and a status callout linking to pending claims. Visual-only within the four existing tabs — no schema or new API routes; `apps/web` also gained the `jetbrains-mono` font (already used on the marketing brand page) wired into the root layout for the new mono-styled labels. (`apps/web/src/app/SiteChrome.tsx`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/layout.tsx`, `.../page.tsx`, `.../boundary/page.tsx`, `.../claims/page.tsx`, `.../locations/page.tsx`, `.../DescriptionForm.tsx`, `.../SocialLinksForm.tsx`, `.../EventForm.tsx`)
+- **Locations tab: category filter chips (with optional subcategory refinement) and a standalone "Show hidden" toggle.** Partially completes BACKLOG.md Ref 56, folded into the redesign above since the tab's markup was already being touched. New category-group filter chips (business-kind rows only, since POIs use a free-text `type` rather than the category taxonomy) sit alongside the kind toggle, now a 3-way All/Businesses/POIs control (counts unaffected by hidden visibility) rather than the old 4th "Hidden" option — hidden-row visibility is a separate toggle (defaults on) that combines with whichever kind is selected, so hiding a row from e.g. the Businesses view doesn't force a tab switch just to keep seeing it in place (dimmed, with its "Hidden" badge). Ref 56 also proposed excluding hidden rows from "All" by default; decided against for the same reason. Selecting a category-group chip (e.g. "Food & Drink") now reveals a second row of that group's leaf categories (e.g. "Coffee Shop", "Bar") to optionally narrow further; resets whenever the group selection changes. Purely client-side; no API/schema changes. (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`)
+
+### Fixed
+
+- **`TabNav`'s active-tab text contrast in dark mode.** The active pill used `--ink` (an always-dark color) for its text against a dark active background, making it unreadable in dark mode; switched to `--on-accent`, which flips per theme. (`apps/web/src/app/TabNav.tsx`)
+- **OAuth callback redirect.** Signing in via Google no longer routes business accounts to `/business` — everyone lands on `/account`, which already surfaces a business-portal link for business accounts, giving a consistent post-login landing regardless of account type. (`apps/web/src/app/auth/callback/page.tsx`)
+- **Boundary map not fitting the saved shape on load.** `BoundaryMap` always opened at a fixed `zoom: 15` centered on the neighborhood's center point, regardless of how large or irregular the saved boundary actually was — a large neighborhood's polygon could extend past what's visible without the admin realizing it. The map now calls `fitBounds()` over the polygon's vertices (with a small padding) when an existing boundary loads, so the whole shape is in view immediately. (`apps/web/src/app/neighborhood-admin/BoundaryMap.tsx`)
+- **Switching a business to a point of interest silently failed.** The Locations tab's "→ POI" action never sent a `type` (park, landmark, transit, etc.), which `PATCH .../locations/:id/kind` requires when switching to POI kind (a business has no `type` of its own to fall back on) — every attempt 400'd with "type is required to switch to a point of interest," shown only as a small error line elsewhere on the page, so the row appeared to just do nothing. The action now prompts for a type before submitting; the switch was otherwise implemented correctly (pre-dates this version, first introduced with kind-switching itself). Also gave the "POI" kind badge its own green treatment instead of sharing "Business"'s neutral gray pill, so a successful switch is visually obvious. (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`)
+- **Locations tab's reassign-category dropdown wasn't alphabetical.** Partially addresses BACKLOG.md Ref 57 — the dropdown listed categories in the API's bare-leaf-name order, but the label actually shown is `"{group} / {name}"`, so the on-screen order didn't read as alphabetical once categories from different groups interleaved. Now sorted client-side by that same composed label. The review wizard's classification picker (`locations/review/page.tsx`) and the dark-mode option-contrast half of Ref 57 remain open. (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`)
+
+## [0.44.0] — 2026-07-13
+
+### Added
+
+- **Google Analytics 4 on both apps.** apps/marketing and apps/web each report to their own GA4 property/data stream (kept separate since marketing traffic is anonymous/conversion-funnel-focused while in-app usage is authenticated/feature-usage-focused), via `@next/third-parties`'s `GoogleAnalytics` component. Gated behind `NEXT_PUBLIC_GA_MEASUREMENT_ID`, which is left unset in local dev so `npm run dev`/local builds never report traffic. Completes BACKLOG.md Ref 68/69. (`apps/marketing/src/app/layout.tsx`, `apps/web/src/app/layout.tsx`, `apps/marketing/.env.example`, `apps/web/.env.example`)
+- **Marketing site SEO.** apps/marketing gained `metadataBase`/OpenGraph/Twitter card defaults, a `robots.txt` (allow all), a sitemap covering every static route, per-page canonical URLs, and `Organization` JSON-LD structured data on the homepage. Completes BACKLOG.md Ref 67. (`apps/marketing/src/app/layout.tsx`, `apps/marketing/src/app/page.tsx`, `apps/marketing/src/app/robots.ts`, `apps/marketing/src/app/sitemap.ts`, `apps/marketing/src/lib/siteUrl.ts`)
+- **App-wide SEO.** apps/web gained `metadataBase`/OpenGraph/Twitter card defaults, a `robots.txt` disallowing authenticated/utility routes (account, business, neighborhood-admin, admin, etc.) and the "/" auth-redirect stub, and a dynamic sitemap covering every active neighborhood and its active business venues. Neighborhood, location, and profile pages gained per-page `generateMetadata` (title/description/canonical), and business-kind location pages gained `LocalBusiness` JSON-LD. Public profile pages default to `noindex,follow` since most of their content is gated behind an accepted neighbor connection. Completes BACKLOG.md Ref 70. (`apps/web/src/app/layout.tsx`, `apps/web/src/app/robots.ts`, `apps/web/src/app/sitemap.ts`, `apps/web/src/app/neighborhoods/[slug]/layout.tsx`, `apps/web/src/app/neighborhoods/[slug]/*/page.tsx`, `apps/web/src/app/location/[id]/page.tsx`, `apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/lib/siteUrl.ts`)
+- **Terms of Service and Privacy Policy pages.** New static `/terms` and `/privacy` pages on apps/marketing, describing account/check-in/location data handling, third-party processors (Supabase, Google, Netlify, GA4), and user choices, sharing a new `LegalLayout` shell. Linked from the marketing footer. Completes BACKLOG.md Ref 63/64. (`apps/marketing/src/app/terms/page.tsx`, `apps/marketing/src/app/privacy/page.tsx`, `apps/marketing/src/app/LegalLayout.tsx`, `apps/marketing/src/app/MarketingFooter.tsx`)
+
+### Changed
+
+- **CLAUDE.md gained a "Keeping Terms/Privacy current" section**, flagging that the new Terms/Privacy pages describe specific product behavior (data collected, third-party processors, sharing/deletion) that must be kept in sync with future changes, not evergreen boilerplate.
+
+## [0.43.0] — 2026-07-13
+
+### Added
+
+- **Spore Feed stub tab on /account.** The account page's first tab, defaulting on page load, with a placeholder hint for a future activity feed. Opens the door for downstream work aggregating neighbor/neighborhood activity (check-ins, favorites, badge unlocks). (`apps/web/src/app/account/page.tsx`)
+- **Progress bars on completed challenges.** The /account Challenges tab now shows a full-width progress bar for each completed challenge (always filled to 100% for visual consistency with the neighborhood challenges view). (`apps/web/src/app/account/page.tsx`, `apps/web/src/app/CheckinResultCard.tsx`)
+- **Latest badge and challenge on public profiles.** A public profile (`/profile/:username`) now displays the person's single most-recent badge and most-recent completed challenge, each in a full-width row matching the `/account` page's treatment (icon + name + description, neighborhood/points/timestamp for challenges). Backed by extending `GET /users/:username` to return a full `challenges: UserChallenge[]` list (replacing the old count-only `challenges_summary`). (`apps/web/src/app/profile/[username]/page.tsx`, `apps/api/src/app.ts`, `packages/types/src/index.ts`)
+- **Join/leave neighborhoods from profile pages.** Each neighborhood listed on a public profile now includes a quick-action button (reusing the existing `JoinNeighborhoodButton` component) showing "✓ Joined", "Join neighborhood", or "Log in to join" depending on the viewer's auth state and membership. (`apps/web/src/app/profile/[username]/page.tsx`)
+- **Unlock card animations in check-in results.** When a check-in unlocks badges or completes challenges, each full-width unlock card now slides down from behind the "Checked in ✓ +N pts" line with a staggered 140ms delay, reading as though emerging from underneath rather than fading in place. Controlled by a new `.unlock-card` CSS animation. (`apps/web/src/app/CheckinResultCard.tsx`, `apps/web/src/app/globals.css`)
+
+### Changed
+
+- **Profile details gating on public profiles.** A public profile's Badges, Neighborhoods, and Recent check-ins sections are now visible only to accepted neighbors (or the profile owner themselves viewing their own profile) — unsigned-in visitors and non-neighbors see a short "Add this person as a neighbor to see their badges, neighborhoods, and check-ins" hint instead. Implemented via a new `ProfileDetails` client component that checks the viewer's neighbor status server-side. (`apps/web/src/app/profile/[username]/ProfileDetails.tsx`, `apps/web/src/app/profile/[username]/page.tsx`)
+- **Check-in result card height enforcement.** The flip-card container now explicitly enforces a minimum height (84px, matching the original slider's height) so a short success message (no badges) or error message never renders shorter than the control it replaced — the card is guaranteed to stay the same size or grow, never shrink. Both the outer grid and inner result cards now use `h-full` and `justify-center` to stretch and center content. (`apps/web/src/app/SlideToCheckIn.tsx`, `apps/web/src/app/CheckinResultCard.tsx`)
+- **Full-width badge and challenge cards in check-in results.** The "Checked in" notification now shows any unlocked badges and challenges as full-width rows (icon + name + description, or title + points + badge) instead of small pill-shaped chips, surfacing more context and matching the same row treatment across `/account` and public profiles. (`apps/web/src/app/CheckinResultCard.tsx`)
+
+### Fixed
+
+- **`GET /users/:username` response shape.** Replaced the count-only `challenges_summary` field with a full `challenges: UserChallenge[]` list (every challenge the user completed, across all neighborhoods), mirroring the shape of the already-present `badges: UserBadge[]` field. This change enables public profiles to surface the user's latest challenge in full-width row format. (`apps/api/src/app.ts`, `packages/types/src/index.ts`)
+
+## [0.42.0] — 2026-07-12
+
+### Added
+
+- **Connect with other users ("neighbors").** A mutual, request-based relationship between two accounts — deliberately called a "neighbor" rather than a "friend" throughout the UI. Send a request by username from a public profile page's new upper-right button (mirrors the neighborhood profile's Join button: "+ Add neighbor" → "Requested" → "✓ Neighbors", or "Accept request" when the other side already asked first); if both sides already have a pending request out to each other, the second one auto-accepts instead of leaving two rows pointed at each other. The account page gained a Neighbors section (add by username, accept/decline incoming requests, cancel outgoing ones, remove existing connections), and `ProfileSummaryCard` gained a 6th stat tile showing the neighbor count on both the account page and public profiles (a plain count only — like `favorite_count`, the connection list itself stays private to the two parties). New `user_connection` table; new `POST/GET /me/connections`, `POST /me/connections/:id/accept`, `DELETE /me/connections/:id` endpoints. Completes BACKLOG.md Ref 14 ("Connect with other users") and Ref 33 ("Friends/neighbors on profile"). (`supabase/migrations/20260712010000_user_connections.sql`, `apps/api/src/connections/`, `apps/api/src/app.ts`, `apps/web/src/app/account/NeighborsSection.tsx`, `apps/web/src/app/profile/[username]/NeighborRequestButton.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `packages/types/src/index.ts`)
+- **Points and badges for connecting with a neighbor.** Accepting a neighbor connection now awards 5pts to each side (first-time-only per pair, so removing and re-adding the same neighbor doesn't re-earn it), plus a new tier of "Good Neighbor" badges at 1, 5, 10, 15, … 50 accepted connections, evaluated independently of the check-in-triggered badge rule engine. `point_event.neighborhood_id` is now nullable, since a neighbor connection isn't scoped to any neighborhood. (`supabase/migrations/20260712020000_neighbor_connection_rewards.sql`, `apps/api/src/gamification/points.ts`, `apps/api/src/gamification/badges.ts`, `apps/api/src/gamification/rewards.ts`, `apps/api/src/gamification/repository.ts`)
+
+### Changed
+
+- **Neighborhood activity feed links actor and venue separately.** A row like "Chad S checked in at Uma Clinic" now renders as two independent links — the actor's name to their public profile (only when their profile is public; a masked "A user" row stays plain text), and the venue/POI name to its location page — instead of the whole sentence linking to just the venue. Backed by a new `actor_username` field on `GET /neighborhoods/:id/activity`, set only for a public-visibility actor. (`apps/web/src/app/neighborhoods/[slug]/activity/page.tsx`, `apps/api/src/activity/activity.ts`, `packages/types/src/index.ts`)
+
+## [0.41.1] — 2026-07-12
+
+### Added
+
+- **Neighborhood and location summary cards.** `NeighborhoodSummaryCard` and `LocationSummaryCard` extract the neighborhood and business/POI detail pages' header blocks into standalone, self-contained components (own `rounded-2xl bg-card-alt` card background, matching `ProfileSummaryCard`), so all three profile summary cards can be reviewed side by side on `/dev/components`. (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodSummaryCard.tsx`, `apps/web/src/app/location/[id]/LocationSummaryCard.tsx`, `apps/web/src/app/dev/components/page.tsx`)
+- **Growing-mushroom fields on neighborhood and location cards.** Both new cards grow a mushroom field like the account card, scaled from `sqrt(checkin_count)` instead of level. Unlike the account card's single repeated skin, each mushroom in a neighborhood/location field gets its own distinct skin — reading as a mosaic of the different people who checked in there, via a new `distinctMushrooms` option on the shared field renderer. (`apps/web/src/app/MushroomField.tsx`)
+- **Check-in and favorite counts on the location card.** Both business and POI cards now show Check-ins and Favorites stat tiles side by side (previously only POIs showed a check-in count, and businesses showed neither). Backed by a new `favorite_count` field on `GET /locations/:id`, computed the same way `checkin_count` already was. (`apps/api/src/locations/supabaseRepository.ts`, `apps/api/src/locations/locations.ts`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **`MushroomField` extracted as a shared component.** The scatter/cap/render logic previously inlined in `ProfileSummaryCard` now lives in its own component so the neighborhood, location, and account cards all grow their fields the same way instead of three copies of the same code. (`apps/web/src/app/MushroomField.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`)
+
+## [0.41.0] — 2026-07-12
+
+### Added
+
+- **Mushroom avatars.** Every account now has a randomly-assigned mushroom "skin" (cap color, stalk color, spot pattern), deterministic from the account id so it's stable across sessions without any new data to store. On `/account/settings`, avatar choice is now a picker between that mushroom and the account's social sign-in photo, rather than a free-text URL field — closing off an explicit-content risk where a user could point their avatar at any arbitrary image on the web. `PATCH /me/profile` no longer accepts `avatar_url` at all; it's now read-only, seeded once from the OAuth provider at signup. (`packages/ui/src/MushroomMark.tsx`, `packages/ui/src/mushroomConfig.ts`, `apps/web/src/app/Avatar.tsx`, `apps/web/src/app/account/ProfileForm.tsx`, `supabase/migrations/20260711010000_avatar_style.sql`, `packages/types/src/index.ts`, `apps/api/src/auth/`)
+- **Growing-mushroom level field on the profile summary card.** A muted green field now grows along the bottom of `ProfileSummaryCard`, with one little mushroom (in the account's own mushroom skin, scattered at random-but-stable positions) for every level reached. (`apps/web/src/app/account/ProfileSummaryCard.tsx`)
+- **Badges and Challenges stats on the profile summary card.** The card's stat row grew from 3 tiles (Favorites, Check-ins, Points) to 5, adding a Badges count and an all-time Challenges-completed count. Backed by a new `GET /me/challenges/completed-count` endpoint and repository method, since no existing query returned a user's lifetime completed-challenge count. (`apps/api/src/app.ts`, `apps/api/src/gamification/challenges.ts`, `apps/api/src/gamification/repository.ts`, `apps/web/src/app/account/ProfileSummaryCard.tsx`)
+- **Profile summary card on public profiles.** `/profile/:username` now renders the same `ProfileSummaryCard` used on the account page, rather than a bespoke header. `GET /users/:username` was extended with `checkin_count`, `favorite_count` (a count only — favorited venues themselves stay private), `points_summary`, `challenges_summary`, and `avatar_style` to support it. (`apps/web/src/app/profile/[username]/page.tsx`, `apps/api/src/app.ts`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **`MushroomMark` shared between the brand guidelines page and per-user avatars.** The full four-part mushroom renderer (previously a marketing-only `BrandMushroom` component) moved to `packages/ui` so both the `/brand` anatomy illustration and mushroom avatars render from one source of truth. (`packages/ui/src/MushroomMark.tsx`, `apps/marketing/src/app/brand/BrandMushroom.tsx`)
+
+## [0.40.0] — 2026-07-11
+
+### Added
+
+- **Badge rule engine.** ~45 new badges are now earned automatically from standalone rules evaluated on every check-in, fully independent of challenges (no shared code or foreign key — a badge can be challenge-only, rule-driven, or manually awarded, and never more than one at a time). Five rule types: category milestones (1/5/10 distinct check-ins for coffee shops, restaurants, bars, bakeries, dessert spots, breweries, wineries), POI milestones (1/5/10 distinct points of interest), daily distinct venues (5 through 50 in steps of 5), same-venue-repeat-in-a-day, and one badge per level (1 through 10). Badge rules are global (not neighborhood-scoped) and never expire, matching how the account page already aggregates badges across every neighborhood. Completes BACKLOG.md Ref 61 ("Badge catalog endpoint"). (`supabase/migrations/20260710050000_badge_rule_engine.sql`, `apps/api/src/gamification/badges.ts`, `apps/api/src/gamification/repository.ts`)
+- **`GET /badges` catalog endpoint.** Returns every badge that exists, not just ones a user has earned, so the account page can show locked badges (dimmed, dashed outline) as a preview of what's achievable alongside earned ones. (`apps/api/src/app.ts`, `apps/web/src/app/account/page.tsx`)
+- **Check-in result card.** Sliding to check in now flips the control over (a real CSS 3D transform, not a redirect) to reveal what happened — success plus any points/badges/challenges just unlocked, or a too-far/cooldown/error message with a tap-to-retry affordance. The control's height now auto-fits whichever face (slider or result) is taller, so a result with several badge chips doesn't overflow. (`apps/web/src/app/SlideToCheckIn.tsx`, `apps/web/src/app/CheckinResultCard.tsx`, `apps/web/src/app/useCheckIn.ts`)
+- **"Visit any POI" and "Visit every POI" challenges.** A new challenge target (`target_kind`) lets a challenge be satisfied by checking into *any* point of interest in the neighborhood rather than one specific venue — used to convert the old single-venue "Explore Woodland Park" into "Visit any POI" and to add a new "Visit every POI" challenge (target count computed from the neighborhood's current active POI count). (`supabase/migrations/20260710030000_challenge_any_poi_target.sql`, `apps/api/src/gamification/challenges.ts`, `packages/types/src/index.ts`)
+- **Indefinite challenges.** `Challenge.ends_at` can now be null for a challenge with no scheduled end — used for the new evergreen "Thanks for Visiting Phinneywood" challenge (completed by a single check-in anywhere in the neighborhood) instead of a far-future placeholder date. (`supabase/migrations/20260710040000_summer_series_and_indefinite_challenges.sql`)
+- **Summer Series challenges.** Coffee Crawl, Visit any POI, and Visit every POI now share a summer-long window (July 1 – Sept 22), joined by four new category challenges (Bar Hop, Bakery Tour, Taste of Phinneywood, Retail Therapy) with matching badges. (`supabase/migrations/20260710040000_summer_series_and_indefinite_challenges.sql`)
+- **Internal component library page.** `/dev/components` (not linked from any nav) renders real production components — e.g. `PlaceListItem` + `SlideToCheckIn` — pinned to specific states (too far, API failed, success with 0/1/4 badges, challenge complete, challenge complete + badges) via a dev-only `mockResolution` prop, so every check-in outcome can be reviewed side by side and by actually sliding, without a live backend. (`apps/web/src/app/dev/components/page.tsx`)
+
+### Changed
+
+- **Check-in points/challenges/badges response.** `POST /locations/:id/checkins` now returns a `rewards` object (points earned, challenges completed, badges earned) alongside the check-in itself, replacing a bare check-in response that gave the client no way to show what a check-in unlocked. (`apps/api/src/gamification/rewards.ts`, `packages/types/src/index.ts`)
+- **User level moved server-side.** `GET /me/points` now returns `level`/`points_into_level`/`points_to_next_level` computed by the API, so the account page and the new level-reached badges always agree on the same number instead of each computing it independently client- and server-side. (`apps/api/src/gamification/points.ts`, `apps/web/src/app/account/ProfileSummaryCard.tsx`)
+
+## [0.39.0] — 2026-07-10
+
+### Added
+
+- **Happening now tab.** New default tab on the neighborhood profile page showing events currently in progress plus businesses/POIs that are open right now, per a new `isOpenNow` parser over each location's cached weekday hours text. Completes BACKLOG.md Ref 27 ("What's happening now"). (`apps/api/src/locations/hours.ts`, `apps/api/src/locations/happeningNow.ts`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`)
+- **Recent activity tab.** New tab showing a neighborhood-wide feed of the ~50 most recent check-ins, favorites, challenge completions, and badge unlocks across every user, with actor names shown for public profiles and masked to "A user" for private ones. Uses the same dot-and-line `Timeline` UI as the account/profile pages' "Recent check-ins". (`apps/api/src/activity/`, `apps/web/src/app/neighborhoods/[slug]/activity/`, `apps/web/src/app/Timeline.tsx`)
+- **Manage button for neighborhood admins.** The neighborhood profile page now shows a "Manage" button next to "Joined" for a signed-in user who administers that specific neighborhood, linking straight into its admin dashboard. (`apps/web/src/app/neighborhoods/[slug]/ManageNeighborhoodButton.tsx`)
+
+### Changed
+
+- **Upcoming events tab now includes business events.** `GET /neighborhoods/:id/events` merges neighborhood-owned events with events from businesses in the neighborhood, sorted by start time; `Event` gained a `venue_name` field so the tab can show which business is hosting. (`apps/api/src/events/`, `packages/types/src/index.ts`)
+- **Venues tab renamed to Locations and merged with Points of interest.** `/neighborhoods/:slug/venues` is now `/neighborhoods/:slug/locations` (no redirect) and shows both businesses and neighborhood-owned POIs in one list/map, folding in what was the standalone Points of interest tab. POIs with no cached lat/lng (BACKLOG.md Ref 51) are excluded from the merged list rather than plotted at a bogus position. (`apps/web/src/app/neighborhoods/[slug]/locations/`)
+- **Challenges and Leaderboard merged into one tab.** Challenges are shown on top with the points leaderboard below, replacing what were two separate tabs. (`apps/web/src/app/neighborhoods/[slug]/challenges/page.tsx`)
+- **Neighborhood tab navigation uses client-side routing.** The subnav now uses `next/link` instead of plain anchor tags, so switching tabs no longer triggers a full browser page reload and Next.js can prefetch each tab in the background; navigation also skips the default scroll-to-top so it doesn't read as a full reload. (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`)
+- **`CheckinTimeline` extracted onto a shared `Timeline` component.** No visual change on the account/profile pages — the dot-and-connecting-line layout moved into a reusable component now also used by the Recent activity tab. (`apps/web/src/app/CheckinTimeline.tsx`, `apps/web/src/app/Timeline.tsx`)
+
+### Removed
+
+- **Standalone Points of interest tab.** Folded into the renamed Locations tab above. (`apps/web/src/app/neighborhoods/[slug]/pois/`)
+
+## [0.38.0] — 2026-07-10
+
+### Added
+
+- **POI enrichment parity with venues.** Businesses and points of interest are now served by the same enrichment system, so a POI's detail page shows the same ratings/hours/photos/reviews a venue gets — previously only venues received enrichment from Google Places even though both can link to the same Place ID. Backed by a generalized `venue_enrichment_cache` supporting either kind and new `GET /locations/:id` endpoints replacing the separate `GET /venues/:id` + `GET /pois/:id`. Completes BACKLOG.md Ref 59. (`apps/api/src/enrichment/`, `supabase/migrations/20260710010000_poi_enrichment_parity.sql`)
+- **Claim revoke action for neighborhood admins.** An already-approved business claim can now be un-approved via a new `POST /neighborhood-admin/neighborhoods/:id/claims/:claimId/revoke` endpoint, needed to unblock switching a claimed business to POI kind (which is never allowed while claimed). The admin interface shows a "Revoke" button on approved claims. Completes BACKLOG.md "POIs and venues managed almost the same". (`apps/api/src/claims/claims.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/claims/page.tsx`)
+- **In-place location kind switching.** Admins can now switch an existing location between business and POI kind in a single action via `PATCH /neighborhood-admin/neighborhoods/:id/locations/:locationId/kind`, replacing the old workflow of hiding a venue and recreating it as a POI. Blocked (409) if the location is currently claimed. (`apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`)
+
+### Changed
+
+- **Venue and POI merged into a single location entity.** The separate `poi` table is gone; both businesses and neighborhood-owned points of interest now live in the `venue` table with a `kind` column (`'business' | 'poi'`), so switching kinds is a single in-place `UPDATE` instead of a hide-then-recreate workflow. All dependent tables (`checkin`, `point_event`, `challenge`, `venue_enrichment_cache`) now use a single `venue_id` column instead of nullable `venue_id`/`poi_id` pairs. Type system updated: `Venue` now includes `kind`, `type`, and `description` fields (previously POI-only), and separate `Poi` / `PoiDetail` types were removed. Completes BACKLOG.md Ref 45 ("POIs and venues managed almost the same"). (`supabase/migrations/20260710010000_poi_enrichment_parity.sql`, `supabase/migrations/20260710020000_merge_venue_poi.sql`, `packages/types/src/index.ts`, `apps/api/src/locations/`, `apps/web/src/app/location/`)
+- **Public routes consolidated from two detail pages to one.** `/venues/:id` and `/pois/:id` merged into a single `/location/:id` route that branches on `kind` to show the appropriate UI — claim form/social links/announcements/events for businesses, type/description for POIs. (`apps/web/src/app/location/`)
+- **API detail endpoint merged.** `GET /venues/:id` and `GET /pois/:id` merged into `GET /locations/:id`, returning the merged `VenueDetail` type (no separate `PoiDetail`). `GET /locations/:id/photo` replaces both `/venues/:id/photo` and `/pois/:id/photo`. (`apps/api/src/app.ts`)
+- **Admin location routes consolidated.** Separate `/neighborhood-admin/neighborhoods/:id/venues*` and `/neighborhood-admin/neighborhoods/:id/pois*` routes merged into unified `/neighborhood-admin/neighborhoods/:id/locations*`, with all actions (create, read, update, delete, status change, category reassign) on both kinds in one place and with consistent naming. New `PATCH .../locations/:locationId/kind` action replaces the old "Convert to POI" hide-and-recreate workflow. (`apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/`)
+- **Generalized enrichment module.** The separate `apps/api/src/venues/enrichment.ts` and `apps/api/src/venues/supabaseDetailRepository.ts` modules are replaced by a unified `apps/api/src/enrichment/` module serving both location kinds. (`apps/api/src/enrichment/`)
+- **URL map updated.** Every route change reflected in `docs/url-map.md`, including the new History section documenting the full scope of the venue/POI merge. (`docs/url-map.md`)
+
+### Removed
+
+- **Separate `/venues/:id` and `/pois/:id` detail pages.** Both merged into `/location/:id`; no redirects (pre-launch). (`apps/web/src/app/pois/[id]/`, `apps/web/src/app/venues/[id]/`)
+- **Category mapping module.** Responsibility folded into the generalized `locations/` domain. (`apps/api/src/categoryMapping/`)
+- **POI-specific repository files.** `apps/api/src/pois/`, `apps/api/src/venues/detailRepository.ts`, and enrichment-specific files merged into `apps/api/src/locations/` and `apps/api/src/enrichment/`. (`apps/api/src/pois/`, `apps/api/src/venues/enrichment.ts`, `apps/api/src/venues/supabaseDetailRepository.ts`)
+
+## [0.37.0] — 2026-07-10
+
+### Added
+
+- **Brand guidelines page.** A new `/brand` page on the marketing site documents the Spored mark's four-part anatomy (cap, spot pattern, stalk, background), logo lockups (horizontal/reversed/stacked/mark-only), the six spot patterns (none/solo/classic/rings/sparks/halftone), the full color palette, favicon/app-icon usage, a generated-identity concept preview (per-user/neighborhood mushrooms, community mosaics), and do/don't usage rules. Imported from the "Spored: Mycelial Network Design" Claude Design project. (`apps/marketing/src/app/brand/`)
+
+### Changed
+
+- **Mushroom logo now shows its spot pattern.** `MushroomLogo` (used for the nav logo, map/list pins, and the slide-to-check-in thumb across both apps) previously rendered as a plain cap and stem; it now includes the brand system's "classic" three-spot pattern on the cap, colored to match the stem, bringing every existing usage in line with the documented mark anatomy without any call-site changes. (`packages/ui/src/MushroomLogo.tsx`)
+- **New favicon and app icon everywhere.** Replaced the default Next.js favicon in both `apps/web` and `apps/marketing` with the brand's golden-cap-on-cocoa-squircle mark (`icon.svg`, regenerated `favicon.ico`, and a new `apple-icon.png` for iOS home-screen/bookmark icons). Both apps' mobile browser chrome (`theme-color`) now matches the brand's cocoa nav color instead of defaulting to white. (`apps/web/src/app/`, `apps/marketing/src/app/`)
+- **Marketing nav/footer extracted into shared components.** With a second real page (`/brand`) now sharing the homepage's chrome, the sticky nav and footer moved out of `page.tsx` into `MarketingNav.tsx`/`MarketingFooter.tsx`; the nav gained a "Brand" link. (`apps/marketing/src/app/MarketingNav.tsx`, `apps/marketing/src/app/MarketingFooter.tsx`, `apps/marketing/src/app/page.tsx`)
+- **JetBrains Mono added as a brand typeface.** Used for the small mono-styled labels (spec numbers, hex codes, captions) on the new brand guidelines page. (`packages/ui/src/fonts.ts`)
+
+## [0.36.0] — 2026-07-09
+
+### Added
+
+- **Marketing site separated from the app.** The marketing homepage moves out of `apps/web` into a new standalone `apps/marketing` Next.js app, deployed as its own Netlify site to `tryspored.com` — `apps/web` becomes `app.tryspored.com`-only, clearing the way for upcoming terms/privacy/brand/FAQ/changelog pages to live alongside the homepage instead of inside the app. `apps/web`'s `/` now redirects to `/account` (signed in) or `/login` (signed out) instead of showing marketing content, and `SiteChrome.tsx` (which existed only to hide app chrome on that route) was removed. `MushroomLogo` and the brand fonts/colors moved into a new shared `packages/ui` package consumed by both apps. (`apps/marketing/`, `packages/ui/`, `apps/web/src/app/page.tsx`, `apps/web/src/app/layout.tsx`)
+- **Dedicated `/checkin` page for quick access.** The account page's "Check in nearby" section (nearest-venue list + slide-to-check-in) moved to its own `/checkin` route, and the nav gained a check-in icon button (signed in only) next to the hamburger menu — checking in no longer requires loading the rest of the account page first. (`apps/web/src/app/checkin/page.tsx`, `apps/web/src/app/checkin/NearestVenues.tsx`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/account/page.tsx`)
+
+### Changed
+
+- **Nav logo links to your home neighborhood when signed in.** Previously always linked to `/`; now takes you straight to your neighborhood if you have one set. (`apps/web/src/app/AccountNav.tsx`)
+- **Google sign-in now lands on My account, matching email/password login.** Previously redirected to the homepage. (`apps/web/src/app/auth/callback/page.tsx`)
+- **"Continue with Google" moved above the email/password form on login and signup.** Social sign-in is now the first option on both pages instead of a secondary link below the form. (`apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`)
+- **Check-in slider is now fully rounded to stand out as an interactive control.** Previously shared the same corner radius as static cards; now pill-shaped like the track/thumb inside it. (`apps/web/src/app/venues/[id]/SlideToCheckIn.tsx`)
+
+## [0.35.1] — 2026-07-09
+
+### Changed
+
+- **Profile page now shows recent check-ins the same way as the account page.** The public profile's activity section was text-only; it now displays recent check-ins as a visual timeline of colored dots, matching the account page's display and making recent activity immediately scannable. The timeline component was extracted into a shared `CheckinTimeline.tsx` so both pages use identical styling and behavior. (`apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/app/CheckinTimeline.tsx`, `apps/web/src/app/account/page.tsx`)
+
+### Fixed
+
+- **Light/dark theme overrides now apply to the neighborhood map.** The map's venue/POI marker colors and legend text are now aware of the forced theme override from the hamburger menu (light/dark/system) — previously they only followed the OS's `prefers-color-scheme`, so manually toggling to dark mode on a device with a light OS preference would leave the map on the wrong color palette. Added `getResolvedTheme()` and `subscribeToThemeChanges()` helpers to `lib/theme.ts` to let non-CSS consumers (Google Maps marker coloring, map legend text) coordinate with the app's theme preference system. (`apps/web/src/app/neighborhoods/[slug]/MapView.tsx`, `apps/web/src/lib/theme.ts`)
+- **Comprehensive theme token migration across 25 admin and business pages.** Every remaining page using hardcoded black/zinc/white color classes is now restyled to use the same Spored design tokens (`text-foreground`, `text-muted`, `bg-card`, `bg-card-alt`, `border-border`, `bg-brand-purple`/`text-on-accent`, etc.) as the core app — this ensures light/dark theming is consistently applied everywhere, not just on the most-frequently-visited surfaces. Affected: login/signup/OAuth callback, business portal and all its forms (announcements/events/social links), neighborhood admin dashboard and every admin surface (overview, boundary drawing, business claims, locations tab, locations review wizard, and all nested forms), the category taxonomy admin page, and the neighborhood map legend. (`apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`, `apps/web/src/app/auth/callback/page.tsx`, `apps/web/src/app/business/page.tsx`, `apps/web/src/app/business/[venueId]/`, `apps/web/src/app/neighborhood-admin/**`, `apps/web/src/app/admin/category-taxonomy/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/MapView.tsx`)
+
+## [0.35.0] — 2026-07-09
+
+### Added
+
+- **Full marketing homepage.** The landing page stub (hero + a link to `/neighborhoods`) is replaced with a complete marketing homepage: hero with an app-preview mockup, "How Spored works" three-step section, leaderboard teaser with live-style stats, a neighborhood coverage map, a business pitch section with a claim-your-listing card, and a final call-to-action — plus its own sticky nav (How it works / Neighborhoods / For businesses anchors, Sign in, Get the app) and footer. A new `SiteChrome.tsx` swaps out the shared `AccountNav`/`Footer` for this page's own nav/footer on `/` only, leaving every other route unchanged. (`apps/web/src/app/page.tsx`, `apps/web/src/app/SiteChrome.tsx`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/globals.css`)
+- **Search box and business/member counts on the "All neighborhoods" browse list.** Each neighborhood card now shows its active business count and member count (🍄/👥), and a search box filters the list by name/city/state as you type. Backed by a new `GET /neighborhoods` field (`business_count`, `member_count`) sourced from a new `get_neighborhood_list_counts` Postgres RPC that aggregates both counts for every neighborhood in one grouped query, rather than the per-neighborhood count calls the single-neighborhood profile page uses. (`apps/web/src/app/neighborhoods/NeighborhoodsSection.tsx`, `apps/api/src/app.ts`, `apps/api/src/neighborhoods/repository.ts`, `apps/api/src/neighborhoods/supabaseRepository.ts`, `packages/types/src/index.ts`, `supabase/migrations/20260709030000_neighborhood_list_counts_fn.sql`)
+
+## [0.34.0] — 2026-07-09
+
+### Added
+
+- **Hamburger menu with a Light/Dark/System theme picker.** The top nav's flat row of account links (home neighborhood, My account, Business portal, Neighborhood admin, log in/out) is replaced with a hamburger button opening a dropdown menu, which now also includes an explicit theme toggle — previously the app only followed the OS's `prefers-color-scheme`, with no way to override it. The choice persists in `localStorage` and applies via a `data-theme` attribute, set by a pre-hydration script so there's no flash of the wrong theme on load. (`apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/ThemeToggle.tsx`, `apps/web/src/lib/theme.ts`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/globals.css`)
+- **Dedicated `/neighborhoods` browse page.** Neighborhood browsing and join/leave (`NeighborhoodsSection`) moves off the landing page onto its own `/neighborhoods` route, so it has room to grow independently of the homepage. (`apps/web/src/app/neighborhoods/page.tsx`, `apps/web/src/app/neighborhoods/NeighborhoodsSection.tsx`)
+- **Shared `PlaceListItem` row style for venue/POI lists.** A new component (colored mushroom pin, bold name, muted subtitle line) unifies how venues and POIs are listed across the app — previously each list (neighborhood Venues/POI tabs, account page's nearby/favorite venues, public profile check-ins) had its own slightly different markup. (`apps/web/src/app/PlaceListItem.tsx`)
+
+### Changed
+
+- **Landing page (`/`) simplified to a stub.** The full neighborhoods browse/join list and the API health-check debug widget are gone from `/` (the former moved to `/neighborhoods`, the latter was dev-only scaffolding) — `/` is now just a hero and a "Browse neighborhoods" link, pending a future homepage redesign. (`apps/web/src/app/page.tsx`)
+- **Account settings page and profile form now follow the theme system.** These had been left on the pre-rebrand hardcoded black/zinc color classes and didn't respond to the theme picker above; they're restyled onto the same design tokens (`bg-card-alt`, `text-foreground`, `text-muted`, `text-brand-purple`, …) as the rest of the app. (`apps/web/src/app/account/settings/page.tsx`, `apps/web/src/app/account/ProfileForm.tsx`)
+- **Every check-in touchpoint now uses the slide-to-check-in gesture.** The POI detail page and the account page's top nearby-venue row previously used a plain tap button (`CheckInButton.tsx`); both now use the same full-width slide gesture as the venue detail page, so there's one consistent "commit to this action" interaction everywhere instead of two. Completes BACKLOG.md Ref 24. (`apps/web/src/app/pois/[id]/page.tsx`, `apps/web/src/app/account/NearestVenues.tsx`, `apps/web/src/app/venues/[id]/SlideToCheckIn.tsx`, `apps/web/src/app/venues/[id]/useCheckIn.ts`)
+- **Account page's "Check in nearby" now caps at 5 venues** (was 10), with the slide-to-check-in control only on the first row — the rest list as plain rows, keeping the section a quick nearby-venues glance rather than a long list of sliders. (`apps/web/src/app/account/NearestVenues.tsx`)
+- Neighborhood Venues/POI tabs, account page's Favorite venues, and public profile's Recent check-ins now use the shared `PlaceListItem` row style instead of each having their own markup. (`apps/web/src/app/neighborhoods/[slug]/VenuesView.tsx`, `apps/web/src/app/neighborhoods/[slug]/pois/page.tsx`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/profile/[username]/page.tsx`)
+
+### Removed
+
+- **Per-row check-in link on the neighborhood POI list.** Check-in is still available from a POI's own detail page; the list row itself is now just a link to that page, matching the plain-link style of the Venues tab. (`apps/web/src/app/neighborhoods/[slug]/pois/page.tsx`)
+- `CheckInButton.tsx`, now unused — every former caller was migrated to `SlideToCheckIn`. (`apps/web/src/app/venues/[id]/CheckInButton.tsx`)
+
+## [0.33.0] — 2026-07-09
+
+### Added
+
+- **Spored visual rebrand with light/dark theme support.** The app is reskinned end to end under a new "Spored" mycelial-network identity, replacing the previous plain black/white/zinc styling: a warm cream/umber palette in light mode and a deep umber/charcoal palette in dark mode (`prefers-color-scheme`), Baloo 2 (headings) and Nunito (body) fonts in place of Geist, and a new mushroom-mark logo (`MushroomLogo.tsx`) used as the nav brand mark, map/list pins, and the check-in control's thumb icon — its cap color and glow respond to the active theme automatically instead of being frozen to one palette. New shared design tokens (`--card`, `--card-alt`, `--nav`, `--muted`, `--body-text`, `--ink`, `--on-accent`, `--brand-orange/amber/green/purple`) back every restyled surface. (`apps/web/src/app/globals.css`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/MushroomLogo.tsx`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/app/Footer.tsx`, `apps/web/src/app/page.tsx`)
+- **Drag-to-check-in gesture on the venue page.** The venue detail page's check-in button is replaced with a full-width slide-to-confirm control (`SlideToCheckIn.tsx`) — drag the mushroom thumb past 70% of the track to check in, mirroring the physical-friction interaction planned for coupon redemption (BACKLOG.md Ref 20/24). The plain tap button (`CheckInButton.tsx`) remains for compact contexts (account page's nearby-venues list, neighborhood POI list) and now shares the same GPS geofence/cooldown logic via an extracted `useCheckIn` hook rather than duplicating it. (`apps/web/src/app/venues/[id]/SlideToCheckIn.tsx`, `apps/web/src/app/venues/[id]/useCheckIn.ts`, `apps/web/src/app/venues/[id]/CheckInButton.tsx`, `apps/web/src/app/venues/[id]/page.tsx`)
+- **Level/points progress bar on the account page, and challenge progress bars.** The account page's profile summary now shows a "Level N forager" progress bar toward the next level (50 points per level) alongside favorite/check-in/point stat tiles, and each neighborhood challenge card shows a visual progress bar toward its target instead of a bare "x/y" count — both driven by a new shared `ProgressBar` component. (`apps/web/src/app/ProgressBar.tsx`, `apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+- **Collapsible "today's hours" on the venue page.** Opening hours now show a single collapsed "today" line by default, expanding to the full weekly list on tap, instead of always listing every day. (`apps/web/src/app/venues/[id]/VenueHours.tsx`, `apps/web/src/app/venues/[id]/page.tsx`)
+- **Decorative mycelial map banner on neighborhood pages.** Neighborhood profile pages gain a stylized two-tone map banner with scattered mushroom pins (not tied to real venue coordinates) as a header visual. (`apps/web/src/app/neighborhoods/[slug]/NeighborhoodMapArt.tsx`, `apps/web/src/app/neighborhoods/[slug]/layout.tsx`)
+
+### Changed
+
+- **Venue page: photo strip promoted above the fold, reviews get avatar chips.** The venue detail page now shows the photo strip immediately under the back link (previously buried inside the enrichment card) and gives each review an avatar-style initial chip colored per reviewer name instead of a plain italic quote list. (`apps/web/src/app/venues/[id]/page.tsx`)
+- **Account page: Wishlist/Coupons placeholders now sit side by side, and the check-in section is relabeled "Check in nearby".** (`apps/web/src/app/account/page.tsx`)
+
+### Fixed
+
+- Two dark-mode contrast bugs introduced while restyling: the leaderboard's #1 row and the slide-to-check-in track were using the theme's page background/foreground tokens instead of the always-dark nav tokens, so they rendered as a bright bar in dark mode instead of staying dark chrome. (`apps/web/src/app/neighborhoods/[slug]/page.tsx`, `apps/web/src/app/venues/[id]/SlideToCheckIn.tsx`)
+
+## [0.32.1] — 2026-07-08
+
+### Changed
+
+- **Expanded Google Places enrichment: hours, contact, multiple photos/reviews.** Venue pages previously showed only a rating, price tier, one review snippet, and one photo — even though Google's response already included up to 5 reviews and 10 photos at the same billing tier already being paid for (`reviews`/`photos` already put every call at the top "Enterprise + Atmosphere" SKU). Venue detail pages now also show opening hours, phone/website links, an editorial summary, atmosphere badges (dine-in, takeout, delivery, outdoor seating, reservations, good for kids), a scrollable photo strip, and every cached review instead of just the first. `venue_enrichment_cache` moved from single-value `photo_url`/`review_snippet` columns to `photo_refs`/`reviews` arrays plus new `phone`/`website`/`hours`/`editorial_summary`/`atmosphere` columns; `GET /venues/:id/photo` gained an `?index=` param to select among the cached photos. Completes BACKLOG.md Ref 41. (`apps/api/src/places/client.ts`, `apps/api/src/venues/`, `apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/page.tsx`, `packages/types/src/index.ts`, `supabase/migrations/20260709020000_expand_venue_enrichment.sql`, `docs/url-map.md`)
+
+## [0.32.0] — 2026-07-08
+
+### Fixed
+
+- **Check-ins from a device logged into an account for the first time never counted toward that account.** `anonymous_device_id` only got linked to an account when the device already had prior anonymous check-in/favorite history to merge (`completeLogin`) or a matching anonymous row already existed (`completeSignup`) — a device with no history at all (e.g. a second device, like a phone, logged into an existing account before ever checking in on it) was left unlinked. Every check-in made from it afterward looked up that same still-unclaimed device id, found no account, and silently created a brand-new anonymous `app_user` instead — so the check-in and its points never showed up on the real account, even though the underlying `checkin` row existed and still counted toward venue/neighborhood totals. Login and signup now link the current device to the account even when there's no history to merge. Existing check-ins already stranded under a phantom anonymous user recover automatically the next time that device logs out and back in (the merge path itself already migrates them correctly). (`apps/api/src/auth/auth.ts`, `apps/api/src/auth/repository.ts`, `apps/api/src/auth/supabaseRepository.ts`)
+
+## [0.31.0] — 2026-07-08
+
+### Added
+
+- **Badges on the public profile and account pages.** Badges earned from completing neighborhood challenges or from the founder award previously only showed up inside a neighborhood's challenge list, invisible everywhere else. Both `/profile/:username` and `/account` now show a "Badges" section listing every badge a user has earned across every neighborhood, reusing the existing badge-emoji icon. Backed by a new `GET /me/badges` endpoint and a `badges` field on `GET /users/:username`, both reading from a new cross-neighborhood `getUserBadges` repository method (previously, badge data only existed scoped to one neighborhood's challenge templates). Completes BACKLOG.md Ref 55. (`apps/api/src/gamification/`, `apps/api/src/app.ts`, `apps/web/src/app/profile/[username]/page.tsx`, `apps/web/src/app/account/page.tsx`, `packages/types/src/index.ts`)
+
+## [0.30.0] — 2026-07-08
+
+### Added
+
+- **POI landing pages.** Points of interest (parks, transit stops, landmarks) now have their own detail page at `/pois/:id`, mirroring the venue detail page: name, type, address, description, and the check-in button, plus a link back to the owning neighborhood. The neighborhood profile's Points of interest tab now links each POI's name to its new page instead of showing plain text. Backed by a new public `GET /pois/:id` endpoint (hidden POIs 404, same as a missing one). Completes BACKLOG.md Ref 46. (`apps/api/src/pois/`, `apps/api/src/app.ts`, `apps/web/src/app/pois/[id]/`, `apps/web/src/app/neighborhoods/[slug]/pois/page.tsx`, `packages/types/src/index.ts`, `docs/url-map.md`)
+- **Profile stats on neighborhood and POI pages.** The neighborhood profile page now shows stat cards for business count, active POI count, member count, and total check-ins across the neighborhood's venues and POIs — none of that was visible anywhere before. The new POI detail page shows its own check-in count, using the same stat-card style already used on the business owner dashboard. Completes BACKLOG.md Ref 58. (`apps/api/src/checkins/`, `apps/api/src/pois/`, `apps/api/src/venues/`, `apps/api/src/neighborhoodMembers/`, `apps/api/src/app.ts`, `apps/web/src/app/StatCard.tsx`, `apps/web/src/app/neighborhoods/[slug]/layout.tsx`, `apps/web/src/app/pois/[id]/`, `packages/types/src/index.ts`)
+
+## [0.29.0] — 2026-07-09
+
+### Added
+
+- **Bulk Google Places review, and boundary redraw reconciliation.** The Locations tab gained a "Review Places" wizard (`/neighborhood-admin/:slug/locations/review`): an admin-triggered query against the neighborhood's saved boundary lists Google Places candidates not yet a business or POI (deduped against existing rows the same way the sync pipeline already dedupes), and the admin bulk-classifies each as a claimable business, a neighborhood-owned point of interest, or omits it. The same wizard also reconciles a redrawn boundary — every active business/POI whose location no longer falls inside the neighborhood's current boundary is listed as a proposed removal, which the admin must explicitly check before it's hidden (never auto-hidden, never deleted, so check-in/points history survives). The Boundary tab now links into this wizard with a "Review changes now" prompt after a successful save, rather than reconciling automatically. Completes BACKLOG.md Ref 29 and Ref 54. (`apps/api/src/locations/review.ts`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/review/`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/page.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/boundary/page.tsx`, `packages/types/src/index.ts`, `docs/url-map.md`, `BACKLOG.md`)
+
+## [0.28.0] — 2026-07-09
+
+### Added
+
+- **Locations tab: full POI management, merged with venues.** The neighborhood-admin "Venues" tab is now "Locations," listing businesses and neighborhood-owned points of interest (parks, transit stops, landmarks) together, with a "Claimed" pill on businesses that have an approved claim. POIs reach CRUD parity with venues: admins can create, edit, hide/restore, and delete a POI directly from this tab (delete is blocked with a clear message if the POI has check-in or points history, since it would otherwise be silently wiped rather than preserved). All existing venue actions (category reassignment, hide/restore, convert-to-POI) are unchanged. First step of BACKLOG.md Ref 29 — bulk Google Places review/curation remains open. (`supabase/migrations/20260709010000_poi_status.sql`, `apps/api/src/pois/`, `apps/api/src/categoryMapping/`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/PoiForm.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/layout.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/page.tsx`, `packages/types/src/index.ts`, `docs/url-map.md`)
+
+## [0.27.0] — 2026-07-08
+
+### Added
+
+- **Venue omission and reclassification.** Neighborhood admins can now hide a venue from the Venues tab without deleting it — checkin/favorite/claim history stays intact, and the venue simply drops off the neighborhood's public venue list/map and its own detail page. A hidden venue can be restored as a business again, or converted into a neighborhood-owned point of interest (prefilling the existing "Add POI" form with the venue's name/location/address). `poi` rows gained `google_place_id`/`address` columns so a POI created this way keeps the same Google Places linkage a venue would. (`supabase/migrations/20260708020000_venue_status.sql`, `apps/api/src/categoryMapping/`, `apps/api/src/pois/`, `apps/api/src/venues/supabaseDetailRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/venues/page.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/PoiForm.tsx`, `packages/types/src/index.ts`, `docs/url-map.md`)
+
+## [0.26.0] — 2026-07-08
+
+### Added
+
+- **Admin portal: neighborhood boundary drawing.** Internal staff can now draw a neighborhood's geographic boundary directly on a map instead of hand-authoring GeoJSON — click to place vertices, drag to adjust, then run a dry-run Google Places query against the drawn shape (plotted as markers on the same map) to confirm it captures the right businesses before saving. A new `/neighborhood-admin/new` page creates a neighborhood (name/slug/city/state/country/timezone) together with its boundary in one step, starting in `onboarding` status; a new "Boundary" tab on each neighborhood's admin page re-edits an existing boundary the same way. Turns onboarding a second neighborhood into a data workflow instead of a code change. (`supabase/migrations/20260708010000_neighborhood_boundary_admin_fns.sql`, `apps/api/src/neighborhoods/`, `apps/api/src/places/preview.ts`, `apps/api/src/places/sync.ts`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/BoundaryMap.tsx`, `apps/web/src/app/neighborhood-admin/new/`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/boundary/`, `packages/types/src/index.ts`, `docs/url-map.md`)
+
+### Fixed
+
+- **Check-in cooldown message didn't say which cooldown was active.** "Already checked in here recently" showed even when the block was actually the 2-minute cross-venue cooldown from checking in somewhere *else* seconds ago — not this venue. The check-in API now reports which cooldown fired (`target` vs. `global`), and the check-in button shows the correct message for each. (`apps/api/src/checkins/checkin.ts`, `apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/CheckInButton.tsx`)
+
+## [0.25.1] — 2026-07-08
+
+### Added
+
+- **Badge icons.** Badges earned from challenges now render an actual glyph (currently an emoji mapped from the existing `badge.icon` code, e.g. ☕ for "coffee", 🧭 for "compass", ⭐ for "star", with a 🏅 fallback for unrecognized codes) instead of just showing up as a name in the challenge list. (`apps/web/src/app/BadgeIcon.tsx`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`)
+
+### Changed
+
+- **Neighborhood page split into subnav tabs.** The neighborhood profile page's Venues, Challenges, Upcoming events, Points of interest, and Leaderboard sections — previously one long vertical scroll — are now separate tabs (Leaderboard is the default landing tab), each its own route so it's directly linkable and only fetches the data it needs. (`apps/web/src/app/neighborhoods/[slug]/layout.tsx`, `apps/web/src/app/neighborhoods/[slug]/NeighborhoodTabs.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/challenges/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/events/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/pois/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/venues/page.tsx`, `docs/url-map.md`)
+- **Tighter page padding on mobile.** Every top-level page's outer container used a fixed `p-16` (64px) padding regardless of viewport, eating a large share of the screen width on phones. Padding now scales down to `p-4` (16px) below the `sm` breakpoint and stays at `p-16` above it, across all 14 top-level pages. (`apps/web/src/app/**/page.tsx`, `apps/web/src/app/**/layout.tsx`, `apps/web/src/app/business/[venueId]/BusinessVenueDashboard.tsx`)
+
+## [0.25.0] — 2026-07-08
+
+### Fixed
+
+- **Check-ins/favorites made right after signing in could silently lose their points.** `mergeAnonymousHistory` (run when a device with prior anonymous check-in history logs into an account) reassigned check-ins onto the account but then deleted the anonymous row outright, which cascade-deleted that row's `point_event`/`favorite`/`user_badge`/`user_challenge_completion` rows before they could be moved over — wiping out already-earned points and badges even though the check-ins themselves survived. The merge now runs as a single DB transaction (`merge_anonymous_user_history`) that migrates those rows first. A new backfill recovers points lost to this bug for existing accounts. (`supabase/migrations/20260708000000_fix_merge_anonymous_history_data_loss.sql`, `supabase/migrations/20260708000001_backfill_missing_checkin_favorite_points.sql`, `apps/api/src/auth/supabaseRepository.ts`)
+- **Points could silently fail to award on a fresh check-in or favorite.** The points/challenge award ran as a fire-and-forget promise *after* the HTTP response was already sent; since this API runs as a Netlify/Lambda function, the runtime can freeze the execution environment as soon as the response completes, so that pending work wasn't guaranteed to finish. Points are now awarded before the response is sent (still without failing the check-in/favorite itself if the award errors). (`apps/api/src/app.ts`)
+
+## [0.24.0] — 2026-07-07
+
+### Added
+
+- **Founding member badge.** Every account now automatically earns a "Founder" badge at signup, recognizing early participation while Blockwise is still pre-launch — the same recognition a completed challenge already earns (v0.22.0), just for being here first. All pre-existing accounts were backfilled with the badge too. This auto-award is meant to stop once v1.0.0 ships (tracked in `BACKLOG.md` Ref 52). (`supabase/migrations/20260707060000_founder_badge.sql`, `supabase/migrations/20260707070000_founder_badge_backfill.sql`, `apps/api/src/gamification/founderBadge.ts`, `apps/api/src/gamification/repository.ts`, `apps/api/src/app.ts`)
+- **Account settings page.** Profile editing, account details, and neighborhood-membership management (including the home-neighborhood picker) moved off the main account page onto a new `/account/settings` page, linked from a new "Settings" link on `/account` — keeping the main account page focused on activity (profile summary, check-in, favorites, check-ins) instead of competing with form fields. (`apps/web/src/app/account/settings/page.tsx`, `apps/web/src/app/account/page.tsx`, `docs/url-map.md`)
+- **Home neighborhood shown in the main nav.** Signed-in users now see a link to their home neighborhood in the top nav bar, alongside the existing account/business/admin links. (`apps/web/src/app/AccountNav.tsx`)
+
+### Fixed
+
+- **Backfilled points for check-ins/favorites made before points existed.** Points/badges (v0.22.0) only accrued from check-ins and favorites made after it shipped; existing history now earns the same points it would have live (10pts/check-in, 5pts/first-time favorite), so early users' leaderboard totals reflect their actual activity. (`supabase/migrations/20260707080000_backfill_checkin_favorite_points.sql`)
+
+## [0.23.0] — 2026-07-07
+
+### Added
+
+- **Account page profile summary and check-in-first layout.** The account page now opens with a profile summary card (avatar, favorite count, check-in count, and an all-time points total via a new `GET /me/points`), with the favorite/check-in counts linking down to their full lists on the same page. Below it, a new "Check in" section lists the nearest venues in the user's home neighborhood (sorted by device location when available, falling back to alphabetical), each with its own one-tap check-in button, so checking in doesn't require navigating to a specific venue page first. (`apps/web/src/app/account/ProfileSummaryCard.tsx`, `apps/web/src/app/account/NearestVenues.tsx`, `apps/web/src/app/account/page.tsx`, `apps/api/src/gamification/`, `apps/api/src/app.ts`, `packages/types/src/index.ts`)
+- **Sort neighborhood venues by proximity.** The venues list on a neighborhood page now has an A-Z / Nearest toggle alongside the existing List/Map toggle — "Nearest" sorts by distance from the device's current location (prompting for location access on first use) instead of always defaulting to alphabetical. (`apps/web/src/app/neighborhoods/[slug]/VenuesView.tsx`, `apps/web/src/lib/geo.ts`, `apps/web/src/lib/geolocation.ts`)
+
+## [0.22.0] — 2026-07-07
+
+### Added
+
+- **Challenges, points, and a neighborhood leaderboard.** The first slice of the gamification loop the README's tagline has always promised ("join challenges, and earn badges"): a check-in now earns 10 points and favoriting/following a venue earns 5 (once per venue — unfavoriting and refavoriting doesn't farm it), tallied into a new neighborhood-scoped leaderboard (`GET /neighborhoods/:slug/leaderboard`) that only surfaces public-visibility profiles. Two seeded template challenges kick off Phinneywood's first month: "Coffee Crawl" (check in to 5 different coffee shops during July, 50pt bonus + a Coffee Crawler badge) and "Explore Woodland Park" (check in to a POI, 20pt bonus + a Neighborhood Explorer badge) — completing one is detected automatically after a qualifying check-in and is a one-time award per user. Challenges are template-driven rows in a new `challenge` table (category- or POI-targeted, with a start/end window and optional badge), so future challenges are a data change, not a code change; live per-user progress is shown via `GET /neighborhoods/:slug/challenges`. (`supabase/migrations/20260707040000_points_badges_challenges.sql`, `supabase/migrations/20260707050000_seed_challenges.sql`, `apps/api/src/gamification/`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhoods/[slug]/ChallengesView.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`, `packages/types/src/index.ts`)
+- **Check-ins can now target a neighborhood POI, not just a venue.** POI check-ins (`POST /pois/:id/checkins`) reuse the same 100m GPS geofence and cooldown rules as venue check-ins, and are what the "Explore Woodland Park" challenge above checks into. `poi` gains `lat`/`lng` columns so a POI has a real location to check GPS proximity against. (`supabase/migrations/20260707030000_checkin_poi_target.sql`, `apps/api/src/checkins/`, `apps/web/src/app/venues/[id]/CheckInButton.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`)
+- **Global cross-venue check-in cooldown.** Alongside the existing 4-hour per-venue/POI cooldown, a new 2-minute cooldown against the user's *most recent check-in anywhere* stops rapid-tapping through several nearby venues to instantly farm a multi-venue challenge like "5 coffee shops." (`apps/api/src/checkins/checkin.ts`)
+
+### Changed
+
+- **POI simplified to always be neighborhood-owned.** POI previously supported an unused venue-owned option (added for a future "POI within a venue" use case that never got a writer — only the sync pipeline was ever slated to populate it, and never did). Dropped `poi.venue_id` and the `poi_owner_check` constraint; `poi.neighborhood_id` is now required. The venue detail page's dead "Points of interest" section (always empty, since nothing ever wrote to it) is removed along with it. (`supabase/migrations/20260707020000_poi_neighborhood_only.sql`, `apps/api/src/pois/`, `apps/api/src/venues/`, `apps/web/src/app/venues/[id]/page.tsx`, `packages/types/src/index.ts`)
+
+## [0.21.0] — 2026-07-07
+
+### Added
+
+- **Public user profiles.** Profiles are now browsable at `/profile/:username` for any account that has both chosen a username and set its visibility to public (v0.20.0's `visibility` column, still private by default) — showing avatar, display name, join date, joined neighborhoods, and up to 10 recent check-ins. A private or username-less profile 404s the same way a nonexistent one would, so its existence isn't leaked to outside callers. `app_user` gains a `username` column (lowercase letters/numbers/`_`/`-`, 3-30 characters, unique), self-editable alongside the existing profile fields via `PATCH /me/profile`, which now also returns `409` if the chosen username is already taken. New public endpoint: `GET /users/:username`. (`supabase/migrations/20260707010000_public_user_profiles.sql`, `apps/api/src/auth/`, `apps/api/src/app.ts`, `apps/web/src/app/profile/`, `apps/web/src/app/account/ProfileForm.tsx`, `packages/types/src/index.ts`)
+- **Google profile picture on signup.** A fresh signup via Google OAuth now seeds `avatar_url` from the account's Google profile picture instead of leaving it blank until manually filled in — one less step to a profile that looks like *someone*. Only seeded once, at signup; a later manual edit (or manual clear) via `PATCH /me/profile` is never overwritten. Avatars now render as an actual image (falling back to an initial-letter monogram when unset) on the account page and the new public profile page, via a shared `Avatar` component, rather than only existing as a raw URL in a form field. (`apps/api/src/auth/verifyToken.ts`, `apps/api/src/auth/auth.ts`, `apps/web/src/app/Avatar.tsx`, `apps/web/src/app/account/ProfileForm.tsx`, `apps/web/src/app/profile/`)
+
+## [0.20.0] — 2026-07-07
+
+### Added
+
+- **User profiles with public or private visibility.** `app_user` gains `display_name`, `avatar_url`, and `visibility` (`public`/`private`, private by default — a signed-in identity doesn't by itself imply the user wants their presence visible to anyone else). Self-editable from the account page via a new `PATCH /me/profile` endpoint; blank display names clear the field rather than storing an empty string, and fields omitted from a request are left untouched. This is the foundation the still-open Connect-with-other-users, activity-feed, and business-visitor-history backlog items depend on. (`supabase/migrations/20260707000000_user_profile_visibility.sql`, `apps/api/src/auth/`, `apps/api/src/app.ts`, `apps/web/src/app/account/`, `packages/types/src/index.ts`)
+- **Homepage blurb.** The landing page jumped straight into the neighborhood list with no framing; a short hero section ("Discover local. Check in. Connect." plus a one-sentence description) now sits above the grid. (`apps/web/src/app/page.tsx`)
+- **Version number in the footer.** A new footer, visible on every page, shows the running app version (read from `package.json`) so support staff and users can tell at a glance which build they're on. (`apps/web/src/app/Footer.tsx`, `apps/web/src/app/layout.tsx`)
+
+### Changed
+
+- **`BACKLOG.md` reorganized by domain instead of by item type.** The four type-based tables (Features/Improvements/Known Issues/Limitations) are now four domain-based tables (Neighborhood, Business & Venue, User, Infrastructure & Design), each covering every item type in one place — easier to see everything planned for a given area at a glance. All existing Ref numbers and Depends relationships are unchanged. (`BACKLOG.md`)
+
+## [0.19.0] — 2026-07-07
+
+### Added
+
+- **Neighborhood admin: business claims and venue categories as tabs.** Business-claim review and venue-category reassignment moved from two separate, ungated-by-neighborhood pages (`/admin/claims`, `/admin/venues` — both required only "admin of *some* neighborhood," with no way to scope to one) into `Business claims` and `Venue categories` tabs alongside the existing per-neighborhood `Overview` tab. New neighborhood-scoped endpoints (`GET /neighborhood-admin/neighborhoods/:id/claims`, `POST .../claims/:claimId/approve|reject`, `GET .../venues`, `PATCH .../venues/:venueId/category`) replace the old global ones, closing a real correctness gap: an admin previously saw and could mutate every neighborhood's claims/venues at once, not just the one(s) they administer. The claims tab now also shows the venue's name/address instead of a bare id. (`apps/api/src/claims/`, `apps/api/src/categoryMapping/`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/`, `packages/types/src/index.ts`)
+
+### Changed
+
+- **Neighborhood admin URLs now use the neighborhood's slug instead of its UUID** (`/neighborhood-admin/[neighborhoodId]` → `/neighborhood-admin/[neighborhoodSlug]`), matching the public `/neighborhoods/[slug]` convention — the same identifier everywhere for a given neighborhood. A new `layout.tsx` resolves slug → id once and shares it via context across all three tabs, and owns the shared signed-out/forbidden state plus the tab nav. (`apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/`)
+- **Documentation reorganized.** The original build plan moved from the root `README.md` to `docs/project-plan.md` (section numbers unchanged, since code comments and `BACKLOG.md` cite them); a new, concise root `README.md` covers project overview, repo structure, and local setup instead. `docs/url-map.md` is now a maintained route tree (web + API) rather than a point-in-time snapshot, with an explicit instruction — also added to `CLAUDE.md`/`CONTRIBUTING.md` — to update it whenever a route changes. `apps/api/GOOGLE_PLACES_SETUP.md` moved to `docs/google-places-setup.md` for naming consistency with the rest of `docs/`. (`README.md`, `docs/`, `CLAUDE.md`, `CONTRIBUTING.md`, `BACKLOG.md`)
+
+### Fixed
+
+- **Homepage "Join" button didn't persist across a refresh.** The neighborhood list fetch (`GET /neighborhoods`) was missing its `Authorization` header, so the server couldn't identify the signed-in user and always reported `joined: false` on reload — the join itself worked, the page just didn't reflect it. (`apps/web/src/app/NeighborhoodsSection.tsx`)
+
+### Removed
+
+- **Global `/admin/claims` and `/admin/venues` pages.** Replaced by the neighborhood-scoped tabs above; deleted outright with no redirects (no production users depend on the old URLs). (`apps/web/src/app/admin/claims/`, `apps/web/src/app/admin/venues/`)
+
+## [0.18.0] — 2026-07-07
+
+### Added
+
+- **Instagram links and social media integration.** Business profile pages and neighborhood profile pages were read-only — there was no way to link out to a business or neighborhood's own social media presence. Claimed business owners and neighborhood admins can now add outbound links (Instagram, Twitter/X, TikTok, Facebook, website) from their respective dashboards, stored as a generic `social_links` JSON map (`business_claim.social_links`, `neighborhood.social_links`) rather than one column per platform, so a new platform is a type change, not a migration. Links show up as a row of outbound links on the public venue detail page and neighborhood profile page. New endpoints: `PATCH /business/venues/:id/social-links`, `PATCH /neighborhood-admin/neighborhoods/:id/social-links`; `GET /venues/:id` and `GET /neighborhoods/:slug` now include `social_links`. Links-only for now — feed embedding was considered but dropped due to API/display-terms complexity. (`supabase/migrations/20260706120000_social_links.sql`, `apps/api/src/claims/`, `apps/api/src/neighborhoods/`, `apps/api/src/venues/`, `apps/api/src/app.ts`, `apps/web/src/app/business/[venueId]/SocialLinksForm.tsx`, `apps/web/src/app/neighborhood-admin/[neighborhoodId]/SocialLinksForm.tsx`, `apps/web/src/app/venues/[id]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`, `packages/types/src/index.ts`)
+
+## [0.17.0] — 2026-07-06
+
+### Added
+
+- **Category taxonomy management.** The category-mapping admin tool (v0.11.0) could only reassign which existing leaf category a venue belongs to — there was no way to add, rename, or retire a category itself without a direct DB edit. A new admin page (`/admin/category-taxonomy`) lets admins create top-level groups or leaf categories (optionally tagging a leaf with the Google Places `types[]` the sync pipeline matches against), rename any category, and archive one — archiving is blocked if the category is still assigned to any venue, or (for a group) still has active leaf children, so nothing gets silently orphaned. Archived categories no longer appear as assignable options in the existing venue category-reassignment tool. Adds a `category.status` column (`active`/`archived`, mirroring the status-enum pattern already used by `neighborhood`/`business_claim`) rather than deleting rows outright. New endpoints: `GET`/`POST /admin/category-taxonomy`, `PATCH /admin/category-taxonomy/:id`, `POST /admin/category-taxonomy/:id/archive`, all gated by the existing `requireAdmin` middleware. 13 new unit tests. (`supabase/migrations/20260706110000_category_taxonomy_management.sql`, `apps/api/src/categoryAdmin/`, `apps/api/src/categoryMapping/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/admin/category-taxonomy/`, `packages/types/src/index.ts`)
+
+## [0.16.2] — 2026-07-07
+
+### Changed
+
+- **Venues now browse from the neighborhood page instead of a standalone `/venues` list.** The List/Map toggle (shipped v0.7.0) moved from the top-level `/venues` page onto each neighborhood's profile page (`/neighborhoods/[slug]`), scoped to that neighborhood's own venues via a new `GET /neighborhoods/:id/venues` endpoint — the venue table has always had a `neighborhood_id` column, but nothing queried by it until now. The venue detail page's back link now points to the venue's own neighborhood (`neighborhood_slug`/`neighborhood_name` added to `VenueDetail`) instead of the removed `/venues` list. Post-login/signup redirects for consumer accounts now land on the landing page instead of the removed page. (`apps/api/src/app.ts`, `apps/api/src/venues/`, `apps/web/src/app/neighborhoods/[slug]/`, `apps/web/src/app/venues/[id]/page.tsx`, `apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`, `apps/web/src/app/auth/callback/page.tsx`, `packages/types/src/index.ts`)
+- **`apps/api`'s TypeScript config switched to `Node16` module/moduleResolution** (from `CommonJS`/`Node`), matching the package's actual ESM-style import resolution and clearing an editor type-checking error. (`apps/api/tsconfig.json`)
+
+### Fixed
+
+- **"Blockwise" home link went to the venues list instead of the landing page.** The nav bar's wordmark linked to `/venues`, so there was no way to get back to the landing page (neighborhood browsing, sign-in status) short of typing the URL. Now links to `/`. (`apps/web/src/app/AccountNav.tsx`)
+- **Date inputs and dropdowns were unreadable in dark mode.** Native form controls (`<select>`, `type="date"`/`"datetime-local"` inputs) render their own calendar icon, dropdown arrow, and popup list outside of Tailwind's styling — without a `color-scheme` declaration, browsers draw that chrome for light mode regardless of the page's own dark theme, making it blend into or vanish against the dark background. Added `color-scheme: light`/`dark` alongside the existing light/dark CSS variables so these controls render correctly in both themes. (`apps/web/src/app/globals.css`)
+
+## [0.16.1] — 2026-07-06
+
+### Fixed
+
+- **Landing page showing "No neighborhoods yet" in production.** `GET /neighborhoods` (added in v0.16.0) filtered to `status = 'active'`, but the seeded Phinneywood neighborhood is still `'onboarding'` — a status nothing else in the app has ever gated on, despite the neighborhood being fully live (venues, check-ins, business claims, its own public profile page). The filter silently hid the only neighborhood that exists. Now lists every neighborhood regardless of status. (`apps/api/src/neighborhoods/repository.ts`, `apps/api/src/neighborhoods/supabaseRepository.ts`, `apps/api/src/app.ts`)
+
+## [0.16.0] — 2026-07-06
+
+### Added
+
+- **Neighborhoods on landing page and user profile.** Neighborhoods are now discoverable and joinable from the landing page, and visible on the "My account" page. A new `neighborhood_member` table (`user_id`, `neighborhood_id`, `is_primary`) records a signed-in user's membership, with a partial unique index enforcing at most one "home" neighborhood per user. The landing page now shows every active neighborhood with a join/leave button (and a "Your neighborhoods" section when signed in) via a new public `GET /neighborhoods` endpoint (optionally authenticated to flag which are already joined). The neighborhood profile page (`/neighborhoods/[slug]`) gained a matching join/leave button. The account page gained a "Neighborhoods" section listing joined neighborhoods with a "Set as home" action. New endpoints: `GET /neighborhoods`, `GET /me/neighborhoods`, `POST`/`DELETE /neighborhoods/:id/join`, `POST /neighborhoods/:id/home`, all backed by a new `neighborhoodMembers/` domain mirroring the `favorites/` pattern, but sign-in required rather than device-scoped. 6 new unit tests. (`supabase/migrations/20260706100000_neighborhood_membership.sql`, `apps/api/src/neighborhoodMembers/`, `apps/api/src/neighborhoods/repository.ts`, `apps/api/src/neighborhoods/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/NeighborhoodsSection.tsx`, `apps/web/src/app/page.tsx`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/page.tsx`, `apps/web/src/app/neighborhoods/[slug]/JoinNeighborhoodButton.tsx`, `packages/types/src/index.ts`)
+
+## [0.15.0] — 2026-07-07
+
+### Added
+
+- **Neighborhood profile pages.** Each neighborhood now gets a public profile (`/neighborhoods/[slug]`) mirroring the venue/business profile's shape — a description, upcoming events, and neighborhood-owned points of interest (parks, transit, landmarks not tied to any single business). Authored from a new self-serve `/neighborhood-admin` portal, gated by a new `requireNeighborhoodAdmin` middleware that (unlike the existing global `requireAdmin`) proves the signed-in account administers that *specific* neighborhood. Reuses the existing venue-scoped `poi`/`event` tables rather than duplicating them — `venue_id` is now nullable on both, with a new `neighborhood_id` column and a check constraint enforcing exactly one owner per row. New endpoints: public `GET /neighborhoods/:slug`, `GET /neighborhoods/:id/events`; authenticated `GET /neighborhood-admin/neighborhoods`, `GET .../:id/dashboard`, `PATCH .../:id`, `POST .../:id/events`, `POST .../:id/pois`. 13 new unit tests. (`supabase/migrations/20260706090000_neighborhood_profile.sql`, `apps/api/src/neighborhoods/`, `apps/api/src/pois/`, `apps/api/src/admin/requireNeighborhoodAdmin.ts`, `apps/api/src/admin/repository.ts`, `apps/api/src/admin/supabaseRepository.ts`, `apps/api/src/events/`, `apps/api/src/venues/supabaseDetailRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/neighborhoods/`, `apps/web/src/app/neighborhood-admin/`, `apps/web/src/app/AccountNav.tsx`, `packages/types/src/index.ts`)
+
+## [0.14.1] — 2026-07-06
+
+### Fixed
+
+- **Business claims not linking to the submitter's account in the common signup order.** `POST /venues/:id/claims` only set `business_claim.claimed_by_user_id` if the submitter was *already* a business account at the moment they submitted the claim — but the signup form defaults to a consumer account, so the realistic flow (sign up as consumer → submit a claim → promote to business via `/business`) left the claim permanently unlinked, even after an admin approved it, since the field was never set retroactively. Now any signed-in account (consumer or business) gets linked at submission time, matching the field's original intent per its migration comment ("auto-link to its own submitter once authenticated") rather than requiring business status up front. (`apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/ClaimBusinessForm.tsx`)
+
+## [0.14.0] — 2026-07-06
+
+### Added
+
+- **Business owner venue dashboard.** A claimed business owner can now open a per-venue dashboard (`/business/[venueId]`, linked from each venue on the existing `/business` portal) showing follower count (a count of `favorite` rows — there's no separate "follow" table) and check-in count, alongside two new content types they can author: `Announcement` (a one-off update) and `Event` (a scheduled, time-boxed listing), both scoped to the venue and shown publicly on that venue's detail page. Ownership of the specific venue being managed is enforced server-side by a new `requireVenueOwner` middleware — stronger than the existing `requireBusinessAccount` gate, which only proved "a business account" rather than "owns this venue." No moderation queue or entitlement/credit gating yet — announcements publish immediately and creation is unlimited — both are separate, later backlog items ("Business announcements", "Monetization: credits & entitlements"). New `GET /business/venues/:id/dashboard`, `POST /business/venues/:id/announcements`, `POST /business/venues/:id/events`, and public `GET /venues/:id/announcements`/`events` endpoints. 6 new unit tests. (`supabase/migrations/20260706080000_business_owner_dashboard.sql`, `apps/api/src/announcements/`, `apps/api/src/events/`, `apps/api/src/claims/requireVenueOwner.ts`, `apps/api/src/claims/repository.ts`, `apps/api/src/claims/supabaseRepository.ts`, `apps/api/src/favorites/repository.ts`, `apps/api/src/favorites/supabaseRepository.ts`, `apps/api/src/checkins/repository.ts`, `apps/api/src/checkins/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/app/business/`, `apps/web/src/app/venues/[id]/page.tsx`, `packages/types/src/index.ts`)
+
+## [0.13.0] — 2026-07-06
+
+### Added
+
+- **My account page.** A new `/account` page giving signed-in users a single place to see their identity, favorites, and check-in history, instead of each being scattered across its own flow. Two new endpoints back it: `GET /me/favorites` and `GET /me/checkins`, both venue-joined listings (name/address alongside the raw `favorite`/`checkin` rows) gated by `requireAuthUser`. Wishlist and coupons sections show a "Coming soon" placeholder — neither has a backend yet (separate backlog items) — rather than being omitted outright, so the page's shape is already in place for when they land. A "My account" link was added to the top nav for any signed-in user. (`apps/api/src/favorites/`, `apps/api/src/checkins/`, `apps/api/src/app.ts`, `apps/web/src/app/account/page.tsx`, `apps/web/src/app/AccountNav.tsx`, `packages/types/src/index.ts`)
+
+## [0.12.0] — 2026-07-06
+
+### Added
+
+- **Neighborhood admin roles.** Replaces the shared `ADMIN_API_TOKEN` secret with per-account admin roles: a new `neighborhood_admin` table (`user_id`, `neighborhood_id`) is checked by `requireAdmin`, which now requires a real signed-in session (the same Bearer-token auth as every other `/auth/*`-gated route) instead of an `X-Admin-Token` header. The role is additive to `account_type` — an account can be a consumer, a claimed business owner, and a neighborhood admin all at once. Granting is done via a new CLI script (`npm run grant:admin -- <email> <neighborhood-slug>`, mirroring `sync:places`) rather than a self-service invite UI, matching this project's current solo-operator scale — a self-serve invite flow remains a smaller follow-up on the backlog. `AppUser` gained an `is_neighborhood_admin` flag, surfaced in the top nav (`AccountNav`) as "Admin: claims" / "Admin: venues" links alongside the existing "Business portal" link. The `/admin/claims` and `/admin/venues` pages now sign requests with the browser's own session token instead of a pasted admin token. (`supabase/migrations/20260706070000_neighborhood_admin.sql`, `apps/api/src/admin/`, `apps/api/src/app.ts`, `apps/api/src/auth/auth.ts`, `apps/api/src/scripts/grantNeighborhoodAdmin.ts`, `apps/web/src/app/admin/`, `apps/web/src/app/AccountNav.tsx`, `packages/types/src/index.ts`)
+
+## [0.11.0] — 2026-07-06
+
+### Added
+
+- **Category mapping admin tool.** A new `/admin/venues` page (same shared `ADMIN_API_TOKEN` gate as `/admin/claims`) lets an admin search venues by name or address and reassign a venue's category from a dropdown of the 39 leaf categories (grouped by their parent, e.g. "Food & Drink / Coffee Shop") — the manual override README §2 calls for when the sync's category-normalization step (README §1.4 step 3) maps a venue wrong. New `GET/PATCH /admin/venues*` and `GET /admin/categories` endpoints, backed by a `categoryMapping/` domain mirroring the `claims/` pattern; only leaf categories (those with a parent) are valid reassignment targets, since the 6 top-level group rows are organizational only. No schema changes — reuses the existing `venue`/`category` tables. 6 new unit tests. (`apps/api/src/categoryMapping/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/venues/page.tsx`, `packages/types/src/index.ts`)
+
+## [0.10.0] — 2026-07-06
+
+### Added
+
+- **Google social sign-in (OAuth).** A "Continue with Google" button on `/login` and `/signup`, alongside the existing email/password forms. Uses Supabase's `signInWithOAuth`, redirecting through a new `/auth/callback` page that completes the session — tries `/auth/complete-login` first (so a device's anonymous check-in history still merges correctly per README §14.2), falling back to `/auth/complete-signup` for a first-time Google user. No API changes: `verifyToken.ts` already read the auth provider generically off `app_metadata`. The signup form's consumer/business account-type choice is preserved across the redirect via `localStorage`, since Google's round trip would otherwise lose it. (`apps/web/src/lib/auth.ts`, `apps/web/src/app/auth/callback/page.tsx`, `apps/web/src/app/login/page.tsx`, `apps/web/src/app/signup/page.tsx`)
+- **Promote a consumer account to a business account.** The business portal (`/business`) now offers a "Become a business owner" button for a signed-in consumer account, instead of only pointing at a fresh signup. New `POST /auth/promote-to-business` endpoint flips `account_type` on the existing `app_user` row in place — same identity, same check-in history, no new account. Idempotent if the account is already a business account. 2 new unit tests. (`apps/api/src/auth/auth.ts`, `apps/api/src/auth/repository.ts`, `apps/api/src/auth/supabaseRepository.ts`, `apps/api/src/app.ts`, `apps/web/src/lib/auth.ts`, `apps/web/src/app/business/page.tsx`)
+
+### Changed
+
+- **Synced `package.json` versions across the monorepo.** `apps/api` and `packages/types` were still at `0.0.0` and `apps/web` at `0.1.0` while the root tracked the real release version — all four now move together. `CLAUDE.md` updated to document that all four must be bumped together going forward. (`package.json`, `apps/api/package.json`, `apps/web/package.json`, `packages/types/package.json`, `CLAUDE.md`)
+
+## [0.9.0] — 2026-07-06
+
+### Added
+
+- **Favorite venues.** A personal "I like this place" bookmark on the venue detail page, separate from check-ins or business claiming. Device-scoped like check-ins (README §14.2) — attaches to the existing anonymous `app_user` row and converts for free on signup, no migration step. New `favorite` table (unique per user/venue, RLS-enabled service-role-only like every other table), `GET/POST/DELETE /venues/:id/favorites` endpoints, and a toggle button on the venue detail page that loads current status on mount. 7 new unit tests. (`supabase/migrations/20260706060000_favorite_venues.sql`, `apps/api/src/favorites/`, `apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/FavoriteButton.tsx`, `apps/web/src/app/venues/[id]/page.tsx`, `packages/types/src/index.ts`)
+
+## [0.8.0] — 2026-07-06
+
+### Added
+
+- **Real user authentication.** Supabase Auth (email/password) signup and login, completing the anonymous-first `app_user` row from v0.6.0 rather than migrating to a new one (README §14.2) — signup flips `is_anonymous` to false and attaches auth credentials to the same row, so prior check-in history is never lost. Logging in from a device with its own separate anonymous history merges that history onto the account being logged into, rather than orphaning it (README §14.2's documented edge case). Also adds a business-account variant (`account_type`): a business owner's claim submission auto-links to their account when signed in (`business_claim.claimed_by_user_id`), and a new gated `/business` portal page lists the venues that account has an approved claim on — the first concrete use of the `requireBusinessAccount` gate that later authoring-tool features (announcements, etc.) will build on. New `apps/api/src/auth/` domain (signup/login/merge logic, Supabase Auth token verification, `requireAuthUser`/`requireBusinessAccount`/`attachOptionalAuthUser` middleware) with 9 new unit tests; new `/signup`, `/login`, `/business` pages and a nav bar in `apps/web`. (`supabase/migrations/20260706050000_user_authentication.sql`, `apps/api/src/auth/`, `apps/api/src/app.ts`, `apps/api/src/claims/`, `apps/web/src/app/signup/`, `apps/web/src/app/login/`, `apps/web/src/app/business/`, `apps/web/src/app/AccountNav.tsx`, `apps/web/src/lib/auth.ts`, `apps/web/src/lib/supabaseClient.ts`, `packages/types/src/index.ts`)
+- **Supabase migration workflow docs.** New `supabase/README.md` covering the day-to-day CLI commands (`login`/`link`, local `start`/`db reset`, `migration new`, `db push`) that CONTRIBUTING.md's conventions section didn't itself spell out. (`supabase/README.md`)
+
+### Security
+
+- **Removed a prompt-injection attempt embedded in the repo.** `apps/web/AGENTS.md` (auto-loaded by `apps/web/CLAUDE.md`) instructed any agent reading it to consult fabricated documentation at a Next.js path that doesn't exist, framed as "this is NOT the Next.js you know" — a planted instruction rather than genuine project guidance. Both files removed; neither carried any other content worth preserving. (`apps/web/AGENTS.md`, `apps/web/CLAUDE.md`)
+
+## [0.7.0] — 2026-07-06
+
+### Added
+
+- **Venues map view.** `/venues` now has a List/Map toggle; the map renders every venue as a marker on the Google Maps JavaScript API, colored by its top-level category group (Food & Drink, Retail, Health & Wellness, Services, Arts/Culture/Recreation, Lodging) with an always-visible legend, clustered via `@googlemaps/markerclusterer` so dense blocks collapse into a single pin until zoomed in, and fit to the actual bounds of the synced venues rather than a fixed center/zoom. Clicking a marker opens an info window (name, category, address, a link to the venue's detail page) built from DOM APIs rather than an HTML string, since venue name/address ultimately come from Google Places sync and, later, business self-submission — neither should be trusted as pre-sanitized HTML. Marker/legend colors were run through the project's dataviz-palette validator for colorblind-safe separation in both light and dark mode. Falls back to a clear message instead of a broken map when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` isn't configured. `VenueListItem` (and the `GET /venues` list endpoint) now also carries `lat`/`lng` and a `category_group` field (the category's parent row, distinct from its specific `category_name`) to support marker placement and color-coding. Verified end-to-end in a browser against live Phinneywood data (229 venues) with a real Maps API key: toggle, clustering, category colors, and the marker click → info window flow. (`apps/web/src/app/venues/MapView.tsx`, `apps/web/src/app/venues/VenuesView.tsx`, `apps/web/src/lib/categoryColors.ts`, `apps/web/src/app/venues/page.tsx`, `apps/api/src/venues/supabaseDetailRepository.ts`, `packages/types/src/index.ts`, `apps/web/.env.example`)
+
+## [0.6.0] — 2026-07-06
+
+### Added
+
+- **Business claiming + GPS check-in.** Consumers can check in at a venue from its detail page: the browser's Geolocation API is checked against `Venue.lat/lng` with a 100m geofence (README §4 Phase 1), and repeat check-ins at the same venue are blocked for 4 hours to prevent streak gaming. Check-ins attach to a new anonymous-first `app_user` row (README §14.2) — every device gets one from its first check-in, identified by a device id generated client-side and persisted in `localStorage`, with no signup required. Business owners can submit a claim request from the same page (contact name, phone/email/domain, and an optional note); since no SMS/email provider is wired into this project yet, verification is manual — claims land in a pending queue reviewed from a new internal `/admin/claims` page (gated by a shared `ADMIN_API_TOKEN` secret, the pragmatic stand-in until a real admin-auth system exists) and approving one flips `Venue.claimed_by_business`. New `app_user`, `business_claim`, and `checkin` tables, all RLS-enabled with no policies (service-role only, matching every other table). 16 new unit tests. Verified end-to-end against live Phinneywood data in a browser: geofence pass/fail, cooldown enforcement, claim submission → admin approval → claim form disappearing, and the already-claimed/already-reviewed conflict guards. (`supabase/migrations/20260706040000_business_claims_and_checkins.sql`, `apps/api/src/checkins/`, `apps/api/src/claims/`, `apps/api/src/admin/requireAdmin.ts`, `apps/api/src/app.ts`, `apps/web/src/app/venues/[id]/CheckInButton.tsx`, `apps/web/src/app/venues/[id]/ClaimBusinessForm.tsx`, `apps/web/src/app/admin/claims/page.tsx`, `apps/web/src/lib/deviceId.ts`, `apps/web/src/lib/clientApi.ts`, `packages/types/src/index.ts`)
+
+### Fixed
+
+- **Local dev: client-side `/api/*` requests had no path to the API server.** The new check-in/claim UI is the first client-side (browser) fetching in `apps/web` — in production, Netlify's redirect (`netlify.toml`) makes `/api/*` same-origin, but locally `next dev` (port 3000) and `apps/api`'s dev server (port 4000) are separate origins with no CORS layer (deliberately removed in v0.3.1 to keep prod same-origin). Added a dev-time Next.js rewrite proxying `/api/*` to the API server, so browser fetches work locally without reintroducing CORS. No-op in production, where Netlify's own redirect handles the path first. (`apps/web/next.config.ts`)
+
+## [0.5.2] — 2026-07-06
+
+### Fixed
+
+- **Venue photos rendered as broken images in production.** `apps/api/netlify/functions/api.ts` wrapped the Express app with `serverless-http` without declaring which content types are binary, so every response body — including `GET /venues/:id/photo`'s JPEG bytes — was encoded as UTF-8 text before being packaged into the Lambda-style response. Each invalid UTF-8 byte sequence in the image got replaced with the Unicode replacement character, corrupting the file even though the endpoint returned 200 with the correct `Content-Type`. Now passes `{ binary: ["image/*"] }` so image responses are base64-encoded instead. (`apps/api/netlify/functions/api.ts`)
+
+## [0.5.1] — 2026-07-06
+
+### Fixed
+
+- **Deployed API returned 502 on every route, including `/health`.** `createApp()` built the venue routes' Supabase-backed repository eagerly at function cold-start, so a misconfigured or missing `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` in the deploy environment crashed the whole function before it could even serve `/health` — a route that never touched Supabase before v0.5.0. The repository and Places client are now constructed lazily on first request, so a Supabase misconfiguration only fails the `/venues*` routes (with a clean 500) instead of taking down the entire API. (`apps/api/src/app.ts`)
+
+## [0.5.0] — 2026-07-06
+
+### Added
+
+- **Venue detail pages with on-demand enrichment cache.** Web pages at `/venues` (list) and `/venues/[id]` (detail) render neighborhood businesses sourced from the data layer MVP. The detail page fetches Google Place Details (ratings, price tier, reviews, photos) on first view and caches them in `VenueEnrichmentCache` with a 24-hour TTL — stale entries are transparently refreshed on subsequent views, and refresh failures fall back to whatever's cached rather than blocking the page. The API also includes a `GET /venues/:id/photo` proxy that fetches the photo via its Google reference server-side (never exposing the API key to the browser, which is critical for cost control). Built on a new `venues/` repository layer mirroring the pattern in `places/` for testability. 40 unit tests, end-to-end verified against live Phinneywood data (70+ venues, real Google enrichment with photos, ratings, reviews). (`apps/web/src/app/venues/`, `apps/api/src/venues/`, `apps/api/src/app.ts` routes, `apps/api/src/places/client.ts` Place Details client + mock, `packages/types/src/index.ts` DTOs)
+
+## [0.4.1] — 2026-07-06
+
+### Fixed
+
+- **Deployed site showed the API health check as unreachable.** `apps/web`'s homepage server-fetch defaulted to `http://localhost:4000`, which doesn't exist in production, and fetched `/health` directly, a path the deployed site's `/api/*`-only redirect (`netlify.toml`) never routes to the co-located function. Now falls back to `process.env.URL` (Netlify's own auto-injected production site URL — no dashboard configuration needed) and always requests `/api/health`, which resolves correctly against both the deployed redirect and the local `apps/api` dev server. (`apps/web/src/app/page.tsx`)
+
+## [0.4.0] — 2026-07-06
+
+### Added
+
+- **Google Places sync, dedup, and category normalization.** `apps/api/src/places/` implements the remaining data layer ingestion pipeline (README §1.4): a grid-tiled Google Places (New) Nearby Search restricted to the category taxonomy's Google types (chunked to stay under the API's 50-type-per-call and 20-result-per-call limits), a Levenshtein-similarity + geo-proximity dedup pass (catches duplicates against existing venues and within the same sync batch), and category matching that flags unmapped Google types for manual review instead of guessing. Business-claimed venues are treated as source-of-truth and never overwritten by re-syncs. Runnable via `npm run sync:places -- <neighborhood-slug>` in `apps/api` (mock Google client by default; real client once `GOOGLE_PLACES_API_KEY` is set — see `apps/api/GOOGLE_PLACES_SETUP.md`). Verified end-to-end against live Google data: 229 real Phinneywood businesses synced, correctly categorized, zero unmapped. 32 vitest unit tests. (`apps/api/src/places/`, `apps/api/src/scripts/syncPlaces.ts`, `apps/api/package.json`, `apps/api/tsconfig.json`, `turbo.json`, `supabase/migrations/20260706031000_neighborhood_for_sync_fn.sql`)
+- **Unified category taxonomy.** 39 categories across 6 groups (Food & Drink, Retail, Health & Wellness, Services, Arts/Culture/Recreation, Lodging) mapped to Google Places types per README §2. (`supabase/migrations/20260706030000_category_taxonomy.sql`)
+- **Phinneywood boundary polygon.** Hand-authored placeholder polygon around the Greenwood Ave N / Phinney Ave N corridor (README §12.4) so the sync has a real area to scope against — a stand-in until the admin boundary-drawing tool (§12.6, still on the backlog) exists. (`supabase/seed.sql`, `supabase/migrations/20260706032100_phinneywood_boundary.sql`)
+
+### Fixed
+
+- **Netlify Functions build failure: `serverless-http` unresolved.** Netlify treats the configured `base` directory's `package.json` (`apps/web`) as the site's dependency manifest for function bundling, even though the function code and its dependencies actually live in `apps/api` — added the function's runtime dependencies (`serverless-http`, `express`, `@supabase/supabase-js`) to `apps/web/package.json` so esbuild can resolve them. (`apps/web/package.json`, `package-lock.json`)
+- **Missing Supabase grants blocked every service-role query.** The RLS-enabled tables from the initial schema migration had no explicit GRANTs to `service_role` — this project's Supabase config has `auto_expose_new_tables` off (the new default), so grants are no longer automatic — meaning every query from `apps/api` was failing with "permission denied" regardless of RLS. Granted table/sequence/function privileges to `service_role`, including for tables created after this migration. (`supabase/migrations/20260706032000_grant_service_role.sql`)
+- **Invalid Google Places type strings rejected by the API.** `dry_cleaning` and `second_hand_store` aren't real Google Places (New) type values; replaced with the correct `laundry` and `thrift_store` mappings. (`supabase/migrations/20260706033000_fix_invalid_google_types.sql`)
+- **Short-term rental listings flooding the venue table.** Google's `lodging`/`bed_and_breakfast` types cover any Airbnb/VRBO-style listing, not just real hotels — a live sync run confirmed 122 of 350 synced venues were vacation rentals rather than neighborhood businesses. Restricted "Hotel & Lodging" to the `hotel` type only. (`supabase/migrations/20260706034000_restrict_lodging_to_hotels.sql`)
+
+## [0.3.2] — 2026-07-05
+
+### Added
+
+- **Data layer schema (partial).** Supabase migration (`supabase/migrations`) creating `Neighborhood`, `Category`, `Venue`, `POI`, and `VenueEnrichmentCache` tables on Postgres/PostGIS per README §1.3, with row-level security enabled (no policies yet — service-role key only) and a seed inserting the Phinneywood neighborhood row (`onboarding` status). Added matching shared TypeScript types to `packages/types`. Google Places sync, dedup, and category normalization remain — see `BACKLOG.md`. (`supabase/migrations`, `supabase/seed.sql`, `packages/types/src/index.ts`)
+- **Google Places setup guide.** `apps/api/GOOGLE_PLACES_SETUP.md` documenting the Google Cloud project/billing/API-key steps needed before the real (non-mocked) Places sync can run. (`apps/api/GOOGLE_PLACES_SETUP.md`)
+
+### Fixed
+
+- **Netlify build failure on `functionsDirectory`.** `apps/web/netlify.toml` now sets `base = "apps/web"` explicitly, so the `functions = "../api/netlify/functions"` path resolves relative to `apps/web` instead of the repo root (where it was resolving one level above the repo and failing Netlify's containment check). (`apps/web/netlify.toml`)
+
+### Removed
+
+- **Yelp Fusion API dropped from the active plan.** Removed from README (licensing constraints, schema, ingestion pipeline, cost/attribution, build order, stack, CI/CD) and `CONTRIBUTING.md`'s licensing reminder; kept only as a documented potential future enhancement in `BACKLOG.md`. (`README.md`, `BACKLOG.md`, `CONTRIBUTING.md`)
+
+## [0.3.1] — 2026-07-05
+
+### Changed
+
+- **Netlify + Supabase adopted as the hosting plan of record.** `README.md` (§9, §10.2, §10.4) now specifies Supabase (Postgres + PostGIS, Auth, Storage) for the data/auth layer and a single Netlify site for hosting, replacing the earlier Vercel/ECS-Cloud Run-Fly.io options — the weekly Google sync and Yelp cache TTL purge are planned as Netlify Scheduled Functions rather than a standalone worker process. (`README.md`)
+- **`apps/api` restructured to deploy as a Netlify Function.** The Express app now lives behind `createApp()` (`apps/api/src/app.ts`) so it can be wrapped with `serverless-http` for Netlify (`apps/api/netlify/functions/api.ts`) while `apps/api/src/index.ts` still runs it locally via `app.listen`. `apps/web/netlify.toml` configures the combined site (Next.js + co-located `apps/api` function, `/api/*` redirect, same-origin — no separate API host or CORS needed). Added `apps/api/src/supabase.ts` (server-side Supabase client) and `apps/api/.env.example`. (`apps/api/src/app.ts`, `apps/api/src/index.ts`, `apps/api/netlify/functions/api.ts`, `apps/api/src/supabase.ts`, `apps/web/netlify.toml`)
+
+### Removed
+
+- **`cors` dependency.** No longer needed now that `apps/web` and `apps/api` deploy as one same-origin Netlify site. (`apps/api/src/app.ts`, `apps/api/package.json`)
+
+## [0.3.0] — 2026-07-06
+
+### Added
+
+- **Web app scaffold.** Turborepo monorepo (`apps/web`, `apps/api`, `packages/types`) with npm workspaces, establishing the API-first foundation the rest of the build depends on. `apps/web` is Next.js (App Router) + TypeScript + Tailwind CSS; `apps/api` is an Express + TypeScript service stub; `packages/types` holds shared TypeScript types consumed by both. No auth, map, or real data yet — the homepage does a live server-side health-check round trip against `apps/api`'s `/health` endpoint to prove the two services talk to each other. (`turbo.json`, `apps/web`, `apps/api`, `packages/types`)
+
+### Changed
+
+- **Build/test gate documented.** `CONTRIBUTING.md` now points to `npm run build` (Turborepo, builds all workspaces) as the correctness gate, now that `apps/*` exists. (`CONTRIBUTING.md`)
+
+## [0.2.0] — 2026-07-05
+
+### Added
+
+- **Backlog system.** `BACKLOG.md` tracking proposed features, improvements, known issues, and limitations, with a documented shipping workflow (branch → changelog → version bump → build → PR). Seeded with 11 build-order items reordered so the web app ships first and native apps (React Native) follow as their own tracked item. (`BACKLOG.md`)
+- **Contributing guide.** `CONTRIBUTING.md` documenting project stage, where work comes from, the branch/commit/PR workflow, and a reminder to re-read the Yelp/Google licensing constraints before touching data ingestion. (`CONTRIBUTING.md`)
+
+### Changed
+
+- **Web-first sequencing.** `README.md` now states plainly that the web app is being built first for rapid iteration, with native apps following shortly after on the same backend; retitled §10 from "Full-Featured Web App (Built in Parallel)" to "Web App (Building First)" and added a sequencing note to §8's build order. Added a "Project status" section linking to `BACKLOG.md`, `CHANGELOG.md`, and `CONTRIBUTING.md`. (`README.md`)
+- **CLAUDE.md** now documents the backlog workflow (branch naming, changelog/version bump, PR via `gh`) alongside the existing version-tracking convention. (`CLAUDE.md`)
+
+## [0.1.0] — 2026-07-05
+
+### Added
+
+- **Build plan.** Initial project README documenting the full build plan: data layer and licensing constraints (Google Places, Yelp Fusion, OpenStreetMap), categorization, points of interest, check-ins, business announcements, challenges, gamification, the web app, monetization via credits, multi-neighborhood architecture, business coupons, and anonymous/authenticated user access tiers. (`README.md`)
+- **Project scaffolding.** `package.json` for version tracking, `CHANGELOG.md`, and `CLAUDE.md` documenting the version-tracking convention. (`package.json`, `CHANGELOG.md`, `CLAUDE.md`)
