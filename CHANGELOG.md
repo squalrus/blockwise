@@ -2,6 +2,12 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.88.0] — 2026-09-04
+
+### Added
+
+- **Monitoring's Performance tab gained a "Check-in timing" chart**, breaking `POST /locations/:id/checkins` down by phase (geofence/cooldown decision, then — only for a successful check-in — rewards, neighbor notifications, and forager collection) alongside the total, so the cost of a check-in is visible over time instead of only reasoned about by reading the code. Logged fire-and-forget from the check-in route itself, same best-effort pattern as the existing request/error/Places API monitoring writes, so it never adds latency to the check-in it's timing. This is prep work: BACKLOG.md Ref 116 lays out a batch of check-in latency optimizations (deduping redundant location/badge-rule fetches, parallelizing the independent post-checkin phases, parallelizing per-connection push sends, client-side GPS preload) meant to ship in a follow-up release once this chart has collected a real baseline to measure against. (`apps/api/src/monitoring/`, `apps/api/src/app.ts`, `apps/web/src/app/admin/super/monitoring/CheckinTimingChart.tsx`, `performance/page.tsx`, `packages/types/src/index.ts`, `supabase/migrations/20260904060000_checkin_timing_log.sql`, `20260904070000_monitoring_analytics_fn_v16.sql`)
+
 ## [0.87.1] — 2026-09-04
 
 ### Added

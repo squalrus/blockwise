@@ -1846,6 +1846,24 @@ export interface MonitoringSlowestRoute {
   request_count: number;
 }
 
+// Backs the Performance tab's "Check-in timing" chart (checkin_timing_log) --
+// total_avg_ms is every check-in attempt's wall-clock time (comparable to
+// latency_over_time's own avg_ms), while the four phase averages only cover
+// outcome = 'created' attempts, since a too_far/cooldown/not_found attempt
+// never reaches the reward/notify/collection phases. created_count vs
+// attempt_count tells the chart what fraction of that day's attempts the
+// phase averages are actually based on.
+export interface MonitoringCheckinTimingByDay {
+  date: string; // 'YYYY-MM-DD'
+  total_avg_ms: number;
+  geofence_avg_ms: number | null;
+  rewards_avg_ms: number | null;
+  notify_avg_ms: number | null;
+  collection_avg_ms: number | null;
+  created_count: number;
+  attempt_count: number;
+}
+
 // DB-level query latency (pg_stat_statements, get_slow_queries RPC) --
 // pairs with MonitoringSlowestRoute's Express-level latency so a slow route
 // can be traced to "the app" vs. "the query."
@@ -1982,6 +2000,7 @@ export interface MonitoringAnalytics {
   status_code_breakdown: MonitoringStatusCodeBreakdown[];
   slowest_routes: MonitoringSlowestRoute[];
   slowest_queries: MonitoringSlowQuery[];
+  checkin_timing_over_time: MonitoringCheckinTimingByDay[];
   places_api_calls_over_time: MonitoringDailyCount[];
   places_api_by_endpoint: MonitoringPlacesApiByEndpoint[];
   recent_places_api_failures: MonitoringPlacesApiFailure[];

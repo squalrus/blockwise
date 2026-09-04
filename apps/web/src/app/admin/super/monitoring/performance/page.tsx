@@ -3,6 +3,7 @@
 import { MonitoringData } from "../MonitoringContext";
 import { RequestVolumeChart } from "../RequestVolumeChart";
 import { LatencyChart } from "../LatencyChart";
+import { CheckinTimingChart } from "../CheckinTimingChart";
 import { SlowestRoutesTable } from "../SlowestRoutesTable";
 import { SlowQueriesTable } from "../SlowQueriesTable";
 
@@ -38,6 +39,17 @@ export default function MonitoringPerformancePage() {
           <section className="rounded-3xl border border-border bg-card p-6">
             <h2 className="mb-3.5 font-heading text-lg font-extrabold">API slowest routes</h2>
             <SlowestRoutesTable routes={analytics.slowest_routes} />
+          </section>
+
+          <section className="rounded-3xl border border-border bg-card p-6 lg:col-span-2">
+            <h2 className="mb-3.5 font-heading text-lg font-extrabold">Check-in timing</h2>
+            <p className="mb-3 text-xs text-muted">
+              POST /locations/:id/checkins broken down by phase (geofence/cooldown, then -- only for a
+              successful check-in -- rewards, neighbor notifications, and collection). Phases are awaited in
+              series today, so Total tracking their sum is expected; Total pulling below that sum is the
+              signal a change actually overlapped their latency instead of just moving it around.
+            </p>
+            <CheckinTimingChart data={analytics.checkin_timing_over_time} />
           </section>
 
           <section className="rounded-3xl border border-border bg-card p-6 lg:col-span-2">

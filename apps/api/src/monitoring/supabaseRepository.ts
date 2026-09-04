@@ -2,7 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MonitoringAnalytics, MonitoringPlacesApiDayToDate, MonitoringSlowQuery } from "@blockwise/types";
 import { getAppDomain } from "./appDomain";
 import { getAppVersion } from "./appVersion";
-import type { ErrorLogEntry, MonitoringRepository, PlacesApiCallEntry, RequestLogEntry } from "./repository";
+import type {
+  CheckinTimingLogEntry,
+  ErrorLogEntry,
+  MonitoringRepository,
+  PlacesApiCallEntry,
+  RequestLogEntry,
+} from "./repository";
 
 export class SupabaseMonitoringRepository implements MonitoringRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -46,6 +52,21 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
     });
 
     if (error) throw new Error(`logPlacesApiCall failed: ${error.message}`);
+  }
+
+  async logCheckinTiming(entry: CheckinTimingLogEntry): Promise<void> {
+    const { error } = await this.supabase.from("checkin_timing_log").insert({
+      outcome: entry.outcome,
+      total_ms: entry.totalMs,
+      geofence_ms: entry.geofenceMs ?? null,
+      rewards_ms: entry.rewardsMs ?? null,
+      notify_ms: entry.notifyMs ?? null,
+      collection_ms: entry.collectionMs ?? null,
+      domain: getAppDomain(),
+      app_version: getAppVersion(),
+    });
+
+    if (error) throw new Error(`logCheckinTiming failed: ${error.message}`);
   }
 
   // Delegates the "start of today" boundary to the DB (RPC

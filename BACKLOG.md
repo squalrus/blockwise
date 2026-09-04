@@ -71,6 +71,7 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | --- | --- | --- | --- | --- | --- |
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 95 | [Dev instance of the app (Netlify and Supabase)](#dev-instance-of-the-app-netlify-and-supabase) | improvement | L | H | — |
+| 116 | [Check-in performance optimization](#check-in-performance-optimization) | improvement | L | H | — |
 | 113 | [Trim Place Details field mask to a cheaper SKU tier](#trim-place-details-field-mask-to-a-cheaper-sku-tier) | improvement | S | M | — |
 | 115 | [Extend the daily credit guard to admin-triggered Geoapify calls](#extend-the-daily-credit-guard-to-admin-triggered-geoapify-calls) | improvement | M | M | — |
 | 105 | [Additional app themes within brand guidelines](#additional-app-themes-within-brand-guidelines) | feature | M | L | — |
@@ -322,6 +323,20 @@ No open limitations.
 **Depends:** —
 **Why** — A persistent staging environment enables safe testing and debugging of changes before they reach production users, and a formal approval/promotion workflow prevents accidental releases and gives visibility into what's going live.
 **Notes:** Set up parallel Netlify and Supabase instances (or use Supabase preview branches) mirroring the production setup. Hide the dev site from users and search engines via `robots.txt` disallow, meta tags, and/or a basic auth gate. Configure Netlify to auto-deploy commits to a dev branch (e.g. `main-dev` or `staging`) or trigger via GitHub Actions. Create a promotion mechanism — either a manual Netlify deployment trigger (promoting a dev build to prod) or a GitHub Actions workflow requiring explicit approval (via `workflow_dispatch` or a review/check) before promoting. Open questions: should this coexist with Netlify's per-PR preview deploys (different purposes — per-branch preview for each PR, vs. persistent shared dev for manual testing), or replace them? Should dev share a Supabase project/database or use a completely separate one for true isolation?
+
+#### Check-in performance optimization
+
+**Ref:** 116
+**Type:** improvement
+**Depends:** —
+**Why** — Traced the full POST /locations/:id/checkins pipeline end to end: `performCheckin`'s geofence/cooldown decision, then (once created) `awardCheckinRewards`, `notifyConnectionsOfCheckin`, and `recordVenueCollection` + collection badges — all `await`ed one after another per `app.ts`'s Netlify/Lambda-freeze comment, each making multiple Supabase PostgREST round trips. That serial chain, plus a few outright redundant fetches, is the main lever on how long a check-in actually takes; a "Check-in timing" chart now ships on Monitoring > Performance (`checkin_timing_log`, v0.88.0) breaking Total down by phase (geofence/cooldown, rewards, notify, collection) specifically so each change below can be measured before/after against real traffic instead of guessed at.
+**Notes:** Roughly in effort order:
+
+1. Dedupe redundant location fetches — the location is fetched 3 separate times in one request: `performCheckin`'s internal `getLocation` (`CheckinRepository`), `awardCheckinRewards`' internal `getLocationContext` (`GamificationRepository`), and the notify-connections block's own `getLocationById` (`LocationRepository`) in `app.ts`. Fully deduping means threading an already-fetched location into `performCheckin`/`awardCheckinRewards`, both heavily unit-tested (`checkin.test.ts`, `rewards.test.ts`, `badges.test.ts`) — do that carefully, or start with just the notify block's fetch (not inside a tested pure function, lower risk) run in parallel with `performCheckin` instead of serially after it.
+2. Dedupe `evaluateBadgesAfterCheckin` and `evaluateBadgesForCollectionCount` each independently calling `getAllBadgeRules()` (fetches the whole rule table twice per check-in). A short-TTL in-memory cache in `SupabaseGamificationRepository` is a lower-risk fix than threading the rules array through both signatures.
+3. Parallelize the three independent post-checkin phases (`awardCheckinRewards`, `notifyConnectionsOfCheckin`, `recordVenueCollection` + badges) with `Promise.allSettled` instead of running them serially — none depends on another's output, and each already swallows its own errors, so nothing about the current failure-isolation design blocks this. Expected to be the biggest single win: today's total is roughly their sum; concurrent, it'd be roughly the slowest of the three. This is the change to watch for on the new chart — Total dropping below the phases' summed average is the signal it actually worked.
+4. Parallelize `sendPushToUsers`' per-subscription sends (`apps/api/src/pushSubscriptions/pushSubscriptions.ts`) — currently a sequential `for` loop awaiting each external push-service call one at a time, which scales with the checking-in user's connection count.
+5. Client-side GPS preload/reuse — `/checkin`'s `NearestVenues.tsx` already calls `getCurrentPosition()` once to sort venues by distance, then discards it; `useCheckIn.ts` fetches a fresh position from scratch when the user actually slides. The location detail page's `SlideToCheckIn` has no prefetch at all — the GPS fix only starts once the slide gesture completes. Fix: kick off `getCurrentPosition()` on page/component mount (or reuse `NearestVenues`' already-fetched position) and have `useCheckIn` reuse a short-TTL cached fix, falling back to a fresh fetch if stale or missing. Note this only ever shows up in client-perceived latency, not the server-side chart above.
 
 ##### Trim Place Details field mask to a cheaper SKU tier
 
