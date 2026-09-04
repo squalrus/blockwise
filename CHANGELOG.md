@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.87.1] — 2026-09-04
+
+### Added
+
+- **Monitoring's "Requests" sub-tab**, split out of Errors: a new "Requests over time" chart overlays 2xx/3xx/4xx/5xx status-class lines (plus a total) alongside the existing status-code tiles and recent-requests table, which moved here from Errors. The Routes filter pill now also shows on this sub-page. The Overview page gained a matching fourth preview card. (`apps/web/src/app/admin/super/monitoring/requests/`, `RequestsByStatusClassChart.tsx`, `statusClasses.ts`, `errors/page.tsx`, `page.tsx`, `layout.tsx`, `apps/web/src/app/admin/super/layout.tsx`, `supabase/migrations/20260904050000_monitoring_analytics_fn_v15.sql`)
+
+### Changed
+
+- **Geoapify credits are now tracked by actual result count**, not a flat 1-credit-per-request estimate — matching Geoapify's real billing (1 credit per request, plus 1 per additional 20 results beyond the first 20). Every Places API call now logs its result count, and the daily-quota guard sums real credits instead of `count × constant`. (`apps/api/src/places/instrumentedClient.ts`, `quotaGuard.ts`, `apps/api/src/monitoring/`, `packages/types/src/index.ts`, `supabase/migrations/20260904020000_places_api_call_log_result_count.sql`, `20260904030000_monitoring_analytics_fn_v13.sql`)
+- **Monitoring's Geoapify, Performance, and Errors charts now overlay every category plus a total** instead of a single aggregate line: Geoapify's two charts break out by endpoint (searchPlaces/searchText/reverseGeocode/getPlaceDetails), Performance's request-volume chart by route scope (App/Admin/Auth), and Errors' "Errors over time" chart by source (App/API/Marketing). (`apps/web/src/app/admin/super/monitoring/PlacesApiCallsChart.tsx`, `PlacesApiCreditsChart.tsx`, `RequestVolumeChart.tsx`, `ErrorsOverTimeChart.tsx`, `placesApiChartData.ts`, `placesApiEndpoints.ts`, `errorSources.ts`, `supabase/migrations/20260904040000_monitoring_analytics_fn_v14.sql`, `20260904050000_monitoring_analytics_fn_v15.sql`)
+
 ## [0.87.0] — 2026-09-04
 
 ### Added

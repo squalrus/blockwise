@@ -11,13 +11,13 @@ import {
 } from "./MonitoringContext";
 
 // Super-admin Monitoring section (BACKLOG.md Ref 104): errors (API + web),
-// request volume/latency, and outbound Geoapify API calls, rolled on
-// Postgres rather than a third-party service. Split across Overview/
-// Errors/Performance/Geoapify sub-pages (each its own route under the
-// "Monitoring" entry in AdminShell's left nav, see super/layout.tsx's TABS)
-// rather than one long scroll -- filters live here, above {children}, so
-// they're shared and persist across sub-pages instead of resetting on
-// every navigation.
+// request volume/status codes/latency, and outbound Geoapify API calls,
+// rolled on Postgres rather than a third-party service. Split across
+// Overview/Errors/Requests/Performance/Geoapify sub-pages (each its own
+// route under the "Monitoring" entry in AdminShell's left nav, see
+// super/layout.tsx's TABS) rather than one long scroll -- filters live
+// here, above {children}, so they're shared and persist across sub-pages
+// instead of resetting on every navigation.
 export default function MonitoringLayout({ children }: { children: React.ReactNode }) {
   return (
     <MonitoringProvider>
@@ -36,6 +36,7 @@ export default function MonitoringLayout({ children }: { children: React.ReactNo
 // section root, so its title is just "Monitoring".
 const SUB_PAGES: { suffix: string; label: string }[] = [
   { suffix: "/errors", label: "Errors" },
+  { suffix: "/requests", label: "Requests" },
   { suffix: "/performance", label: "API Performance" },
   { suffix: "/places", label: "Geoapify" },
 ];
@@ -125,11 +126,12 @@ function MonitoringHeader() {
           </div>
         </div>
         {/* Route scope only means anything for request_log-derived charts
-            (Performance's own content), so it's hidden on every other
-            sub-page rather than shown but inert -- lives here rather than in
-            performance/page.tsx purely so it gets identical row spacing to
-            Domain/Range/Version instead of a separate gap-5.5 page-body gap. */}
-        {currentSubPage?.suffix === "/performance" && (
+            (Performance's and Requests' own content), so it's hidden on
+            every other sub-page rather than shown but inert -- lives here
+            rather than in performance/page.tsx or requests/page.tsx purely
+            so it gets identical row spacing to Domain/Range/Version instead
+            of a separate gap-5.5 page-body gap. */}
+        {(currentSubPage?.suffix === "/performance" || currentSubPage?.suffix === "/requests") && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-extrabold text-muted-strong">Routes:</span>
             <div className="flex gap-1 rounded-full bg-card-alt p-1">

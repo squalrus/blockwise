@@ -40,6 +40,7 @@ export class SupabaseMonitoringRepository implements MonitoringRepository {
       duration_ms: entry.durationMs,
       error_message: entry.errorMessage ?? null,
       request_context: entry.requestContext,
+      result_count: entry.resultCount,
       domain: getAppDomain(),
       app_version: getAppVersion(),
     });

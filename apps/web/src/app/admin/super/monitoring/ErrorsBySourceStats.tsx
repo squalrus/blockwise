@@ -1,19 +1,8 @@
 import type { MonitoringErrorsBySource } from "@blockwise/types";
 import { StatTile, MushroomIcon } from "../../../StatTile";
+import { ERROR_LOG_SOURCE_COLORS, ERROR_LOG_SOURCE_LABELS, ERROR_LOG_SOURCE_ORDER, type ErrorLogSource } from "./errorSources";
 
-type Source = MonitoringErrorsBySource["source"];
-
-const LABELS: Record<Source, string> = {
-  api: "API errors",
-  web: "App errors",
-  marketing: "Marketing errors",
-};
-const COLORS: Record<Source, string> = {
-  api: "var(--brand-orange)",
-  web: "var(--brand-purple)",
-  marketing: "var(--brand-amber)",
-};
-const ORDER: Source[] = ["web", "api", "marketing"];
+type Source = ErrorLogSource;
 
 // Mirrors ActivityByTypeStats (admin/neighborhood analytics) for the tile
 // styling. `errors_by_source` itself is never filtered by source (see the
@@ -27,16 +16,16 @@ export function ErrorsBySourceStats({ data, selected }: { data: MonitoringErrors
 
   return (
     <div className="grid grid-cols-3 gap-3">
-      {ORDER.map((source) => (
+      {ERROR_LOG_SOURCE_ORDER.map((source) => (
         <div
           key={source}
           className={`rounded-2xl transition-shadow ${selected === source ? "ring-2 ring-foreground" : ""}`}
         >
           <StatTile
-            icon={<MushroomIcon color={COLORS[source]} />}
-            label={LABELS[source]}
+            icon={<MushroomIcon color={ERROR_LOG_SOURCE_COLORS[source]} />}
+            label={ERROR_LOG_SOURCE_LABELS[source]}
             value={counts.get(source) ?? 0}
-            color={COLORS[source]}
+            color={ERROR_LOG_SOURCE_COLORS[source]}
           />
         </div>
       ))}

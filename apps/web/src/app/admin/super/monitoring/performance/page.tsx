@@ -27,7 +27,7 @@ export default function MonitoringPerformancePage() {
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
           <section className="rounded-3xl border border-border bg-card p-6 lg:col-span-2">
             <h2 className="mb-3.5 font-heading text-lg font-extrabold">API request volume</h2>
-            <RequestVolumeChart data={analytics.request_volume_over_time} />
+            <RequestVolumeChart data={analytics.request_volume_by_day_and_scope} />
           </section>
 
           <section className="rounded-3xl border border-border bg-card p-6">

@@ -18,18 +18,18 @@ function counts(rows: MonitoringPlacesApiDayToDate[]): () => Promise<MonitoringP
 
 describe("PlacesApiQuotaGuard", () => {
   it("is not near the limit well under the shared daily free tier", async () => {
-    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "getPlaceDetails", count: 10 }]));
+    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "getPlaceDetails", count: 10, credits: 10 }]));
     // GEOAPIFY_FREE_DAILY_CREDITS is 3,000/day; 10 credits is nowhere close.
     expect(await guard.isNearLimit()).toBe(false);
   });
 
   it("trips at the 90% near-limit threshold, not just at 100%", async () => {
-    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "getPlaceDetails", count: 2700 }])); // 90% of 3,000
+    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "getPlaceDetails", count: 2700, credits: 2700 }])); // 90% of 3,000
     expect(await guard.isNearLimit()).toBe(true);
   });
 
   it("caches the total so repeated checks don't re-query", async () => {
-    const getDayToDateCallCounts = vi.fn().mockResolvedValue([{ endpoint: "getPlaceDetails", count: 10 }]);
+    const getDayToDateCallCounts = vi.fn().mockResolvedValue([{ endpoint: "getPlaceDetails", count: 10, credits: 10 }]);
     const guard = new PlacesApiQuotaGuard(getDayToDateCallCounts);
 
     await guard.isNearLimit();
@@ -43,10 +43,19 @@ describe("PlacesApiQuotaGuard", () => {
     // Geoapify meters one shared daily pool, not a separate tier per endpoint.
     const guard = new PlacesApiQuotaGuard(
       counts([
-        { endpoint: "searchPlaces", count: 1500 },
-        { endpoint: "getPlaceDetails", count: 1500 },
+        { endpoint: "searchPlaces", count: 1500, credits: 1500 },
+        { endpoint: "getPlaceDetails", count: 1500, credits: 1500 },
       ])
     );
+    expect(await guard.isNearLimit()).toBe(true);
+  });
+
+  it("sums the already-weighted credits field, not count -- a saturated search tile costs more credits than its call count implies", async () => {
+    // 50 searchPlaces calls at a flat 1 credit/call would be nowhere near
+    // 2,700, but a handful of dense-tile calls returning >20 results each
+    // (weighted by places_api_call_credits() in Postgres) can push the real
+    // total over the threshold well before the raw call count would suggest.
+    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "searchPlaces", count: 50, credits: 2800 }]));
     expect(await guard.isNearLimit()).toBe(true);
   });
 });
@@ -64,7 +73,7 @@ describe("QuotaGuardedPlacesClient", () => {
 
   it("throws PlacesApiQuotaExceededError instead of calling through when near the limit", async () => {
     const inner = new FakeInnerClient();
-    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "getPlaceDetails", count: 3000 }])); // at the free tier
+    const guard = new PlacesApiQuotaGuard(counts([{ endpoint: "getPlaceDetails", count: 3000, credits: 3000 }])); // at the free tier
     const client = new QuotaGuardedPlacesClient(inner, guard);
 
     await expect(client.getPlaceDetails("place-1")).rejects.toThrow(PlacesApiQuotaExceededError);

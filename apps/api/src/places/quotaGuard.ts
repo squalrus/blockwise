@@ -1,6 +1,5 @@
 import {
   GEOAPIFY_FREE_DAILY_CREDITS,
-  PLACES_API_CREDIT_COST,
   PLACES_API_NEAR_LIMIT_THRESHOLD,
   type MonitoringPlacesApiDayToDate,
   type PlacesApiEndpoint,
@@ -51,10 +50,11 @@ export class PlacesApiQuotaGuard {
     if (cached && cached.expiresAt > now) return cached.totalCredits;
 
     const counts = await this.getDayToDateCallCounts();
-    const totalCredits = counts.reduce(
-      (sum, { endpoint, count }) => sum + count * PLACES_API_CREDIT_COST[endpoint].creditsPerRequest,
-      0
-    );
+    // `credits` is already result-count-weighted in Postgres
+    // (places_api_call_credits(), 20260904020000_places_api_call_log_result_
+    // count.sql) -- summing count * a flat per-endpoint constant here used to
+    // undercount real Geoapify usage on any tile/search returning >20 results.
+    const totalCredits = counts.reduce((sum, { credits }) => sum + credits, 0);
     this.cached = { totalCredits, expiresAt: now + CACHE_TTL_MS };
     return totalCredits;
   }

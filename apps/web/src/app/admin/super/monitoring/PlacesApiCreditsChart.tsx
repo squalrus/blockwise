@@ -1,44 +1,35 @@
 "use client";
 
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import type { MonitoringPlacesApiCallByDayAndEndpoint } from "@blockwise/types";
-import { estimateCredits } from "./placesApiCredits";
+import { PLACES_API_ENDPOINT_COLORS, PLACES_API_ENDPOINT_LABELS, PLACES_API_ENDPOINT_ORDER } from "./placesApiEndpoints";
+import { pivotPlacesApiDailySeries } from "./placesApiChartData";
 
-const COLOR = "var(--brand-amber)";
+const TOTAL_COLOR = "var(--foreground)";
+const TOTAL_LABEL = "Total";
 
 function formatDay(date: string) {
   return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// Sums count * weight across endpoints per day -- can't reuse
-// places_api_calls_over_time's plain daily total for this since each
-// endpoint has its own per-request credit cost (PLACES_API_CREDIT_COST); a
-// day dominated by cheap single-result searches and a day dominated by
-// pricier bulk ones would otherwise show as the same "credits" for the same
-// call count (once Geoapify's extra-results bonus is modeled -- today every
-// endpoint is a flat 1 credit/request, see PLACES_API_CREDIT_COST's comment).
-function toDailyCredits(data: MonitoringPlacesApiCallByDayAndEndpoint[]): { date: string; credits: number }[] {
-  const byDate = new Map<string, number>();
-  for (const row of data) {
-    byDate.set(row.date, (byDate.get(row.date) ?? 0) + estimateCredits(row.count, row.endpoint));
-  }
-  return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, credits]) => ({ date, credits }));
-}
-
 // Credits-counterpart to PlacesApiCallsChart -- same self-instrumented
-// source (places_api_call_log via InstrumentedPlacesClient), same caveat
-// (a lower-bound estimate, not Geoapify's exact metering; see
-// PLACES_API_CREDIT_COST).
+// source (places_api_call_log via InstrumentedPlacesClient) and same
+// per-endpoint-line-plus-total shape, just plotting each row's already
+// result-count-weighted `credits` (Postgres' places_api_call_credits(),
+// 20260904020000_places_api_call_log_result_count.sql) instead of raw call
+// count -- a day dominated by single-result searches and a day dominated by
+// 100+-result bulk-sync tiles cost very different real Geoapify credit for
+// the same call count, so this can't just reuse the calls chart's data.
 export function PlacesApiCreditsChart({ data }: { data: MonitoringPlacesApiCallByDayAndEndpoint[] }) {
-  const daily = toDailyCredits(data);
+  const daily = pivotPlacesApiDailySeries(data, "credits");
 
   if (daily.length === 0) {
     return <p className="text-sm text-muted">No Places API calls in this window yet.</p>;
   }
 
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <AreaChart data={daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={260}>
+      <ComposedChart data={daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.6} />
         <XAxis
           dataKey="date"
@@ -48,15 +39,9 @@ export function PlacesApiCreditsChart({ data }: { data: MonitoringPlacesApiCallB
           tickLine={false}
           minTickGap={24}
         />
-        <YAxis
-          allowDecimals={false}
-          tick={{ fill: "var(--muted)", fontSize: 11 }}
-          axisLine={false}
-          tickLine={false}
-          width={48}
-        />
+        <YAxis allowDecimals={false} tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
         <Tooltip
-          formatter={(value) => [Number(value ?? 0).toLocaleString(), "Credits"]}
+          formatter={(value, name) => [Number(value ?? 0).toLocaleString(), name]}
           labelFormatter={(label) => formatDay(String(label ?? ""))}
           contentStyle={{
             background: "var(--card)",
@@ -65,10 +50,32 @@ export function PlacesApiCreditsChart({ data }: { data: MonitoringPlacesApiCallB
             fontSize: 12,
           }}
           labelStyle={{ color: "var(--foreground)", fontWeight: 700 }}
-          itemStyle={{ color: COLOR }}
         />
-        <Area type="monotone" dataKey="credits" stroke={COLOR} strokeWidth={2} fill={COLOR} fillOpacity={0.1} />
-      </AreaChart>
+        <Legend
+          wrapperStyle={{ fontSize: 11, fontWeight: 700 }}
+          formatter={(value) => <span style={{ color: "var(--muted-strong)" }}>{value}</span>}
+        />
+        <Area
+          type="monotone"
+          dataKey="total"
+          name={TOTAL_LABEL}
+          stroke={TOTAL_COLOR}
+          strokeWidth={2}
+          fill={TOTAL_COLOR}
+          fillOpacity={0.08}
+        />
+        {PLACES_API_ENDPOINT_ORDER.map((endpoint) => (
+          <Line
+            key={endpoint}
+            type="monotone"
+            dataKey={endpoint}
+            name={PLACES_API_ENDPOINT_LABELS[endpoint]}
+            stroke={PLACES_API_ENDPOINT_COLORS[endpoint]}
+            strokeWidth={2}
+            dot={false}
+          />
+        ))}
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

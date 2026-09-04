@@ -53,10 +53,18 @@ export class InstrumentedPlacesClient
     const startedAt = Date.now();
     try {
       const result = await fn();
-      this.log(endpoint, true, Date.now() - startedAt, null, requestContext);
+      // Array.isArray covers the three search-shaped endpoints (result is
+      // GeoapifyPlace[]); getPlaceDetails resolves to a single object, always
+      // exactly 1 result (or it would have thrown) -- both feed
+      // places_api_call_credits() in Postgres, which weights credits by
+      // result count instead of assuming every call is a cheap 1-credit
+      // request (see MonitoringPlacesApiDayToDate's comment for why that
+      // assumption undercounted real Geoapify usage).
+      const resultCount = Array.isArray(result) ? result.length : 1;
+      this.log(endpoint, true, Date.now() - startedAt, null, requestContext, resultCount);
       return result;
     } catch (err) {
-      this.log(endpoint, false, Date.now() - startedAt, err instanceof Error ? err.message : String(err), requestContext);
+      this.log(endpoint, false, Date.now() - startedAt, err instanceof Error ? err.message : String(err), requestContext, null);
       throw err;
     }
   }
@@ -66,10 +74,11 @@ export class InstrumentedPlacesClient
     success: boolean,
     durationMs: number,
     errorMessage: string | null,
-    requestContext: string
+    requestContext: string,
+    resultCount: number | null
   ): void {
     this.getRepository()
-      .logPlacesApiCall({ endpoint, success, durationMs, errorMessage, requestContext })
+      .logPlacesApiCall({ endpoint, success, durationMs, errorMessage, requestContext, resultCount })
       .catch(() => {
         // Best-effort only, mirrors installErrorLogging/requestLoggingMiddleware.
       });

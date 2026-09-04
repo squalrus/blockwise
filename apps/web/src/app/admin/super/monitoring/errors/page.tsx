@@ -4,19 +4,19 @@ import { MonitoringData, useMonitoring } from "../MonitoringContext";
 import { ErrorsOverTimeChart } from "../ErrorsOverTimeChart";
 import { ErrorsBySourceStats } from "../ErrorsBySourceStats";
 import { RecentErrorsTable } from "../RecentErrorsTable";
-import { RecentRequestsTable } from "../RecentRequestsTable";
-import { StatusCodeBreakdownStats } from "../StatusCodeBreakdownStats";
 
-// Monitoring > Errors -- errors and status codes, the "is something on
-// fire" view (formerly the Overview page itself; Overview is now a true
-// cross-section summary, see ../page.tsx). Request/latency charts live
-// under Performance, outbound Geoapify calls under Geoapify (see
-// ../layout.tsx and super/layout.tsx's TABS for the sub-nav).
+// Monitoring > Errors -- error_log only, the "is something on fire" view
+// (formerly the Overview page itself; Overview is now a true cross-section
+// summary, see ../page.tsx). Status-code/request_log content moved to its
+// own Requests sub-page once "API request volume" got a real time-series
+// chart alongside the status tiles/table (previously lived here). Latency
+// charts stay under Performance, outbound Geoapify calls under Geoapify
+// (see ../layout.tsx and super/layout.tsx's TABS for the sub-nav).
 export default function MonitoringErrorsPage() {
   // errorSource itself is set via the Source pill row in the shared header
   // (shown only on this sub-page, see ../layout.tsx's MonitoringHeader) --
   // read here only to ring the matching ErrorsBySourceStats tile.
-  const { statusClass, setStatusClass, errorSource } = useMonitoring();
+  const { errorSource } = useMonitoring();
 
   return (
     <MonitoringData>
@@ -24,7 +24,7 @@ export default function MonitoringErrorsPage() {
         <div className="flex flex-col gap-5">
           <section className="rounded-3xl border border-border bg-card p-6">
             <h2 className="mb-3.5 font-heading text-lg font-extrabold">Errors over time</h2>
-            <ErrorsOverTimeChart data={analytics.errors_over_time} />
+            <ErrorsOverTimeChart data={analytics.errors_by_day_and_source} />
           </section>
 
           {/* Summary tiles paired with the list they summarize, rather than
@@ -38,34 +38,6 @@ export default function MonitoringErrorsPage() {
             <div>
               <RecentErrorsTable errors={analytics.recent_errors} />
             </div>
-          </section>
-
-          {/* Same pairing for requests: Status codes tiles double as filters
-              for the list right below them (click one, click again to
-              clear). */}
-          <section className="rounded-3xl border border-border bg-card p-6">
-            <div className="mb-3.5 flex items-center justify-between gap-3">
-              <h2 className="font-heading text-lg font-extrabold">Requests</h2>
-              {statusClass && (
-                <button
-                  type="button"
-                  onClick={() => setStatusClass(null)}
-                  className="shrink-0 rounded-full bg-card-alt px-3 py-1 text-xs font-extrabold text-muted-strong hover:text-foreground"
-                >
-                  {statusClass} only · clear
-                </button>
-              )}
-            </div>
-            <StatusCodeBreakdownStats
-              data={analytics.status_code_breakdown}
-              selected={statusClass}
-              onSelect={setStatusClass}
-            />
-            <p className="mt-4 mb-3 text-xs text-muted">
-              Every request&apos;s method, path, and status -- click a tile above to narrow this list to one
-              status family and investigate a specific 4xx/5xx.
-            </p>
-            <RecentRequestsTable requests={analytics.recent_requests} />
           </section>
         </div>
       )}

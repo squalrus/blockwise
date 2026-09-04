@@ -25,6 +25,12 @@ export interface PlacesApiCallEntry {
   // failure like "Invalid Place ID" is traceable back to which place ID
   // without needing to correlate against another table.
   requestContext: string;
+  // Number of places the call actually returned (array length for the three
+  // search-shaped endpoints, always 1 for getPlaceDetails), null for a
+  // failed call. Feeds places_api_call_credits() in Postgres so credit
+  // totals reflect Geoapify's real "1 + 1 per extra 20 results" formula
+  // instead of a flat per-endpoint constant.
+  resultCount: number | null;
 }
 
 // Backs the super-admin Monitoring tab (BACKLOG.md Ref 104) -- writers
