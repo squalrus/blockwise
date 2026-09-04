@@ -78,13 +78,14 @@ apps/web/src/app/
 │   │   ├── challenges/page.tsx                         /admin/super/challenges — app-wide/neighborhood challenge authoring
 │   │   ├── badges/page.tsx                             /admin/super/badges — badge authoring, grouped by family/tier
 │   │   ├── feedback/page.tsx                           /admin/super/feedback — bug/feature triage list
-│   │   ├── monitoring/                                 /admin/super/monitoring — errors + request volume/latency, 4 sub-tabs
+│   │   ├── monitoring/                                 /admin/super/monitoring — errors + request volume/latency, 5 sub-tabs
 │   │   │   ├── layout.tsx                                shared filter header + MonitoringContext
 │   │   │   ├── MonitoringContext.tsx                     shared — filter state + single analytics fetch
 │   │   │   ├── page.tsx                                  /admin/super/monitoring — Overview sub-tab (default)
-│   │   │   ├── errors/page.tsx                           /admin/super/monitoring/errors — errors over time + by source
+│   │   │   ├── errors/page.tsx                           /admin/super/monitoring/errors — errors over time by source
+│   │   │   ├── requests/page.tsx                         /admin/super/monitoring/requests — request volume over time by status class + recent requests
 │   │   │   ├── performance/page.tsx                      /admin/super/monitoring/performance — API latency/volume/slow routes
-│   │   │   └── places/page.tsx                           /admin/super/monitoring/places — Geoapify call volume + failures
+│   │   │   └── places/page.tsx                           /admin/super/monitoring/places — Geoapify call volume + credits by endpoint
 │   │   ├── geoapify-migration/page.tsx                 /admin/super/geoapify-migration — one-time place-id backfill (disposable)
 │   │   └── components/                                 /admin/super/components — internal component library/preview
 │   │       ├── layout.tsx                              shared sub-nav

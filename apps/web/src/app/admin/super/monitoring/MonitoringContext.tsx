@@ -2,7 +2,7 @@
 
 import { Suspense, createContext, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { MonitoringAnalytics } from "@blockwise/types";
+import type { MonitoringAnalytics, MonitoringRouteScope } from "@blockwise/types";
 import { MushroomLoader } from "@blockwise/ui";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
@@ -42,10 +42,12 @@ const ERROR_SOURCES: ErrorSource[] = ERROR_SOURCE_OPTIONS.map((opt) => opt.value
 // /neighborhood-admin/*, /business/*), not just super-admin -- see
 // monitoring_route_scope() in the RPC migration for the exact path mapping.
 // Backs the Routes pill row in layout.tsx's MonitoringHeader (shown only on
-// the Performance sub-page) -- ROUTE_SCOPE_OPTIONS carries display labels
+// the Performance/Requests sub-pages) -- ROUTE_SCOPE_OPTIONS carries display labels
 // alongside the values so that header doesn't need its own copy of
-// "app" -> "App".
-export type RouteScope = "admin" | "auth" | "app";
+// "app" -> "App". Re-exported under this shorter name (rather than every
+// caller importing MonitoringRouteScope directly) since it's referenced
+// throughout this file and layout.tsx.
+export type RouteScope = MonitoringRouteScope;
 export const ROUTE_SCOPE_OPTIONS: { value: RouteScope; label: string }[] = [
   { value: "app", label: "App" },
   { value: "admin", label: "Admin" },
@@ -99,9 +101,9 @@ export function useMonitoring(): MonitoringContextValue {
 
 // Owns the Monitoring section's filters (window/domain/version/status class/
 // error source/route scope) and the one get_monitoring_analytics fetch that
-// backs every sub-page
-// (Overview/Performance/Geoapify) -- mounted once in layout.tsx above
-// {children}, so switching between sub-pages re-renders only the page body,
+// backs every sub-page (Overview/Errors/Requests/Performance/Geoapify) --
+// mounted once in layout.tsx above {children}, so switching between
+// sub-pages re-renders only the page body,
 // not a fresh fetch or a filter reset. Mirrors the single-RPC-per-section
 // pattern the pages themselves already followed before the split.
 export function MonitoringProvider({ children }: { children: React.ReactNode }) {
@@ -142,7 +144,7 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
   // as anywhere else, and defaulting to "latest" would hide the very
   // regression a rollback investigation needs to see).
   const [version, setVersion] = useState<string | null>(searchParams.get("version"));
-  // Set by clicking a Status codes tile on the Overview page -- filters the
+  // Set by clicking a Status codes tile on the Requests page -- filters the
   // "Recent requests" table there to just that family instead of adding a
   // second row of filter pills that would just repeat the same four values.
   const initialStatusClassParam = searchParams.get("status_class");
@@ -151,8 +153,9 @@ function MonitoringProviderInner({ children }: { children: React.ReactNode }) {
   );
   // Set via the Source pill row in the shared header (shown only on the
   // Errors sub-page, see layout.tsx's MonitoringHeader) -- narrows
-  // errors_over_time/recent_errors to one of api/web/marketing.
-  // errors_by_source itself stays unfiltered (see ErrorsBySourceStats).
+  // recent_errors to one of api/web/marketing. errors_by_source and
+  // errors_by_day_and_source both stay unfiltered (see ErrorsBySourceStats/
+  // ErrorsOverTimeChart).
   const initialErrorSourceParam = searchParams.get("source");
   const [errorSource, setErrorSource] = useState<ErrorSource | null>(
     ERROR_SOURCES.includes(initialErrorSourceParam as ErrorSource) ? (initialErrorSourceParam as ErrorSource) : null

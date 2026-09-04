@@ -9,9 +9,17 @@ import type {
 } from "./geoapifyClient";
 import type { MonitoringRepository, PlacesApiCallEntry } from "../monitoring/repository";
 
+const PLACE_STUB: GeoapifyPlace = {
+  placeId: "p1",
+  name: "Test Place",
+  formattedAddress: "",
+  location: { lat: 0, lng: 0 },
+  categories: [],
+};
+
 class FakeInnerClient implements GeoapifyPlacesClient, GeoapifyPlaceDetailsClient, GeoapifyTextSearchClient {
   async searchPlaces(): Promise<GeoapifyPlace[]> {
-    return [];
+    return [PLACE_STUB, PLACE_STUB, PLACE_STUB];
   }
   async searchText(): Promise<GeoapifyPlace[]> {
     return [];
@@ -44,7 +52,24 @@ describe("InstrumentedPlacesClient", () => {
       endpoint: "searchPlaces",
       success: true,
       requestContext: "center: 47.6000,-122.3000 · radius: 500m · 1 categories",
+      resultCount: 3,
     });
+  });
+
+  it("logs the actual result count for getPlaceDetails as 1, not the underlying array shape", async () => {
+    const repo = new FakeMonitoringRepository();
+    const inner: GeoapifyPlaceDetailsClient = {
+      getPlaceDetails: async () => ({ placeId: "p1", name: null, formattedAddress: "", categories: [] }),
+    };
+    const client = new InstrumentedPlacesClient(
+      inner as GeoapifyPlacesClient & GeoapifyPlaceDetailsClient & GeoapifyTextSearchClient,
+      () => repo as unknown as MonitoringRepository
+    );
+
+    await client.getPlaceDetails("place-1");
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(repo.logged[0]).toMatchObject({ endpoint: "getPlaceDetails", success: true, resultCount: 1 });
   });
 
   it("logs a failed call and still rethrows the underlying error", async () => {
@@ -63,6 +88,7 @@ describe("InstrumentedPlacesClient", () => {
       success: false,
       errorMessage: "Geoapify getPlaceDetails failed: 500 boom",
       requestContext: "placeId: place-1",
+      resultCount: null,
     });
   });
 });

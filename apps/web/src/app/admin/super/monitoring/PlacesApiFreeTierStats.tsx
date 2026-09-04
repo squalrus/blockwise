@@ -1,18 +1,7 @@
-import {
-  GEOAPIFY_FREE_DAILY_CREDITS,
-  PLACES_API_CREDIT_COST,
-  PLACES_API_NEAR_LIMIT_THRESHOLD,
-  type MonitoringPlacesApiDayToDate,
-} from "@blockwise/types";
-import { estimateCredits, formatCredits } from "./placesApiCredits";
+import { GEOAPIFY_FREE_DAILY_CREDITS, PLACES_API_NEAR_LIMIT_THRESHOLD, type MonitoringPlacesApiDayToDate } from "@blockwise/types";
+import { formatCredits } from "./placesApiCredits";
+import { PLACES_API_ENDPOINT_LABELS, PLACES_API_ENDPOINT_ORDER } from "./placesApiEndpoints";
 
-const LABELS: Record<MonitoringPlacesApiDayToDate["endpoint"], string> = {
-  searchPlaces: "Places search",
-  searchText: "Text search",
-  reverseGeocode: "Reverse geocode",
-  getPlaceDetails: "Place details",
-};
-const ORDER: MonitoringPlacesApiDayToDate["endpoint"][] = ["searchPlaces", "searchText", "reverseGeocode", "getPlaceDetails"];
 // Mirrors app.ts's getPlacesClient() -- only getPlaceDetails is actually
 // guarded (QuotaGuardedPlacesClient), since it's the one that fires on
 // ordinary visitor page views rather than an admin clicking a button.
@@ -33,8 +22,8 @@ const GUARDED_ENDPOINT = "getPlaceDetails";
 // quotaGuard.ts): the same 90% threshold that flips the gauge red here is
 // the threshold that makes the backend start skipping getPlaceDetails calls.
 export function PlacesApiFreeTierStats({ data }: { data: MonitoringPlacesApiDayToDate[] }) {
-  const byEndpoint = new Map(data.map((d) => [d.endpoint, d.count]));
-  const totalCredits = ORDER.reduce((sum, endpoint) => sum + estimateCredits(byEndpoint.get(endpoint) ?? 0, endpoint), 0);
+  const byEndpoint = new Map(data.map((d) => [d.endpoint, d]));
+  const totalCredits = data.reduce((sum, d) => sum + d.credits, 0);
   const percent = Math.min((totalCredits / GEOAPIFY_FREE_DAILY_CREDITS) * 100, 100);
   const nearLimit = totalCredits >= GEOAPIFY_FREE_DAILY_CREDITS * PLACES_API_NEAR_LIMIT_THRESHOLD;
 
@@ -61,13 +50,13 @@ export function PlacesApiFreeTierStats({ data }: { data: MonitoringPlacesApiDayT
       </div>
 
       <div className="flex flex-col gap-2">
-        {ORDER.map((endpoint) => {
-          const count = byEndpoint.get(endpoint) ?? 0;
-          const credits = estimateCredits(count, endpoint);
+        {PLACES_API_ENDPOINT_ORDER.map((endpoint) => {
+          const count = byEndpoint.get(endpoint)?.count ?? 0;
+          const credits = byEndpoint.get(endpoint)?.credits ?? 0;
           return (
             <div key={endpoint} className="flex items-center justify-between text-xs">
               <span className="font-bold text-muted-strong">
-                {LABELS[endpoint]}
+                {PLACES_API_ENDPOINT_LABELS[endpoint]}
                 {endpoint === GUARDED_ENDPOINT && <span className="ml-1 text-muted">(guarded)</span>}
               </span>
               <span className="font-bold text-muted">
@@ -77,9 +66,8 @@ export function PlacesApiFreeTierStats({ data }: { data: MonitoringPlacesApiDayT
           );
         })}
         <p className="text-[11px] text-muted">
-          Weighted at {PLACES_API_CREDIT_COST.getPlaceDetails.creditsPerRequest} credit/request -- doesn&rsquo;t
-          include Geoapify&rsquo;s bonus credit per extra 20 results on a large search, so real usage may run
-          slightly ahead of this total.
+          Weighted per call by actual result count, including Geoapify&rsquo;s bonus credit per extra 20 results on
+          a large search -- not just a flat 1 credit/request estimate.
         </p>
       </div>
     </div>

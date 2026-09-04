@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.87.1", date: "2026-09-04", summary: "Monitoring: Requests sub-tab, multi-series charts, accurate credits" },
   { version: "0.87.0", date: "2026-09-04", summary: "Locations now key on stable OSM identity; table redesign; refresh on Import" },
   { version: "0.86.0", date: "2026-09-03", summary: "Event feeds get nightly auto-sync + pending review; admin modal fixes" },
   { version: "0.85.0", date: "2026-09-02", summary: "Marketing reports errors; Errors & API Performance gain filters" },

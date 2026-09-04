@@ -149,6 +149,7 @@ const TABS: {
     children: [
       { key: "overview", href: "", label: "Overview" },
       { key: "errors", href: "/errors", label: "Errors" },
+      { key: "requests", href: "/requests", label: "Requests" },
       { key: "performance", href: "/performance", label: "API Performance" },
       { key: "places", href: "/places", label: "Geoapify" },
     ],

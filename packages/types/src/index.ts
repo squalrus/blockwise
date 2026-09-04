@@ -1752,6 +1752,18 @@ export interface MonitoringErrorsBySource {
   count: number;
 }
 
+// Same per-day-per-category shape as MonitoringPlacesApiCallByDayAndEndpoint/
+// MonitoringRequestVolumeByDayAndScope -- backs "Errors over time"'s
+// per-source breakdown (App/API/Marketing overlaid, plus a total) instead of
+// one flat daily line. Deliberately not filtered by p_source, the same
+// reasoning as those two siblings: narrowing to one already-selected source
+// would collapse the breakdown back to a single flat line.
+export interface MonitoringErrorsByDayAndSource {
+  date: string; // 'YYYY-MM-DD'
+  source: "api" | "web" | "marketing";
+  count: number;
+}
+
 export interface MonitoringRecentError {
   id: string;
   source: "api" | "web" | "marketing";
@@ -1776,6 +1788,39 @@ export interface MonitoringLatencyByDay {
 
 export interface MonitoringStatusCodeBreakdown {
   status_class: "2xx" | "3xx" | "4xx" | "5xx";
+  count: number;
+}
+
+// Requests-over-time counterpart to MonitoringStatusCodeBreakdown -- backs
+// the Errors page's new per-status-class breakdown chart (2xx/3xx/4xx/5xx
+// overlaid, plus a total) in its "Requests" section. Respects route scope
+// (an orthogonal dimension, same as every other request_log-derived block)
+// but deliberately not status_class itself, for the same "don't self-filter
+// the breakdown" reason as MonitoringErrorsByDayAndSource/
+// MonitoringRequestVolumeByDayAndScope.
+export interface MonitoringRequestVolumeByDayAndStatusClass {
+  date: string; // 'YYYY-MM-DD'
+  status_class: "2xx" | "3xx" | "4xx" | "5xx";
+  count: number;
+}
+
+// The three route categories monitoring_route_scope() (Postgres) buckets
+// request_log.path into -- see MonitoringContext.tsx's RouteScope re-export
+// and ROUTE_SCOPE_OPTIONS, which back the Performance page's own route-scope
+// filter pills using these same three values.
+export type MonitoringRouteScope = "admin" | "auth" | "app";
+
+// Same per-day-per-category shape as MonitoringPlacesApiCallByDayAndEndpoint,
+// for request_log's own categorical dimension -- backs the "API request
+// volume" chart's per-scope breakdown (App/Admin/Auth overlaid, plus a
+// total), the request-log counterpart to the Geoapify page's per-endpoint
+// credits chart. Deliberately not filtered by the page's own route-scope
+// selector (p_route_scope) the way request_volume_over_time is -- narrowing
+// this breakdown to one already-selected scope would collapse it back to a
+// single flat line, defeating the point of showing all three at once.
+export interface MonitoringRequestVolumeByDayAndScope {
+  date: string; // 'YYYY-MM-DD'
+  scope: MonitoringRouteScope;
   count: number;
 }
 
@@ -1830,6 +1875,11 @@ export interface MonitoringPlacesApiByEndpoint {
   endpoint: PlacesApiEndpoint;
   count: number;
   error_count: number;
+  // Result-count-weighted (places_api_call_credits() in Postgres, from
+  // places_api_call_log.result_count), not count * a flat per-endpoint
+  // constant -- see MonitoringPlacesApiDayToDate's comment for why the flat
+  // version undercounted real usage. Successful calls only.
+  credits: number;
 }
 
 // Pairs with MonitoringPlacesApiByEndpoint's error_count -- the actual
@@ -1854,14 +1904,15 @@ export interface MonitoringPlacesApiFailure {
 
 // Same daily-count shape as MonitoringDailyCount, split out by endpoint --
 // backs the Geoapify page's credits-over-time chart. A plain daily total
-// can't be weighted into credits accurately since each endpoint has its own
-// per-request credit cost (see PLACES_API_CREDIT_COST below), so the trend
-// chart needs this breakdown to sum count * weight per day rather than
-// guessing a blended rate.
+// can't be weighted into credits accurately since each call's cost depends
+// on how many results it returned (see MonitoringPlacesApiDayToDate's
+// comment), so the trend chart needs this per-day-per-endpoint breakdown
+// with `credits` already summed server-side rather than estimating client-side.
 export interface MonitoringPlacesApiCallByDayAndEndpoint {
   date: string; // 'YYYY-MM-DD'
   endpoint: PlacesApiEndpoint;
   count: number;
+  credits: number;
 }
 
 // Day-to-date call counts per endpoint, independent of the Monitoring tab's
@@ -1877,35 +1928,25 @@ export interface MonitoringPlacesApiCallByDayAndEndpoint {
 // quotaGuard.ts), on the same assumption Google's billing carried -- a
 // failed request generally isn't metered -- which hasn't been separately
 // confirmed against Geoapify's docs either.
+//
+// `credits` is computed in Postgres (places_api_call_credits(), 20260904020000_
+// places_api_call_log_result_count.sql) from each row's actual result_count
+// (InstrumentedPlacesClient logs the real array length/1 per call), not a
+// flat per-endpoint constant -- Geoapify bills 1 credit per request plus 1
+// credit per additional 20 results beyond the first 20 on search-shaped
+// endpoints (searchPlaces/searchText/reverseGeocode), and sync.ts's tiled
+// bulk search regularly returns well over 20 results per tile (it requests
+// `limit: 500` and has dedicated saturation/subdivision logic for exactly
+// that case), so a flat 1-credit/request estimate meaningfully undercounted
+// real usage -- not just "slightly," as the old flattened estimate assumed.
+// NULL result_count (rows logged before this column existed) is treated as
+// 20 (1 credit) in Postgres, preserving those historical rows' prior flat
+// accounting rather than inventing a count that was never recorded.
 export interface MonitoringPlacesApiDayToDate {
   endpoint: PlacesApiEndpoint;
   count: number;
+  credits: number;
 }
-
-// Geoapify's actual metering unit: credits, not dollars. Unlike Google's
-// pay-per-request SKUs, Geoapify sells fixed monthly plans sized to a daily
-// credit ceiling (Free = 3,000/day/$0, then $59 for 10,000/day, $109 for
-// 25,000/day, ... -- see docs/location-services-comparison.md) rather than
-// billing per credit consumed, so there's no real $/request rate to surface
-// -- the Monitoring UI shows credits used against the daily free tier
-// instead of a dollar estimate. Geoapify's real formula also grants 1 extra
-// credit per 20 results beyond the first 20 on search-shaped endpoints
-// (searchPlaces/searchText/reverseGeocode); places_api_call_log doesn't
-// record a per-call result count, and real tiles/searches run well under 20
-// results each (docs/location-services-comparison.md's usage estimate), so
-// this flattens every endpoint to 1 credit/request rather than tracking
-// that bonus -- a deliberate simplification, same spirit as the old
-// $-estimate's "upper bound, not the actual bill" caveat.
-export interface PlacesApiEndpointCredits {
-  creditsPerRequest: number;
-}
-
-export const PLACES_API_CREDIT_COST: Record<PlacesApiEndpoint, PlacesApiEndpointCredits> = {
-  searchPlaces: { creditsPerRequest: 1 },
-  searchText: { creditsPerRequest: 1 },
-  reverseGeocode: { creditsPerRequest: 1 },
-  getPlaceDetails: { creditsPerRequest: 1 },
-};
 
 // Geoapify Free plan's daily credit ceiling (docs/location-services-comparison.md).
 // Unlike Google's per-SKU free tiers, this is one shared pool across every
@@ -1930,10 +1971,13 @@ export interface MonitoringAnalytics {
   // sub-day granularity (5 min / 1 hour) alongside 24h/7d/30d.
   window_minutes: number;
   errors_over_time: MonitoringDailyCount[];
+  errors_by_day_and_source: MonitoringErrorsByDayAndSource[];
   errors_by_source: MonitoringErrorsBySource[];
   recent_errors: MonitoringRecentError[];
   recent_requests: MonitoringRecentRequest[];
   request_volume_over_time: MonitoringDailyCount[];
+  request_volume_by_day_and_scope: MonitoringRequestVolumeByDayAndScope[];
+  request_volume_by_day_and_status_class: MonitoringRequestVolumeByDayAndStatusClass[];
   latency_over_time: MonitoringLatencyByDay[];
   status_code_breakdown: MonitoringStatusCodeBreakdown[];
   slowest_routes: MonitoringSlowestRoute[];

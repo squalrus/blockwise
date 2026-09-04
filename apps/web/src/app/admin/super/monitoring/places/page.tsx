@@ -34,7 +34,7 @@ export default function MonitoringPlacesPage() {
 
           <section className="rounded-3xl border border-border bg-card p-6 lg:col-span-2">
             <h2 className="mb-3.5 font-heading text-lg font-extrabold">Geoapify API calls</h2>
-            <PlacesApiCallsChart data={analytics.places_api_calls_over_time} />
+            <PlacesApiCallsChart data={analytics.places_api_calls_by_day_and_endpoint} />
           </section>
 
           <section className="rounded-3xl border border-border bg-card p-6 lg:col-span-2">
