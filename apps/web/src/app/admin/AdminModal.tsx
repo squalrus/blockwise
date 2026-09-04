@@ -33,7 +33,7 @@ export function AdminModal({
     <dialog
       ref={ref}
       onClose={onClose}
-      className="w-[min(32rem,calc(100vw-2rem))] rounded-3xl border border-border bg-card p-0 text-foreground backdrop:bg-black/40"
+      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-3xl border border-border bg-card p-0 text-foreground backdrop:bg-black/40"
     >
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <h2 className="text-xs font-extrabold tracking-wide text-muted uppercase">{title}</h2>
@@ -46,7 +46,7 @@ export function AdminModal({
           ×
         </button>
       </div>
-      <div className="max-h-[75vh] overflow-y-auto p-6 text-sm">{children}</div>
+      <div className="max-h-[75vh] overflow-y-auto overflow-x-hidden p-6 text-sm">{children}</div>
     </dialog>
   );
 }

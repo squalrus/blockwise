@@ -81,6 +81,25 @@ export async function updateNeighborhoodIcalFeedUrl(
   return { status: "updated", neighborhood };
 }
 
+export type UpdateNeighborhoodIcalSyncSettingsResult =
+  | { status: "not_found" }
+  | { status: "updated"; neighborhood: NeighborhoodRecord };
+
+// Nightly auto-sync toggle + auto-approve ("trust this feed") toggle -- each
+// PATCHed independently from its own switch in IcalFeedForm.tsx, so settings
+// is a partial update.
+export async function updateNeighborhoodIcalSyncSettings(
+  id: string,
+  settings: { autoSyncEnabled?: boolean; autoApproveEvents?: boolean },
+  repository: NeighborhoodRepository
+): Promise<UpdateNeighborhoodIcalSyncSettingsResult> {
+  const existing = await repository.getNeighborhoodById(id);
+  if (!existing) return { status: "not_found" };
+
+  const neighborhood = await repository.updateIcalSyncSettings(id, settings);
+  return { status: "updated", neighborhood };
+}
+
 export type GetNeighborhoodBoundaryResult =
   | { status: "not_found" }
   | { status: "found"; boundary: NeighborhoodBoundaryRecord };

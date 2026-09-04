@@ -188,13 +188,15 @@ export default function BusinessEventsPage() {
                       >
                         {e.status === "hidden" ? "Unhide" : "Hide"}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteEvent(e.id)}
-                        className="text-xs font-bold text-red-600 hover:underline dark:text-red-400"
-                      >
-                        Delete
-                      </button>
+                      {e.source === "manual" && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEvent(e.id)}
+                          className="text-xs font-bold text-red-600 hover:underline dark:text-red-400"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </>
                   }
                 />

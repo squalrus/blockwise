@@ -137,6 +137,7 @@ import {
   updateNeighborhoodBoundary,
   updateNeighborhoodDescription,
   updateNeighborhoodIcalFeedUrl,
+  updateNeighborhoodIcalSyncSettings,
   updateNeighborhoodSocialLinks,
 } from "./neighborhoods/neighborhoods";
 import { SlugTakenError } from "./neighborhoods/repository";
@@ -208,7 +209,7 @@ import { listUsersForAdmin } from "./users/users";
 import { SupabaseUserRepository } from "./users/supabaseRepository";
 
 const CONTACT_METHODS: BusinessClaimContactMethod[] = ["phone", "email"];
-const EVENT_STATUSES: EventStatus[] = ["active", "hidden"];
+const EVENT_STATUSES: EventStatus[] = ["active", "hidden", "pending"];
 const CLAIM_STATUSES: BusinessClaimStatus[] = ["pending", "approved", "rejected"];
 const ACCOUNT_TYPES: AccountType[] = ["consumer", "business"];
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["instagram", "twitter", "tiktok", "facebook", "website"];
@@ -3392,6 +3393,10 @@ export function createApp() {
         res.status(404).json({ error: "Event not found" });
         return;
       }
+      if (result.status === "forbidden") {
+        res.status(403).json({ error: "Only manually added events can be deleted" });
+        return;
+      }
       res.status(204).end();
     } catch (err) {
       console.error(`DELETE /business/venues/${req.params.id}/events/${req.params.eventId} failed:`, err);
@@ -3475,6 +3480,8 @@ export function createApp() {
           social_links: neighborhood.social_links,
           ical_feed_url: neighborhood.icalFeedUrl,
           ical_synced_at: neighborhood.icalSyncedAt,
+          ical_auto_sync_enabled: neighborhood.icalAutoSyncEnabled,
+          ical_auto_approve_events: neighborhood.icalAutoApproveEvents,
           status: neighborhood.status,
         };
         res.json(summary);
@@ -3653,6 +3660,52 @@ export function createApp() {
     }
   );
 
+  // Nightly auto-sync + "trust this feed" auto-approve toggles -- each
+  // independently PATCHable from its own switch in IcalFeedForm.tsx, so at
+  // least one (but not necessarily both) of the two fields must be present.
+  app.patch(
+    "/neighborhood-admin/neighborhoods/:id/ical-sync-settings",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const { ical_auto_sync_enabled, ical_auto_approve_events } = req.body ?? {};
+      if (ical_auto_sync_enabled === undefined && ical_auto_approve_events === undefined) {
+        res
+          .status(400)
+          .json({ error: "ical_auto_sync_enabled and/or ical_auto_approve_events is required" });
+        return;
+      }
+      if (
+        (ical_auto_sync_enabled !== undefined && typeof ical_auto_sync_enabled !== "boolean") ||
+        (ical_auto_approve_events !== undefined && typeof ical_auto_approve_events !== "boolean")
+      ) {
+        res.status(400).json({ error: "ical_auto_sync_enabled and ical_auto_approve_events must be booleans" });
+        return;
+      }
+
+      try {
+        const result = await updateNeighborhoodIcalSyncSettings(
+          req.params.id,
+          { autoSyncEnabled: ical_auto_sync_enabled, autoApproveEvents: ical_auto_approve_events },
+          getNeighborhoodRepository()
+        );
+        if (result.status === "not_found") {
+          res.status(404).json({ error: "Neighborhood not found" });
+          return;
+        }
+        res.json({
+          ical_auto_sync_enabled: result.neighborhood.icalAutoSyncEnabled,
+          ical_auto_approve_events: result.neighborhood.icalAutoApproveEvents,
+        });
+      } catch (err) {
+        console.error(
+          `PATCH /neighborhood-admin/neighborhoods/${req.params.id}/ical-sync-settings failed:`,
+          err
+        );
+        res.status(500).json({ error: "Failed to update calendar sync settings" });
+      }
+    }
+  );
+
   app.post(
     "/neighborhood-admin/neighborhoods/:id/ical-feed/sync",
     neighborhoodAdminGate,
@@ -3687,6 +3740,31 @@ export function createApp() {
           err
         );
         res.status(500).json({ error: "Failed to sync calendar feed" });
+      }
+    }
+  );
+
+  // Lightweight list endpoint, filterable by ?status= -- mirrors the claims
+  // list route's ?status=pending pattern (used by the sidebar's
+  // pendingClaimCount fetch). The events *page* itself still reads off the
+  // heavier /dashboard endpoint (which also fetches POIs); this exists for
+  // the sidebar's pendingEventCount fetch, which only needs the count.
+  app.get(
+    "/neighborhood-admin/neighborhoods/:id/events",
+    neighborhoodAdminGate,
+    async (req, res) => {
+      const status = req.query.status;
+      if (status !== undefined && !EVENT_STATUSES.includes(status as EventStatus)) {
+        res.status(400).json({ error: `status must be one of: ${EVENT_STATUSES.join(", ")}` });
+        return;
+      }
+
+      try {
+        const events = await listEventsForNeighborhood(req.params.id, getEventRepository());
+        res.json(status === undefined ? events : events.filter((e) => e.status === status));
+      } catch (err) {
+        console.error(`GET /neighborhood-admin/neighborhoods/${req.params.id}/events failed:`, err);
+        res.status(500).json({ error: "Failed to list events" });
       }
     }
   );
@@ -3746,6 +3824,10 @@ export function createApp() {
         );
         if (result.status === "not_found") {
           res.status(404).json({ error: "Event not found" });
+          return;
+        }
+        if (result.status === "forbidden") {
+          res.status(403).json({ error: "Only manually added events can be deleted" });
           return;
         }
         res.status(204).end();

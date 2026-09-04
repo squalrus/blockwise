@@ -158,6 +158,7 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
   const [state, setState] = useState<State>({ status: "loading" });
   const [profile, setProfile] = useState<NeighborhoodProfile | null>(null);
   const [pendingClaimCount, setPendingClaimCount] = useState<number | null>(null);
+  const [pendingEventCount, setPendingEventCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +205,15 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
         .then((r) => (r.ok ? r.json() : null))
         .then((claims) => {
           if (!cancelled && claims) setPendingClaimCount(claims.length);
+        });
+
+      fetch(
+        clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhood.neighborhood_id}/events?status=pending`),
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+        .then((r) => (r.ok ? r.json() : null))
+        .then((events) => {
+          if (!cancelled && events) setPendingEventCount(events.length);
         });
     }
 
@@ -267,6 +277,12 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
       badge = (
         <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
           {pendingClaimCount}
+        </span>
+      );
+    } else if (tab.key === "events" && !!pendingEventCount) {
+      badge = (
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
+          {pendingEventCount}
         </span>
       );
     }

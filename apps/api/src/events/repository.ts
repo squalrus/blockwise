@@ -6,8 +6,10 @@ export type EventSource = "manual" | "ical";
 // "hidden" survives an iCal re-sync (upsertImportedEvents never overwrites
 // status on conflict), unlike a hard delete which a re-sync would just
 // undo -- the way to suppress one specific imported event without
-// excluding it from future syncs.
-export type EventStatus = "active" | "hidden";
+// excluding it from future syncs. "pending" is the default status a
+// newly-imported event gets unless the owning neighborhood has
+// icalAutoApproveEvents on -- an admin reviews it into "active"/"hidden".
+export type EventStatus = "active" | "hidden" | "pending";
 
 export interface EventRecord {
   id: string;
@@ -97,16 +99,27 @@ export interface EventRepository {
   // feed that still lists a previously-imported event updates that same row
   // instead of creating a second one, and manual rows (external_uid always
   // null) are never touched.
+  // defaultStatus applies only to genuinely new rows in this batch (default
+  // "active", preserving today's behavior for every caller except the
+  // neighborhood-admin sync path, which passes "pending" unless the
+  // neighborhood has icalAutoApproveEvents on) -- a row that already exists
+  // for this uid is never touched, same as before.
   upsertImportedEventsForNeighborhood(
     neighborhoodId: string,
-    events: ImportedEventInput[]
+    events: ImportedEventInput[],
+    defaultStatus?: EventStatus
   ): Promise<IcalSyncResult>;
   upsertImportedEventsForVenue(venueId: string, events: ImportedEventInput[]): Promise<IcalSyncResult>;
-  // Ownership check backing the delete routes below -- null if the event
-  // doesn't exist, so a cross-owner id and a missing one both resolve to the
-  // same not_found result without leaking which case it was (mirrors
-  // claims/repository.ts's getClaimVenueNeighborhoodId).
-  getEventOwner(eventId: string): Promise<{ venueId: string | null; neighborhoodId: string | null } | null>;
+  // Ownership check backing the delete/status routes below -- null if the
+  // event doesn't exist, so a cross-owner id and a missing one both resolve
+  // to the same not_found result without leaking which case it was (mirrors
+  // claims/repository.ts's getClaimVenueNeighborhoodId). source is used by
+  // the delete route to reject deleting an imported event (only "manual"
+  // events are deletable -- a re-sync would just recreate a deleted "ical"
+  // one, hence the hide/approve-only flow for those).
+  getEventOwner(
+    eventId: string
+  ): Promise<{ venueId: string | null; neighborhoodId: string | null; source: EventSource } | null>;
   // Hard delete -- no dependent rows reference event.id, unlike locations
   // (checkin/point_event/etc.), so there's no soft-hide/hasDependentActivity
   // step to go through first.

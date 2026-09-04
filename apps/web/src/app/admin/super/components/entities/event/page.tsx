@@ -5,6 +5,10 @@ import { ACTIVITY_EVENT_FOLLOW, SAMPLE_EVENTS } from "../../demoData";
 
 const EVENT = SAMPLE_EVENTS[0].event;
 
+const EVENT_ACTIVE_MANUAL = SAMPLE_EVENTS.find((e) => e.event.id === "demo-event-1")!.event;
+const EVENT_PENDING_ICAL = SAMPLE_EVENTS.find((e) => e.event.id === "demo-event-4")!.event;
+const EVENT_HIDDEN_MANUAL = SAMPLE_EVENTS.find((e) => e.event.id === "demo-event-3")!.event;
+
 // Entity-first view of "event" -- see entities/neighborhood/page.tsx for the
 // pattern this follows. Events have no EntityTile/EntityTypeChip (EntityKind
 // covers only business/poi/neighborhood) and aren't collectible (no "event"
@@ -21,13 +25,56 @@ export default function EntityEventPage() {
       <div className="flex flex-col gap-2.5">
         <p className="text-[11px] font-extrabold tracking-wide text-muted uppercase">List row -- admin</p>
         <p className="text-xs text-muted">
-          EventListItem with showSource (the default), as rendered on /location/[id]/events and the
-          neighborhood-admin Events tab -- the feed-vs-manual source pill distinguishes an imported calendar event
-          from a hand-created one. Every other state lives under Components → Event row.
+          EventListItem with showSource (the default) plus the real neighborhood-admin Events tab actions, which
+          branch on status and source: a pending (feed-synced, unreviewed) row gets Approve/Hide; every other row
+          gets the usual Hide/Unhide toggle; Delete only ever shows for a manually-created event, since a re-sync
+          would just recreate an imported one. Every other state lives under Components → Event row.
         </p>
-        <div className="max-w-md">
+        <div className="flex max-w-md flex-col gap-2.5">
           <ul>
-            <EventListItem event={EVENT} actions={<FollowEventButton eventId={EVENT.id} mockFollowing={false} />} />
+            <EventListItem
+              event={EVENT_ACTIVE_MANUAL}
+              actions={
+                <>
+                  <button type="button" className="text-xs font-bold text-foreground hover:underline">
+                    Hide
+                  </button>
+                  <button type="button" className="text-xs font-bold text-red-600 hover:underline dark:text-red-400">
+                    Delete
+                  </button>
+                </>
+              }
+            />
+          </ul>
+          <ul>
+            <EventListItem
+              event={EVENT_PENDING_ICAL}
+              actions={
+                <>
+                  <button type="button" className="text-xs font-bold text-brand-purple hover:underline">
+                    Approve
+                  </button>
+                  <button type="button" className="text-xs font-bold text-foreground hover:underline">
+                    Hide
+                  </button>
+                </>
+              }
+            />
+          </ul>
+          <ul>
+            <EventListItem
+              event={EVENT_HIDDEN_MANUAL}
+              actions={
+                <>
+                  <button type="button" className="text-xs font-bold text-foreground hover:underline">
+                    Unhide
+                  </button>
+                  <button type="button" className="text-xs font-bold text-red-600 hover:underline dark:text-red-400">
+                    Delete
+                  </button>
+                </>
+              }
+            />
           </ul>
         </div>
       </div>

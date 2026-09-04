@@ -106,7 +106,7 @@ export function AdminSwitcher({ current, user }: { current: AdminSwitcherCurrent
                   current.kind === "super" ? "text-brand-purple" : "text-foreground hover:bg-card-alt"
                 }`}
               >
-                Super admin mode
+                Super admin
               </a>
             </div>
           )}

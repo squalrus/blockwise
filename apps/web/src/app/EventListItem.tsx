@@ -62,6 +62,11 @@ export function EventListItem({
                   Hidden
                 </span>
               )}
+              {event.status === "pending" && (
+                <span className="shrink-0 rounded-full bg-brand-orange/20 px-2 py-0.5 font-mono text-[10px] font-bold text-brand-orange">
+                  Pending
+                </span>
+              )}
             </div>
             <p className="mt-0.5 truncate text-xs text-muted">{metaParts.join(" · ")}</p>
           </div>

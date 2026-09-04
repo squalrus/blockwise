@@ -15,16 +15,41 @@ export function IcalFeedForm({
   neighborhoodId,
   initialFeedUrl,
   initialSyncedAt,
+  initialAutoSyncEnabled,
+  initialAutoApproveEvents,
   onSynced,
 }: {
   neighborhoodId: string;
   initialFeedUrl: string | null;
   initialSyncedAt: string | null;
+  initialAutoSyncEnabled: boolean;
+  initialAutoApproveEvents: boolean;
   onSynced: () => void;
 }) {
   const [feedUrl, setFeedUrl] = useState(initialFeedUrl ?? "");
   const [syncedAt, setSyncedAt] = useState(initialSyncedAt);
   const [status, setStatus] = useState<Status>({ state: "idle" });
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(initialAutoSyncEnabled);
+  const [autoApproveEvents, setAutoApproveEvents] = useState(initialAutoApproveEvents);
+  const [savingSetting, setSavingSetting] = useState<"auto_sync" | "auto_approve" | null>(null);
+
+  async function toggleSetting(key: "ical_auto_sync_enabled" | "ical_auto_approve_events", value: boolean) {
+    const which = key === "ical_auto_sync_enabled" ? "auto_sync" : "auto_approve";
+    setSavingSetting(which);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/ical-sync-settings`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ [key]: value }),
+      });
+      if (!res.ok) return;
+      if (key === "ical_auto_sync_enabled") setAutoSyncEnabled(value);
+      else setAutoApproveEvents(value);
+    } finally {
+      setSavingSetting(null);
+    }
+  }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -114,6 +139,52 @@ export function IcalFeedForm({
         <p className="text-sm text-red-600 dark:text-red-400">{status.message}</p>
       ) : (
         status.message && <p className="text-sm text-muted">{status.message}</p>
+      )}
+
+      {feedUrl.trim() && (
+        <div className="mt-1 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-card-alt px-4 py-3 text-sm">
+            <div>
+              <p className="font-extrabold text-foreground">Auto-sync nightly</p>
+              <p className="text-muted">Sync this feed automatically every night instead of clicking Sync now.</p>
+            </div>
+            <button
+              type="button"
+              disabled={savingSetting === "auto_sync"}
+              onClick={() => toggleSetting("ical_auto_sync_enabled", !autoSyncEnabled)}
+              aria-pressed={autoSyncEnabled}
+              className={
+                autoSyncEnabled
+                  ? "shrink-0 rounded-full bg-brand-purple px-3 py-1 text-xs font-bold text-on-accent disabled:opacity-60"
+                  : "shrink-0 rounded-full border border-border px-3 py-1 text-xs font-bold text-foreground hover:bg-card disabled:opacity-60"
+              }
+            >
+              {autoSyncEnabled ? "On" : "Off"}
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-card-alt px-4 py-3 text-sm">
+            <div>
+              <p className="font-extrabold text-foreground">Auto-approve imported events</p>
+              <p className="text-muted">
+                Skip the pending review queue for this feed -- imported events publish immediately instead of
+                waiting for you to approve or hide them.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={savingSetting === "auto_approve"}
+              onClick={() => toggleSetting("ical_auto_approve_events", !autoApproveEvents)}
+              aria-pressed={autoApproveEvents}
+              className={
+                autoApproveEvents
+                  ? "shrink-0 rounded-full bg-brand-purple px-3 py-1 text-xs font-bold text-on-accent disabled:opacity-60"
+                  : "shrink-0 rounded-full border border-border px-3 py-1 text-xs font-bold text-foreground hover:bg-card disabled:opacity-60"
+              }
+            >
+              {autoApproveEvents ? "On" : "Off"}
+            </button>
+          </div>
+        </div>
       )}
     </form>
   );

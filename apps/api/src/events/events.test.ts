@@ -15,6 +15,7 @@ import type {
   CreateEventInput,
   EventRecord,
   EventRepository,
+  EventSource,
   EventStatus,
   IcalSyncResult,
   ImportedEventInput,
@@ -83,18 +84,20 @@ class FakeEventRepository implements EventRepository {
 
   async upsertImportedEventsForNeighborhood(
     neighborhoodId: string,
-    events: ImportedEventInput[]
+    events: ImportedEventInput[],
+    defaultStatus: EventStatus = "active"
   ): Promise<IcalSyncResult> {
-    return this.upsertImported({ neighborhoodId }, events);
+    return this.upsertImported({ neighborhoodId }, events, defaultStatus);
   }
 
   async upsertImportedEventsForVenue(venueId: string, events: ImportedEventInput[]): Promise<IcalSyncResult> {
-    return this.upsertImported({ venueId }, events);
+    return this.upsertImported({ venueId }, events, "active");
   }
 
   private upsertImported(
     owner: { neighborhoodId?: string; venueId?: string },
-    events: ImportedEventInput[]
+    events: ImportedEventInput[],
+    defaultStatus: EventStatus
   ): IcalSyncResult {
     let imported = 0;
     let updated = 0;
@@ -131,7 +134,7 @@ class FakeEventRepository implements EventRepository {
           source: "ical",
           externalUid: input.uid,
           location: input.location,
-          status: "active",
+          status: defaultStatus,
         });
         imported++;
       }
@@ -139,10 +142,12 @@ class FakeEventRepository implements EventRepository {
     return { imported, updated };
   }
 
-  async getEventOwner(eventId: string): Promise<{ venueId: string | null; neighborhoodId: string | null } | null> {
+  async getEventOwner(
+    eventId: string
+  ): Promise<{ venueId: string | null; neighborhoodId: string | null; source: EventSource } | null> {
     const event = this.events.find((e) => e.id === eventId);
     if (!event) return null;
-    return { venueId: event.venueId, neighborhoodId: event.neighborhoodId };
+    return { venueId: event.venueId, neighborhoodId: event.neighborhoodId, source: event.source };
   }
 
   async deleteEvent(eventId: string): Promise<void> {
@@ -319,6 +324,26 @@ describe("deleteEventForVenue", () => {
     const result = await deleteEventForVenue("venue-1", "missing-event", repo);
     expect(result).toEqual({ status: "not_found" });
   });
+
+  it("returns forbidden for an iCal-imported event -- only manual events are deletable", async () => {
+    const repo = new FakeEventRepository();
+    await repo.upsertImportedEventsForVenue("venue-1", [
+      {
+        uid: "feed-uid-1",
+        title: "Weekly market",
+        description: "desc",
+        startTime: "2030-08-02T18:00:00.000Z",
+        endTime: "2030-08-02T21:00:00.000Z",
+        location: null,
+      },
+    ]);
+    const [imported] = await listEventsForVenue("venue-1", repo);
+
+    const result = await deleteEventForVenue("venue-1", imported.id, repo);
+
+    expect(result).toEqual({ status: "forbidden" });
+    expect(await listEventsForVenue("venue-1", repo)).toHaveLength(1);
+  });
 });
 
 describe("deleteEventForNeighborhood", () => {
@@ -341,6 +366,30 @@ describe("deleteEventForNeighborhood", () => {
     const result = await deleteEventForNeighborhood("neighborhood-2", created.event.id, repo);
 
     expect(result).toEqual({ status: "not_found" });
+    expect(await listEventsForNeighborhood("neighborhood-1", repo)).toHaveLength(1);
+  });
+
+  it("returns forbidden for an iCal-imported event -- only manual events are deletable", async () => {
+    const repo = new FakeEventRepository();
+    await repo.upsertImportedEventsForNeighborhood(
+      "neighborhood-1",
+      [
+        {
+          uid: "feed-uid-1",
+          title: "Weekly market",
+          description: "desc",
+          startTime: "2030-08-02T18:00:00.000Z",
+          endTime: "2030-08-02T21:00:00.000Z",
+          location: null,
+        },
+      ],
+      "pending"
+    );
+    const [imported] = await listEventsForNeighborhood("neighborhood-1", repo);
+
+    const result = await deleteEventForNeighborhood("neighborhood-1", imported.id, repo);
+
+    expect(result).toEqual({ status: "forbidden" });
     expect(await listEventsForNeighborhood("neighborhood-1", repo)).toHaveLength(1);
   });
 });
@@ -423,5 +472,66 @@ describe("iCal re-sync preserves a hidden status", () => {
     const [afterResync] = await listEventsForNeighborhood("neighborhood-1", repo);
     expect(afterResync.title).toBe("Weekly market (updated)");
     expect(afterResync.status).toBe("hidden");
+  });
+});
+
+describe("defaultStatus on import", () => {
+  it("gives a newly-imported neighborhood event the passed defaultStatus", async () => {
+    const repo = new FakeEventRepository();
+    await repo.upsertImportedEventsForNeighborhood(
+      "neighborhood-1",
+      [
+        {
+          uid: "feed-uid-1",
+          title: "Weekly market",
+          description: "desc",
+          startTime: "2030-08-02T18:00:00.000Z",
+          endTime: "2030-08-02T21:00:00.000Z",
+          location: null,
+        },
+      ],
+      "pending"
+    );
+
+    const [imported] = await listEventsForNeighborhood("neighborhood-1", repo);
+    expect(imported.status).toBe("pending");
+  });
+
+  it("does not change an already-reviewed row's status on re-sync, regardless of defaultStatus", async () => {
+    const repo = new FakeEventRepository();
+    const imported: ImportedEventInput = {
+      uid: "feed-uid-1",
+      title: "Weekly market",
+      description: "desc",
+      startTime: "2030-08-02T18:00:00.000Z",
+      endTime: "2030-08-02T21:00:00.000Z",
+      location: null,
+    };
+
+    await repo.upsertImportedEventsForNeighborhood("neighborhood-1", [imported], "pending");
+    const [firstSync] = await listEventsForNeighborhood("neighborhood-1", repo);
+    await setEventStatusForNeighborhood("neighborhood-1", firstSync.id, "active", repo);
+
+    await repo.upsertImportedEventsForNeighborhood("neighborhood-1", [imported], "pending");
+
+    const [afterResync] = await listEventsForNeighborhood("neighborhood-1", repo);
+    expect(afterResync.status).toBe("active");
+  });
+
+  it("defaults to active when no defaultStatus is passed (venue sync path)", async () => {
+    const repo = new FakeEventRepository();
+    await repo.upsertImportedEventsForVenue("venue-1", [
+      {
+        uid: "feed-uid-1",
+        title: "Weekly market",
+        description: "desc",
+        startTime: "2030-08-02T18:00:00.000Z",
+        endTime: "2030-08-02T21:00:00.000Z",
+        location: null,
+      },
+    ]);
+
+    const [imported] = await listEventsForVenue("venue-1", repo, true);
+    expect(imported.status).toBe("active");
   });
 });
