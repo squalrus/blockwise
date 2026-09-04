@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useParams } from "next/navigation";
-import type { AppUser, NeighborhoodAdminSummary, NeighborhoodProfile } from "@blockwise/types";
+import type { AppUser, FeedbackSubmissionAdminView, NeighborhoodAdminSummary, NeighborhoodProfile } from "@blockwise/types";
 import { getAccessToken, getCurrentUser, logOut } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
 import { MushroomLoader } from "@blockwise/ui";
@@ -74,9 +74,9 @@ const TABS: {
       </svg>
     ),
     children: [
-      { key: "list", href: "", label: "Locations" },
-      { key: "review", href: "/review", label: "Reimport" },
-      { key: "troubleshooting", href: "/troubleshooting", label: "Troubleshooting" },
+      { key: "list", href: "", label: "Manage" },
+      { key: "import", href: "/import", label: "Import" },
+      { key: "troubleshooting", href: "/troubleshooting", label: "Troubleshoot" },
     ],
   },
   {
@@ -140,6 +140,18 @@ const TABS: {
   },
 ];
 
+// Shared orange pending-count pill, same shape for the Business claims/
+// Events tabs and Locations' bubbled-up Troubleshoot report count (both the
+// parent tab and the Troubleshoot child item show it, so the count is
+// visible whether or not the Locations section is expanded).
+function pendingBadge(count: number): React.ReactNode {
+  return (
+    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
+      {count}
+    </span>
+  );
+}
+
 // Neighborhood profile pages (BACKLOG.md) + docs/url-map.md refactor: single
 // enforcement point for the neighborhood-admin tabs (Overview, Boundary,
 // Locations, Business claims). Resolves the route's slug against the list of
@@ -159,6 +171,7 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
   const [profile, setProfile] = useState<NeighborhoodProfile | null>(null);
   const [pendingClaimCount, setPendingClaimCount] = useState<number | null>(null);
   const [pendingEventCount, setPendingEventCount] = useState<number | null>(null);
+  const [pendingReportCount, setPendingReportCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,9 +202,9 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
       }
       setState({ status: "ready", neighborhood, user });
 
-      // Public profile (no auth needed) carries venue_count/poi_count/city/state
-      // -- reused here rather than adding a new admin-only endpoint just for
-      // the sidebar's location count and neighborhood card.
+      // Public profile (no auth needed) carries city/state -- reused here
+      // rather than adding a new admin-only endpoint just for the sidebar's
+      // neighborhood card sublabel.
       fetch(clientApiUrl(`/neighborhoods/${neighborhoodSlug}`))
         .then((r) => (r.ok ? r.json() : null))
         .then((p) => {
@@ -214,6 +227,19 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
         .then((r) => (r.ok ? r.json() : null))
         .then((events) => {
           if (!cancelled && events) setPendingEventCount(events.length);
+        });
+
+      // GET returns every missing_venue report regardless of state -- "still
+      // needs attention" is new/in_progress, mirroring the Troubleshoot
+      // page's own DEFAULT_STATES for the Reported venues list.
+      fetch(clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhood.neighborhood_id}/feedback`), {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((submissions: FeedbackSubmissionAdminView[] | null) => {
+          if (!cancelled && submissions) {
+            setPendingReportCount(submissions.filter((s) => s.state === "new" || s.state === "in_progress").length);
+          }
         });
     }
 
@@ -256,7 +282,6 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
   }
 
   const { neighborhood, user } = state;
-  const locationCount = profile ? profile.venue_count + profile.poi_count : null;
 
   async function handleLogOut() {
     await logOut();
@@ -271,24 +296,24 @@ export default function NeighborhoodAdminLayout({ children }: { children: React.
     // strict prefix of every other tab's.
     const active = tab.href === "" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
     let badge: React.ReactNode = null;
-    if (tab.key === "locations" && locationCount !== null) {
-      badge = <span className="ml-auto font-mono text-[10px] opacity-70">{locationCount}</span>;
-    } else if (tab.key === "claims" && !!pendingClaimCount) {
-      badge = (
-        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
-          {pendingClaimCount}
-        </span>
-      );
-    } else if (tab.key === "events" && !!pendingEventCount) {
-      badge = (
-        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
-          {pendingEventCount}
-        </span>
-      );
+    // "Locations" bubbles up the Troubleshoot sub-page's own pending-report
+    // count rather than showing a static total-location count -- a number
+    // that never changes on its own isn't worth a sidebar badge, but venue
+    // reports awaiting triage are exactly the kind of thing a badge is for.
+    if (tab.key === "locations" || tab.key === "claims" || tab.key === "events") {
+      const count =
+        tab.key === "locations" ? pendingReportCount : tab.key === "claims" ? pendingClaimCount : pendingEventCount;
+      if (count) badge = pendingBadge(count);
     }
     const children = tab.children?.map((child) => {
       const childHref = `${href}${child.href}`;
-      return { key: child.key, href: childHref, label: child.label, active: pathname === childHref };
+      return {
+        key: child.key,
+        href: childHref,
+        label: child.label,
+        active: pathname === childHref,
+        badge: child.key === "troubleshooting" && pendingReportCount ? pendingBadge(pendingReportCount) : null,
+      };
     });
     return { key: tab.key, href, label: tab.label, icon: tab.icon, active, badge, children };
   });

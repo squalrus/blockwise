@@ -15,7 +15,10 @@ import type {
 // includes the same edge cases the pipeline needs to handle correctly: a
 // near-duplicate pair for the dedup pass, a place outside the Phinneywood
 // boundary for the point-in-polygon filter, and an unmapped category for
-// the "flag rather than guess" path.
+// the "flag rather than guess" path. osmType/osmId are null throughout --
+// this fixture set predates that field and nothing here currently exercises
+// osm-based matching specifically (see dedup.test.ts/review.test.ts for
+// hand-built fixtures that do).
 const FIXTURE_PLACES: GeoapifyPlace[] = [
   {
     placeId: "geoapify-mock-diesel-fuel-coffee",
@@ -23,6 +26,8 @@ const FIXTURE_PLACES: GeoapifyPlace[] = [
     formattedAddress: "5629 University Way NE, Seattle, WA",
     location: { lat: 47.6772, lng: -122.3549 },
     categories: ["catering.cafe.coffee_shop"],
+    osmType: null,
+    osmId: null,
   },
   {
     placeId: "geoapify-mock-diesel-fuel-coffee-dup",
@@ -30,6 +35,8 @@ const FIXTURE_PLACES: GeoapifyPlace[] = [
     formattedAddress: "5629 University Way NE, Seattle, WA",
     location: { lat: 47.67722, lng: -122.35492 },
     categories: ["catering.cafe.coffee_shop"],
+    osmType: null,
+    osmId: null,
   },
   {
     placeId: "geoapify-mock-herkimer-coffee",
@@ -37,6 +44,8 @@ const FIXTURE_PLACES: GeoapifyPlace[] = [
     formattedAddress: "7320 Greenwood Ave N, Seattle, WA",
     location: { lat: 47.6816, lng: -122.3552 },
     categories: ["catering.cafe.coffee_shop"],
+    osmType: null,
+    osmId: null,
   },
   {
     placeId: "geoapify-mock-original-bakery",
@@ -44,6 +53,8 @@ const FIXTURE_PLACES: GeoapifyPlace[] = [
     formattedAddress: "6603 Phinney Ave N, Seattle, WA",
     location: { lat: 47.6742, lng: -122.3555 },
     categories: ["catering.cafe.bakery"],
+    osmType: null,
+    osmId: null,
   },
   {
     placeId: "geoapify-mock-mustard-seed-park",
@@ -51,6 +62,8 @@ const FIXTURE_PLACES: GeoapifyPlace[] = [
     formattedAddress: "N 80th St & Fremont Ave N, Seattle, WA",
     location: { lat: 47.685, lng: -122.3495 },
     categories: ["leisure.park"],
+    osmType: null,
+    osmId: null,
   },
   {
     placeId: "geoapify-mock-widget-repair",
@@ -58,6 +71,8 @@ const FIXTURE_PLACES: GeoapifyPlace[] = [
     formattedAddress: "7500 Greenwood Ave N, Seattle, WA",
     location: { lat: 47.6822, lng: -122.3548 },
     categories: ["service.electronics_repair"],
+    osmType: null,
+    osmId: null,
   },
   {
     placeId: "geoapify-mock-outside-boundary-cafe",
@@ -65,29 +80,40 @@ const FIXTURE_PLACES: GeoapifyPlace[] = [
     formattedAddress: "Capitol Hill, Seattle, WA",
     location: { lat: 47.6, lng: -122.3 },
     categories: ["catering.cafe"],
+    osmType: null,
+    osmId: null,
   },
 ];
 
 const FIXTURE_PLACE_DETAILS: Record<string, GeoapifyPlaceDetails> = {
   "geoapify-mock-diesel-fuel-coffee": {
     placeId: "geoapify-mock-diesel-fuel-coffee",
+    osmType: null,
+    osmId: null,
     name: "Diesel Fuel Coffee",
     formattedAddress: "5629 University Way NE, Seattle, WA",
+    location: { lat: 47.6772, lng: -122.3549 },
     categories: ["catering.cafe.coffee_shop"],
     website: "https://dieselfuelcoffee.example",
     openingHours: "Mo-Su 06:00-19:00",
   },
   "geoapify-mock-herkimer-coffee": {
     placeId: "geoapify-mock-herkimer-coffee",
+    osmType: null,
+    osmId: null,
     name: "Herkimer Coffee",
     formattedAddress: "7320 Greenwood Ave N, Seattle, WA",
+    location: { lat: 47.6816, lng: -122.3552 },
     categories: ["catering.cafe.coffee_shop"],
     openingHours: "Mo-Fr 06:30-18:00; Sa-Su 07:00-18:00",
   },
   "geoapify-mock-original-bakery": {
     placeId: "geoapify-mock-original-bakery",
+    osmType: null,
+    osmId: null,
     name: "Original Bakery",
     formattedAddress: "6603 Phinney Ave N, Seattle, WA",
+    location: { lat: 47.6742, lng: -122.3555 },
     categories: ["catering.cafe.bakery"],
     phone: "+1 206-555-0148",
   },
@@ -123,6 +149,8 @@ export class MockGeoapifyClient
     return (
       FIXTURE_PLACE_DETAILS[placeId] ?? {
         placeId,
+        osmType: null,
+        osmId: null,
         name: null,
         formattedAddress: "",
         categories: [],

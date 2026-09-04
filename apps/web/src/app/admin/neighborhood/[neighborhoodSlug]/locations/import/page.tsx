@@ -5,6 +5,7 @@ import type {
   CategoryOption,
   CommitLocationReviewResult,
   LocationClassification,
+  LocationPossibleMatch,
   LocationRemovalCandidate,
   LocationReviewCandidate,
   LocationReviewReport,
@@ -35,6 +36,12 @@ function removalKey(removal: LocationRemovalCandidate): string {
   return removal.id;
 }
 
+// A given existing location can in principle turn up more than once across
+// a run's results, so key on the pairing rather than just location_id.
+function matchKey(match: LocationPossibleMatch): string {
+  return `${match.location_id}-${match.geoapify_place_id}`;
+}
+
 // Bulk Places review + boundary reconciliation wizard (BACKLOG.md Ref 29 +
 // Ref 54): reviews fresh Geoapify candidates against the neighborhood's
 // saved boundary and lets an admin bulk-classify each as a claimable
@@ -52,6 +59,14 @@ export default function LocationReviewPage() {
   // removal, mirroring the "must explicitly accept each removal" ask behind
   // the boundary re-map wizard (BACKLOG.md Ref 54).
   const [approvedRemovals, setApprovedRemovals] = useState<Set<string>>(new Set());
+  // Session-only: a match the admin has resolved (attached or dismissed as
+  // coincidental) drops out of the list below rather than persisting
+  // anything for "not the same place" -- a genuinely new place at that spot
+  // just gets added normally later (e.g. via Troubleshoot), same as any
+  // other new location.
+  const [resolvedMatchKeys, setResolvedMatchKeys] = useState<Set<string>>(new Set());
+  const [attachingMatchKey, setAttachingMatchKey] = useState<string | null>(null);
+  const [matchError, setMatchError] = useState<string | null>(null);
 
   // Sorted by the same composed label the classification picker below
   // displays (group, then name) -- the API's own order is by bare leaf name
@@ -98,6 +113,8 @@ export default function LocationReviewPage() {
     }
     setDecisions(initialDecisions);
     setApprovedRemovals(new Set());
+    setResolvedMatchKeys(new Set());
+    setMatchError(null);
     setState({ status: "review", report });
   }
 
@@ -118,6 +135,40 @@ export default function LocationReviewPage() {
     });
   }
 
+  function dismissMatch(match: LocationPossibleMatch) {
+    setResolvedMatchKeys((prev) => new Set(prev).add(matchKey(match)));
+  }
+
+  // Re-points the existing location at this fresh geoapify_place_id -- same
+  // action as the per-row Reassign Place ID panel, just pre-filled with a
+  // candidate the review already found, so an admin doesn't have to re-run
+  // that search by hand for a match this confident.
+  async function attachMatch(match: LocationPossibleMatch) {
+    const key = matchKey(match);
+    setAttachingMatchKey(key);
+    setMatchError(null);
+    const token = await getAccessToken();
+    const res = await fetch(
+      clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/locations/${match.location_id}/reassign-place-id`),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          geoapify_place_id: match.geoapify_place_id,
+          osm_type: match.osm_type ?? undefined,
+          osm_id: match.osm_id ?? undefined,
+        }),
+      }
+    );
+    setAttachingMatchKey(null);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setMatchError(body.error ?? `Failed to attach ${match.matched_name} to ${match.existing_name}`);
+      return;
+    }
+    dismissMatch(match);
+  }
+
   async function commit(report: LocationReviewReport) {
     setState({ status: "committing", report });
     const token = await getAccessToken();
@@ -125,6 +176,8 @@ export default function LocationReviewPage() {
       const decision = decisions[decisionKey(candidate)];
       return {
         geoapify_place_id: candidate.geoapify_place_id,
+        osm_type: candidate.osm_type ?? undefined,
+        osm_id: candidate.osm_id ?? undefined,
         name: candidate.name,
         lat: candidate.lat,
         lng: candidate.lng,
@@ -153,6 +206,11 @@ export default function LocationReviewPage() {
     }
     setState({ status: "done", result: await res.json() });
   }
+
+  const visibleMatches =
+    state.status === "review" || state.status === "committing"
+      ? state.report.possible_matches.filter((m) => !resolvedMatchKeys.has(matchKey(m)))
+      : [];
 
   const counts =
     state.status === "review" || state.status === "committing"
@@ -196,6 +254,13 @@ export default function LocationReviewPage() {
 
       {(state.status === "review" || state.status === "committing") && (
         <>
+          {state.report.refreshed.length > 0 && (
+            <p className="text-sm text-muted">
+              Refreshed {state.report.refreshed.length} existing location{state.report.refreshed.length === 1 ? "" : "s"} with
+              the latest data from Geoapify.
+            </p>
+          )}
+
           <h3 className="text-xs font-extrabold tracking-wide text-muted uppercase">
             Removals ({state.report.proposed_removals.length})
           </h3>
@@ -226,6 +291,53 @@ export default function LocationReviewPage() {
                     <div>
                       <p className="font-extrabold text-foreground">{removal.name}</p>
                       {removal.address && <p className="text-muted">{removal.address}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {visibleMatches.length > 0 && (
+            <>
+              <h3 className="text-xs font-extrabold tracking-wide text-muted uppercase">
+                Possible matches ({visibleMatches.length})
+              </h3>
+              <p className="text-sm text-muted">
+                Each of these is already on record under the name/ID on the left, but Geoapify now returns it as
+                the result on the right — probably the same place renamed or re-indexed, not a new one (a
+                mismatched place ID won&apos;t be caught as already-known on future imports either). Attach fixes
+                that; if it&apos;s genuinely a different place, dismiss it and add it separately later.
+              </p>
+              {matchError && <p className="text-sm text-red-600 dark:text-red-400">{matchError}</p>}
+              <ul className="flex flex-col gap-2">
+                {visibleMatches.map((match) => (
+                  <li key={matchKey(match)} className="rounded-2xl bg-card-alt px-4 py-3 text-sm">
+                    <p className="text-foreground">
+                      <span className="font-extrabold">{match.existing_name}</span>
+                      {match.existing_status === "hidden" && <span className="text-muted"> (hidden)</span>}
+                      <span className="text-muted"> — now appears as </span>
+                      <span className="font-extrabold">{match.matched_name}</span>
+                    </p>
+                    <p className="text-muted">{match.matched_address}</p>
+                    <p className="text-xs font-bold text-muted">{match.confidence_percent}% name match</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        disabled={attachingMatchKey === matchKey(match)}
+                        onClick={() => attachMatch(match)}
+                        className="rounded-md bg-brand-purple px-3 py-1.5 text-xs font-bold text-on-accent disabled:opacity-50"
+                      >
+                        {attachingMatchKey === matchKey(match) ? "Attaching…" : "Same place — attach"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={attachingMatchKey === matchKey(match)}
+                        onClick={() => dismissMatch(match)}
+                        className="rounded-md border border-border px-3 py-1.5 text-xs font-bold text-foreground hover:bg-card disabled:opacity-50"
+                      >
+                        Not the same place
+                      </button>
                     </div>
                   </li>
                 ))}

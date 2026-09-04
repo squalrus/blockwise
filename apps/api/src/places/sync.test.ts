@@ -1,21 +1,15 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { CategoryRecord } from "./categorize";
 import type { GeoapifyPlace, GeoapifySearchParams } from "./geoapifyClient";
 import { haversineMeters } from "./geo";
 import { MockGeoapifyClient } from "./mockGeoapifyClient";
-import type {
-  ExistingVenue,
-  NeighborhoodRecord,
-  PlacesRepository,
-  UpsertVenueInput,
-} from "./repository";
-import { syncNeighborhoodPlaces } from "./sync";
+import { searchPlacesInPolygon } from "./sync";
 
 // Mirrors the polygon in supabase/seed.sql closely enough to include every
 // in-boundary fixture in mockGeoapifyClient.ts and exclude "Outside The
 // Boundary Cafe".
-const PHINNEYWOOD_BOUNDARY: NeighborhoodRecord["boundaryGeojson"] = {
-  type: "Polygon",
+const PHINNEYWOOD_BOUNDARY = {
+  type: "Polygon" as const,
   coordinates: [
     [
       [-122.3605, 47.696],
@@ -36,175 +30,64 @@ const CATEGORIES: CategoryRecord[] = [
   { id: "park", name: "Park & Playground", source_mapping_json: { geoapify: ["leisure.park", "leisure.playground"] } },
 ];
 
-class FakePlacesRepository implements PlacesRepository {
-  venues: ExistingVenue[];
-  upsertCalls: UpsertVenueInput[] = [];
-
-  constructor(initialVenues: ExistingVenue[] = []) {
-    this.venues = initialVenues;
-  }
-
-  async getNeighborhoodBySlug(): Promise<NeighborhoodRecord | null> {
-    return {
-      id: "phinneywood-id",
-      centerLat: 47.6686,
-      centerLng: -122.355,
-      boundaryGeojson: PHINNEYWOOD_BOUNDARY,
-    };
-  }
-
-  async listCategories(): Promise<CategoryRecord[]> {
-    return CATEGORIES;
-  }
-
-  async listVenuesByNeighborhood(): Promise<ExistingVenue[]> {
-    return this.venues;
-  }
-
-  async upsertVenue(venue: UpsertVenueInput): Promise<void> {
-    this.upsertCalls.push(venue);
-  }
-}
-
-describe("syncNeighborhoodPlaces", () => {
-  let repository: FakePlacesRepository;
-
-  beforeEach(() => {
-    repository = new FakePlacesRepository();
-  });
-
+// searchPlacesInPolygon's own tiling/cap/name-filtering mechanics -- boundary
+// filtering and category matching are already covered end-to-end via its two
+// real callers (preview.test.ts's previewNeighborhoodBoundary,
+// review.test.ts's reviewNeighborhoodLocations), so this file focuses on
+// what's specific to the search pipeline itself and not exercised there:
+// tile merging, the per-tile result cap, and the no-name skip. The old
+// syncNeighborhoodPlaces orchestrator (upsert/dedupe/claimed-skip) that used
+// to be tested here was retired once Import took over that job (see sync.ts)
+// -- its equivalent coverage now lives in review.test.ts/locations.test.ts.
+describe("searchPlacesInPolygon", () => {
   it("filters out-of-boundary places", async () => {
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
-    expect(report.skippedOutOfBoundary).toBe(1);
-    expect(repository.upsertCalls.some((v) => v.name === "Outside The Boundary Cafe")).toBe(false);
-  });
-
-  it("dedups a near-duplicate place returned in the same batch", async () => {
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
-
-    expect(report.inserted).toContain("Diesel Fuel Coffee");
-    expect(report.skippedDuplicates).toContainEqual({
-      candidate: "Diesel Fuel Coffee Shop",
-      matchedExisting: "Diesel Fuel Coffee",
-    });
-    expect(repository.upsertCalls.filter((v) => v.name.startsWith("Diesel Fuel Coffee"))).toHaveLength(1);
-  });
-
-  it("flags a place with an unmapped Geoapify category instead of guessing", async () => {
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
-
-    expect(report.unmappedTypes).toContainEqual({
-      name: "Widget Electronics Repair",
-      types: ["service.electronics_repair"],
-    });
-    const widgetUpsert = repository.upsertCalls.find((v) => v.name === "Widget Electronics Repair");
-    expect(widgetUpsert?.categoryId).toBeNull();
-  });
-
-  it("categorizes a place whose Geoapify tag matches the taxonomy", async () => {
-    await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
-
-    const coffee = repository.upsertCalls.find((v) => v.name === "Diesel Fuel Coffee");
-    expect(coffee?.categoryId).toBe("coffee-shop");
-
-    const bakery = repository.upsertCalls.find((v) => v.name === "Original Bakery");
-    expect(bakery?.categoryId).toBe("bakery");
-
-    const park = repository.upsertCalls.find((v) => v.name === "Mustard Seed Park");
-    expect(park?.categoryId).toBe("park");
+    const result = await searchPlacesInPolygon(PHINNEYWOOD_BOUNDARY, new MockGeoapifyClient(), CATEGORIES);
+    expect(result.skippedOutOfBoundary).toBe(1);
+    expect(result.places.some((p) => p.name === "Outside The Boundary Cafe")).toBe(false);
   });
 
   it("no OSM/Geoapify equivalent to businessStatus exists, so skippedClosedPermanently is always 0", async () => {
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
-    expect(report.skippedClosedPermanently).toBe(0);
+    const result = await searchPlacesInPolygon(PHINNEYWOOD_BOUNDARY, new MockGeoapifyClient(), CATEGORIES);
+    expect(result.skippedClosedPermanently).toBe(0);
   });
 
-  it("updates an already-synced, unclaimed venue instead of skipping it", async () => {
-    repository.venues = [
-      {
-        id: "existing-1",
-        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
-        name: "Herkimer Coffee (old name)",
-        lat: 47.6816,
-        lng: -122.3552,
-        claimedByBusiness: false,
-        status: "active",
-      },
-    ];
+  it("skips a Geoapify result with no name instead of falling back to its address", async () => {
+    // Live-observed: a road segment or bare address point sometimes matches
+    // one of the requested category tags despite carrying no `name` at all
+    // -- previously fell back to the formatted address, surfacing as e.g.
+    // "2nd Avenue Northwest, Seattle, WA 98113" on the Import review page.
+    class NamelessMixClient {
+      async searchPlaces(): Promise<GeoapifyPlace[]> {
+        return [
+          {
+            placeId: "nameless-road-segment",
+            name: null,
+            formattedAddress: "2nd Avenue Northwest, Seattle, WA 98113, United States of America",
+            location: { lat: 47.6772, lng: -122.3549 },
+            categories: ["catering.cafe.coffee_shop"],
+          },
+          {
+            placeId: "real-cafe",
+            name: "Real Cafe",
+            formattedAddress: "123 Real St",
+            location: { lat: 47.6772, lng: -122.3549 },
+            categories: ["catering.cafe.coffee_shop"],
+          },
+        ];
+      }
+    }
 
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
+    const result = await searchPlacesInPolygon(PHINNEYWOOD_BOUNDARY, new NamelessMixClient(), CATEGORIES);
 
-    expect(report.updated).toContain("Herkimer Coffee");
-    expect(report.revived).not.toContain("Herkimer Coffee");
-    expect(repository.upsertCalls.some((v) => v.geoapifyPlaceId === "geoapify-mock-herkimer-coffee")).toBe(true);
-  });
-
-  it("revives a removed venue rediscovered under its exact prior place ID", async () => {
-    repository.venues = [
-      {
-        id: "existing-1",
-        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
-        name: "Herkimer Coffee",
-        lat: 47.6816,
-        lng: -122.3552,
-        claimedByBusiness: false,
-        status: "removed",
-      },
-    ];
-
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
-
-    expect(report.updated).toContain("Herkimer Coffee");
-    expect(report.revived).toContain("Herkimer Coffee");
-    const upsert = repository.upsertCalls.find((v) => v.geoapifyPlaceId === "geoapify-mock-herkimer-coffee");
-    expect(upsert?.revive).toBe(true);
-  });
-
-  it("leaves a hidden venue's status alone on re-sync -- that's a separate admin curation choice", async () => {
-    repository.venues = [
-      {
-        id: "existing-1",
-        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
-        name: "Herkimer Coffee",
-        lat: 47.6816,
-        lng: -122.3552,
-        claimedByBusiness: false,
-        status: "hidden",
-      },
-    ];
-
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
-
-    expect(report.updated).toContain("Herkimer Coffee");
-    expect(report.revived).not.toContain("Herkimer Coffee");
-    const upsert = repository.upsertCalls.find((v) => v.geoapifyPlaceId === "geoapify-mock-herkimer-coffee");
-    expect(upsert?.revive).toBe(false);
-  });
-
-  it("does not overwrite a claimed venue's data", async () => {
-    repository.venues = [
-      {
-        id: "existing-2",
-        geoapifyPlaceId: "geoapify-mock-original-bakery",
-        name: "Original Bakery (business-submitted name)",
-        lat: 47.6742,
-        lng: -122.3555,
-        claimedByBusiness: true,
-        status: "active",
-      },
-    ];
-
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new MockGeoapifyClient(), repository);
-
-    expect(report.skippedClaimed).toContain("Original Bakery");
-    expect(repository.upsertCalls.some((v) => v.geoapifyPlaceId === "geoapify-mock-original-bakery")).toBe(false);
+    expect(result.skippedNoName).toBe(1);
+    expect(result.places.map((p) => p.name)).toEqual(["Real Cafe"]);
   });
 
   it("merges places from different tiles rather than only using one call's worth", async () => {
     // A realistic fake: each tile only "sees" places within its own radius,
     // like Geoapify actually would. These two are ~2.9km apart -- too far
     // for any single circle covering both to stay within a small radius in
-    // practice, so this only passes if the sync actually queries more than
+    // practice, so this only passes if the search actually queries more than
     // one tile and merges the results.
     const north = { placeId: "north-cafe", location: { lat: 47.694, lng: -122.352 } };
     const south = { placeId: "south-bakery", location: { lat: 47.66, lng: -122.353 } };
@@ -227,11 +110,11 @@ describe("syncNeighborhoodPlaces", () => {
     }
 
     const client = new PartitionedClient();
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", client, repository);
+    const result = await searchPlacesInPolygon(PHINNEYWOOD_BOUNDARY, client, CATEGORIES);
 
     expect(client.calls.length).toBeGreaterThan(1);
-    expect(report.tilesQueried).toBe(client.calls.length);
-    expect(report.inserted).toEqual(expect.arrayContaining(["north-cafe", "south-bakery"]));
+    expect(result.tilesQueried).toBe(client.calls.length);
+    expect(result.places.map((p) => p.name)).toEqual(expect.arrayContaining(["north-cafe", "south-bakery"]));
   });
 
   it("reports tiles that hit the Places API's per-call result cap, subdividing to retry each one", async () => {
@@ -253,15 +136,15 @@ describe("syncNeighborhoodPlaces", () => {
     }
 
     const client = new SaturatedClient();
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", client, repository);
+    const result = await searchPlacesInPolygon(PHINNEYWOOD_BOUNDARY, client, CATEGORIES);
 
     // Every tile saturates every time (including retries), so subdivision
     // recurses to its depth limit -- apiCallsMade should reflect every one of
     // those calls, not just the initial top-level grid.
-    expect(report.apiCallsMade).toBe(client.calls);
-    expect(report.apiCallsMade).toBeGreaterThan(report.tilesQueried);
-    expect(report.callsAtResultCap).toBe(report.apiCallsMade);
-    expect(report.callsAtResultCap).toBeGreaterThan(0);
+    expect(result.apiCallsMade).toBe(client.calls);
+    expect(result.apiCallsMade).toBeGreaterThan(result.tilesQueried);
+    expect(result.callsAtResultCap).toBe(result.apiCallsMade);
+    expect(result.callsAtResultCap).toBeGreaterThan(0);
   });
 
   // Distinct-enough names (not just a shared prefix + counter) so tightly
@@ -325,10 +208,9 @@ describe("syncNeighborhoodPlaces", () => {
       }
     }
 
-    const report = await syncNeighborhoodPlaces("phinneywood-seattle", new DenseClient(), repository);
+    const result = await searchPlacesInPolygon(PHINNEYWOOD_BOUNDARY, new DenseClient(), CATEGORIES);
 
-    expect(report.skippedDuplicates).toHaveLength(0);
-    expect(report.inserted.length).toBe(densePlaces.length);
+    expect(result.places.length).toBe(densePlaces.length);
   });
 
   // Geoapify's Places API requires a non-empty `categories` filter, so every
@@ -342,31 +224,8 @@ describe("syncNeighborhoodPlaces", () => {
       source_mapping_json: { geoapify: [`geoapify_type_${i}`] },
     }));
 
-    class CountingRepository extends FakePlacesRepository {
-      async listCategories(): Promise<CategoryRecord[]> {
-        return manyCategories;
-      }
-    }
+    const result = await searchPlacesInPolygon(PHINNEYWOOD_BOUNDARY, new MockGeoapifyClient(), manyCategories);
 
-    const countingRepository = new CountingRepository();
-    const report = await syncNeighborhoodPlaces(
-      "phinneywood-seattle",
-      new MockGeoapifyClient(),
-      countingRepository
-    );
-
-    expect(report.apiCallsMade).toBe(report.tilesQueried);
-  });
-
-  it("throws a clear error when the neighborhood has no boundary set", async () => {
-    class NoBoundaryRepository extends FakePlacesRepository {
-      async getNeighborhoodBySlug(): Promise<NeighborhoodRecord | null> {
-        return { id: "x", centerLat: 0, centerLng: 0, boundaryGeojson: null };
-      }
-    }
-
-    await expect(
-      syncNeighborhoodPlaces("no-boundary", new MockGeoapifyClient(), new NoBoundaryRepository())
-    ).rejects.toThrow(/no boundary_geojson set/);
+    expect(result.apiCallsMade).toBe(result.tilesQueried);
   });
 });

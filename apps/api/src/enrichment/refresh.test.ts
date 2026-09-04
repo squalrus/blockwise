@@ -7,6 +7,7 @@ import type { EnrichmentRepository, UpsertEnrichmentInput } from "./repository";
 
 class FakeEnrichmentRepository implements EnrichmentRepository {
   upsertCalls: UpsertEnrichmentInput[] = [];
+  failureCalls: { locationId: string; message: string }[] = [];
   private rows = new Map<string, VenueEnrichmentCache>();
 
   async getEnrichment(locationId: string): Promise<VenueEnrichmentCache | null> {
@@ -23,9 +24,15 @@ class FakeEnrichmentRepository implements EnrichmentRepository {
       hours: input.hours,
       editorial_summary: input.editorialSummary,
       fetched_at: new Date().toISOString(),
+      last_error_at: null,
+      last_error_message: null,
     };
     this.rows.set(input.locationId, row);
     return row;
+  }
+
+  async recordEnrichmentFailure(locationId: string, message: string): Promise<void> {
+    this.failureCalls.push({ locationId, message });
   }
 }
 
@@ -152,6 +159,52 @@ describe("getFreshEnrichment", () => {
     const result = await getFreshEnrichment("venue-1", "geoapify-place-1", stale, repository, placesClient);
 
     expect(result).toEqual(stale);
+  });
+
+  it("records the failure on the repository so an admin can see it needs reimporting", async () => {
+    const stale: VenueEnrichmentCache = {
+      venue_id: "venue-1",
+      source: "geoapify",
+      phone: null,
+      website: null,
+      hours: null,
+      editorial_summary: null,
+      fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+      last_error_at: null,
+      last_error_message: null,
+    };
+    const repository = new FakeEnrichmentRepository();
+    const placesClient = new FakePlacesClient();
+    placesClient.getPlaceDetails = async () => {
+      throw new Error("Invalid Place ID");
+    };
+
+    await getFreshEnrichment("venue-1", "stale-place-id", stale, repository, placesClient);
+
+    expect(repository.failureCalls).toEqual([{ locationId: "venue-1", message: "Invalid Place ID" }]);
+  });
+
+  it("does not record a failure when the cost guardrail trips -- that's expected throttling, not a broken link", async () => {
+    const stale: VenueEnrichmentCache = {
+      venue_id: "venue-1",
+      source: "geoapify",
+      phone: null,
+      website: null,
+      hours: null,
+      editorial_summary: null,
+      fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+      last_error_at: null,
+      last_error_message: null,
+    };
+    const repository = new FakeEnrichmentRepository();
+    const placesClient = new FakePlacesClient();
+    placesClient.getPlaceDetails = async () => {
+      throw new PlacesApiQuotaExceededError("getPlaceDetails");
+    };
+
+    await getFreshEnrichment("venue-1", "geoapify-place-1", stale, repository, placesClient);
+
+    expect(repository.failureCalls).toHaveLength(0);
   });
 
   it("falls back to stale data instead of failing when the cost guardrail trips", async () => {

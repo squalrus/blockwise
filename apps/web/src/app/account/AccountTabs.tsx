@@ -17,19 +17,29 @@ const BASE_TABS: TabNavItem[] = [
 // /neighborhoods/[slug]/NeighborhoodTabs.tsx -- each tab is its own page
 // (page.tsx = Spore Feed, favorites/, badges/, collection/, challenges/,
 // neighbors/, activity/) so it's directly linkable and only fetches what it
-// needs. unrevealedCollectionCount comes from the (tabs)/layout.tsx's
-// already-fetched /me/collection data (BACKLOG.md Ref 98 follow-up) rather
-// than a second fetch here, since the summary card needs that same list
-// anyway.
-export function AccountTabs({ unrevealedCollectionCount = 0 }: { unrevealedCollectionCount?: number }) {
+// needs. unrevealedCollectionCount and pendingNeighborRequestCount come from
+// the (tabs)/layout.tsx's already-fetched /me/collection and /me/connections
+// data (BACKLOG.md Ref 98 follow-up) rather than a second fetch here, since
+// the summary card needs those same lists anyway.
+export function AccountTabs({
+  unrevealedCollectionCount = 0,
+  pendingNeighborRequestCount = 0,
+}: {
+  unrevealedCollectionCount?: number;
+  pendingNeighborRequestCount?: number;
+}) {
   const pathname = usePathname();
+  const badgeCounts: Record<string, number> = {
+    "/collection": unrevealedCollectionCount,
+    "/neighbors": pendingNeighborRequestCount,
+  };
   const tabs: TabNavItem[] = BASE_TABS.map((tab) =>
-    tab.key === "/collection" && unrevealedCollectionCount > 0
+    badgeCounts[tab.key] > 0
       ? {
           ...tab,
           badge: (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-[11px] font-extrabold text-on-accent">
-              {unrevealedCollectionCount}
+              {badgeCounts[tab.key]}
             </span>
           ),
         }

@@ -177,6 +177,9 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
           <AccountTabs
             unrevealedCollectionCount={state.collection.filter((entry) => !entry.revealed).length}
+            pendingNeighborRequestCount={
+              state.connections.filter((c) => c.status === "pending" && c.direction === "incoming").length
+            }
           />
 
           <AccountRefreshProvider value={refresh}>{children}</AccountRefreshProvider>

@@ -1,11 +1,17 @@
 import type { GeoJsonPolygon, VenueStatus } from "@blockwise/types";
 import { findDuplicate, nameSimilarity } from "../places/dedup";
-import type { GeoapifyPlacesClient } from "../places/geoapifyClient";
+import type { GeoapifyPlace, GeoapifyPlaceDetailsClient, GeoapifyPlacesClient } from "../places/geoapifyClient";
 import { isPointInPolygon } from "../places/geo";
 import type { PlacesRepository } from "../places/repository";
-import { searchPlacesInPolygon } from "../places/sync";
-import { createLocation, reassignLocationPlaceIdForNeighborhood, updateLocationStatusForNeighborhood } from "./locations";
-import type { LocationRepository } from "./repository";
+import { searchPlacesInPolygon, type PlaceSearchCandidate } from "../places/sync";
+import {
+  createLocation,
+  reassignLocationIdentityForNeighborhood,
+  refreshLocationBasicInfo,
+  updateLocationStatusForNeighborhood,
+} from "./locations";
+import { LocationIdentityConflictError } from "./repository";
+import type { LocationRecord, LocationRepository } from "./repository";
 
 // "Reimport Locations" cooldown (BACKLOG.md) -- once every 24h per
 // neighborhood, since each run costs a real (and rate-limited, see
@@ -45,6 +51,8 @@ export function getLocationsReviewCooldownStatus(
 
 export interface NewLocationCandidate {
   geoapifyPlaceId: string;
+  osmType: string | null;
+  osmId: number | null;
   name: string;
   lat: number;
   lng: number;
@@ -59,13 +67,17 @@ export interface ProposedRemoval {
   address: string | null;
 }
 
-// Geoapify migration backfill (BACKLOG.md Ref 114 Phase 5): a search result
-// that fuzzy-matched an existing location (dedup.ts's name+location check)
-// rather than a genuinely new place. Every existing venue's geoapify_place_id
-// still holds its pre-migration Google ID until an admin explicitly approves
-// one of these -- confidencePercent (nameSimilarity, 0-100) is surfaced so
-// an admin reviewing a one-time, single-neighborhood backlog of these can
-// scan and bulk-approve the obvious ones without opening each one, rather
+// A fresh Geoapify result that fuzzy-matched an existing location
+// (dedup.ts's name+location check) closely enough to flag for a human
+// decision, but whose identity (osm_type+osm_id, falling back to
+// geoapify_place_id) didn't exactly match the stored one -- e.g. a business
+// renamed in OSM at its same physical spot (BACKLOG.md Ref 114's
+// live-verified "Kipos Greek" -> "Kipos" case), or Geoapify's own place_id
+// churn (also live-verified: the same physical place returns a different
+// place_id from different Geoapify endpoints, which is exactly why
+// osm_type+osm_id -- not geoapify_place_id -- is the real identity check
+// above). confidencePercent (nameSimilarity, 0-100) is surfaced so an admin
+// can tell a genuine rename apart from a coincidental nearby match rather
 // than an automatic rewrite that a wrong fuzzy match could silently corrupt.
 export interface PossibleLocationMatch {
   locationId: string;
@@ -77,6 +89,8 @@ export interface PossibleLocationMatch {
   // real, but worth a glance since it's easy to forget it exists.
   existingStatus: VenueStatus;
   geoapifyPlaceId: string;
+  osmType: string | null;
+  osmId: number | null;
   matchedName: string;
   matchedAddress: string;
   lat: number;
@@ -91,18 +105,116 @@ export interface LocationReviewReport {
   newCandidates: NewLocationCandidate[];
   proposedRemovals: ProposedRemoval[];
   possibleMatches: PossibleLocationMatch[];
+  // Names of already-known, identity-matched locations whose cached
+  // geoapify_place_id/osm ref and/or basic info (name/lat/lng/address/
+  // category) got refreshed from this run's fresh Geoapify data -- see
+  // refreshMatchedLocation's comment. Surfaced so an admin (or a future
+  // scheduled-Import summary) can see what changed without diffing the
+  // Locations tab themselves.
+  refreshed: string[];
+}
+
+// Import's per-match refresh (user-requested follow-up to the osm_type/
+// osm_id fix, "could we also run the same refresh across the locations" on
+// import): keeps an already-matched location's enrichment-fetch cache
+// (geoapify_place_id) fresh unconditionally -- a stale one silently breaks
+// enrichment even though the identity match above already succeeded on the
+// real osm_type/osm_id, exactly the scenario the user asked to guard
+// against. Also opportunistically backfills osm_type/osm_id for a location
+// that only ever matched by the geoapify_place_id fallback (mirrors
+// backfillOsmIdentity.ts's one-time job, but running continuously as part of
+// routine Import). Basic info (name/lat/lng/address/category) is refreshed
+// only for kind "business" -- a POI's identity-linked row is left untouched
+// by this unattended, scheduled path (unlike a deliberate one-off Reassign,
+// see reassignLocationIdentityForNeighborhood's comment), since a POI is far
+// more likely to carry deliberate manual curation (PoiForm) that a
+// same-osm-identity match has no way to tell apart from stale source data.
+async function refreshMatchedLocation(
+  existingMatch: LocationRecord,
+  place: PlaceSearchCandidate,
+  locationRepository: LocationRepository,
+  refreshed: string[]
+): Promise<void> {
+  // Snapshotted up front -- refreshLocationBasicInfo may rename this exact
+  // record (some repository implementations, including the in-memory test
+  // fake, mutate the passed object in place), so reading existingMatch.name
+  // afterward would report the location by its *new* name instead of the
+  // one it was actually matched on.
+  const matchedName = existingMatch.name;
+  const freshGeoapifyPlaceId = place.raw.placeId;
+  const freshOsmType = place.raw.osmType ?? null;
+  const freshOsmId = place.raw.osmId ?? null;
+  let identityChanged = false;
+
+  if (
+    existingMatch.geoapifyPlaceId !== freshGeoapifyPlaceId ||
+    (existingMatch.osmType ?? null) !== freshOsmType ||
+    (existingMatch.osmId ?? null) !== freshOsmId
+  ) {
+    try {
+      await locationRepository.updateLocationIdentity(existingMatch.id, {
+        geoapifyPlaceId: freshGeoapifyPlaceId,
+        osmType: freshOsmType,
+        osmId: freshOsmId,
+      });
+      identityChanged = true;
+    } catch (err) {
+      if (!(err instanceof LocationIdentityConflictError)) throw err;
+      // Some other location in this neighborhood already holds this exact
+      // osm identity -- a preexisting duplicate (same story as
+      // backfillOsmIdentity.ts's per-row 23505 handling), needing a human to
+      // reconcile, not something an unattended Import run should guess at.
+      console.error(
+        `reviewNeighborhoodLocations: "${existingMatch.name}" and another location both resolve to ${err.osmType}/${err.osmId} -- left unchanged`
+      );
+    }
+  }
+
+  let basicInfoChanged = false;
+  if (existingMatch.kind === "business") {
+    basicInfoChanged = await refreshLocationBasicInfo(
+      existingMatch,
+      {
+        name: place.name,
+        lat: place.location.lat,
+        lng: place.location.lng,
+        address: place.raw.formattedAddress,
+        categoryId: place.category?.id ?? null,
+      },
+      locationRepository
+    );
+  }
+
+  if (identityChanged || basicInfoChanged) refreshed.push(matchedName);
+}
+
+// Identity match, in priority order: OpenStreetMap's own type+id pair (the
+// actual stable identity -- see Venue.osm_type's comment in
+// @blockwise/types), falling back to the cached geoapify_place_id for a
+// location that doesn't have osm_type/osm_id populated yet.
+function findExistingLocationByIdentity(place: GeoapifyPlace, existingLocations: LocationRecord[]): LocationRecord | undefined {
+  const osmType = place.osmType ?? null;
+  const osmId = place.osmId ?? null;
+  if (osmType !== null) {
+    const byOsmRef = existingLocations.find((l) => (l.osmType ?? null) === osmType && (l.osmId ?? null) === osmId);
+    if (byOsmRef) return byOsmRef;
+  }
+  return existingLocations.find((l) => l.geoapifyPlaceId === place.placeId);
 }
 
 // Bulk Places review (BACKLOG.md Ref 29) + boundary reconciliation
 // (BACKLOG.md Ref 54): reuses the same tiling/search/boundary-filter/
 // categorize pipeline as the real sync and the boundary dry-run preview
 // (searchPlacesInPolygon), then excludes anything already known -- first by
-// geoapify_place_id (a location converted from the other kind, or a location
-// from a prior sync/review run), then by the same name+location heuristic
-// the real sync uses against venues (places/dedup.ts's findDuplicate) so a
-// near-duplicate isn't re-surfaced just because it lacks a matching place
-// id. What's left is genuinely new. Separately, every non-removed location
-// still on record (active or hidden -- hidden is a manual curation choice,
+// osm_type+osm_id (the actual stable identity, see Venue.osm_type's comment
+// in @blockwise/types), falling back to geoapify_place_id for a location
+// that doesn't have osm data populated yet, then by the same name+location
+// heuristic the real sync uses against venues (places/dedup.ts's
+// findDuplicate) so a near-duplicate isn't re-surfaced just because neither
+// identity matched (surfaced as a possible match, not silently dropped --
+// see PossibleLocationMatch's comment). What's left is genuinely new.
+// Separately, every non-removed location still on record (active or hidden
+// -- hidden is a manual curation choice,
 // not a geography one) is checked against the same (current, saved)
 // boundary -- anything now outside it is a proposed removal, surfaced for
 // explicit admin approval rather than silently staying attached (today's
@@ -153,17 +265,21 @@ export async function reviewNeighborhoodLocations(
       location: { lat: l.lat, lng: l.lng },
     }));
 
-  // Grows as new candidates are accepted below, mirroring
-  // syncNeighborhoodPlaces (sync.ts) -- catches two near-duplicate places
-  // returned in the *same* review run (a place sometimes listed twice under
-  // different place IDs), not just duplicates against rows already in the DB.
+  // Grows as new candidates are accepted below -- catches two near-duplicate
+  // places returned in the *same* review run (a place sometimes listed twice
+  // under different place IDs), not just duplicates against rows already in
+  // the DB.
   const sessionDedupList = existingDedupList.map(({ name, location }) => ({ name, location }));
 
   const newCandidates: NewLocationCandidate[] = [];
   const possibleMatches: PossibleLocationMatch[] = [];
+  const refreshed: string[] = [];
   for (const place of search.places) {
-    const alreadyKnown = existingLocations.some((l) => l.geoapifyPlaceId === place.raw.placeId);
-    if (alreadyKnown) continue;
+    const identityMatch = findExistingLocationByIdentity(place.raw, existingLocations);
+    if (identityMatch) {
+      await refreshMatchedLocation(identityMatch, place, locationRepository, refreshed);
+      continue;
+    }
 
     const dedupCandidate = { name: place.name, location: place.location };
 
@@ -175,6 +291,8 @@ export async function reviewNeighborhoodLocations(
         existingAddress: existingMatch.address,
         existingStatus: existingMatch.status,
         geoapifyPlaceId: place.raw.placeId,
+        osmType: place.raw.osmType ?? null,
+        osmId: place.raw.osmId ?? null,
         matchedName: place.name,
         matchedAddress: place.raw.formattedAddress,
         lat: place.location.lat,
@@ -189,6 +307,8 @@ export async function reviewNeighborhoodLocations(
 
     newCandidates.push({
       geoapifyPlaceId: place.raw.placeId,
+      osmType: place.raw.osmType ?? null,
+      osmId: place.raw.osmId ?? null,
       name: place.name,
       lat: place.location.lat,
       lng: place.location.lng,
@@ -205,6 +325,7 @@ export async function reviewNeighborhoodLocations(
     newCandidates,
     proposedRemovals,
     possibleMatches,
+    refreshed,
   };
 }
 
@@ -212,6 +333,8 @@ export type LocationClassification = "business" | "poi" | "omit";
 
 export interface LocationReviewClassificationInput {
   geoapifyPlaceId: string;
+  osmType?: string | null;
+  osmId?: number | null;
   name: string;
   lat: number;
   lng: number;
@@ -229,6 +352,8 @@ export interface LocationRemovalApproval {
 export interface LocationReidentification {
   locationId: string;
   geoapifyPlaceId: string;
+  osmType?: string | null;
+  osmId?: number | null;
 }
 
 export interface CommitLocationReviewResult {
@@ -246,10 +371,11 @@ export interface CommitLocationReviewResult {
 // (e.g. a missing category_id) shouldn't abort the rest of the batch.
 //
 // "omit" is persisted, not skipped (BACKLOG.md "Reimport Locations"): a
-// hidden POI row keyed by geoapify_place_id, so it reads as already-known on
-// the next review run instead of resurfacing as a new candidate forever --
-// the whole point of a rate-limited reimport is that repeat runs get
-// cheaper (fewer undecided candidates) over time.
+// hidden POI row keyed by osm_type+osm_id (falling back to geoapify_place_id
+// when the candidate lacked OSM data), so it reads as already-known on the
+// next review run instead of resurfacing as a new candidate forever -- the
+// whole point of a rate-limited reimport is that repeat runs get cheaper
+// (fewer undecided candidates) over time.
 //
 // Removals set status to "removed", not "hidden" -- distinct from the
 // existing hide/restore mechanism (venue.status = "hidden", BACKLOG.md Ref
@@ -265,6 +391,7 @@ export async function commitLocationReview(
   removals: LocationRemovalApproval[],
   placesRepository: PlacesRepository,
   locationRepository: LocationRepository,
+  placesClient: GeoapifyPlaceDetailsClient,
   reidentifications: LocationReidentification[] = []
 ): Promise<CommitLocationReviewResult> {
   const result: CommitLocationReviewResult = {
@@ -276,15 +403,33 @@ export async function commitLocationReview(
     failed: [],
   };
 
+  // Only fetched when actually needed -- review/commit and investigate/add
+  // both always call with an empty reidentifications array, so this avoids a
+  // needless category-list round-trip on the far more common paths.
+  const categories = reidentifications.length > 0 ? await placesRepository.listCategories() : [];
+
   for (const reidentification of reidentifications) {
     try {
-      const outcome = await reassignLocationPlaceIdForNeighborhood(
+      const outcome = await reassignLocationIdentityForNeighborhood(
         neighborhoodId,
         reidentification.locationId,
-        reidentification.geoapifyPlaceId,
-        locationRepository
+        {
+          geoapifyPlaceId: reidentification.geoapifyPlaceId,
+          osmType: reidentification.osmType,
+          osmId: reidentification.osmId,
+        },
+        locationRepository,
+        placesClient,
+        categories
       );
       if (outcome.status === "not_found") throw new Error("Location not found");
+      if (outcome.status === "conflict") {
+        throw new Error(
+          outcome.conflictingLocationName
+            ? `Already attached to "${outcome.conflictingLocationName}" -- these look like duplicate locations`
+            : "Already attached to another location in this neighborhood"
+        );
+      }
       result.reidentified.push(outcome.location.name);
     } catch (err) {
       result.failed.push({
@@ -324,6 +469,8 @@ export async function commitLocationReview(
               lat: item.lat,
               lng: item.lng,
               geoapifyPlaceId: item.geoapifyPlaceId,
+              osmType: item.osmType ?? undefined,
+              osmId: item.osmId ?? undefined,
               address: item.address,
               status: "hidden",
             },
@@ -339,9 +486,13 @@ export async function commitLocationReview(
           // as-is rather than routing through createLocation, since this is
           // the same "known Geoapify Place, sync into venue" operation the
           // scheduled sync job already performs. New rows default to kind
-          // "business" at the DB level.
+          // "business" at the DB level. No existingVenueId -- every item
+          // here already went through reviewNeighborhoodLocations's own
+          // identity/dedup check, so this is always a genuinely new row.
           await placesRepository.upsertVenue({
             geoapifyPlaceId: item.geoapifyPlaceId,
+            osmType: item.osmType ?? null,
+            osmId: item.osmId ?? null,
             name: item.name,
             categoryId: item.categoryId,
             lat: item.lat,
@@ -362,6 +513,8 @@ export async function commitLocationReview(
               lat: item.lat,
               lng: item.lng,
               geoapifyPlaceId: item.geoapifyPlaceId,
+              osmType: item.osmType ?? undefined,
+              osmId: item.osmId ?? undefined,
               address: item.address,
             },
             locationRepository

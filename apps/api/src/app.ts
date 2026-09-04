@@ -173,7 +173,7 @@ import {
   listLocationListItemsForNeighborhood,
   listLocationsForNeighborhood,
   reassignLocationCategoryForNeighborhood,
-  reassignLocationPlaceIdForNeighborhood,
+  reassignLocationIdentityForNeighborhood,
   switchLocationKindForNeighborhood,
   updateLocationForNeighborhood,
   updateLocationStatusForNeighborhood,
@@ -305,8 +305,8 @@ const FUNCTION_PATH_PREFIX = /^\/\.netlify\/functions\/[^/]+/;
 const PUBLIC_PATH_PREFIX = /^\/api(?=\/|$)/;
 
 // Mirrors the LiveGeoapifyClient/MockGeoapifyClient choice in
-// scripts/syncPlaces.ts: falls back to mock Place Details when no API key
-// is configured, e.g. local dev. Both classes implement GeoapifyPlacesClient
+// scripts/backfillOsmIdentity.ts: falls back to mock Place Details when no
+// API key is configured, e.g. local dev. Both classes implement GeoapifyPlacesClient
 // (searchPlaces) as well as GeoapifyPlaceDetailsClient and
 // GeoapifyTextSearchClient, so the same cached instance also backs the
 // boundary preview route's search calls and investigate.ts's text lookup.
@@ -4426,6 +4426,8 @@ export function createApp() {
           calls_at_result_cap: report.callsAtResultCap,
           new_candidates: report.newCandidates.map((c) => ({
             geoapify_place_id: c.geoapifyPlaceId,
+            osm_type: c.osmType,
+            osm_id: c.osmId,
             name: c.name,
             lat: c.lat,
             lng: c.lng,
@@ -4438,6 +4440,21 @@ export function createApp() {
             name: r.name,
             address: r.address,
           })),
+          possible_matches: report.possibleMatches.map((m) => ({
+            location_id: m.locationId,
+            existing_name: m.existingName,
+            existing_address: m.existingAddress,
+            existing_status: m.existingStatus,
+            geoapify_place_id: m.geoapifyPlaceId,
+            osm_type: m.osmType,
+            osm_id: m.osmId,
+            matched_name: m.matchedName,
+            matched_address: m.matchedAddress,
+            lat: m.lat,
+            lng: m.lng,
+            confidence_percent: m.confidencePercent,
+          })),
+          refreshed: report.refreshed,
           last_reviewed_at: newCooldown.lastReviewedAt,
           next_allowed_at: newCooldown.nextAllowedAt,
         });
@@ -4502,6 +4519,8 @@ export function createApp() {
           req.params.id,
           classifications.map((item) => ({
             geoapifyPlaceId: item.geoapify_place_id,
+            osmType: typeof item.osm_type === "string" ? item.osm_type : null,
+            osmId: typeof item.osm_id === "number" ? item.osm_id : null,
             name: item.name,
             lat: item.lat,
             lng: item.lng,
@@ -4511,7 +4530,8 @@ export function createApp() {
           })),
           removals.map((item) => ({ id: item.id })),
           getPlacesRepository(),
-          getLocationRepository()
+          getLocationRepository(),
+          getCachedPlacesClient()
         );
 
         res.json({
@@ -4649,7 +4669,8 @@ export function createApp() {
           ],
           [],
           getPlacesRepository(),
-          getLocationRepository()
+          getLocationRepository(),
+          getCachedPlacesClient()
         );
         if (result.failed.length > 0) {
           res.status(500).json({ error: result.failed[0].error });
@@ -5142,21 +5163,41 @@ export function createApp() {
     "/neighborhood-admin/neighborhoods/:id/locations/:locationId/reassign-place-id",
     neighborhoodAdminGate,
     async (req, res) => {
-      const { geoapify_place_id } = req.body ?? {};
+      const { geoapify_place_id, osm_type, osm_id } = req.body ?? {};
       if (typeof geoapify_place_id !== "string" || !geoapify_place_id) {
         res.status(400).json({ error: "geoapify_place_id is required" });
         return;
       }
 
       try {
-        const result = await reassignLocationPlaceIdForNeighborhood(
+        const categories = await getPlacesRepository().listCategories();
+        const result = await reassignLocationIdentityForNeighborhood(
           req.params.id,
           req.params.locationId,
-          geoapify_place_id,
-          getLocationRepository()
+          {
+            geoapifyPlaceId: geoapify_place_id,
+            // Present when the caller is Import's "Possible matches" (which
+            // already has OSM data from its own Places API search -- see
+            // Venue.osm_type's comment); absent from the standalone Reassign
+            // Place ID panel, which resolves it server-side via Place
+            // Details instead (reassignLocationIdentityForNeighborhood).
+            osmType: typeof osm_type === "string" ? osm_type : null,
+            osmId: typeof osm_id === "number" ? osm_id : null,
+          },
+          getLocationRepository(),
+          getCachedPlacesClient(),
+          categories
         );
         if (result.status === "not_found") {
           res.status(404).json({ error: "Location not found" });
+          return;
+        }
+        if (result.status === "conflict") {
+          res.status(409).json({
+            error: result.conflictingLocationName
+              ? `This Geoapify place is already attached to "${result.conflictingLocationName}" in this neighborhood -- these look like duplicate locations. Hide or remove one, then try again.`
+              : "This Geoapify place is already attached to another location in this neighborhood -- these look like duplicate locations. Hide or remove one, then try again.",
+          });
           return;
         }
         res.json(result.location);

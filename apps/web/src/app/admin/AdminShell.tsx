@@ -14,6 +14,7 @@ export interface AdminShellSubTab {
   href: string;
   label: string;
   active: boolean;
+  badge?: React.ReactNode;
 }
 
 export interface AdminShellTab {
@@ -132,11 +133,12 @@ export function AdminShell({ switcherCurrent, user, tabs, viewPublicHref, onLogO
                       key={child.key}
                       href={child.href}
                       onClick={() => setSidebarOpen(false)}
-                      className={`rounded-lg px-2.5 py-1.5 text-[13px] font-bold ${
+                      className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-bold ${
                         child.active ? "bg-card text-foreground" : "text-nav-muted hover:bg-nav-foreground/8"
                       }`}
                     >
-                      {child.label}
+                      <span>{child.label}</span>
+                      {child.badge}
                     </a>
                   ))}
                 </div>

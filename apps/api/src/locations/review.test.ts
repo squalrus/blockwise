@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { VenueAnalytics } from "@blockwise/types";
 import type { CategoryRecord } from "../places/categorize";
 import { MockGeoapifyClient } from "../places/mockGeoapifyClient";
-import type { ExistingVenue, NeighborhoodRecord, PlacesRepository, UpsertVenueInput } from "../places/repository";
+import type { NeighborhoodRecord, PlacesRepository, UpsertVenueInput } from "../places/repository";
 import type {
   CategoryRecord as LocationCategoryRecord,
   CreateLocationInput,
@@ -38,12 +38,7 @@ const CATEGORIES: CategoryRecord[] = [
 ];
 
 class FakePlacesRepository implements PlacesRepository {
-  venues: ExistingVenue[];
   upsertCalls: UpsertVenueInput[] = [];
-
-  constructor(initialVenues: ExistingVenue[] = []) {
-    this.venues = initialVenues;
-  }
 
   async getNeighborhoodBySlug(): Promise<NeighborhoodRecord | null> {
     return { id: "phinneywood-id", centerLat: 47.6686, centerLng: -122.355, boundaryGeojson: PHINNEYWOOD_BOUNDARY };
@@ -51,10 +46,6 @@ class FakePlacesRepository implements PlacesRepository {
 
   async listCategories(): Promise<CategoryRecord[]> {
     return CATEGORIES;
-  }
-
-  async listVenuesByNeighborhood(): Promise<ExistingVenue[]> {
-    return this.venues;
   }
 
   async upsertVenue(venue: UpsertVenueInput): Promise<void> {
@@ -116,6 +107,8 @@ class FakeLocationRepository implements LocationRepository {
       id: `location-${this.nextId++}`,
       neighborhoodId: input.neighborhoodId,
       geoapifyPlaceId: input.geoapifyPlaceId,
+      osmType: input.osmType ?? null,
+      osmId: input.osmId ?? null,
       name: input.name,
       kind: input.kind,
       categoryId: input.categoryId,
@@ -158,9 +151,14 @@ class FakeLocationRepository implements LocationRepository {
     return location;
   }
 
-  async updateLocationPlaceId(locationId: string, geoapifyPlaceId: string): Promise<LocationRecord> {
+  async updateLocationIdentity(
+    locationId: string,
+    identity: { geoapifyPlaceId: string; osmType: string | null; osmId: number | null }
+  ): Promise<LocationRecord> {
     const location = this.locations.find((l) => l.id === locationId)!;
-    location.geoapifyPlaceId = geoapifyPlaceId;
+    location.geoapifyPlaceId = identity.geoapifyPlaceId;
+    location.osmType = identity.osmType;
+    location.osmId = identity.osmId;
     return location;
   }
 
@@ -488,6 +486,137 @@ describe("reviewNeighborhoodLocations", () => {
 
     expect(report.proposedRemovals.some((r) => r.name === "Woodland Park")).toBe(false);
   });
+
+  // User-requested follow-up to the osm_type/osm_id fix ("could we also run
+  // the same refresh across the locations" on import) -- see
+  // refreshMatchedLocation's comment in review.ts.
+  it("refreshes an unclaimed matched business's basic info and fills its unset category", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
+        id: "existing-1",
+        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
+        name: "Herkimer Coffee (old name)",
+        lat: 47.6816,
+        lng: -122.3552,
+        address: null,
+        categoryId: null,
+      }),
+    ];
+
+    const report = await reviewNeighborhoodLocations(
+      "phinneywood-id",
+      PHINNEYWOOD_BOUNDARY!,
+      new MockGeoapifyClient(),
+      placesRepository,
+      locationRepository
+    );
+
+    expect(report.refreshed).toContain("Herkimer Coffee (old name)");
+    const updated = locationRepository.locations.find((l) => l.id === "existing-1")!;
+    expect(updated.name).toBe("Herkimer Coffee");
+    expect(updated.address).toBe("7320 Greenwood Ave N, Seattle, WA");
+    expect(updated.categoryId).toBe("coffee-shop");
+  });
+
+  it("never overwrites a claimed business's basic info during Import", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
+        id: "existing-1",
+        geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
+        name: "Business-Submitted Name",
+        lat: 47.6816,
+        lng: -122.3552,
+        claimedByBusiness: true,
+      }),
+    ];
+
+    const report = await reviewNeighborhoodLocations(
+      "phinneywood-id",
+      PHINNEYWOOD_BOUNDARY!,
+      new MockGeoapifyClient(),
+      placesRepository,
+      locationRepository
+    );
+
+    expect(report.refreshed).not.toContain("Business-Submitted Name");
+    const updated = locationRepository.locations.find((l) => l.id === "existing-1")!;
+    expect(updated.name).toBe("Business-Submitted Name");
+  });
+
+  it("leaves a matched POI's basic info untouched during Import, even though it's unclaimed", async () => {
+    // Unlike a deliberate one-off Reassign, an unattended scheduled Import
+    // can't tell a POI's own manual curation (PoiForm) apart from stale
+    // source data -- see refreshMatchedLocation's comment.
+    locationRepository.locations = [
+      makePoiLocation({
+        id: "existing-poi-1",
+        geoapifyPlaceId: "geoapify-mock-mustard-seed-park",
+        name: "Mustard Seed Park (curated name)",
+        lat: 47.685,
+        lng: -122.3495,
+        address: "N 80th St & Fremont Ave N, Seattle, WA",
+      }),
+    ];
+
+    const report = await reviewNeighborhoodLocations(
+      "phinneywood-id",
+      PHINNEYWOOD_BOUNDARY!,
+      new MockGeoapifyClient(),
+      placesRepository,
+      locationRepository
+    );
+
+    expect(report.refreshed).not.toContain("Mustard Seed Park (curated name)");
+    const updated = locationRepository.locations.find((l) => l.id === "existing-poi-1")!;
+    expect(updated.name).toBe("Mustard Seed Park (curated name)");
+  });
+
+  it("refreshes a stale geoapify_place_id cache when matched by osm ref alone, even with basic info unchanged", async () => {
+    locationRepository.locations = [
+      makeBusinessLocation({
+        id: "existing-1",
+        geoapifyPlaceId: "stale-place-id",
+        osmType: "n",
+        osmId: 123,
+        name: "Sully's Ale House",
+        lat: 47.6816,
+        lng: -122.3552,
+        address: "some address",
+        categoryId: "some-category",
+      }),
+    ];
+
+    class FreshIdClient {
+      async searchPlaces() {
+        return [
+          {
+            placeId: "fresh-place-id",
+            name: "Sully's Ale House",
+            formattedAddress: "some address",
+            location: { lat: 47.6816, lng: -122.3552 },
+            categories: [],
+            osmType: "n",
+            osmId: 123,
+          },
+        ];
+      }
+    }
+
+    const report = await reviewNeighborhoodLocations(
+      "phinneywood-id",
+      PHINNEYWOOD_BOUNDARY!,
+      new FreshIdClient(),
+      placesRepository,
+      locationRepository
+    );
+
+    expect(report.refreshed).toContain("Sully's Ale House");
+    const updated = locationRepository.locations.find((l) => l.id === "existing-1")!;
+    expect(updated.geoapifyPlaceId).toBe("fresh-place-id");
+    // Unchanged -- isolates this test to the identity-cache refresh alone.
+    expect(updated.name).toBe("Sully's Ale House");
+    expect(updated.categoryId).toBe("some-category");
+  });
 });
 
 describe("commitLocationReview", () => {
@@ -513,13 +642,16 @@ describe("commitLocationReview", () => {
       [{ ...candidate, classification: "business", categoryId: "coffee-shop" }],
       [],
       placesRepository,
-      locationRepository
+      locationRepository,
+      new MockGeoapifyClient()
     );
 
     expect(result.createdBusinesses).toEqual(["Herkimer Coffee"]);
     expect(placesRepository.upsertCalls).toEqual([
       {
         geoapifyPlaceId: "geoapify-mock-herkimer-coffee",
+        osmType: null,
+        osmId: null,
         name: "Herkimer Coffee",
         categoryId: "coffee-shop",
         lat: 47.6816,
@@ -536,7 +668,8 @@ describe("commitLocationReview", () => {
       [{ ...candidate, classification: "poi" }],
       [],
       placesRepository,
-      locationRepository
+      locationRepository,
+      new MockGeoapifyClient()
     );
 
     expect(result.createdPois).toEqual(["Herkimer Coffee"]);
@@ -554,7 +687,8 @@ describe("commitLocationReview", () => {
       [{ ...candidate, classification: "omit" }],
       [],
       placesRepository,
-      locationRepository
+      locationRepository,
+      new MockGeoapifyClient()
     );
 
     expect(result.omitted).toEqual(["Herkimer Coffee"]);
@@ -577,7 +711,8 @@ describe("commitLocationReview", () => {
       ],
       [],
       placesRepository,
-      locationRepository
+      locationRepository,
+      new MockGeoapifyClient()
     );
 
     expect(result.failed).toEqual([
@@ -603,7 +738,8 @@ describe("commitLocationReview", () => {
       [],
       [{ id: "venue-outside" }],
       placesRepository,
-      locationRepository
+      locationRepository,
+      new MockGeoapifyClient()
     );
 
     expect(result.removed).toEqual(["Outside The Boundary Cafe"]);
@@ -620,7 +756,8 @@ describe("commitLocationReview", () => {
       [],
       [{ id: "poi-faraway" }],
       placesRepository,
-      locationRepository
+      locationRepository,
+      new MockGeoapifyClient()
     );
 
     expect(result.removed).toEqual(["Faraway Park"]);
@@ -628,7 +765,7 @@ describe("commitLocationReview", () => {
     expect(locationRepository.locations).toHaveLength(1);
   });
 
-  it("reidentifies an approved possible match, rewriting the existing location's geoapify_place_id", async () => {
+  it("reidentifies an approved possible match, rewriting the existing location's geoapify_place_id and basic info", async () => {
     locationRepository.locations = [
       makeBusinessLocation({
         id: "existing-2",
@@ -645,11 +782,16 @@ describe("commitLocationReview", () => {
       [],
       placesRepository,
       locationRepository,
-      [{ locationId: "existing-2", geoapifyPlaceId: "geoapify-mock-herkimer-coffee" }]
+      new MockGeoapifyClient(),
+      [{ locationId: "existing-2", geoapifyPlaceId: "geoapify-mock-herkimer-coffee", osmType: null, osmId: null }]
     );
 
-    expect(result.reidentified).toEqual(["Herkimer Coffee Shop"]);
+    // Reassign now also refreshes basic info from the same Place Details
+    // lookup (user-requested follow-up: "when reassigning to a known place,
+    // should the name update?") -- so the reported name is the fresh one.
+    expect(result.reidentified).toEqual(["Herkimer Coffee"]);
     expect(locationRepository.locations[0].geoapifyPlaceId).toBe("geoapify-mock-herkimer-coffee");
+    expect(locationRepository.locations[0].name).toBe("Herkimer Coffee");
   });
 
   it("reports a failure for a reidentification referencing an unknown location, without aborting the batch", async () => {
@@ -659,6 +801,7 @@ describe("commitLocationReview", () => {
       [],
       placesRepository,
       locationRepository,
+      new MockGeoapifyClient(),
       [{ locationId: "missing-location", geoapifyPlaceId: "geoapify-mock-herkimer-coffee" }]
     );
 
@@ -672,7 +815,8 @@ describe("commitLocationReview", () => {
       [],
       [{ id: "missing-venue" }, { id: "missing-poi" }],
       placesRepository,
-      locationRepository
+      locationRepository,
+      new MockGeoapifyClient()
     );
 
     expect(result.removed).toHaveLength(0);

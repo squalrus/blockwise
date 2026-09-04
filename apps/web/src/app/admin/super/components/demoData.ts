@@ -328,6 +328,8 @@ export const LOCATION_CARDS: { label: string; location: VenueDetail; favorited: 
         hours: null,
         editorial_summary: null,
         fetched_at: NOW,
+        last_error_at: null,
+        last_error_message: null,
       },
       social_links: { instagram: "https://instagram.com/wilsontax", website: "https://wilsontax.example.com" },
     }),

@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import type { CategoryOption, LocationKind, LocationListItem, Venue, VenueStatus } from "@blockwise/types";
 import { getAccessToken } from "@/lib/auth";
 import { clientApiUrl } from "@/lib/clientApi";
+import { ActionMenu } from "@/app/ActionMenu";
 import { useNeighborhoodAdmin } from "../NeighborhoodAdminContext";
-import { AddPoiModal } from "../AddPoiModal";
+import { AddLocationModal } from "../AddLocationModal";
 import { PoiForm } from "../PoiForm";
+import { EditLocationModal } from "./EditLocationModal";
 import { ReassignPlaceIdPanel } from "./ReassignPlaceIdPanel";
 
-type Filter = "business" | "poi";
+type Filter = "all" | "business" | "poi";
 
 const GROUP_COLORS: Record<string, string> = {
   "Food & Drink": "var(--brand-orange)",
@@ -19,6 +21,27 @@ const GROUP_COLORS: Record<string, string> = {
   Services: "var(--muted)",
 };
 const FALLBACK_GROUP_COLOR = "var(--muted)";
+
+// Sentinel categoryGroup value (distinct from any real group_name) for the
+// "Uncategorized" chip -- surfaces businesses with no category_id at all so
+// they're not just silently invisible from every real group's chip, since
+// there's no "Unmapped" row in the category-groups list itself to pick.
+const UNCATEGORIZED = "__uncategorized__";
+
+// Column widths shared by the header row and every data row so they line up
+// -- mirrors the super-admin Users table's ROW_GRID (icon, name/address
+// (grows), type, category, status badges, actions). The trailing column is
+// a fixed px width, not `auto`, for the same reason as that table's: `auto`
+// sizes to each row's own content, and the header's last cell (empty) is
+// narrower than a data row's (ActionMenu's three-dot button), which would
+// otherwise drift the fr() columns out of alignment between the two rows.
+// No overflow-x-auto wrapper around the list (unlike that Users table) --
+// setting overflow-x without overflow-y computes overflow-y to `auto` too
+// (CSS spec quirk), which clipped ActionMenu's dropdown and its trigger
+// button against the resulting scroll container. These columns comfortably
+// fit without horizontal scrolling, so the wrapper wasn't earning its keep.
+const ROW_GRID = "grid-cols-[28px_minmax(160px,1.8fr)_84px_minmax(120px,1fr)_112px_44px]";
+const HEADER_ROW_CLASS = `grid ${ROW_GRID} items-center gap-3 border-2 border-transparent px-4 text-[10px] font-extrabold tracking-wide text-muted uppercase`;
 
 // Locations tab (BACKLOG.md Ref 29, generalized by "POIs and venues managed
 // almost the same") -- one merged venue+POI list for a neighborhood, so an
@@ -39,23 +62,26 @@ const FALLBACK_GROUP_COLOR = "var(--muted)";
 // selection changes so a stale subcategory can't silently filter out
 // everything in a newly-selected group.
 //
-// Kind is a forced Businesses/POIs toggle (no "All") and hidden-visibility
-// is an independent axis, not part of the toggle -- "show hidden" combines
-// with whichever kind is selected, so hiding a row from e.g. the Businesses
-// view doesn't force a tab switch just to keep seeing it.
+// Kind is an All/Businesses/POIs toggle, and hidden-visibility is an
+// independent axis, not part of the toggle -- "show hidden" combines with
+// whichever kind is selected, so hiding a row from e.g. the Businesses view
+// doesn't force a tab switch just to keep seeing it. Defaults to All/hidden
+// rows excluded, so opening the tab shows what a neighbor would actually see
+// rather than the full curation surface up front.
 //
-// Reimport Locations / Reported venues / Investigate a missing venue used
+// Import Locations / Reported venues / Investigate a missing venue used
 // to be a button + two links cluttering this header -- they're now reached
 // via the sidebar's Locations sub-nav instead (../layout.tsx's TABS), same
 // pattern as the super-admin Monitoring section, leaving this page just the
-// list and the one action (Add POI) that actually belongs here. "+ Add
-// point of interest" itself moved from an inline form pushed into the list
-// to a modal (AddPoiModal) so opening it doesn't shove every row down.
+// list and the one action (Add location) that actually belongs here. "+ Add
+// location" moved from an inline POI-only form pushed into the list to a
+// modal (AddLocationModal) with a POI/Business kind toggle, so opening it
+// doesn't shove every row down and businesses can be added manually too.
 export default function NeighborhoodAdminLocationsPage() {
   const { neighborhoodId } = useNeighborhoodAdmin();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Filter>("business");
-  const [showHidden, setShowHidden] = useState(true);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [showHidden, setShowHidden] = useState(false);
   const [categoryGroup, setCategoryGroup] = useState<string | null>(null);
   const [subcategoryId, setSubcategoryId] = useState<string | null>(null);
   const [locations, setLocations] = useState<LocationListItem[] | null>(null);
@@ -63,8 +89,9 @@ export default function NeighborhoodAdminLocationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [editingPoi, setEditingPoi] = useState<Venue | null>(null);
-  const [addingPoi, setAddingPoi] = useState(false);
+  const [addingLocation, setAddingLocation] = useState(false);
   const [reassigningId, setReassigningId] = useState<string | null>(null);
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
 
   async function loadLocations(activeSearch: string) {
     setError(null);
@@ -216,8 +243,8 @@ export default function NeighborhoodAdminLocationsPage() {
     loadLocations(search);
   }
 
-  function handlePoiCreated() {
-    setAddingPoi(false);
+  function handleLocationCreated() {
+    setAddingLocation(false);
     loadLocations(search);
   }
 
@@ -252,6 +279,18 @@ export default function NeighborhoodAdminLocationsPage() {
     [categories]
   );
 
+  // Independent of categoryGroup (unlike the group chips, which only cover
+  // businesses that already have a category) so the "Uncategorized" chip's
+  // own count doesn't disappear once it's the active filter -- still
+  // respects showHidden, same as the type-toggle counts above.
+  const uncategorizedCount = useMemo(
+    () =>
+      (locations ?? []).filter(
+        (l) => l.kind === "business" && l.category_id === null && (showHidden || l.status !== "hidden")
+      ).length,
+    [locations, showHidden]
+  );
+
   // Leaf categories within the selected group, for the optional subcategory
   // refinement row -- empty (and thus hidden) until a group is picked.
   const subcategories = useMemo(
@@ -264,13 +303,13 @@ export default function NeighborhoodAdminLocationsPage() {
     setSubcategoryId(null);
   }
 
-  // Category chips are business-only and hidden on the POIs tab -- clear
-  // them on switching there so a category picked earlier can't silently
-  // zero out the POI list (categoryFiltered excludes non-business rows
-  // whenever a group is set).
+  // Category chips are business-only and hidden outside the Businesses tab
+  // -- clear them on switching away so a category picked earlier can't
+  // silently zero out the All/POIs list (categoryFiltered excludes
+  // non-business rows whenever a group is set).
   function selectFilter(next: Filter) {
     setFilter(next);
-    if (next === "poi") {
+    if (next !== "business") {
       setCategoryGroup(null);
       setSubcategoryId(null);
     }
@@ -283,6 +322,7 @@ export default function NeighborhoodAdminLocationsPage() {
     locations?.filter((loc) => {
       if (!categoryGroup) return true;
       if (loc.kind !== "business") return false;
+      if (categoryGroup === UNCATEGORIZED) return loc.category_id === null;
       if (categoryGroupById.get(loc.category_id ?? "") !== categoryGroup) return false;
       if (subcategoryId && loc.category_id !== subcategoryId) return false;
       return true;
@@ -296,6 +336,7 @@ export default function NeighborhoodAdminLocationsPage() {
   const visibleFiltered = categoryFiltered?.filter((loc) => showHidden || loc.status !== "hidden") ?? null;
 
   const counts = {
+    all: visibleFiltered?.length ?? 0,
     business: visibleFiltered?.filter((l) => l.kind === "business").length ?? 0,
     poi: visibleFiltered?.filter((l) => l.kind === "poi").length ?? 0,
   };
@@ -317,10 +358,10 @@ export default function NeighborhoodAdminLocationsPage() {
         </div>
         <button
           type="button"
-          onClick={() => setAddingPoi(true)}
+          onClick={() => setAddingLocation(true)}
           className="shrink-0 rounded-xl bg-brand-green px-4.5 py-2.75 font-heading text-sm font-bold text-on-accent whitespace-nowrap"
         >
-          + Add point of interest
+          + Add location
         </button>
       </div>
 
@@ -335,7 +376,7 @@ export default function NeighborhoodAdminLocationsPage() {
         </form>
 
         <div className="flex gap-0.5 rounded-xl bg-card-alt p-0.75">
-          {(["business", "poi"] as Filter[]).map((f) => (
+          {(["all", "business", "poi"] as Filter[]).map((f) => (
             <button
               key={f}
               type="button"
@@ -344,7 +385,7 @@ export default function NeighborhoodAdminLocationsPage() {
                 filter === f ? "bg-foreground text-background" : "text-muted-strong"
               }`}
             >
-              <span>{f === "business" ? "Businesses" : "POIs"}</span>
+              <span>{f === "all" ? "All" : f === "business" ? "Businesses" : "POIs"}</span>
               <span className="font-mono text-[10px] opacity-65">{counts[f]}</span>
             </button>
           ))}
@@ -397,6 +438,20 @@ export default function NeighborhoodAdminLocationsPage() {
                 </button>
               );
             })}
+            {uncategorizedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => selectCategoryGroup(categoryGroup === UNCATEGORIZED ? null : UNCATEGORIZED)}
+                className={`flex items-center gap-1.5 rounded-full border-1.5 border-dashed px-3.5 py-1.75 text-xs font-extrabold ${
+                  categoryGroup === UNCATEGORIZED
+                    ? "border-transparent bg-foreground text-background"
+                    : "border-border bg-card text-muted-strong"
+                }`}
+              >
+                Uncategorized
+                <span className="font-mono text-[10px] opacity-65">{uncategorizedCount}</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -435,203 +490,190 @@ export default function NeighborhoodAdminLocationsPage() {
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      {addingPoi && (
-        <AddPoiModal neighborhoodId={neighborhoodId} onCreated={handlePoiCreated} onClose={() => setAddingPoi(false)} />
+      {addingLocation && (
+        <AddLocationModal
+          neighborhoodId={neighborhoodId}
+          onCreated={handleLocationCreated}
+          onClose={() => setAddingLocation(false)}
+        />
       )}
 
       {filtered?.length === 0 && <p className="text-sm text-muted">No locations match.</p>}
 
-      <ul className="flex flex-col gap-2.5">
-        {filtered?.map((loc) => {
-          const group = loc.category_id ? categoryGroupById.get(loc.category_id) : null;
-          const color = group ? (GROUP_COLORS[group] ?? FALLBACK_GROUP_COLOR) : FALLBACK_GROUP_COLOR;
-          return (
-            <li
-              key={`${loc.kind}-${loc.id}`}
-              className="flex flex-col gap-1.75 rounded-2xl border-2 border-border/60 bg-card px-4 py-3.5"
-              style={{ opacity: loc.status === "hidden" ? 0.62 : 1 }}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <svg width="15" height="15" viewBox="0 0 40 40" className="shrink-0" aria-hidden="true">
+      <div className="flex flex-col gap-2">
+        <div className={HEADER_ROW_CLASS}>
+          <span />
+          <span>Location</span>
+          <span>Type</span>
+          <span>Category</span>
+          <span>Status</span>
+          <span />
+        </div>
+
+        <ul className="flex flex-col gap-2">
+          {filtered?.map((loc) => {
+            const group = loc.category_id ? categoryGroupById.get(loc.category_id) : null;
+            const color = group ? (GROUP_COLORS[group] ?? FALLBACK_GROUP_COLOR) : FALLBACK_GROUP_COLOR;
+            const menuItems =
+              loc.kind === "business"
+                ? [
+                    {
+                      label: loc.status === "active" ? "Hide" : "Show",
+                      onSelect: () => handleStatusChange(loc.id, loc.status === "active" ? "hidden" : "active"),
+                    },
+                    {
+                      label: "Edit",
+                      onSelect: () => setEditingLocationId(loc.id),
+                      disabled: savingId === loc.id,
+                    },
+                    {
+                      label: "Convert to POI",
+                      onSelect: () => handleSwitchToPoi(loc),
+                      disabled: loc.claimed_by_business,
+                      title: loc.claimed_by_business ? "Reject or revoke the business claim first" : undefined,
+                    },
+                  ]
+                : [
+                    { label: "Edit", onSelect: () => handleEditPoi(loc.id), disabled: savingId === loc.id },
+                    {
+                      label: loc.status === "active" ? "Hide" : "Show",
+                      onSelect: () => handleStatusChange(loc.id, loc.status === "active" ? "hidden" : "active"),
+                    },
+                    { label: "Convert to Business", onSelect: () => handleSwitchKind(loc.id, "business") },
+                    {
+                      label: "Reassign place ID",
+                      onSelect: () => setReassigningId(reassigningId === loc.id ? null : loc.id),
+                    },
+                    {
+                      label: "Delete",
+                      onSelect: () => handleDeletePoi(loc.id),
+                      disabled: savingId === loc.id,
+                      destructive: true,
+                    },
+                  ];
+
+            return (
+              <li
+                key={`${loc.kind}-${loc.id}`}
+                className={`grid ${ROW_GRID} items-center gap-3 rounded-2xl border-2 border-border/60 bg-card px-4 py-3`}
+                style={{ opacity: loc.status === "hidden" ? 0.62 : 1 }}
+              >
+                <svg width="16" height="16" viewBox="0 0 40 40" className="shrink-0" aria-hidden="true">
                   <path d="M4 22 Q4 6 20 6 Q36 6 36 22 Z" fill={color} />
                   <rect x="16" y="21" width="8" height="15" rx="4" fill="var(--ink)" />
                 </svg>
-                <span className="font-heading text-[15.5px] font-bold">{loc.name}</span>
-                {loc.kind === "business" ? (
-                  <span className="rounded-full border border-border bg-card-alt px-2.25 py-0.5 text-[10px] font-extrabold text-muted-strong">
-                    Business
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-brand-green/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-green">
-                    POI
-                  </span>
-                )}
-                {loc.claimed_by_business && (
-                  <span className="rounded-full bg-brand-amber/25 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-amber">
-                    ✓ Claimed
-                  </span>
-                )}
-                {loc.status === "hidden" && (
-                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-extrabold text-muted">
-                    Hidden
-                  </span>
-                )}
-              </div>
-              <div className="pl-6 font-mono text-[11px] text-muted">{loc.address ?? "No address"}</div>
 
-              {loc.kind === "business" ? (
-                <div className="flex flex-wrap items-center gap-2 pl-6">
-                  <select
-                    value={loc.category_id ?? ""}
-                    disabled={!categories || savingId === loc.id}
-                    onChange={(e) => handleCategoryChange(loc.id, e.target.value)}
-                    className="rounded-lg border border-border bg-card-alt px-2 py-1 text-[13px] text-foreground"
-                  >
-                    <option value="" disabled>
-                      {loc.category_or_type}
-                    </option>
-                    {sortedCategories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.group_name ? `${c.group_name} / ${c.name}` : c.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="flex-1" />
-
-                  {loc.status === "active" ? (
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleStatusChange(loc.id, "hidden");
-                      }}
-                      className="text-xs font-extrabold text-red-600 dark:text-red-400"
+                <div className="flex min-w-0 flex-col">
+                  <span className="flex min-w-0 items-center gap-1.25 font-heading text-[15px] font-bold">
+                    <span className="truncate">{loc.name}</span>
+                    <span
+                      className={`shrink-0 ${loc.osm_id !== null ? "text-brand-green" : "text-muted/50"}`}
+                      title={
+                        loc.osm_id !== null
+                          ? "Connected to a known location — richer details (hours, phone, website) may be available"
+                          : "Not connected to a known location — no enrichment source, added by hand"
+                      }
                     >
-                      Hide
-                    </a>
-                  ) : (
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleStatusChange(loc.id, "active");
-                      }}
-                      className="text-xs font-extrabold text-brand-green"
-                    >
-                      Show
-                    </a>
+                      {loc.osm_id !== null ? (
+                        <svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M9 15l6-6" />
+                          <path d="M11 6l1-1a4 4 0 0 1 5.5 5.5l-1 1" />
+                          <path d="M13 18l-1 1a4 4 0 0 1-5.5-5.5l1-1" />
+                        </svg>
+                      ) : (
+                        <svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden="true"
+                        >
+                          <circle cx="10" cy="10" r="7" />
+                          <line x1="5" y1="15" x2="15" y2="5" />
+                        </svg>
+                      )}
+                    </span>
+                  </span>
+                  <span className="truncate font-mono text-[11px] text-muted">{loc.address ?? "No address"}</span>
+                </div>
+
+                <span
+                  className={`w-fit rounded-full px-2.25 py-0.5 text-[10px] font-extrabold ${
+                    loc.kind === "business" ? "bg-brand-amber/20 text-brand-amber" : "bg-brand-purple/20 text-brand-purple"
+                  }`}
+                >
+                  {loc.kind === "business" ? "Business" : "POI"}
+                </span>
+
+                <span className="truncate font-mono text-[11px] text-muted">{loc.category_or_type}</span>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {loc.claimed_by_business && (
+                    <span className="w-fit rounded-full bg-brand-green/20 px-2.25 py-0.5 text-[10px] font-extrabold text-brand-green">
+                      ✓ Claimed
+                    </span>
                   )}
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleSwitchToPoi(loc);
-                    }}
-                    aria-disabled={loc.claimed_by_business}
-                    title={loc.claimed_by_business ? "Reject or revoke the business claim first" : undefined}
-                    className={`text-xs font-extrabold ${loc.claimed_by_business ? "cursor-not-allowed text-muted opacity-50" : "text-foreground"}`}
-                  >
-                    → POI
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setReassigningId(reassigningId === loc.id ? null : loc.id)}
-                    className="text-xs font-extrabold text-foreground"
-                  >
-                    Reassign place ID
-                  </button>
-
-                  {savingId === loc.id && <span className="text-xs font-bold text-muted">Saving…</span>}
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-3.5 pl-6">
-                  <button
-                    type="button"
-                    disabled={savingId === loc.id}
-                    onClick={() => handleEditPoi(loc.id)}
-                    className="text-xs font-extrabold text-foreground"
-                  >
-                    Edit
-                  </button>
-                  <div className="flex-1" />
-                  {loc.status === "active" ? (
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleStatusChange(loc.id, "hidden");
-                      }}
-                      className="text-xs font-extrabold text-red-600 dark:text-red-400"
-                    >
-                      Hide
-                    </a>
-                  ) : (
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleStatusChange(loc.id, "active");
-                      }}
-                      className="text-xs font-extrabold text-brand-green"
-                    >
-                      Show
-                    </a>
+                  {loc.status === "hidden" && (
+                    <span className="w-fit rounded-full border border-border px-2 py-0.5 text-[10px] font-extrabold text-muted">
+                      Hidden
+                    </span>
                   )}
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleSwitchKind(loc.id, "business");
-                    }}
-                    className="text-xs font-extrabold text-foreground"
-                  >
-                    → Business
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setReassigningId(reassigningId === loc.id ? null : loc.id)}
-                    className="text-xs font-extrabold text-foreground"
-                  >
-                    Reassign place ID
-                  </button>
-                  <button
-                    type="button"
-                    disabled={savingId === loc.id}
-                    onClick={() => handleDeletePoi(loc.id)}
-                    className="text-xs font-extrabold text-red-600 dark:text-red-400"
-                  >
-                    Delete
-                  </button>
-                  {savingId === loc.id && <span className="text-xs font-bold text-muted">Saving…</span>}
+                  {savingId === loc.id && <span className="text-[10px] font-bold text-muted">Saving…</span>}
                 </div>
-              )}
 
-              {editingPoi?.id === loc.id && loc.kind === "poi" && (
-                <div className="pl-6">
-                  <PoiForm
-                    neighborhoodId={neighborhoodId}
-                    existing={editingPoi}
-                    onUpdated={handlePoiUpdated}
-                    onCancel={() => setEditingPoi(null)}
-                  />
-                </div>
-              )}
+                <ActionMenu items={menuItems} />
 
-              {reassigningId === loc.id && (
-                <div className="pl-6">
-                  <ReassignPlaceIdPanel
+                {editingPoi?.id === loc.id && loc.kind === "poi" && (
+                  <div className="col-span-full pt-1">
+                    <PoiForm
+                      neighborhoodId={neighborhoodId}
+                      existing={editingPoi}
+                      onUpdated={handlePoiUpdated}
+                      onCancel={() => setEditingPoi(null)}
+                    />
+                  </div>
+                )}
+
+                {reassigningId === loc.id && (
+                  <div className="col-span-full pt-1">
+                    <ReassignPlaceIdPanel
+                      neighborhoodId={neighborhoodId}
+                      locationId={loc.id}
+                      onReassigned={handleReassigned}
+                      onCancel={() => setReassigningId(null)}
+                    />
+                  </div>
+                )}
+
+                {editingLocationId === loc.id && (
+                  <EditLocationModal
                     neighborhoodId={neighborhoodId}
-                    locationId={loc.id}
-                    onReassigned={handleReassigned}
-                    onCancel={() => setReassigningId(null)}
+                    location={loc}
+                    categories={categories}
+                    sortedCategories={sortedCategories}
+                    saving={savingId === loc.id}
+                    onCategoryChange={(categoryId) => handleCategoryChange(loc.id, categoryId)}
+                    onReassigned={() => loadLocations(search)}
+                    onClose={() => setEditingLocationId(null)}
                   />
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 }

@@ -12,126 +12,126 @@ Legend: **P** = public, no auth · **C** = client-side auth check only (soft) ·
 
 ```text
 apps/web/src/app/
-├── layout.tsx                                    (root layout — SiteChrome swaps in AccountNav/Footer, or hides them entirely for the admin sidebar shells)
-├── SiteChrome.tsx                                 (client component, no route — hides AccountNav/Footer on /admin/neighborhood/:slug/* and /admin/business/:venueId/* routes, which supply their own sidebar shell chrome)
-├── AdminSwitcher.tsx                              (shared component, no route — sidebar dropdown listing every neighborhood/business this account administers, plus a "Platform" group ("Super admin") linking to /admin/super for super admins, used by all three admin shells below)
-├── StatTile.tsx                                   (shared component, no route — icon/label/value stat tile used by both shells' Overview tabs)
-├── ClientErrorReporter.tsx                        (client component, no route — window.onerror/unhandledrejection listener, POSTs to /monitoring/client-errors; mounted once in layout.tsx, BACKLOG.md Ref 104)
-├── error.tsx                                      React error boundary (Next.js convention) for a render crash anywhere under the root layout — reports via /monitoring/client-errors, on-brand fallback UI (BACKLOG.md Ref 104)
-├── global-error.tsx                               React error boundary for a crash in the root layout itself — replaces <html>/<body> entirely, so deliberately plain (no globals.css/font vars); reports via /monitoring/client-errors (BACKLOG.md Ref 104)
-├── not-found.tsx                                  Next.js convention — on-brand 404 page (MushroomLogo, matching typography, link back to /) replacing the framework default (BACKLOG.md Ref 91)
-├── robots.ts                                      /robots.txt — P — disallows "/" (auth redirect stub, not real content) and every authenticated/utility route; allows everything else
-├── sitemap.ts                                     /sitemap.xml — P — dynamic: every active neighborhood + its active business venues (GET /neighborhoods, GET /neighborhoods/:id/venues); public profiles deliberately excluded (noindex default, see profile/[username])
-├── page.tsx                                       / — C — redirects to /account (signed in) or /login (signed out); marketing homepage now lives at tryspored.com (apps/marketing)
+├── layout.tsx                                    root layout — SiteChrome swaps in AccountNav/Footer
+├── SiteChrome.tsx                                 hides AccountNav/Footer on admin shell routes
+├── AdminSwitcher.tsx                              shared — dropdown to switch admin scope
+├── StatTile.tsx                                   shared — stat tile for admin Overview tabs
+├── ClientErrorReporter.tsx                        shared — reports window errors to /monitoring/client-errors
+├── error.tsx                                      error boundary — reports error, on-brand fallback
+├── global-error.tsx                               error boundary for a root-layout crash
+├── not-found.tsx                                  on-brand 404 page
+├── robots.ts                                       /robots.txt — P
+├── sitemap.ts                                      /sitemap.xml — P — neighborhoods + business venues
+├── page.tsx                                       / — C — redirects to /account or /login
 ├── login/page.tsx                                 /login — P
 ├── signup/page.tsx                                /signup — P
-├── auth/callback/page.tsx                         /auth/callback — P (OAuth redirect target, sets session)
+├── auth/callback/page.tsx                         /auth/callback — P — OAuth redirect target
 ├── account/
-│   ├── (tabs)/                                      route group (no URL segment) — shared layout.tsx (profile summary card: points/favorite/check-in/badge/challenge/neighbor counts; "join a neighborhood" prompt; route-driven tab bar) wraps every tab below, mirroring /neighborhoods/:slug's layout+subnav split; kept out of settings/ below so that page keeps its own separate chrome
-│   │   ├── layout.tsx                              — C — shared chrome described above
-│   │   ├── page.tsx                                /account — Spore Feed tab (default) — accepted-neighbor activity (GET /me/feed) with today's followed events, today's events at favorited venues, and active coupons at favorited venues pinned above it (GET /me/events + GET /me/events-from-favorites — de-duped against each other — BACKLOG.md Ref 87 — + GET /me/coupons — BACKLOG.md Ref 83)
-│   │   ├── favorites/page.tsx                      /account/favorites — Favorites tab — followed events + favorited venues
-│   │   ├── badges/page.tsx                         /account/badges — Badges tab — earned badges + locked placeholders from the full catalog (BACKLOG.md Ref 61)
-│   │   ├── collection/page.tsx                     /account/collection — Collection tab — grid of collected mushroom "species" (GET /me/collection), one per venue checked into or neighbor connected with (BACKLOG.md Ref 98); unlike Badges, uncollected species simply aren't shown
-│   │   ├── challenges/page.tsx                     /account/challenges — Challenges tab — in-progress + completed challenges
-│   │   ├── neighbors/page.tsx                      /account/neighbors — Neighbors tab — add/accept/decline/remove connections (NeighborsSection); on change, also asks the (tabs) layout to refresh its neighbor count via AccountContext
-│   │   └── activity/page.tsx                       /account/activity — My Activity tab — own unmasked activity (GET /me/activity, renamed from Check-ins)
-│   ├── AccountContext.tsx, AccountTabs.tsx           (shared components, no route — refresh-trigger context and the route-driven TabNav wrapper used by (tabs)/layout.tsx)
-│   ├── getting-started/page.tsx                    /account/getting-started — C — "first run" checklist (join a neighborhood, add a username, customize your mushroom, check in, make a friend), backed by GET /me/onboarding; reached from AccountMenu's "Getting started" entry, which only shows while incomplete; deliberately outside the (tabs) group, its own standalone chrome, mirroring settings/ below
-│   └── settings/page.tsx                           /account/settings — C — profile editing, account details, joined neighborhoods (home-neighborhood picker); deliberately outside the (tabs) group, its own standalone chrome
+│   ├── (tabs)/                                      shared layout — profile summary card + tab bar
+│   │   ├── layout.tsx                              — C — shared chrome above
+│   │   ├── page.tsx                                /account — Spore Feed tab (default) — neighbor feed, today's events/coupons
+│   │   ├── favorites/page.tsx                      /account/favorites — followed events + favorited venues
+│   │   ├── badges/page.tsx                         /account/badges — earned badges + locked catalog entries
+│   │   ├── collection/page.tsx                     /account/collection — collected mushroom species grid
+│   │   ├── challenges/page.tsx                     /account/challenges — in-progress + completed challenges
+│   │   ├── neighbors/page.tsx                      /account/neighbors — add/accept/decline/remove connections
+│   │   └── activity/page.tsx                       /account/activity — own check-in/activity history
+│   ├── AccountContext.tsx, AccountTabs.tsx           shared — refresh context + tab bar
+│   ├── getting-started/page.tsx                    /account/getting-started — C — first-run checklist
+│   └── settings/page.tsx                           /account/settings — C — profile + account settings
 ├── checkin/
-│   ├── page.tsx                                    /checkin — C — quick-access nearest-venue check-in, linked from the nav next to the hamburger menu
-│   ├── NearestVenues.tsx                           (shared component, no route) — nearest-venue list; always appends MissingVenueRow below it (BACKLOG.md Ref 80/96), even when the list itself is empty
-│   └── MissingVenueRow.tsx                         (shared component, no route) — "Missing a venue?" row, expands in place (PlaceListItem's action-expanded style) to reveal MissingVenueReportForm (apps/web/src/app/MissingVenueReportForm.tsx, shared with FeedbackModal's "Missing venue" type)
+│   ├── page.tsx                                    /checkin — C — quick nearest-venue check-in
+│   ├── NearestVenues.tsx                           shared — nearest-venue list + "missing venue" row
+│   └── MissingVenueRow.tsx                         shared — missing-venue report form
 ├── profile/
-│   └── [username]/page.tsx                        /profile/:username — P — public user profile, neighborhoods, recent check-ins
+│   └── [username]/page.tsx                        /profile/:username — P — public profile
 ├── neighborhoods/
-│   ├── page.tsx                                    /neighborhoods — P — browse/join every active neighborhood (NeighborhoodsSection: search box, business/member counts per card)
+│   ├── page.tsx                                    /neighborhoods — P — browse/join neighborhoods
 │   └── [slug]/
-│       ├── layout.tsx                              — P — shared header (description, social links, join button), subnav tab bar
-│       ├── page.tsx                                /neighborhoods/:slug — Spore feed tab (default, renamed from "Recent activity") — neighborhood-wide feed (check-ins, favorites, badge unlocks, challenge completions); actor names masked to "A user" for private profiles
+│       ├── layout.tsx                              — P — shared header + subnav tab bar
+│       ├── page.tsx                                /neighborhoods/:slug — Spore feed tab (default)
 │       ├── today/
-│       │   ├── page.tsx                              /neighborhoods/:slug/today — Today tab (no longer the default) — events happening today (in progress or later today) + businesses/POIs currently open per cached hours; each event has a Follow toggle (BACKLOG.md Ref 81)
-│       │   └── OpenNowRow.tsx                          (shared component, no route — category/POI badge + "Open now · until X" pill row, same pill pair as LocationSummaryCard's header)
-│       ├── events/page.tsx                         /neighborhoods/:slug/events — Upcoming events tab — neighborhood-owned events + business events, each with a Follow toggle (BACKLOG.md Ref 81)
-│       ├── locations/page.tsx                      /neighborhoods/:slug/locations — Locations tab (list/map toggle) — merges businesses (renamed from Venues) and neighborhood-owned POIs (folded in from the former Points of interest tab)
-│       ├── challenges/page.tsx                     /neighborhoods/:slug/challenges — Challenges tab — in-progress/completed/not-started challenges
-│       └── leaderboard/page.tsx                    /neighborhoods/:slug/leaderboard — Leaderboard tab — points leaderboard (split back out from the Challenges tab)
+│       │   ├── page.tsx                              /neighborhoods/:slug/today — today's events + open-now places
+│       │   └── OpenNowRow.tsx                          shared — open-now pill row
+│       ├── events/page.tsx                         /neighborhoods/:slug/events — upcoming events, followable
+│       ├── locations/page.tsx                      /neighborhoods/:slug/locations — businesses + POIs, list/map
+│       ├── challenges/page.tsx                     /neighborhoods/:slug/challenges — challenges tab
+│       └── leaderboard/page.tsx                    /neighborhoods/:slug/leaderboard — points leaderboard
 ├── location/
 │   └── [id]/
-│       ├── layout.tsx                              — P — shared chrome (back link, summary card, photo strip, tab bar, claim form), merged business/POI detail page (BACKLOG.md "POIs and venues managed almost the same"), branches on `kind` throughout
-│       ├── page.tsx                                /location/:id — Spore Feed tab (default) — this venue's own check-ins, newest first
-│       ├── about/page.tsx                          /location/:id/about — About tab — Geoapify Place Details enrichment (hours/phone/website/description), business-kind or any POI with a geoapify_place_id
-│       ├── coupons/page.tsx                        /location/:id/coupons — Coupons tab, business-kind only — CouponsSection.tsx, client-fetched for per-viewer claim/eligibility (BACKLOG.md Ref 83, replaces the old Announcements section)
-│       ├── events/page.tsx                         /location/:id/events — Events tab, business-kind only (a POI can never be claimed, so never has events)
-│       └── leaderboard/page.tsx                    /location/:id/leaderboard — Leaderboard tab — visitCount ranking within the rolling 60-day window (GET /venues/:id/leaderboard), same ranking as the summary card's Top Caps badges at a higher limit
+│       ├── layout.tsx                              — P — shared chrome, merged business/POI detail page
+│       ├── page.tsx                                /location/:id — Spore Feed tab (default) — this venue's check-ins
+│       ├── about/page.tsx                          /location/:id/about — hours/phone/website/description
+│       ├── coupons/page.tsx                        /location/:id/coupons — business-kind only
+│       ├── events/page.tsx                         /location/:id/events — business-kind only
+│       └── leaderboard/page.tsx                    /location/:id/leaderboard — 60-day visit ranking
 ├── changelog/
-│   ├── page.tsx                                    /changelog — P — condensed one-line-per-version changelog (not the full CHANGELOG.md bullet detail); linked from AccountMenu ("What's new") and the "Spored v{version}" footer text in Footer.tsx and both admin sidebar layouts
-│   └── entries.ts                                  (shared data, no route — static per-version {version, date, summary} array generated from git history; append one entry per shipped version, see CLAUDE.md's backlog-shipping steps)
+│   ├── page.tsx                                    /changelog — P — condensed per-version changelog
+│   └── entries.ts                                  shared — {version, date, summary} array
 └── admin/
-│   ├── page.tsx                                    /admin — C — single admin entry point (folds the old /business and /neighborhood-admin list pages together): redirects to the first neighborhood you admin, else the first business you own, else shows a "nothing to admin yet" state (become a business owner / create a neighborhood, as applicable)
+│   ├── page.tsx                                    /admin — C — routes to the first neighborhood/business you admin
 │   ├── super/
-│   │   ├── layout.tsx                                  — S (client-side is_super_admin check; every page below independently re-gated by superAdminGate server-side) — third standalone sidebar shell alongside neighborhood/business below (Overview/Users/Category taxonomy/Challenges/Feedback tabs), reached via AdminSwitcher's "Platform" group; global scope, no slug/id segment to resolve, so it starts standalone at /admin/super itself
-│   │   ├── page.tsx                                    /admin/super — Overview tab — stat tiles (users/business accounts/neighborhood admins/super admins from GET /admin/users; feedback submissions/needs-triage count from GET /admin/feedback) plus a "Recent feedback" preview (latest 5, linking to the Feedback tab) — first cut of the super admin UI (BACKLOG.md #85 "Super admin interface for app-level badges, challenges, and config")
-│   │   ├── users/page.tsx                              /admin/super/users — Users tab (GET /admin/users, superAdminGate) — searchable, sortable (newest/oldest/name/email) list of every account on the platform (email/display name/username, account type, role-grant badges, joined date)
-│   │   ├── category-taxonomy/page.tsx                  /admin/super/category-taxonomy — Category taxonomy tab (GET/POST /admin/category-taxonomy, PATCH .../:id, POST .../:id/archive, all superAdminGate) — global category CRUD (BACKLOG.md Ref 4), distinct from the neighborhood Locations tab's category-reassignment; moved here from the old standalone /admin/category-taxonomy (requireAdmin, no nav entry point), which is now deleted
-│   │   ├── challenges/page.tsx                         /admin/super/challenges — Challenges tab (GET/POST /admin/challenges, PATCH .../:id, all superAdminGate) — minimal authoring for app-wide and neighborhood-specific challenges (BACKLOG.md Ref 108); a null neighborhood_id means app-wide. Create-only scope/target composition (category vs. any-POI/any-check-in — never a specific venue through this UI), with title/description/target_count/points_reward/badge/ends_at editable afterward. First UI able to create a challenge — every prior row was a hand-written SQL migration
-│   │   ├── badges/page.tsx                             /admin/super/badges — Badges tab (GET/POST /admin/badges, PATCH .../:id, all superAdminGate) — badge gained a direct, nullable neighborhood_id (BACKLOG.md Ref 108 follow-up: some rule-driven badges, e.g. the category_milestone "Explorer" families, are conceptually neighborhood-owned, not app-wide); scope shown per badge is that direct value when set, else derived the same way as before (app-wide via a global badge_rule, an app-wide challenge, or a one-off award like founder; neighborhood-specific only when every awarding challenge is itself neighborhood-scoped). A Scope dropdown (All/Global/one option per neighborhood with at least one neighborhood-specific badge) filters the list; within whatever's shown, badges are grouped by their shared code prefix (coffee_explorer_1/5/10, level_1..10, etc.) with tiers sorted numerically (1, 2, ..., 10, 11) rather than alphabetically. Create/edit cover name/description/icon (+ neighborhood_id on create, immutable after) only — the badge_rule engine's ~9 rule types aren't authorable here; a new badge has no rule yet, meant to be picked as a challenge's reward on the Challenges tab
-│   │   ├── feedback/page.tsx                           /admin/super/feedback — Feedback tab (GET /admin/feedback, PATCH .../:id, both superAdminGate) — searchable/filterable (type, state) triage list of every bug/feature POST /me/feedback submission, with a per-row state select (new/in_progress/done/removed); gate tightened from adminGate to superAdminGate alongside this UI, mirroring category-taxonomy's move. "missing_venue" submissions (BACKLOG.md Ref 80/96) never appear here -- they're routed to admin/neighborhood/[neighborhoodSlug]/locations/reports/page.tsx instead
-│   │   ├── monitoring/                                 /admin/super/monitoring — Monitoring tab (GET /admin/monitoring/analytics, superAdminGate) — errors (API + web) and request volume/latency charts, rolled on Postgres rather than a third-party service (BACKLOG.md Ref 104); split into four sub-pages sharing one MonitoringContext (single fetch, filters synced to the URL as query params so a refresh doesn't lose them) with a shared filter header (range/domain/app-version pills) whose title renders as a "Monitoring › <sub-page>" breadcrumb on every sub-page except Overview
-│   │   │   ├── layout.tsx                                shared filter header (range/domain/app-version pills, breadcrumb title) + MonitoringContext provider wrapping the four sub-pages below
-│   │   │   ├── MonitoringContext.tsx                     (shared component, no route — window (minutes)/domain/version/statusClass/errorSource/routeScope filter state, single getAnalytics fetch, URL sync via router.replace)
-│   │   │   ├── page.tsx                                  /admin/super/monitoring — Overview sub-tab (default) — true cross-section summary: one KPI strip (total errors/requests, avg latency, today's Geoapify credits) plus one preview card per sub-page (errors by source + 3 most recent; avg latency + slowest route; Geoapify free-tier gauge), each linking to its full sub-page
-│   │   │   ├── errors/page.tsx                           /admin/super/monitoring/errors — Errors sub-tab (formerly the Overview page itself) — errors over time chart, errors-by-source tiles (always show the true unfiltered breakdown, ringed to match the shared header's Source pill row — App/API/Marketing, shown only on this sub-page) + recent errors list; status-code tiles (clickable filters) + recent requests table (pulled from request_log, filterable by 2xx/3xx/4xx/5xx status class)
-│   │   │   ├── performance/page.tsx                      /admin/super/monitoring/performance — API Performance sub-tab (title and every section heading prefixed "API" — everything here is apps/api backend timing, never frontend page-render time) — request volume, latency, slowest routes/queries charts; its own App/Admin/Auth route-scope pill row (derived from request_log.path via monitoring_route_scope()) narrows every chart here to the public-facing app vs. an owner/admin dashboard vs. auth endpoints
-│   │   │   └── places/page.tsx                           /admin/super/monitoring/places — Geoapify sub-tab — Places API call volume and per-endpoint stats, plus a recent-failures list (endpoint, captured error message, duration)
-│   │   ├── geoapify-migration/page.tsx                 /admin/super/geoapify-migration — Geoapify migration tab (GET .../legacy-locations, .../review, .../investigate, POST .../commit, .../locations/:locationId/attach, all superAdminGate) — disposable one-time backfill (BACKLOG.md Ref 114 Phase 5): reconciles locations synced before the Geoapify migration's Phase 4 cutover, which still carry their pre-migration Google place ID, against real Geoapify data — a fresh boundary search's fuzzy name/location matches need explicit admin approval before rewriting geoapify_place_id, and whatever's still unmatched afterward gets manual search-and-attach. Meant to be deleted, alongside its API routes and this tab, once every location has a real Geoapify ID
-│   │   └── components/                                 /admin/super/components — Components tab (BACKLOG.md; moved from the old standalone /dev/components, which was reachable by anyone who knew the URL — now gated the same as every other super-admin route, client-side is_super_admin check + server-side superAdminGate) — internal component library, pins components to specific states for review without a live backend; one route per section instead of in-page tab state, so a specific section is directly linkable; sub-nav (ComponentsSubNav.tsx) grouped into Summary cards (ProfileSummaryCard/LocationSummaryCard/NeighborhoodSummaryCard side by side, same shape of component applied to three entities), Components (single reusable card/row), Lists & sections (composed list/section components with their own empty/paginated states, mostly from the public profile page), and Entities (the other groups organized by *component*; this one regroups the same pieces by *entity* -- every representation of one thing gathered on a single page)
-│   │       ├── layout.tsx                              shared sub-nav (ComponentsSubNav.tsx) + content area, nested inside the super admin shell's own content pane
-│   │       ├── demoData.ts                              (shared fixture data, no route — badge/rewards/profile/neighborhood/venue/activity/event builders and per-component demo arrays)
-│   │       ├── page.tsx                                /admin/super/components — Overview tab (default, root) — links into every Summary cards/Components/Lists & sections/Entities route below
-│   │       ├── profile-card/page.tsx                   /admin/super/components/profile-card — ProfileSummaryCard (User) states, NeighborRequestButton via mockNeighborState
-│   │       ├── location-card/page.tsx                  /admin/super/components/location-card — LocationSummaryCard (Location) states (business + POI), FavoriteButton via mockFavorited
-│   │       ├── neighborhood-card/page.tsx              /admin/super/components/neighborhood-card — NeighborhoodSummaryCard (Neighborhood) states, JoinNeighborhoodButton via mockJoined
-│   │       ├── collection-card/page.tsx                /admin/super/components/collection-card — CollectionCard states, three variants per style (business/POI/neighborhood/connection/legacy-unresolved type badges) varying quantity and source-name length, click-through to CollectionDetailModal
-│   │       ├── place-list-item/page.tsx                /admin/super/components/place-list-item — PlaceListItem + SlideToCheckIn states via mockResolution
-│   │       ├── event-list-item/page.tsx                /admin/super/components/event-list-item — EventListItem + FollowEventButton states via mockFollowing (manual/feed-synced source pill, hidden row, long-title wrap check)
-│   │       ├── badges-section/page.tsx                 /admin/super/components/badges-section — BadgesSection states: empty, a few, and enough to trigger the "Show N more" pagination footer
-│   │       ├── challenges-section/page.tsx             /admin/super/components/challenges-section — ChallengesSection states, same empty/few/many-with-pagination shape as badges-section
-│   │       ├── top-caps/page.tsx                       /admin/super/components/top-caps — TopCapsSection states: none (renders null), one cap, and a full rank-1/2/3 set mixing venue/neighborhood kinds
-│   │       ├── activity-feed/page.tsx                  /admin/super/components/activity-feed — ActivityFeed states: empty, one row per ActivityType in isolation, and a combined multi-day view mixing all six
+│   │   ├── layout.tsx                                  — S — super admin sidebar shell
+│   │   ├── page.tsx                                    /admin/super — Overview tab — platform stat tiles
+│   │   ├── users/page.tsx                              /admin/super/users — every account on the platform
+│   │   ├── category-taxonomy/page.tsx                  /admin/super/category-taxonomy — global category CRUD
+│   │   ├── challenges/page.tsx                         /admin/super/challenges — app-wide/neighborhood challenge authoring
+│   │   ├── badges/page.tsx                             /admin/super/badges — badge authoring, grouped by family/tier
+│   │   ├── feedback/page.tsx                           /admin/super/feedback — bug/feature triage list
+│   │   ├── monitoring/                                 /admin/super/monitoring — errors + request volume/latency, 4 sub-tabs
+│   │   │   ├── layout.tsx                                shared filter header + MonitoringContext
+│   │   │   ├── MonitoringContext.tsx                     shared — filter state + single analytics fetch
+│   │   │   ├── page.tsx                                  /admin/super/monitoring — Overview sub-tab (default)
+│   │   │   ├── errors/page.tsx                           /admin/super/monitoring/errors — errors over time + by source
+│   │   │   ├── performance/page.tsx                      /admin/super/monitoring/performance — API latency/volume/slow routes
+│   │   │   └── places/page.tsx                           /admin/super/monitoring/places — Geoapify call volume + failures
+│   │   ├── geoapify-migration/page.tsx                 /admin/super/geoapify-migration — one-time place-id backfill (disposable)
+│   │   └── components/                                 /admin/super/components — internal component library/preview
+│   │       ├── layout.tsx                              shared sub-nav
+│   │       ├── demoData.ts                              shared fixture data
+│   │       ├── page.tsx                                /admin/super/components — Overview tab (default)
+│   │       ├── profile-card/page.tsx                   /admin/super/components/profile-card
+│   │       ├── location-card/page.tsx                  /admin/super/components/location-card
+│   │       ├── neighborhood-card/page.tsx              /admin/super/components/neighborhood-card
+│   │       ├── collection-card/page.tsx                /admin/super/components/collection-card
+│   │       ├── place-list-item/page.tsx                /admin/super/components/place-list-item
+│   │       ├── event-list-item/page.tsx                /admin/super/components/event-list-item
+│   │       ├── badges-section/page.tsx                 /admin/super/components/badges-section
+│   │       ├── challenges-section/page.tsx             /admin/super/components/challenges-section
+│   │       ├── top-caps/page.tsx                       /admin/super/components/top-caps
+│   │       ├── activity-feed/page.tsx                  /admin/super/components/activity-feed
 │   │       └── entities/
-│   │           ├── neighborhood/page.tsx               /admin/super/components/entities/neighborhood — every UI representation of a neighborhood on one page (identity tile via EntityTile/EntityTypeChip, /neighborhoods index row via NeighborhoodsSection's exported NeighborhoodCard, full NeighborhoodSummaryCard, collected-species CollectionCard, Top Caps rank row), reusing NEIGHBORHOOD_CARDS/COLLECTION_ENTRIES fixtures from the pages above rather than duplicating them; the template the other entities/* pages follow
-│   │           ├── business/page.tsx                   /admin/super/components/entities/business — same shape as entities/neighborhood for a claimed business location: identity tile (EntityTile "business" + per-id shapeFor/pinColorFor mark), PlaceListItem row, LocationSummaryCard, collected-species CollectionCard, Top Caps rank row
-│   │           ├── poi/page.tsx                        /admin/super/components/entities/poi — same shape for a point of interest: identity tile (EntityTile "poi"), PlaceListItem row, LocationSummaryCard, collected-species CollectionCard, Top Caps rank row (identical markup to business/page.tsx above -- ProfileTopCap carries no business/POI distinction)
-│   │           ├── user/page.tsx                       /admin/super/components/entities/user — every UI representation of a user: Avatar (no EntityTile -- users aren't an EntityKind), AccountMenu's nav chip, full ProfileSummaryCard, MushroomField's named-visitor "Top Caps" badge cluster (distinct from the profile owner's own TopCapsSection rank row), collected-species CollectionCard ("connection" style), ActivityFeed's actor avatar/name-link mention
-│   │           └── event/page.tsx                      /admin/super/components/entities/event — every UI representation of an event: EventListItem in both showSource modes (admin vs. public/Today tab), ActivityFeed's "followed X event" mention; no identity tile or collectible form -- events aren't an EntityKind or CollectionCardKind
+│   │           ├── neighborhood/page.tsx               /admin/super/components/entities/neighborhood — every UI rep of a neighborhood
+│   │           ├── business/page.tsx                   /admin/super/components/entities/business — every UI rep of a business
+│   │           ├── poi/page.tsx                        /admin/super/components/entities/poi — every UI rep of a POI
+│   │           ├── user/page.tsx                       /admin/super/components/entities/user — every UI rep of a user
+│   │           └── event/page.tsx                      /admin/super/components/entities/event — every UI rep of an event
 │   ├── neighborhood/
-│   │   ├── new/page.tsx                                /admin/neighborhood/new — S (POST /admin/neighborhoods, superAdminGate) — create a neighborhood + draw its boundary; client-side redirects non-super-admins to a forbidden message rather than only relying on the API's 403 (BACKLOG.md "super admin")
-│   │   ├── BoundaryMap.tsx                             (shared component, no route — Google Maps Drawing Library polygon editor)
+│   │   ├── new/page.tsx                                /admin/neighborhood/new — S — create neighborhood + draw boundary
+│   │   ├── BoundaryMap.tsx                             shared — polygon boundary editor
 │   │   └── [neighborhoodSlug]/
-│   │       ├── layout.tsx                              — S (neighborhoodAdminGate on every tab's data calls) — standalone sidebar shell (Ref 31; SiteChrome hides the site's AccountNav/Footer here), resolves slug→id, sidebar nav with location/pending-claim counts, AdminSwitcher for jumping to another neighborhood/business; the Locations tab carries a sub-nav (Locations/Reimport/Troubleshooting, TABS' children) mirroring the super-admin Monitoring section's Overview/Errors/Performance/Geoapify sub-nav
-│   │       ├── page.tsx                                /admin/neighborhood/:slug — Overview tab (stat tiles, description, social links)
-│   │       ├── boundary/page.tsx                       /admin/neighborhood/:slug/boundary — Boundary tab (draw/edit + dry-run Places preview); a successful save links into the Locations review wizard (Ref 54) rather than reconciling automatically
-│   │       ├── claims/page.tsx                         /admin/neighborhood/:slug/claims — Business claims tab (approve/reject/revoke; segmented pending/approved/rejected filter shows real counts)
-│   │       ├── events/page.tsx                         /admin/neighborhood/:slug/events — Events tab (Ref 78, imported Claude Design mockup "Spored Admin"): calendar feed (iCal URL + Sync now, plus IcalFeedForm.tsx's "Auto-sync nightly"/"Auto-approve imported events" toggles once a feed URL is saved) on the left, Upcoming list (click a row to expand its description) on the right — split out of the Overview tab, which used to hold this block directly. "+ New event" opens EventForm in a modal (AdminModal.tsx) rather than as an inline form pushed into the layout, mirroring AddPoiModal.tsx on locations/page.tsx. Per-row actions depend on status: a "pending" imported event (awaiting review unless its neighborhood has auto-approve on) gets Approve/Hide; otherwise the existing Hide/Unhide toggle; Delete only ever shows for source "manual" events, since an "ical" one would just come back on the next sync. The sidebar's Events tab (../layout.tsx) carries the same orange pending-count badge as Business claims, backed by GET .../events?status=pending
-│   │       ├── challenges/page.tsx                     /admin/neighborhood/:slug/challenges — Challenges tab (GET/POST .../challenges, PATCH .../challenges/:challengeId, all neighborhoodAdminGate) — a neighborhood-scoped slice of the super admin Challenges tab (BACKLOG.md Ref 108): this neighborhood's own admins author challenges for just this neighborhood (category or any-POI/any-check-in target, same create-only scope/target rule); app-wide challenges (super-admin-only) aren't listed or editable here even though they also apply to this neighborhood's members
-│   │       ├── badges/page.tsx                         /admin/neighborhood/:slug/badges — Badges tab (GET/POST .../badges, PATCH .../badges/:badgeId, all neighborhoodAdminGate) — a neighborhood-scoped slice of the super admin Badges tab (BACKLOG.md Ref 108 follow-up): lists badges owned directly by this neighborhood plus any earned only via its own challenges; creation is forced to this neighborhood (no scope picker) and edits are ownership-scoped to badges it directly owns. Same family-grouped, numerically-tiered, collapsible (native `<details>`) card grid as the super admin tab, plus a scope pill per card (this neighborhood's name, or "Global" for the rare case of a badge that's also earned via a global rule)
-│   │       ├── AddPoiModal.tsx                         (shared component, no route — "+ Add point of interest" modal on locations/page.tsx below, wrapping PoiForm's create mode; mirrors SendTestPushModal/FeedbackModal's shell)
-│   │       ├── locations/layout.tsx                    shared breadcrumb title ("Locations", or "Locations › <sub-page>" on review/troubleshooting below) wrapping the three locations sub-pages, mirroring the super-admin Monitoring section's layout.tsx — each sub-page keeps its own explanatory paragraph beneath the shared title
-│   │       ├── locations/page.tsx                      /admin/neighborhood/:slug/locations — Locations sub-tab (default) — merged business+POI list; reassign category, hide/restore, switch kind in place for either kind (BACKLOG.md "POIs and venues managed almost the same"); create/edit/hide/restore/delete for POIs (Ref 29) — create is now a modal (AddPoiModal.tsx) rather than an inline form pushed into the list, edit stays inline under its own row; category-group filter chips with optional subcategory refinement (Ref 56), business-only so they're hidden on the POIs tab, alongside a forced Businesses/POIs kind toggle (no "All") and an independent "Show hidden" toggle — hidden rows stay visible in place, dimmed, rather than disappearing or requiring a separate "Hidden" tab; per-row "Reassign place ID" action (ReassignPlaceIdPanel.tsx, BACKLOG.md Ref 114) — a permanent reverse-geocode-then-free-text-search flow for fixing a churned or wrong geoapify_place_id. Reimport Locations/Troubleshooting moved out of this page's header into the sidebar's Locations sub-nav below (../layout.tsx's TABS, same pattern as the super-admin Monitoring section)
-│   │       ├── locations/review/page.tsx                /admin/neighborhood/:slug/locations/review — "Reimport" sub-tab — bulk Geoapify review + boundary reconciliation wizard: admin-triggered query against the saved boundary (rate-limited to once/24h, BACKLOG.md "Reimport Locations"), classify each new candidate as business/POI/omit-imported-hidden (Ref 29), approve removing active-or-hidden locations no longer inside the boundary (status "removed", Ref 54) — its own "Run review" button carries the 24h-cooldown countdown UI that used to live on locations/page.tsx
-│   │       └── locations/troubleshooting/page.tsx       /admin/neighborhood/:slug/locations/troubleshooting — "Troubleshooting" sub-tab — merges what used to be two separate sub-pages (Reported venues + Investigate a missing venue) into one, since both are the same underlying GET .../locations/investigate?query= lookup (BACKLOG.md Ref 80/96) aimed at the same job. Top section: missing-venue feedback triage (GET/PATCH .../neighborhood-admin/neighborhoods/:id/feedback, every "missing_venue" submission reported via Send Feedback or the /checkin page's "Missing a venue?" row) — mirrors the super admin Feedback tab's search/state-filter/per-row-state-select shape, plus a per-row "Quick investigate". Bottom section: the free-text ad-hoc search (not boundary- or category-restricted, unlike the review wizard), flagging each result as outside-boundary / already-on-record-under-another-name, with a one-click "Add as venue" shortcut; see docs/investigating-missing-venues.md. Both sections share one categories fetch and the same result-list-plus-add-shortcut markup (InvestigationResults.tsx)
-│   │       └── analytics/page.tsx                       /admin/neighborhood/:slug/analytics — Analytics tab: charts and breakdowns of locations and activity (check-ins over time, activity-by-type, locations-by-category-group, top-10 venues by check-ins), with a 7/30/90-day range toggle — GET .../analytics, backed by the get_neighborhood_analytics RPC; first charting library in the repo (Recharts)
+│   │       ├── layout.tsx                              — S — neighborhood admin sidebar shell
+│   │       ├── page.tsx                                /admin/neighborhood/:slug — Overview tab
+│   │       ├── boundary/page.tsx                       /admin/neighborhood/:slug/boundary — draw/edit + Places preview
+│   │       ├── claims/page.tsx                         /admin/neighborhood/:slug/claims — business claim approvals
+│   │       ├── events/page.tsx                         /admin/neighborhood/:slug/events — calendar sync + event authoring
+│   │       ├── challenges/page.tsx                     /admin/neighborhood/:slug/challenges — this neighborhood's challenges
+│   │       ├── badges/page.tsx                         /admin/neighborhood/:slug/badges — this neighborhood's badges
+│   │       ├── AddLocationModal.tsx                    shared — "+ Add location" modal, POI/Business toggle
+│   │       ├── locations/layout.tsx                    shared breadcrumb for the 3 locations sub-pages
+│   │       ├── locations/page.tsx                      /admin/neighborhood/:slug/locations — Locations sub-tab (default)
+│   │       ├── locations/import/page.tsx                /admin/neighborhood/:slug/locations/import — "Import" bulk review wizard
+│   │       └── locations/troubleshooting/page.tsx       /admin/neighborhood/:slug/locations/troubleshooting — missing-venue triage + search
+│   │       └── analytics/page.tsx                       /admin/neighborhood/:slug/analytics — check-in/activity charts
 │   └── business/
 │       └── [venueId]/
-│           ├── layout.tsx                              — S (venueOwnerGate) — standalone sidebar shell mirroring admin/neighborhood/[neighborhoodSlug]/layout.tsx, resolves venueId against GET /business/venues, Overview/Events/Coupons tabs (BACKLOG.md Ref 83 split, mirroring the neighborhood-admin Events-tab split, Ref 78), AdminSwitcher for jumping to another business/neighborhood
-│           ├── page.tsx                                /admin/business/:venueId — Overview tab (stat tiles, social links only — coupons/events split into their own tabs below)
-│           ├── events/page.tsx                         /admin/business/:venueId/events — Events tab (calendar feed sync + create form on the left, Upcoming list with Hide/Unhide/Delete on the right — mirrors admin/neighborhood/[neighborhoodSlug]/events/page.tsx, venue-scoped instead of neighborhood-scoped)
-│           ├── coupons/page.tsx                        /admin/business/:venueId/coupons — Coupons tab (BACKLOG.md Ref 83): CouponForm on the left, posted-coupons list (claimed/quantity, active window) on the right
-│           ├── analytics/page.tsx                      /admin/business/:venueId/analytics — Analytics tab: charts and breakdowns of activity at this venue (check-ins over time, activity-by-type, check-ins by day of week, coupon claims over time, event follows over time, top followed events), with a 7/30/90-day range toggle — GET .../analytics, backed by the get_venue_analytics RPC; mirrors admin/neighborhood/[neighborhoodSlug]/analytics/page.tsx, swapping locations-by-category-group/top-venues (neighborhood-collection concepts) for day-of-week, coupon-claims, and event-follow breakdowns
-│           ├── CouponForm.tsx, EventForm.tsx, SocialLinksForm.tsx    (per-domain authoring forms, parallel to the neighborhood versions under admin/neighborhood/[neighborhoodSlug]/)
-│           └── BusinessAdminContext.tsx                (shared component, no route — venueId/name/address context set by layout.tsx)
+│           ├── layout.tsx                              — S — business admin sidebar shell
+│           ├── page.tsx                                /admin/business/:venueId — Overview tab
+│           ├── events/page.tsx                         /admin/business/:venueId/events — calendar sync + event authoring
+│           ├── coupons/page.tsx                        /admin/business/:venueId/coupons — coupon authoring
+│           ├── analytics/page.tsx                      /admin/business/:venueId/analytics — activity charts
+│           ├── CouponForm.tsx, EventForm.tsx, SocialLinksForm.tsx    shared — authoring forms
+│           └── BusinessAdminContext.tsx                shared — venueId/name/address context
 ```
 
 Identifier note: neighborhoods are addressed by **slug** everywhere in the web app now (`/neighborhoods/:slug`, `/admin/neighborhood/:slug`); locations (business or POI) are addressed by **id** (UUID) everywhere (`/location/:id`, `/admin/business/:venueId`).
@@ -178,148 +178,148 @@ Auth gates:
 ```text
 /health                                             GET — public
 
-/monitoring/client-errors                           POST — public — {message, stack?, context?, source?}; the web app's error.tsx/global-error.tsx boundaries and window.onerror/unhandledrejection listener (ClientErrorReporter.tsx) report through here, as does apps/marketing's equivalent reporter (proxied same-origin via that site's own /api/* redirect) — writes an error_log row with source "web" or "marketing" (source omitted defaults to "web", BACKLOG.md Ref 104). No auth, since a client error can happen before a visitor is signed in at all.
+/monitoring/client-errors                           POST — public — logs a client error (web/marketing)
 
 /auth/
-├── complete-signup                                 POST — public (completes a Supabase Auth signup)
-├── complete-login                                   POST — public (completes a Supabase Auth login)
+├── complete-signup                                 POST — public
+├── complete-login                                   POST — public
 ├── me                                                GET — auth
 └── promote-to-business                               POST — auth
 
-/neighborhoods                                       GET — public — list, joined-flag if authed, business_count/member_count per neighborhood
+/neighborhoods                                       GET — public — list, joined-flag if authed
 ├── :slug/
 │   ├── (root)                                        GET — public — profile
-│   ├── leaderboard                                   GET — public — points leaderboard, public-visibility users only
-│   └── challenges                                    GET — public (optional auth) — challenge templates; progress only for a signed-in user (BACKLOG.md Ref 86: no more anonymous progress)
+│   ├── leaderboard                                   GET — public — points leaderboard
+│   └── challenges                                    GET — public (optional auth) — challenge templates + progress
 └── :id/
-    ├── events                                        GET — public — neighborhood-owned events + business events, merged and sorted by start time (Upcoming events tab)
+    ├── events                                        GET — public — upcoming events, neighborhood + business
     ├── venues                                        GET — public
-    ├── activity                                        GET — public — ~50 most recent check-ins/favorites/challenge completions/badge unlocks/followed events (BACKLOG.md Ref 81); actor names masked to "A user" for private profiles
-    ├── happening-now                                    GET — public — events in progress + businesses/POIs currently open per cached hours
+    ├── activity                                        GET — public — recent check-ins/favorites/badges/challenges
+    ├── happening-now                                    GET — public — events + open-now places
     ├── join                                            POST, DELETE — auth
     └── home                                            POST — auth
 
 /locations/:id
-├── (root)                                            GET — public — merged business/POI detail + enrichment cache (BACKLOG.md "POIs and venues managed almost the same"; was separate GET /venues/:id + GET /pois/:id)
-└── checkins                                          POST — auth — awards check-in points/challenge progress, same geofence/cooldown for either kind (BACKLOG.md Ref 86: no more anonymous check-ins)
+├── (root)                                            GET — public — merged business/POI detail + enrichment
+└── checkins                                          POST — auth — awards points/challenge progress
 
 /venues/:id
-├── coupons                                             GET — public (optional auth) — business-kind only; a signed-in viewer's own claim/eligibility comes back per coupon (BACKLOG.md Ref 83, replaces the old announcements route)
+├── coupons                                             GET — public (optional auth) — business-kind only
 ├── events                                              GET — public — business-kind only
-├── activity                                            GET — public — location detail page's Spore Feed tab (BACKLOG.md Ref 101 redesign): this one venue's own check-ins, newest first
-├── leaderboard                                          GET — public — location detail page's Leaderboard tab (BACKLOG.md Ref 101 redesign): visitCount ranking within the rolling 60-day window, same ranking as the summary card's Top Caps badges at a higher limit
-├── claims                                              POST — auth — business-kind only, rejected by claim ownership gating for a POI id; ties every claim to an account (BACKLOG.md Ref 32), also drops the "domain" contact method
-└── favorites                                            GET, POST, DELETE — auth — POST awards first-time favorite points, business-kind only (BACKLOG.md Ref 86: no more anonymous favorites)
+├── activity                                            GET — public — this venue's check-ins
+├── leaderboard                                          GET — public — 60-day check-in ranking
+├── claims                                              POST — auth — business-kind only
+└── favorites                                            GET, POST, DELETE — auth — POST awards first-favorite points
 
 /events/:id
-└── follow                                              GET, POST, DELETE — auth — follow/unfollow bookmark on an event, mirroring /venues/:id/favorites (BACKLOG.md Ref 81); POST awards the one-off "Event Scout" badge on a user's first-ever follow
+└── follow                                              GET, POST, DELETE — auth — follow/unfollow an event
 
 /coupons/
-├── :id/claim                                           POST — auth — reserves one of the coupon's N copies (atomic check-and-decrement, claim_coupon() Postgres fn); requires a checkin at the venue within the existing 4-hour cooldown, before or after the coupon's own start_at (BACKLOG.md Ref 83's auto-grant case); 403 if not checked in, 409 if sold out
-└── claims/:claimId/redeem                              POST — auth — slide-to-redeem's in-person confirmation; also writes a checkin for the claim's venue if the target cooldown has elapsed since the caller's last one (BACKLOG.md Ref 3); idempotent -- returns the stored redeemed_at on a repeat call
+├── :id/claim                                           POST — auth — reserves one copy, requires a recent checkin
+└── claims/:claimId/redeem                              POST — auth — in-person redeem confirmation, idempotent
 
 /me/
 ├── checkins                                          GET — auth
 ├── favorites                                          GET — auth
-├── events                                              GET — auth — event-joined listing of events this user follows, excludes events that have already ended (BACKLOG.md Ref 81, account page Events section)
-├── coupons                                             GET — auth — active coupons at every venue this user favorites (favoriting is the follow relationship), for the Spore Feed pin (BACKLOG.md Ref 83)
-├── events-from-favorites                               GET — auth — active, not-yet-ended events at every venue this user favorites, mirroring GET /me/coupons; separate list from GET /me/events (explicit per-event follows) — the Spore Feed pin de-dupes the two client-side (BACKLOG.md Ref 87)
-├── feed                                                GET — auth — check-ins/favorites/challenge completions/badge unlocks/followed events/neighbor connections from accepted neighbor connections only, not neighborhood-wide (BACKLOG.md Ref 81, account page Spore Feed tab — mirrors GET /neighborhoods/:id/activity's shape scoped to connections instead of a neighborhood; unlike that neighborhood feed, also includes "a neighbor of yours connected with someone" rows since a connection isn't a neighborhood event)
-├── activity                                            GET — auth — same activity types as GET /me/feed, scoped to just the caller's own actions (BACKLOG.md Ref 81 follow-up, account page My Activity tab, last tab, renamed from Check-ins) — actor name/username are never masked/linked here since it's the account viewing its own data
+├── events                                              GET — auth — events this user follows
+├── coupons                                             GET — auth — active coupons at favorited venues
+├── events-from-favorites                               GET — auth — active events at favorited venues
+├── feed                                                GET — auth — activity from accepted neighbors
+├── activity                                            GET — auth — caller's own activity
 ├── neighborhoods                                      GET — auth
-├── points                                              GET — auth — all-time, all-neighborhood points total + level/points_into_level/points_to_next_level
-├── badges                                              GET — auth — every badge this user has earned, across every neighborhood
-├── collection                                          GET — auth — every mushroom "species" this user has collected, one per venue checked into or neighbor connected with, with a species look/name derived (not stored) from the venue/neighbor id (BACKLOG.md Ref 98)
-├── collection/:id/reveal                               POST — auth — flips one collection entry's face-down "new species" flag to revealed (idempotent); the Collection tab's tap-to-flip card, gating only the client-side reveal moment since the API already sends the full look/name up front
-├── challenges/completed-count                          GET — auth — all-time, all-neighborhood completed-challenge count
-├── challenges                                          GET — auth — every challenge this user has completed, across every neighborhood (account page Challenges tab)
-├── challenges/active                                   GET — auth — every challenge this user has started (progress_count > 0) but not completed, with live progress, across every neighborhood they belong to, ordered by percent complete descending (account page Challenges tab "in progress" section)
-├── onboarding                                          GET — auth — "first run" checklist (has_neighborhood/has_username/has_customized_mushroom/has_checkin/has_connection), each a thin read over existing data rather than a dedicated onboarding-progress table; backs AccountMenu's "Getting started" item
-├── profile                                            PATCH — auth — display_name/avatar_style/mushroom_customization/username/visibility (avatar_url is read-only, seeded from OAuth at signup; mushroom_customization is null or an approved {cap,stalk,pattern}, BACKLOG.md Ref 75)
-├── feedback                                            POST — auth — {type: bug|feature|missing_venue, comment, neighborhood_id?, venue_name?}; awards the one-off "Feedback Giver" badge on every call (BETA-prep, FeedbackModal.tsx via AccountMenu's "Send feedback" item, plus checkin/MissingVenueRow.tsx). bug/feature require comment and notify every super admin; missing_venue (BACKLOG.md Ref 80/96) instead requires venue_name + neighborhood_id (comment becomes optional extra notes) and notifies that neighborhood's own admins
-├── push-subscriptions                                  POST — auth — {endpoint, keys: {p256dh, auth}}; registers a web push subscription for this browser/device, upserted on endpoint (BACKLOG.md Ref 89, /account/settings' Notifications toggle)
-├── push-subscriptions/:id                              DELETE — auth — unregisters a subscription; 403 if it belongs to another user (BACKLOG.md Ref 89)
+├── points                                              GET — auth — all-time points total + level
+├── badges                                              GET — auth — every badge this user has earned
+├── collection                                          GET — auth — every mushroom species this user has collected
+├── collection/:id/reveal                               POST — auth — flips a collection entry's face-down flag
+├── challenges/completed-count                          GET — auth
+├── challenges                                          GET — auth — completed challenges
+├── challenges/active                                   GET — auth — in-progress challenges with live progress
+├── onboarding                                          GET — auth — "first run" checklist state
+├── profile                                            PATCH — auth — display_name/avatar/username/visibility etc.
+├── feedback                                            POST — auth — bug/feature/missing_venue submission
+├── push-subscriptions                                  POST — auth — registers a web push subscription
+├── push-subscriptions/:id                              DELETE — auth — unregisters a subscription
 └── connections/
-    ├── (root)                                          GET, POST — auth — GET takes ?status= (pending|accepted); POST body is {username}, sends a request (BACKLOG.md Ref 14/33 "Connect with other users" -- a mutual, request-based "neighbor" relationship)
-    ├── mutual/:username                                GET — auth — count of the caller's own accepted neighbors who are also an accepted neighbor of :username; a "trust signal" shown before connecting on the target's public profile
+    ├── (root)                                          GET, POST — auth — list connections / send a request
+    ├── mutual/:username                                GET — auth — mutual-neighbor count with :username
     ├── :id/accept                                      POST — auth — accepts a pending incoming request
-    └── :id                                              DELETE — auth — declines a pending incoming request, cancels a pending outgoing one, or removes an accepted connection (always a hard delete)
+    └── :id                                              DELETE — auth — decline/cancel/remove a connection
 
-/badges                                              GET — public — every badge that exists (earned or not), for locked-badge display (BACKLOG.md Ref 61)
+/badges                                              GET — public — every badge that exists (earned or not)
 
-/users/:username                                     GET — public — profile (only reachable if visibility = public); checkin_count/favorite_count/neighbor_count/points_summary/avatar_style/mushroom_customization alongside badges/challenges/recent_checkins/neighborhoods/top_caps (venues/neighborhoods this user currently ranks #1 in by 60-day check-in count)
+/users/:username                                     GET — public — public profile (visibility = public only)
 
 /business/
 ├── venues                                            GET — business — venues this account has claimed
 └── venues/:id/
     ├── dashboard                                       GET — venueOwner
-    ├── analytics                                        GET — venueOwner — ?days= (default 30, clamped 1-90); single get_venue_analytics RPC backing the Analytics tab's check-ins-over-time, activity-by-type, check-ins-by-day-of-week, coupon-claims-over-time, event-follows-over-time, and top-followed-events breakdowns
+    ├── analytics                                        GET — venueOwner — ?days=, venue analytics charts
     ├── social-links                                     PATCH — venueOwner
-    ├── ical-feed                                        PATCH — venueOwner — sets/clears the calendar feed URL (BACKLOG.md Ref 30)
-    ├── ical-feed/sync                                   POST — venueOwner — fetches the configured feed and upserts its events (BACKLOG.md Ref 30)
-    ├── coupons                                          POST — venueOwner — title/description/terms/quantity/start_at/end_at (BACKLOG.md Ref 83)
+    ├── ical-feed                                        PATCH — venueOwner — sets/clears the calendar feed URL
+    ├── ical-feed/sync                                   POST — venueOwner — fetches feed, upserts events
+    ├── coupons                                          POST — venueOwner
     ├── events                                           POST — venueOwner
-    ├── events/:eventId                                  DELETE — venueOwner — hard delete, source "manual" only (403 for an "ical"-sourced event -- a re-sync would just recreate it; hide it via status instead); 404 if the event doesn't belong to this venue
-    └── events/:eventId/status                            PATCH — venueOwner — active|hidden; hiding survives a future iCal re-sync, unlike delete (BACKLOG.md Ref 30)
+    ├── events/:eventId                                  DELETE — venueOwner — manual-source only
+    └── events/:eventId/status                            PATCH — venueOwner — active|hidden
 
 /neighborhood-admin/
-├── neighborhoods                                     GET — admin — list neighborhoods this account administers
+├── neighborhoods                                     GET — admin — neighborhoods this account administers
 └── neighborhoods/:id/
     ├── dashboard                                       GET — neighborhoodAdmin
-    ├── analytics                                        GET — neighborhoodAdmin — ?days= (default 30, clamped 1-90); single get_neighborhood_analytics RPC backing the Analytics tab's check-ins-over-time, activity-by-type, locations-by-category-group, and top-10-venues-by-check-ins breakdowns
+    ├── analytics                                        GET — neighborhoodAdmin — ?days=, neighborhood analytics charts
     ├── (root)                                          PATCH — neighborhoodAdmin — description
-    ├── boundary                                         GET, PATCH — neighborhoodAdmin — boundary_geojson/center (BACKLOG.md Ref 8)
+    ├── boundary                                         GET, PATCH — neighborhoodAdmin — boundary_geojson/center
     ├── social-links                                     PATCH — neighborhoodAdmin
-    ├── ical-feed                                        PATCH — neighborhoodAdmin — sets/clears the calendar feed URL (BACKLOG.md Ref 30)
-    ├── ical-feed/sync                                   POST — neighborhoodAdmin — fetches the configured feed and upserts its events; newly-imported rows default to status "pending" unless ical_auto_approve_events is on, in which case they land "active" as before (BACKLOG.md Ref 30)
-    ├── ical-sync-settings                                PATCH — neighborhoodAdmin — ical_auto_sync_enabled and/or ical_auto_approve_events (each independently PATCHable); auto_sync_enabled opts this neighborhood into the nightly sync (apps/api/netlify/functions/ical-nightly-sync.ts) instead of relying on manual "Sync now"
-    ├── events                                            GET, POST — neighborhoodAdmin — GET supports ?status= (active|hidden|pending), backing the sidebar's pending-events badge; POST is manual creation, always status "active"
-    ├── events/:eventId                                  DELETE — neighborhoodAdmin — hard delete, source "manual" only (403 for an "ical"-sourced event -- a re-sync would just recreate it; hide it via status instead); 404 if the event doesn't belong to this neighborhood
-    ├── events/:eventId/status                            PATCH — neighborhoodAdmin — active|hidden|pending; for a "pending" imported event awaiting review, this is how Approve (-> active) and Hide (-> hidden) both work; hiding survives a future iCal re-sync (BACKLOG.md Ref 30)
-    ├── challenges                                        GET, POST — neighborhoodAdmin — a neighborhood-scoped slice of superAdminGate's /admin/challenges (BACKLOG.md Ref 108): neighborhood_id is forced to this :id (never accepted from the body), so a neighborhood admin can create only their own neighborhood's challenges, never app-wide ones
-    ├── challenges/:challengeId                            PATCH — neighborhoodAdmin — ownership-scoped update (title/description/target_count/points_reward/badge_id/ends_at only); a challengeId belonging to a different neighborhood (or app-wide) reports 404
-    ├── badges                                            GET, POST — neighborhoodAdmin — a neighborhood-scoped slice of superAdminGate's /admin/badges (BACKLOG.md Ref 108 follow-up): GET lists badges owned directly by this neighborhood plus any earned only via its own challenges; POST creates a badge with neighborhood_id forced to this :id (never app-wide)
-    ├── badges/:badgeId                                    PATCH — neighborhoodAdmin — ownership-scoped update (name/description/icon only); a badgeId not directly owned by this neighborhood (app-wide, another neighborhood's, or only challenge-linked here) reports 404
-    ├── claims                                           GET — neighborhoodAdmin — ?status= filter, venue-joined
+    ├── ical-feed                                        PATCH — neighborhoodAdmin — sets/clears the calendar feed URL
+    ├── ical-feed/sync                                   POST — neighborhoodAdmin — fetches feed, upserts events
+    ├── ical-sync-settings                                PATCH — neighborhoodAdmin — auto-sync/auto-approve toggles
+    ├── events                                            GET, POST — neighborhoodAdmin — GET ?status=, POST is manual create
+    ├── events/:eventId                                  DELETE — neighborhoodAdmin — manual-source only
+    ├── events/:eventId/status                            PATCH — neighborhoodAdmin — active|hidden|pending
+    ├── challenges                                        GET, POST — neighborhoodAdmin — this neighborhood's own challenges
+    ├── challenges/:challengeId                            PATCH — neighborhoodAdmin — ownership-scoped update
+    ├── badges                                            GET, POST — neighborhoodAdmin — this neighborhood's own badges
+    ├── badges/:badgeId                                    PATCH — neighborhoodAdmin — ownership-scoped update
+    ├── claims                                           GET — neighborhoodAdmin — ?status= filter
     ├── claims/:claimId/approve                          POST — neighborhoodAdmin
     ├── claims/:claimId/reject                           POST — neighborhoodAdmin
-    ├── claims/:claimId/revoke                            POST — neighborhoodAdmin — un-approves an already-approved claim (BACKLOG.md "POIs and venues managed almost the same"); reviewClaim only handles pending claims, so this is the only path back to claimed_by_business = false, e.g. to unblock switching that business to POI kind
-    ├── locations                                         GET, POST — neighborhoodAdmin — GET takes ?search=, merged business+POI list backing the Locations tab (BACKLOG.md Ref 29, generalized); POST creates a location (kind in body — only "poi" is wired into the admin UI today, "business" accepted for forward compatibility)
-    ├── locations/:locationId                             GET, PATCH, DELETE — neighborhoodAdmin — DELETE is 409 for a business-kind location (hide instead) or if checkin/point_event/challenge/favorite/claim/coupon/event history exists (BACKLOG.md Ref 29)
-    ├── locations/:locationId/category                    PATCH — neighborhoodAdmin — business-kind only in practice
-    ├── locations/:locationId/status                      PATCH — neighborhoodAdmin — active|hidden, either kind (BACKLOG.md Ref 11/29)
-    ├── locations/:locationId/kind                        PATCH — neighborhoodAdmin — switches business⇄poi kind in place (BACKLOG.md "POIs and venues managed almost the same"); 409 if switching a claimed business to poi
-    ├── locations/review/status                           GET — neighborhoodAdmin — read-only reimport cooldown status (last_reviewed_at/next_allowed_at/can_run), never touches Geoapify (BACKLOG.md "Reimport Locations")
-    ├── locations/review                                  GET — neighborhoodAdmin — dry-run Geoapify query against the *saved* boundary excluding already-known locations (Ref 29), plus every non-removed (active or hidden) location no longer inside that boundary (Ref 54) — hidden is a manual curation choice, a separate axis from geography, so a hidden row can still be flagged; rate-limited to once per 24h per neighborhood, 429 with next_allowed_at when on cooldown (BACKLOG.md "Reimport Locations")
-    ├── locations/review/commit                           POST — neighborhoodAdmin — bulk-applies business/POI/omit classifications (omit is persisted as a hidden POI, not skipped) and approved removals (status "removed", distinct from "hidden" — never shown in the Locations tab even with "Show hidden" on) from the review above
-    ├── locations/investigate                             GET — neighborhoodAdmin — ?query=, single Geoapify Geocoding search (not boundary-restricted or category-restricted, unlike locations/review above) for one admin-supplied venue name/address; each result flagged with inside_boundary (null if no saved boundary) and already_known_as (matched by geoapify_place_id against existing locations) — no business_status equivalent exists in OSM data, unlike Google — costs one API call per search, not cooldown-gated like locations/review (BACKLOG.md Ref 96)
-    ├── locations/investigate/add                         POST — neighborhoodAdmin — one-click "add this Places result as a business" shortcut; reuses commitLocationReview's "business" classification path (same as locations/review/commit) rather than duplicating the create logic (BACKLOG.md Ref 96)
-    ├── locations/:locationId/reassign-reverse-geocode    GET — neighborhoodAdmin — reverse-geocodes the location's own stored lat/lng, suggesting what's physically there today; each candidate carries distance_meters from that point. Permanent admin capability (BACKLOG.md Ref 114) — kept since Geoapify's own place IDs can churn (a name-tag edit is enough) and a real venue can simply not be in OSM yet, either of which needs a manual fix later
-    ├── locations/:locationId/reassign-search             GET — neighborhoodAdmin — ?query=, free-text fallback alongside reassign-reverse-geocode above when nothing named is at the exact coordinates; biased by the location's own coordinates (falling back to the neighborhood centroid), each candidate carrying distance_meters — a distance-blind search is exactly how a wrong place got attached to a real venue 2,500+ miles away before this guardrail existed
-    ├── locations/:locationId/reassign-place-id           POST — neighborhoodAdmin — {geoapify_place_id}; commits a candidate from either route above (reassignLocationPlaceIdForNeighborhood)
-    ├── feedback                                          GET — neighborhoodAdmin — /admin/feedback's sibling, scoped to type "missing_venue" submissions for this neighborhood_id only (BACKLOG.md Ref 80/96); same joined shape (submitter display_name/email) as the super admin list
-    └── feedback/:feedbackId                              PATCH — neighborhoodAdmin — {state}; 404 (not just 403) if the submission isn't a missing_venue report belonging to this neighborhood, so an admin of a different neighborhood can't move a report by guessing its id
+    ├── claims/:claimId/revoke                            POST — neighborhoodAdmin — un-approves an approved claim
+    ├── locations                                         GET, POST — neighborhoodAdmin — merged business+POI list / create
+    ├── locations/:locationId                             GET, PATCH, DELETE — neighborhoodAdmin
+    ├── locations/:locationId/category                    PATCH — neighborhoodAdmin
+    ├── locations/:locationId/status                      PATCH — neighborhoodAdmin — active|hidden
+    ├── locations/:locationId/kind                        PATCH — neighborhoodAdmin — switches business⇄poi in place
+    ├── locations/review/status                           GET — neighborhoodAdmin — reimport cooldown status
+    ├── locations/review                                  GET — neighborhoodAdmin — dry-run Geoapify boundary reconciliation
+    ├── locations/review/commit                           POST — neighborhoodAdmin — bulk-applies review classifications
+    ├── locations/investigate                             GET — neighborhoodAdmin — ?query=, ad-hoc venue lookup
+    ├── locations/investigate/add                         POST — neighborhoodAdmin — add a lookup result as a business
+    ├── locations/:locationId/reassign-reverse-geocode    GET — neighborhoodAdmin — suggests place-id from stored coords
+    ├── locations/:locationId/reassign-search             GET — neighborhoodAdmin — ?query=, free-text place-id fallback
+    ├── locations/:locationId/reassign-place-id           POST — neighborhoodAdmin — commits a reassign candidate
+    ├── feedback                                          GET — neighborhoodAdmin — missing_venue reports for this neighborhood
+    └── feedback/:feedbackId                              PATCH — neighborhoodAdmin — {state}
 
 /admin/
-├── categories                                        GET — admin — assignable leaf categories (global, not neighborhood-owned)
-├── neighborhoods                                     POST — super admin — create a neighborhood + boundary (BACKLOG.md Ref 8); creator becomes its admin. Gated to super admin, not just adminGate's "admin of some neighborhood," until the platform is ready to scale (BACKLOG.md "super admin")
-├── users                                              GET — super admin — every account on the platform (email, display_name, username, account_type, visibility, created_at, is_neighborhood_admin, is_super_admin); first page of the super admin UI (BACKLOG.md)
-├── neighborhoods/preview-boundary                    POST — admin — dry-run Geoapify query against a drawn (not-yet-saved) polygon; stays on adminGate (any neighborhood admin) since it's shared with the existing-neighborhood boundary-redraw flow
-├── category-taxonomy/                                  gated to superAdminGate (tightened from adminGate when the web UI moved from the old standalone /admin/category-taxonomy into the super admin shell's Category taxonomy tab) — global category CRUD (BACKLOG.md Ref 4)
+├── categories                                        GET — admin — assignable leaf categories (global)
+├── neighborhoods                                     POST — super admin — create a neighborhood + boundary
+├── users                                              GET — super admin — every account on the platform
+├── neighborhoods/preview-boundary                    POST — admin — dry-run Geoapify query on a drawn polygon
+├── category-taxonomy/                                  super admin — global category CRUD
 │   ├── (root)                                          GET, POST — super admin
 │   ├── :id                                              PATCH — super admin
 │   └── :id/archive                                       POST — super admin
-├── challenges/                                          gated to superAdminGate — minimal admin authoring for app-wide/neighborhood-specific challenges (BACKLOG.md Ref 108)
-│   ├── (root)                                          GET, POST — super admin — POST body: {neighborhood_id (null = app-wide), title, description?, category_id?, target_kind? ('poi'|'any'), target_count, points_reward, badge_id?, starts_at, ends_at?}; exactly one of category_id/target_kind required, venue-specific targeting not exposed here
-│   └── :id                                              PATCH — super admin — {title?, description?, target_count?, points_reward?, badge_id?, ends_at?}; scope and target composition are create-only
-├── badges/                                              gated to superAdminGate (BACKLOG.md Ref 108) — every badge is app-wide by construction (badge/badge_rule carry no neighborhood_id); scope in the GET response is derived (app_wide/neighborhood_specific) from what earns each badge, not stored
-│   ├── (root)                                          GET, POST — super admin — POST body: {name, description?, icon?, neighborhood_id?}; code is auto-derived from name server-side (slugified, unique) rather than accepted from the caller, mirroring neighborhood slug derivation — creates a plain badge with no rule/challenge link yet. neighborhood_id (null = app-wide) is badge.neighborhood_id's own direct scope (BACKLOG.md Ref 108 follow-up), distinct from a challenge's scope
-│   └── :id                                              PATCH — super admin — {name?, description?, icon?}; code and neighborhood_id are both immutable after creation (code is referenced by exact string in awardBadgeByCode call sites like founderBadge.ts)
-├── feedback/                                            gated to superAdminGate (tightened from adminGate alongside the web UI's /admin/super/feedback tab)
-│   ├── (root)                                          GET — super admin — every bug/feature submission (excludes missing_venue, BACKLOG.md Ref 80/96 -- those are neighborhood-scoped, see .../neighborhood-admin/neighborhoods/:id/feedback below), joined with submitter display_name/email
-│   └── :id                                              PATCH — super admin — {state}; marking "done" awards the one-off "Contributor" badge to the submitter
-├── push-subscriptions/test-send                         POST — super admin — {title, body, userId?}; manual/test trigger only (BACKLOG.md Ref 89 open question) — sends a push to the given user (defaults to the caller) via the shared sendPushToUsers fan-out, so future triggers (e.g. Ref 9 neighborhood notifications) have a proven send path to call into rather than building their own; gated to superAdminGate (not adminGate) since targeting an arbitrary userId is a stronger power than the self-only version this started as. UI: "Send test push" action on /admin/super/users
-└── monitoring/analytics                                GET — super admin — ?minutes= clamped to [5,129600] (5 min .. 90 days), default 10080 (7 days) — minutes rather than days so the range control can offer 5-minute/1-hour options alongside 24h/7d/30d for watching a live incident, not just day-level history — ?domain=/?app_version= (either narrows every breakdown to one deployment/shipped version), ?status_class= (2xx/3xx/4xx/5xx, narrows recent_requests only; invalid/absent passes null = all statuses) — errors_over_time/errors_by_source/recent_errors/request_volume_over_time/latency_over_time/status_code_breakdown/recent_requests/slowest_routes/places_api_calls_over_time/places_api_by_endpoint/recent_places_api_failures from get_monitoring_analytics, plus slowest_queries from a second, separately-privileged get_slow_queries RPC (pg_stat_statements) merged into the same response (BACKLOG.md Ref 104: rolled-our-own monitoring/error tracking on Postgres rather than a third-party service). recent_requests (last 50 request_log rows) and recent_places_api_failures (last 20 failed places_api_call_log rows, with the captured error.message) let the status-code/failure tiles drill into their underlying rows instead of only showing aggregate counts. UI: /admin/super/monitoring (four sub-pages, see above)
+├── challenges/                                          super admin — app-wide/neighborhood challenge authoring
+│   ├── (root)                                          GET, POST — super admin
+│   └── :id                                              PATCH — super admin — scope/target are create-only
+├── badges/                                              super admin — badge authoring, scope derived from earning path
+│   ├── (root)                                          GET, POST — super admin
+│   └── :id                                              PATCH — super admin — code/neighborhood_id immutable
+├── feedback/                                            super admin — bug/feature triage
+│   ├── (root)                                          GET — super admin — excludes missing_venue (neighborhood-scoped)
+│   └── :id                                              PATCH — super admin — {state}; "done" awards Contributor badge
+├── push-subscriptions/test-send                         POST — super admin — sends a test/manual push to a user
+└── monitoring/analytics                                GET — super admin — errors/requests/latency/Places charts, ?minutes=/?domain=/?app_version=/?status_class=
 ```
 
 Identifier note: every neighborhood-identifying path param in the API is the **id** (UUID), except the public `GET /neighborhoods/:slug` family (profile, leaderboard, challenges) — the web app resolves slug→id client-side (via `GET /neighborhood-admin/neighborhoods`) before calling any `:id`-keyed admin route. Location-identifying params (business or POI) are always **id** (UUID), never slug.
