@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.86.0", date: "2026-09-03", summary: "Event feeds get nightly auto-sync + pending review; admin modal fixes" },
   { version: "0.85.0", date: "2026-09-02", summary: "Marketing reports errors; Errors & API Performance gain filters" },
   { version: "0.84.13", date: "2026-09-02", summary: "Monitoring overview dashboard; Locations sub-nav + troubleshooting merge" },
   { version: "0.84.12", date: "2026-09-02", summary: "Capped changelog entry summaries at 75 characters" },

@@ -151,25 +151,28 @@ export class SupabaseEventRepository implements EventRepository {
 
   async upsertImportedEventsForNeighborhood(
     neighborhoodId: string,
-    events: ImportedEventInput[]
+    events: ImportedEventInput[],
+    defaultStatus: EventStatus = "active"
   ): Promise<IcalSyncResult> {
-    return this.upsertImportedEvents("neighborhood_id", neighborhoodId, events);
+    return this.upsertImportedEvents("neighborhood_id", neighborhoodId, events, defaultStatus);
   }
 
   async upsertImportedEventsForVenue(venueId: string, events: ImportedEventInput[]): Promise<IcalSyncResult> {
-    return this.upsertImportedEvents("venue_id", venueId, events);
+    return this.upsertImportedEvents("venue_id", venueId, events, "active");
   }
 
   // Shared by both owner types above -- ownerColumn/ownerId pick which of
   // event_neighborhood_uid_unique/event_venue_uid_unique the upsert's
-  // onConflict target matches. Counts imported vs. updated by diffing
-  // against the uids already on file for this owner before writing, since
-  // Supabase's upsert response doesn't distinguish inserted from updated
-  // rows.
+  // onConflict target matches. Rows are split by whether their uid is
+  // already on file: existing rows are upserted without a status field (so
+  // a re-sync can never silently change an already-reviewed row's status),
+  // new rows are upserted with status: defaultStatus explicitly set. Two
+  // upsert calls instead of one when both kinds are present in the batch.
   private async upsertImportedEvents(
     ownerColumn: "neighborhood_id" | "venue_id",
     ownerId: string,
-    events: ImportedEventInput[]
+    events: ImportedEventInput[],
+    defaultStatus: EventStatus
   ): Promise<IcalSyncResult> {
     if (events.length === 0) return { imported: 0, updated: 0 };
 
@@ -181,7 +184,7 @@ export class SupabaseEventRepository implements EventRepository {
     if (selectError) throw new Error(`upsertImportedEvents (select) failed: ${selectError.message}`);
     const existingUids = new Set((existing ?? []).map((row) => row.external_uid as string));
 
-    const rows = events.map((event) => ({
+    const toRow = (event: ImportedEventInput) => ({
       [ownerColumn]: ownerId,
       title: event.title,
       description: event.description,
@@ -190,27 +193,43 @@ export class SupabaseEventRepository implements EventRepository {
       source: "ical",
       external_uid: event.uid,
       location: event.location,
-    }));
+    });
 
-    const { error } = await this.supabase
-      .from("event")
-      .upsert(rows, { onConflict: `${ownerColumn},external_uid` });
-    if (error) throw new Error(`upsertImportedEvents failed: ${error.message}`);
+    const newEvents = events.filter((event) => !existingUids.has(event.uid));
+    const updatedEvents = events.filter((event) => existingUids.has(event.uid));
 
-    const imported = events.filter((event) => !existingUids.has(event.uid)).length;
-    return { imported, updated: events.length - imported };
+    if (newEvents.length > 0) {
+      const { error } = await this.supabase
+        .from("event")
+        .upsert(
+          newEvents.map((event) => ({ ...toRow(event), status: defaultStatus })),
+          { onConflict: `${ownerColumn},external_uid` }
+        );
+      if (error) throw new Error(`upsertImportedEvents (insert) failed: ${error.message}`);
+    }
+
+    if (updatedEvents.length > 0) {
+      const { error } = await this.supabase
+        .from("event")
+        .upsert(updatedEvents.map(toRow), { onConflict: `${ownerColumn},external_uid` });
+      if (error) throw new Error(`upsertImportedEvents (update) failed: ${error.message}`);
+    }
+
+    return { imported: newEvents.length, updated: updatedEvents.length };
   }
 
-  async getEventOwner(eventId: string): Promise<{ venueId: string | null; neighborhoodId: string | null } | null> {
+  async getEventOwner(
+    eventId: string
+  ): Promise<{ venueId: string | null; neighborhoodId: string | null; source: EventSource } | null> {
     const { data, error } = await this.supabase
       .from("event")
-      .select("venue_id, neighborhood_id")
+      .select("venue_id, neighborhood_id, source")
       .eq("id", eventId)
       .maybeSingle();
 
     if (error) throw new Error(`getEventOwner failed: ${error.message}`);
     if (!data) return null;
-    return { venueId: data.venue_id, neighborhoodId: data.neighborhood_id };
+    return { venueId: data.venue_id, neighborhoodId: data.neighborhood_id, source: data.source };
   }
 
   async deleteEvent(eventId: string): Promise<void> {

@@ -62,19 +62,19 @@ export function EventForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2.5 rounded-2xl bg-card-alt p-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
       <input
         name="title"
         required
         placeholder="Title"
-        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+        className="rounded-lg border border-border bg-card-alt px-3 py-2 text-sm text-foreground"
       />
       <textarea
         name="description"
         required
         placeholder="Describe the event"
         rows={2}
-        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+        className="rounded-lg border border-border bg-card-alt px-3 py-2 text-sm text-foreground"
       />
       <div className="flex gap-2">
         <label className="flex flex-1 flex-col gap-1 text-xs font-extrabold text-muted-strong">
@@ -83,7 +83,7 @@ export function EventForm({
             type="datetime-local"
             name="start_time"
             required
-            className="rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] font-normal text-foreground"
+            className="rounded-lg border border-border bg-card-alt px-3 py-2 text-[12.5px] font-normal text-foreground"
           />
         </label>
         <label className="flex flex-1 flex-col gap-1 text-xs font-extrabold text-muted-strong">
@@ -92,7 +92,7 @@ export function EventForm({
             type="datetime-local"
             name="end_time"
             required
-            className="rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] font-normal text-foreground"
+            className="rounded-lg border border-border bg-card-alt px-3 py-2 text-[12.5px] font-normal text-foreground"
           />
         </label>
       </div>

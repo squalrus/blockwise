@@ -791,7 +791,9 @@ function event(overrides: Partial<Event> & Pick<Event, "id" | "title" | "start_t
 
 // Event row (EventListItem + FollowEventButton, as rendered on
 // /location/:id/events and /neighborhoods/:slug's Upcoming events tab) --
-// manual vs. feed-synced source pill, a hidden row, and a long title to
+// manual vs. feed-synced source pill, a pending row (feed-synced, awaiting
+// neighborhood-admin review -- see entities/event for the actual
+// Approve/Hide actions that pill implies), a hidden row, and a long title to
 // check wrapping/truncation.
 export const SAMPLE_EVENTS: { label: string; event: Event; mockFollowing: boolean }[] = [
   {
@@ -819,6 +821,19 @@ export const SAMPLE_EVENTS: { label: string; event: Event; mockFollowing: boolea
       source: "ical",
     }),
     mockFollowing: true,
+  },
+  {
+    label: "Pending, feed-synced (awaiting review)",
+    event: event({
+      id: "demo-event-4",
+      title: "Phinney Farmers Market",
+      description: "Weekly farmers market -- produce, flowers, and prepared food from local vendors.",
+      start_time: new Date(Date.now() + 5 * 86400000).toISOString(),
+      end_time: new Date(Date.now() + 5 * 86400000 + 5 * 3600000).toISOString(),
+      source: "ical",
+      status: "pending",
+    }),
+    mockFollowing: false,
   },
   {
     label: "Hidden, long title wrap check",

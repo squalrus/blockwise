@@ -32,7 +32,12 @@ export async function syncNeighborhoodIcalFeed(
     return { status: "fetch_error", message: err instanceof Error ? err.message : "Failed to fetch calendar feed" };
   }
 
-  const result = await eventRepository.upsertImportedEventsForNeighborhood(neighborhoodId, parsed);
+  // Trustworthiness is a property of the feed, not of who triggered the
+  // sync -- the same defaultStatus applies whether this run came from a
+  // manual "Sync now" click or the nightly auto-sync job
+  // (netlify/functions/ical-nightly-sync.ts).
+  const defaultStatus = neighborhood.icalAutoApproveEvents ? "active" : "pending";
+  const result = await eventRepository.upsertImportedEventsForNeighborhood(neighborhoodId, parsed, defaultStatus);
   const syncedAt = new Date().toISOString();
   await neighborhoodRepository.markIcalSynced(neighborhoodId, syncedAt);
   return { status: "synced", result, syncedAt };

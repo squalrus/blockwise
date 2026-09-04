@@ -7,6 +7,7 @@ import {
   getNeighborhoodBySlug,
   updateNeighborhoodBoundary,
   updateNeighborhoodDescription,
+  updateNeighborhoodIcalSyncSettings,
   updateNeighborhoodSocialLinks,
 } from "./neighborhoods";
 import { SlugTakenError } from "./repository";
@@ -75,6 +76,17 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
     const neighborhood = this.neighborhoods.find((n) => n.id === id);
     if (!neighborhood) throw new Error("not found");
     neighborhood.icalSyncedAt = syncedAt;
+  }
+
+  async updateIcalSyncSettings(
+    id: string,
+    settings: { autoSyncEnabled?: boolean; autoApproveEvents?: boolean }
+  ): Promise<NeighborhoodRecord> {
+    const neighborhood = this.neighborhoods.find((n) => n.id === id);
+    if (!neighborhood) throw new Error("not found");
+    if (settings.autoSyncEnabled !== undefined) neighborhood.icalAutoSyncEnabled = settings.autoSyncEnabled;
+    if (settings.autoApproveEvents !== undefined) neighborhood.icalAutoApproveEvents = settings.autoApproveEvents;
+    return neighborhood;
   }
 
   async listAll(): Promise<NeighborhoodRecord[]> {
@@ -157,6 +169,8 @@ class FakeNeighborhoodRepository implements NeighborhoodRepository {
       social_links: {},
       icalFeedUrl: null,
       icalSyncedAt: null,
+      icalAutoSyncEnabled: false,
+      icalAutoApproveEvents: false,
       status: "onboarding",
     });
     this.boundaries.set(id, {
@@ -179,6 +193,8 @@ const PHINNEYWOOD: NeighborhoodRecord = {
   social_links: {},
   icalFeedUrl: null,
   icalSyncedAt: null,
+  icalAutoSyncEnabled: false,
+  icalAutoApproveEvents: false,
   status: "onboarding",
 };
 
@@ -234,6 +250,44 @@ describe("updateNeighborhoodSocialLinks", () => {
   it("returns not_found for a nonexistent neighborhood", async () => {
     const repo = new FakeNeighborhoodRepository([]);
     const result = await updateNeighborhoodSocialLinks("nope", { instagram: "x" }, repo);
+    expect(result).toEqual({ status: "not_found" });
+  });
+});
+
+describe("updateNeighborhoodIcalSyncSettings", () => {
+  it("updates only the provided setting, leaving the other untouched", async () => {
+    const repo = new FakeNeighborhoodRepository([{ ...PHINNEYWOOD }]);
+    const result = await updateNeighborhoodIcalSyncSettings(
+      "neighborhood-1",
+      { autoSyncEnabled: true },
+      repo
+    );
+
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      expect(result.neighborhood.icalAutoSyncEnabled).toBe(true);
+      expect(result.neighborhood.icalAutoApproveEvents).toBe(false);
+    }
+  });
+
+  it("updates both settings when both are provided", async () => {
+    const repo = new FakeNeighborhoodRepository([{ ...PHINNEYWOOD }]);
+    const result = await updateNeighborhoodIcalSyncSettings(
+      "neighborhood-1",
+      { autoSyncEnabled: true, autoApproveEvents: true },
+      repo
+    );
+
+    expect(result.status).toBe("updated");
+    if (result.status === "updated") {
+      expect(result.neighborhood.icalAutoSyncEnabled).toBe(true);
+      expect(result.neighborhood.icalAutoApproveEvents).toBe(true);
+    }
+  });
+
+  it("returns not_found for a nonexistent neighborhood", async () => {
+    const repo = new FakeNeighborhoodRepository([]);
+    const result = await updateNeighborhoodIcalSyncSettings("nope", { autoSyncEnabled: true }, repo);
     expect(result).toEqual({ status: "not_found" });
   });
 });

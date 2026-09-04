@@ -22,6 +22,8 @@ function toRecord(row: {
   social_links: SocialLinks | null;
   ical_feed_url: string | null;
   ical_synced_at: string | null;
+  ical_auto_sync_enabled: boolean;
+  ical_auto_approve_events: boolean;
   status: NeighborhoodStatus;
 }): NeighborhoodRecord {
   return {
@@ -34,12 +36,14 @@ function toRecord(row: {
     social_links: row.social_links ?? {},
     icalFeedUrl: row.ical_feed_url,
     icalSyncedAt: row.ical_synced_at,
+    icalAutoSyncEnabled: row.ical_auto_sync_enabled,
+    icalAutoApproveEvents: row.ical_auto_approve_events,
     status: row.status,
   };
 }
 
 const NEIGHBORHOOD_COLUMNS =
-  "id, name, slug, description, city, state, social_links, ical_feed_url, ical_synced_at, status";
+  "id, name, slug, description, city, state, social_links, ical_feed_url, ical_synced_at, ical_auto_sync_enabled, ical_auto_approve_events, status";
 
 export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -109,6 +113,25 @@ export class SupabaseNeighborhoodRepository implements NeighborhoodRepository {
       .eq("id", id);
 
     if (error) throw new Error(`markIcalSynced failed: ${error.message}`);
+  }
+
+  async updateIcalSyncSettings(
+    id: string,
+    settings: { autoSyncEnabled?: boolean; autoApproveEvents?: boolean }
+  ): Promise<NeighborhoodRecord> {
+    const update: Record<string, boolean> = {};
+    if (settings.autoSyncEnabled !== undefined) update.ical_auto_sync_enabled = settings.autoSyncEnabled;
+    if (settings.autoApproveEvents !== undefined) update.ical_auto_approve_events = settings.autoApproveEvents;
+
+    const { data, error } = await this.supabase
+      .from("neighborhood")
+      .update(update)
+      .eq("id", id)
+      .select(NEIGHBORHOOD_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`updateIcalSyncSettings failed: ${error.message}`);
+    return toRecord(data);
   }
 
   async listAll(): Promise<NeighborhoodRecord[]> {

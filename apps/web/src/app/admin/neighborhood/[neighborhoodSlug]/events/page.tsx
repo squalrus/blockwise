@@ -9,6 +9,7 @@ import { useNeighborhoodAdmin } from "../NeighborhoodAdminContext";
 import { EventForm } from "../EventForm";
 import { IcalFeedForm } from "../IcalFeedForm";
 import { EventListItem } from "../../../../EventListItem";
+import { AdminModal } from "../../../AdminModal";
 
 type State =
   | { status: "loading" }
@@ -25,6 +26,7 @@ export default function NeighborhoodEventsPage() {
   const [state, setState] = useState<State>({ status: "loading" });
   const [showPast, setShowPast] = useState(false);
   const [now] = useState(() => Date.now());
+  const [createOpen, setCreateOpen] = useState(false);
 
   async function load() {
     const token = await getAccessToken();
@@ -66,6 +68,7 @@ export default function NeighborhoodEventsPage() {
         ? { ...prev, summary: { ...prev.summary, events: [...prev.summary.events, event] } }
         : prev
     );
+    setCreateOpen(false);
   }
 
   async function handleDeleteEvent(eventId: string) {
@@ -85,8 +88,10 @@ export default function NeighborhoodEventsPage() {
   // Hide survives a future iCal re-sync (unlike delete, which a re-sync
   // would just undo for an imported event), so it's the way to suppress one
   // specific event -- imported or manual -- without excluding it forever.
-  async function handleToggleEventStatus(eventId: string, currentStatus: Event["status"]) {
-    const nextStatus = currentStatus === "hidden" ? "active" : "hidden";
+  // Also how a "pending" imported event gets reviewed: Approve sets it
+  // "active", Hide sets it "hidden" -- same endpoint, no separate approve
+  // route needed.
+  async function handleSetEventStatus(eventId: string, nextStatus: Event["status"]) {
     const token = await getAccessToken();
     const res = await fetch(
       clientApiUrl(`/neighborhood-admin/neighborhoods/${neighborhoodId}/events/${eventId}/status`),
@@ -132,35 +137,43 @@ export default function NeighborhoodEventsPage() {
 
   return (
     <div className="flex flex-col gap-5.5">
-      <div>
-        <h1 className="font-heading text-4xl font-extrabold">Events</h1>
-        <p className="mt-1 text-[15px] text-body-text">
-          What&apos;s happening in {name} — pulled from calendar feeds or added by hand.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-4xl font-extrabold">Events</h1>
+          <p className="mt-1 text-[15px] text-body-text">
+            What&apos;s happening in {name} — pulled from calendar feeds or added by hand.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="shrink-0 rounded-md bg-brand-purple px-4 py-2 text-sm font-bold text-on-accent"
+        >
+          + New event
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_1.25fr]">
-        <div className="flex flex-col gap-5">
-          <section className="rounded-3xl border border-border bg-card p-6">
-            <h2 className="mb-1 font-heading text-lg font-extrabold">Calendar feeds</h2>
-            <p className="mb-3.5 text-[13px] text-muted">
-              Paste an iCal URL — sync now, or come back any time to pull in new events.
-            </p>
-            <IcalFeedForm
-              neighborhoodId={neighborhoodId}
-              initialFeedUrl={state.summary.ical_feed_url}
-              initialSyncedAt={state.summary.ical_synced_at}
-              onSynced={load}
-            />
-          </section>
+      <AdminModal open={createOpen} onClose={() => setCreateOpen(false)} title="New event">
+        <EventForm neighborhoodId={neighborhoodId} onCreated={handleEventCreated} />
+      </AdminModal>
 
-          <section className="rounded-3xl border border-border bg-card p-6">
-            <h2 className="mb-3.5 font-heading text-lg font-extrabold">Create event</h2>
-            <EventForm neighborhoodId={neighborhoodId} onCreated={handleEventCreated} />
-          </section>
-        </div>
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+        <section className="min-w-0 rounded-3xl border border-border bg-card p-6">
+          <h2 className="mb-1 font-heading text-lg font-extrabold">Calendar feeds</h2>
+          <p className="mb-3.5 text-[13px] text-muted">
+            Paste an iCal URL — sync now, or come back any time to pull in new events.
+          </p>
+          <IcalFeedForm
+            neighborhoodId={neighborhoodId}
+            initialFeedUrl={state.summary.ical_feed_url}
+            initialSyncedAt={state.summary.ical_synced_at}
+            initialAutoSyncEnabled={state.summary.ical_auto_sync_enabled}
+            initialAutoApproveEvents={state.summary.ical_auto_approve_events}
+            onSynced={load}
+          />
+        </section>
 
-        <section className="rounded-3xl border border-border bg-card p-6">
+        <section className="min-w-0 rounded-3xl border border-border bg-card p-6">
           <div className="mb-3.5 flex flex-wrap items-baseline gap-2.5">
             <h2 className="font-heading text-lg font-extrabold">Upcoming</h2>
             <span className="font-mono text-[11px] text-muted">{visibleEvents.length} events</span>
@@ -186,20 +199,41 @@ export default function NeighborhoodEventsPage() {
                   event={e}
                   actions={
                     <>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleEventStatus(e.id, e.status)}
-                        className="text-xs font-bold text-foreground hover:underline"
-                      >
-                        {e.status === "hidden" ? "Unhide" : "Hide"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteEvent(e.id)}
-                        className="text-xs font-bold text-red-600 hover:underline dark:text-red-400"
-                      >
-                        Delete
-                      </button>
+                      {e.status === "pending" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleSetEventStatus(e.id, "active")}
+                            className="text-xs font-bold text-brand-purple hover:underline"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSetEventStatus(e.id, "hidden")}
+                            className="text-xs font-bold text-foreground hover:underline"
+                          >
+                            Hide
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSetEventStatus(e.id, e.status === "hidden" ? "active" : "hidden")}
+                          className="text-xs font-bold text-foreground hover:underline"
+                        >
+                          {e.status === "hidden" ? "Unhide" : "Hide"}
+                        </button>
+                      )}
+                      {e.source === "manual" && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEvent(e.id)}
+                          className="text-xs font-bold text-red-600 hover:underline dark:text-red-400"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </>
                   }
                 />

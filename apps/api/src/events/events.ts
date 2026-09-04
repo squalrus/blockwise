@@ -1,5 +1,5 @@
 import type { Event, EventStatus } from "@blockwise/types";
-import type { EventRecord, EventRepository } from "./repository";
+import type { EventRecord, EventRepository, EventSource } from "./repository";
 
 function toEvent(record: EventRecord): Event {
   return {
@@ -117,28 +117,33 @@ export async function listActiveEventsForVenues(
 // neighborhoodAdminGate already prove the caller owns *that* venue/
 // neighborhood, but not that this particular event id belongs to it) so one
 // venue/neighborhood can't act on another's event by guessing an id.
-async function verifyEventOwnership(
+async function getOwnedEvent(
   owner: { venueId?: string; neighborhoodId?: string },
   eventId: string,
   repository: EventRepository
-): Promise<boolean> {
+): Promise<{ source: EventSource } | null> {
   const actualOwner = await repository.getEventOwner(eventId);
-  return (
-    actualOwner !== null &&
-    (owner.venueId !== undefined
+  if (actualOwner === null) return null;
+  const matches =
+    owner.venueId !== undefined
       ? actualOwner.venueId === owner.venueId
-      : actualOwner.neighborhoodId === owner.neighborhoodId)
-  );
+      : actualOwner.neighborhoodId === owner.neighborhoodId;
+  return matches ? { source: actualOwner.source } : null;
 }
 
-export type DeleteEventResult = { status: "not_found" } | { status: "deleted" };
+export type DeleteEventResult = { status: "not_found" } | { status: "forbidden" } | { status: "deleted" };
 
+// Only "manual" events can be hard-deleted -- an "ical" one would just come
+// back on the next sync (whether a manual "Sync now" or the nightly job),
+// so hide/approve (setEventStatus below) is the only way to suppress one.
 async function deleteEventRecord(
   owner: { venueId?: string; neighborhoodId?: string },
   eventId: string,
   repository: EventRepository
 ): Promise<DeleteEventResult> {
-  if (!(await verifyEventOwnership(owner, eventId, repository))) return { status: "not_found" };
+  const event = await getOwnedEvent(owner, eventId, repository);
+  if (event === null) return { status: "not_found" };
+  if (event.source !== "manual") return { status: "forbidden" };
 
   await repository.deleteEvent(eventId);
   return { status: "deleted" };
@@ -172,7 +177,7 @@ async function setEventStatusRecord(
   status: EventStatus,
   repository: EventRepository
 ): Promise<SetEventStatusResult> {
-  if (!(await verifyEventOwnership(owner, eventId, repository))) return { status: "not_found" };
+  if ((await getOwnedEvent(owner, eventId, repository)) === null) return { status: "not_found" };
 
   const record = await repository.setEventStatus(eventId, status);
   return { status: "updated", event: toEvent(record) };

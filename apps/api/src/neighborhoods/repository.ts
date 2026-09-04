@@ -14,6 +14,12 @@ export interface NeighborhoodRecord {
   // until the first successful sync.
   icalFeedUrl: string | null;
   icalSyncedAt: string | null;
+  // Nightly auto-sync settings -- see apps/api/netlify/functions/ical-nightly-sync.ts
+  // (icalAutoSyncEnabled) and icalSync.ts's syncNeighborhoodIcalFeed
+  // (icalAutoApproveEvents, which decides whether a newly-imported event
+  // defaults to "pending" or skips straight to "active").
+  icalAutoSyncEnabled: boolean;
+  icalAutoApproveEvents: boolean;
   // 'onboarding' | 'active' (BACKLOG.md Ref 107) -- was write-only (set at
   // creation, never read back) until the admin "activate" action needed to
   // display and flip it.
@@ -85,6 +91,13 @@ export interface NeighborhoodRepository {
   // Stamps the sync timestamp the moment a feed sync actually runs, mirroring
   // markLocationsReviewed's explicit-timestamp pattern below.
   markIcalSynced(id: string, syncedAt: string): Promise<void>;
+  // Nightly auto-sync toggle + "trust this feed" auto-approve toggle -- each
+  // independent, so both fields are optional and only the provided one(s)
+  // are written.
+  updateIcalSyncSettings(
+    id: string,
+    settings: { autoSyncEnabled?: boolean; autoApproveEvents?: boolean }
+  ): Promise<NeighborhoodRecord>;
   // Landing page (BACKLOG.md "Neighborhoods on landing page and user
   // profile") -- every neighborhood in the network, for the "all
   // neighborhoods" browse/join list. Not filtered by status: nothing else in

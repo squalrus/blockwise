@@ -544,8 +544,11 @@ export type EventSource = "manual" | "ical";
 // "hidden" survives an iCal re-sync (upsertImportedEvents never overwrites
 // status), unlike a hard delete which a re-sync would just undo -- the way
 // to suppress one specific imported event without excluding it from future
-// syncs.
-export type EventStatus = "active" | "hidden";
+// syncs. "pending" is the default status a newly-imported event gets unless
+// the owning neighborhood has ical_auto_approve_events on -- an admin
+// reviews it into "active" or "hidden"; manually-created events always
+// start "active" and never pass through "pending".
+export type EventStatus = "active" | "hidden" | "pending";
 
 export interface Event {
   id: string;
@@ -682,6 +685,13 @@ export interface UpdateIcalFeedUrlRequest {
 export interface IcalFeedSettings {
   ical_feed_url: string | null;
   ical_synced_at: string | null;
+}
+
+// PATCH .../ical-sync-settings request (neighborhood-admin only) -- each
+// toggle is independent and PATCHed on its own, so both fields are optional.
+export interface UpdateIcalSyncSettingsRequest {
+  ical_auto_sync_enabled?: boolean;
+  ical_auto_approve_events?: boolean;
 }
 
 // POST .../ical-feed/sync response.
@@ -883,6 +893,8 @@ export interface NeighborhoodDashboardSummary {
   social_links: SocialLinks;
   ical_feed_url: string | null;
   ical_synced_at: string | null;
+  ical_auto_sync_enabled: boolean;
+  ical_auto_approve_events: boolean;
   status: NeighborhoodStatus;
 }
 
