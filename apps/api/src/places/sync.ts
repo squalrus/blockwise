@@ -12,7 +12,7 @@ const DEFAULT_TILE_RADIUS_METERS = 400;
 // 500 per request (no pagination cursor beyond that), unlike Google's fixed
 // 20-result Nearby Search cap -- explicitly requested via `limit` below
 // rather than relying on the default. Real-world saturation behavior at
-// this cap is unverified (docs/geoapify-migration-plan.md Phase 0's tiled
+// this cap is unverified (docs/plans/20260828-geoapify-migration-plan.md Phase 0's tiled
 // bulk-search ceiling is still an open live-verification item), so this is
 // a documented-default starting point, not a load-tested one.
 const PLACES_API_RESULT_CAP = 500;
@@ -87,7 +87,7 @@ export interface PlaceSearchResult {
   apiCallsMade: number;
   callsAtResultCap: number;
   // No OSM/Geoapify equivalent to Google's businessStatus exists -- always 0
-  // now (docs/geoapify-migration-plan.md Phase 4, an accepted, explicitly-
+  // now (docs/plans/20260828-geoapify-migration-plan.md Phase 4, an accepted, explicitly-
   // called-out behavior change). A closed business only drops out once a
   // later sync no longer finds it, not proactively. Kept in the report
   // shape rather than removed so callers/consumers don't need a schema

@@ -1,4 +1,4 @@
-// Category normalization (docs/geoapify-migration-plan.md Phase 2): map a
+// Category normalization (docs/plans/20260828-geoapify-migration-plan.md Phase 2): map a
 // place's Geoapify/OSM category tags into the unified taxonomy via each
 // Category's source_mapping_json.geoapify list, rather than guessing.
 // Unmapped tags are left uncategorized (category_id stays null) for manual
