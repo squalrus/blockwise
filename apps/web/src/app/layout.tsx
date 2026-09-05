@@ -4,6 +4,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import { baloo2, jetbrainsMono, nunito } from "@blockwise/ui";
 import { SITE_URL } from "@/lib/siteUrl";
 import { ClientErrorReporter } from "./ClientErrorReporter";
+import { NonProductionBanner } from "./NonProductionBanner";
 import { ServiceWorkerRegistration } from "./ServiceWorkerRegistration";
 import { SiteChrome } from "./SiteChrome";
 import "./globals.css";
@@ -74,6 +75,7 @@ export default function RootLayout({
         </Script>
         <ServiceWorkerRegistration />
         <ClientErrorReporter />
+        <NonProductionBanner />
         <SiteChrome>{children}</SiteChrome>
       </body>
       {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (

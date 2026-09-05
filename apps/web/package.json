@@ -1,6 +1,6 @@
 {
   "name": "@blockwise/web",
-  "version": "0.88.2",
+  "version": "0.88.3",
   "private": true,
   "scripts": {
     "predev": "node scripts/vendor-maplibre-worker.mjs",
