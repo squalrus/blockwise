@@ -2,7 +2,7 @@
 
 A hyperlocal neighborhood discovery app: browse local venues on a map, check in, claim and redeem business coupons, follow events, join challenges, and earn badges — launching with **Phinneywood, Seattle**, built to onboard additional neighborhoods without a code change.
 
-The app is always free for end users; monetization is entirely on the business side (claimed listings, credits for POIs/events/coupons). See [docs/project-plan.md](./docs/project-plan.md) for the full rationale.
+The app is always free for end users; monetization is entirely on the business side (claimed listings, credits for POIs/events/coupons). See [docs/plans/20260705-project-plan.md](./docs/plans/20260705-project-plan.md) for the full rationale.
 
 ## Status
 
@@ -66,7 +66,7 @@ cd apps/api && npm test     # unit tests (vitest) — apps/api only, for now
 
 | Doc | What's in it |
 |---|---|
-| [docs/project-plan.md](./docs/project-plan.md) | The original architecture/build plan — data model, licensing constraints, monetization model, multi-neighborhood design, and every other numbered section (`§1`–`§14`) referenced elsewhere in this repo |
+| [docs/plans/20260705-project-plan.md](./docs/plans/20260705-project-plan.md) | The original architecture/build plan — data model, licensing constraints, monetization model, multi-neighborhood design, and every other numbered section (`§1`–`§14`) referenced elsewhere in this repo |
 | [docs/url-map.md](./docs/url-map.md) | Current inventory of every web route and API endpoint — keep it in sync when routes change (see [CONTRIBUTING.md](./CONTRIBUTING.md)) |
 | [BACKLOG.md](./BACKLOG.md) | Proposed features, improvements, and known issues — candidates, not commitments |
 | [CHANGELOG.md](./CHANGELOG.md) | Shipped, user-visible changes, newest first |

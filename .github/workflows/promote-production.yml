@@ -1,0 +1,60 @@
+name: Promote to production
+
+# Manually triggered only -- see docs/plans/20260905-dev-environment-plan.md.
+# The `production` GitHub environment gates this behind a required reviewer
+# (Chad). Migrates the production Supabase project, then builds and deploys
+# apps/web straight to app.tryspored.com -- that site's own git-triggered
+# builds are paused ("Stop builds" in Netlify), so this workflow is the only
+# path production code takes to actually go live.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit SHA or branch to promote"
+        required: false
+        default: main
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Link to production Supabase project
+        run: npx supabase link --project-ref ${{ vars.SUPABASE_PROD_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # Fails closed by default: a GitHub Actions job stops at the first
+      # failing step, so a migration failure here means the deploy step
+      # below never runs and app.tryspored.com keeps serving its last
+      # published deploy.
+      - name: Push pending migrations to production
+        run: npx supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # --build runs apps/web's configured build (netlify.toml) and
+      # publishes straight to the live domain in one step -- no separate
+      # "find and publish an existing deploy" call needed. Assumption to
+      # verify on the first real dry run: the Netlify CLI is documented to
+      # fetch this site's dashboard-configured env vars (SUPABASE_URL,
+      # GEOAPIFY_API_KEY, etc.) before building, the same way Netlify's own
+      # git-triggered builds would -- if that turns out not to hold, the
+      # build will need those env vars passed into this job explicitly.
+      - name: Build and deploy to production
+        working-directory: apps/web
+        run: npx netlify-cli deploy --prod --build
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

@@ -5,7 +5,7 @@ import { VenueHours } from "./VenueHours";
 // shared by venues and POIs that trace back to the same underlying place
 // (BACKLOG.md Ref 59). Ratings, reviews, and photo galleries were removed as
 // product features in the Geoapify migration's Phase 3
-// (docs/geoapify-migration-plan.md) -- no Geoapify equivalent exists.
+// (docs/plans/20260828-geoapify-migration-plan.md) -- no Geoapify equivalent exists.
 export function EnrichmentAbout({
   enrichment,
   emptyLabel,

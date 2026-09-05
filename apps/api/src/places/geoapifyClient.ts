@@ -1,6 +1,6 @@
 import type { LatLng } from "./geo";
 
-// The real Places client (docs/geoapify-migration-plan.md) -- wired into
+// The real Places client (docs/plans/20260828-geoapify-migration-plan.md) -- wired into
 // sync.ts/preview.ts/investigate.ts/enrichment/refresh.ts and app.ts's
 // getPlacesClient() as of Phase 4, replacing the old Google-shaped
 // client.ts (deleted). Names keep the "Geoapify" prefix rather than being
@@ -15,7 +15,7 @@ export interface GeoapifyPlace {
   location: LatLng;
   // Geoapify/OSM categories, e.g. "catering.cafe.coffee_shop" -- no
   // primaryType equivalent exists (confirmed live, see
-  // docs/location-services-comparison.md#live-verification), so callers
+  // docs/plans/20260828-location-services-comparison.md#live-verification), so callers
   // needing a single "best" category must pick a strategy over this array
   // themselves rather than relying on an index-0 convention here.
   categories: string[];
@@ -42,7 +42,7 @@ export interface GeoapifySearchParams {
   radiusMeters: number;
   // Geoapify OSM category tags (comma-joined into the request's
   // `categories` param) -- unlike Google's includedTypes, the per-request
-  // count ceiling here is unconfirmed (docs/geoapify-migration-plan.md
+  // count ceiling here is unconfirmed (docs/plans/20260828-geoapify-migration-plan.md
   // Phase 0 still open item), so callers shouldn't assume Google's 50-type
   // chunking limit applies.
   categories: string[];
@@ -114,7 +114,7 @@ export interface GeoapifyPlaceDetails {
 
 // Deliberately has no rating/reviews/photo fields at all -- ratings,
 // reviews, and photo galleries are removed as product features in this
-// migration (docs/geoapify-migration-plan.md), not just deprioritized, so
+// migration (docs/plans/20260828-geoapify-migration-plan.md), not just deprioritized, so
 // the DTO shape itself prevents them from silently coming back through a
 // future field-mask-style addition.
 export interface GeoapifyPlaceDetailsClient {

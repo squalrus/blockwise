@@ -23,3 +23,22 @@ jobs:
       - run: npm run typecheck
 
       - run: npm run test
+
+  # Pushes pending migrations to the spored-dev Supabase project on every
+  # push to main. Deliberately not gated on Netlify's own auto-deploy for
+  # the dev site -- the two race each other, an accepted tradeoff for a
+  # low-stakes playground (see docs/plans/20260905-dev-environment-plan.md).
+  migrate-dev:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npx supabase link --project-ref ${{ vars.SUPABASE_DEV_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - run: npx supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

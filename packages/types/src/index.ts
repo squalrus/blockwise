@@ -105,7 +105,7 @@ export interface Venue {
   updated_at: string;
 }
 
-// Renamed from "google" (Phase 3, docs/geoapify-migration-plan.md) -- the
+// Renamed from "google" (Phase 3, docs/plans/20260828-geoapify-migration-plan.md) -- the
 // underlying data is still fetched from Google's live API until Phase 4
 // rewires the actual client, an accepted temporary regression that plan
 // calls out explicitly.
@@ -1380,7 +1380,7 @@ export interface CategoryAdminItem {
   parent_category_id: string | null;
   status: CategoryStatus;
   // The Geoapify/OSM category tags that normalize into this leaf category
-  // (docs/geoapify-migration-plan.md Phase 2) -- empty for top-level group
+  // (docs/plans/20260828-geoapify-migration-plan.md Phase 2) -- empty for top-level group
   // rows.
   geoapify_categories: string[];
 }
@@ -1983,7 +1983,7 @@ export interface MonitoringPlacesApiDayToDate {
   credits: number;
 }
 
-// Geoapify Free plan's daily credit ceiling (docs/location-services-comparison.md).
+// Geoapify Free plan's daily credit ceiling (docs/plans/20260828-location-services-comparison.md).
 // Unlike Google's per-SKU free tiers, this is one shared pool across every
 // endpoint (and map tiles, at 0.25 credit each, which never reach this
 // budget check since they're never logged server-side -- see

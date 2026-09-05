@@ -11,7 +11,7 @@ This repo is moving from planning into implementation. **The web app is being bu
 - Planned work is tracked in [BACKLOG.md](../BACKLOG.md).
 - Shipped changes are logged in [CHANGELOG.md](../CHANGELOG.md).
 - See [CONTRIBUTING.md](../CONTRIBUTING.md) for how to propose and land changes.
-- [URL map](./url-map.md) for the current route inventory (web + API).
+- [URL map](../url-map.md) for the current route inventory (web + API).
 
 ---
 

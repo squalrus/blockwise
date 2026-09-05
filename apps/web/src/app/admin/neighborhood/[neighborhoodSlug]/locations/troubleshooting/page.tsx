@@ -423,7 +423,7 @@ export default function TroubleshootingPage() {
             emptyMessage={
               <>
                 Geoapify returned nothing for &ldquo;{searchState.report.query}&rdquo;. See{" "}
-                <code>docs/investigating-missing-venues.md</code> for common reasons a venue doesn&apos;t turn up
+                <code>docs/plans/20260817-investigating-missing-venues.md</code> for common reasons a venue doesn&apos;t turn up
                 here at all.
               </>
             }

@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.88.2] — 2026-09-05
+
+### Changed
+
+- **Added a persistent `spored-dev` environment, separate from production** (BACKLOG.md Ref 95): a second Supabase project and a second Netlify site (`app-dev.tryspored.com`) that auto-deploys on every push to `main`, sharing one migration history with production but not a release schedule. `app.tryspored.com`'s own auto-deploy and PR-preview builds are now paused — code only reaches it through a new manual `workflow_dispatch` "Promote to production" GitHub Actions workflow (gated behind a `production` environment requiring approval), which migrates prod's database and then runs `netlify deploy --prod --build`. A new CI job pushes pending migrations to `spored-dev` on every push to `main`, independently of Netlify's own auto-deploy. `apps/web/src/app/robots.ts` now disallows crawling entirely for any deploy whose site URL isn't exactly `app.tryspored.com`, keeping the dev site out of search results. Full design and a step-by-step rollout log in `docs/plans/20260905-dev-environment-plan.md`. (`.github/workflows/ci.yml`, `.github/workflows/promote-production.yml`, `apps/web/src/app/robots.ts`, `apps/api/.env.example`, `apps/web/.env.example`, `CONTRIBUTING.md`, `supabase/README.md`)
+- **Planning docs moved under `docs/plans/` with a `YYYYMMDD` date prefix** (e.g. `docs/project-plan.md` → `docs/plans/20260705-project-plan.md`), separating point-in-time planning documents from living references like `docs/url-map.md`. Every cross-reference to a moved doc — in `README.md`, `apps/web/README.md`, code comments, and elsewhere — was updated to the new path. (`docs/plans/`, `README.md`, `apps/web/README.md`, `apps/api/src/places/categorize.ts`, `geoapifyClient.ts`, `sync.ts`, `apps/web/src/app/EnrichmentSection.tsx`, `locations/troubleshooting/page.tsx`, `packages/types/src/index.ts`)
+
 ## [0.88.1] — 2026-09-05
 
 ### Added

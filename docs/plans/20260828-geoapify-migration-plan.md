@@ -50,7 +50,7 @@ favor of:
   dependency and a less battle-tested drawing-plugin ecosystem than
   Leaflet's — accepted for the customization upside.
 
-Prior research ([docs/location-services-comparison.md](./location-services-comparison.md))
+Prior research ([docs/plans/20260828-location-services-comparison.md](./20260828-location-services-comparison.md))
 established that Geoapify permits indefinite caching/storage with no
 per-field restriction, and that Spored's discovery volume (~50-100 credits
 per full neighborhood sync) fits comfortably inside the free tier
@@ -250,7 +250,7 @@ work already done — it's meant to be picked up as backlog work.
    Geoapify" + OpenStreetMap attribution UI (replacing `PoweredByGoogle`),
    required on Geoapify's Free plan — gates showing real Geoapify data to
    real users. No FAQ changes needed (confirmed no rating/review/photo
-   content exists there). Update `docs/location-services-comparison.md`'s
+   content exists there). Update `docs/plans/20260828-location-services-comparison.md`'s
    conclusion to reflect the full-removal decision made here.
 
 ## Phase order / dependencies
@@ -258,7 +258,7 @@ work already done — it's meant to be picked up as backlog work.
 - **Phase 0** (live Geoapify verification). **Partially done** — Place
   Details field coverage was verified against 5 real venues already in
   Spored's `venue` table (see
-  [docs/location-services-comparison.md](./location-services-comparison.md#live-verification)
+  [docs/plans/20260828-location-services-comparison.md](./20260828-location-services-comparison.md#live-verification)
   for the full results). Findings: hours/website/phone coverage is
   patchy as expected (2/5, 1/5, 0/5); staleness is real, not
   hypothetical (one venue resolved to a wrong/outdated business name);
@@ -301,4 +301,4 @@ work already done — it's meant to be picked up as backlog work.
 - `apps/web/src/app/neighborhoods/[slug]/MapView.tsx`, `apps/web/src/app/admin/neighborhood/BoundaryMap.tsx`
 - `apps/web/src/app/admin/super/monitoring/places/*`, `PlacesApi*.tsx`, `placesApiCost.ts`
 - `apps/marketing/src/app/privacy/page.tsx`
-- `docs/google-places-setup.md` (to delete), `docs/location-services-comparison.md` (conclusion to update)
+- `docs/google-places-setup.md` (to delete), `docs/plans/20260828-location-services-comparison.md` (conclusion to update)
