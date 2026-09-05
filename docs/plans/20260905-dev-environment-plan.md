@@ -263,11 +263,18 @@ sites can be set up in either order relative to each other.
 
 ### Verify
 
-- [ ] Push a low-stakes change to `main` and confirm it appears on
-      `app-dev.tryspored.com` automatically
-- [ ] Run a full promotion end to end for that same change and confirm it
-      reaches `app.tryspored.com`
-- [ ] Confirm Google sign-in works on the dev domain (OAuth redirect URI
+- [x] Push a low-stakes change to `main` and confirm it appears on
+      `app-dev.tryspored.com` automatically. **Done** — v0.88.2's merge to
+      `main` triggered both `migrate-dev` (`supabase db push` against
+      `spored-dev`) and Netlify's own auto-deploy of `app-dev.tryspored.com`
+      successfully.
+- [x] Run a full promotion end to end for that same change and confirm it
+      reaches `app.tryspored.com`. **Done** — `promote-production.yml` ran
+      clean: prod migration, then `netlify deploy --prod --build` published
+      to `app.tryspored.com`. Both assumptions flagged inline in that
+      workflow held (env-var fetch before build, `apps/web` as the working
+      directory) — comments updated there to drop the "verify" framing.
+- [x] Confirm Google sign-in works on the dev domain (OAuth redirect URI
       + `spored-dev`'s Auth settings both configured)
 - [ ] Create the first neighborhood on `spored-dev` by hand through the
       app's own new-neighborhood flow — first real data in the empty

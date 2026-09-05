@@ -12,6 +12,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  { version: "0.88.3", date: "2026-09-05", summary: "Non-prod environments now show a banner naming the env + Supabase project" },
   { version: "0.88.2", date: "2026-09-05", summary: "New spored-dev environment auto-deploys; prod now needs manual promotion" },
   { version: "0.88.1", date: "2026-09-05", summary: "Check-in latency cut via parallelization; timing chart per-attempt view" },
   { version: "0.88.0", date: "2026-09-04", summary: "Monitoring: Check-in timing chart, phase-by-phase breakdown" },

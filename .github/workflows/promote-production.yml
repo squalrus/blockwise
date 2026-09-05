@@ -30,6 +30,15 @@ jobs:
 
       - run: npm ci
 
+      - name: Get commit message
+        id: commit
+        run: |
+          {
+            echo "message<<EOF"
+            git log -1 --pretty=%s
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Link to production Supabase project
         run: npx supabase link --project-ref ${{ vars.SUPABASE_PROD_PROJECT_REF }}
         env:
@@ -46,15 +55,15 @@ jobs:
 
       # --build runs apps/web's configured build (netlify.toml) and
       # publishes straight to the live domain in one step -- no separate
-      # "find and publish an existing deploy" call needed. Assumption to
-      # verify on the first real dry run: the Netlify CLI is documented to
-      # fetch this site's dashboard-configured env vars (SUPABASE_URL,
-      # GEOAPIFY_API_KEY, etc.) before building, the same way Netlify's own
-      # git-triggered builds would -- if that turns out not to hold, the
-      # build will need those env vars passed into this job explicitly.
+      # "find and publish an existing deploy" call needed. Confirmed on the
+      # v0.88.2 dry run: the Netlify CLI does fetch this site's dashboard-
+      # configured env vars (SUPABASE_URL, GEOAPIFY_API_KEY, etc.) before
+      # building, and apps/web is the right working directory for this
+      # monorepo layout.
       - name: Build and deploy to production
         working-directory: apps/web
-        run: npx netlify-cli deploy --prod --build
+        run: npx netlify-cli deploy --prod --build --message "$DEPLOY_MESSAGE"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          DEPLOY_MESSAGE: ${{ steps.commit.outputs.message }}

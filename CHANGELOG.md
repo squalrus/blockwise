@@ -2,6 +2,16 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.88.3] — 2026-09-05
+
+### Added
+
+- **Non-production environments now show a banner** at the top of every page (including standalone admin dashboards) naming the current environment and its connected Supabase project — e.g. "Non-production environment (app-dev.tryspored.com, Supabase: cbqthngsrdzlkhsrfkwm) — not real user data", or "(localhost, Supabase: ...)" in local dev. Hidden entirely on the real production deploy. Named because the site host and its Supabase project are configured independently and can drift — a mismatch the site host alone wouldn't reveal. (`apps/web/src/app/NonProductionBanner.tsx`, `apps/web/src/lib/siteUrl.ts`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/robots.ts`)
+
+### Changed
+
+- **Production promotions now carry a deploy message** in the Netlify dashboard (the promoted commit's subject line) instead of showing "No deploy message" for every release. (`.github/workflows/promote-production.yml`)
+
 ## [0.88.2] — 2026-09-05
 
 ### Changed
