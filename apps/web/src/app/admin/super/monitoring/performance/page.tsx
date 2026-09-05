@@ -46,7 +46,7 @@ export default function MonitoringPerformancePage() {
             <p className="mb-3 text-xs text-muted">
               POST /locations/:id/checkins broken down by phase (geofence/cooldown, then -- only for a
               successful check-in -- rewards, neighbor notifications, and collection), run concurrently
-              (BACKLOG.md Ref 116), so Total tracking below their sum is expected. Daily averages the day's
+              (BACKLOG.md Ref 116), so Total tracking below their sum is expected. Daily averages the day&apos;s
               attempts per phase; Individual plots the (up to 500 most recent, within the selected window)
               attempts one point each, for spotting outliers a daily average would hide.
             </p>
