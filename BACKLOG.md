@@ -31,15 +31,10 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | 112 | [Neighborhood onboarding checklist](#neighborhood-onboarding-checklist) | feature | M | H | — |
 | 39 | [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) | feature | L | H | — |
 | 84 | [Premium neighborhood tier: events and custom challenges](#premium-neighborhood-tier-events-and-custom-challenges) | feature | L | H | — |
-| 55 | [Bulk removals: check all / uncheck all toggle](#bulk-removals-check-all-uncheck-all-toggle) | improvement | S | M | — |
-| 60 | [Neighborhood photo strip from venues/POIs](#neighborhood-photo-strip-from-venuespois) | feature | S | M | — |
 | 79 | [Real interactive map on the Locations tab](#real-interactive-map-on-the-locations-tab) | feature | S | M | — |
 | 76 | [Self-serve neighborhood-admin invite/remove UI](#self-serve-neighborhood-admin-inviteremove-ui) | feature | M | M | — |
-| 9 | [Neighborhood notifications](#neighborhood-notifications) | feature | M | M | 5 |
 | 110 | [Two-step neighborhood creation: fields first, boundary required after](#two-step-neighborhood-creation-fields-first-boundary-required-after) | improvement | M | M | — |
 | 111 | [Improve boundary polygon drawing UX](#improve-boundary-polygon-drawing-ux) | improvement | M | M | — |
-| 77 | [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) | feature | L | M | — |
-| 53 | [Venues tab: default to map view](#venues-tab-default-to-map-view) | improvement | S | L | — |
 | 62 | ["New" badge for recently-launched neighborhoods](#new-badge-for-recently-launched-neighborhoods) | improvement | S | L | — |
 
 ### Business & Venue
@@ -47,7 +42,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | Ref | Item | Type | Effort | Value | Depends |
 | --- | --- | --- | --- | --- | --- |
 | 22 | [Category browsing & filtering](#category-browsing--filtering) | improvement | S | M | — |
-| 7 | [QR check-in + POI curation + leaderboards](#qr-check-in--poi-curation--leaderboards) | feature | M | M | — |
 | 18 | [Business-editable venue basic data](#business-editable-venue-basic-data) | feature | M | M | — |
 | 38 | [Map on business page](#map-on-business-page) | feature | M | M | — |
 | 12 | [Business QR-scan check-in & redemption](#business-qr-scan-check-in--redemption) | feature | M | M | — |
@@ -71,8 +65,6 @@ Items are grouped by primary domain — **Neighborhood** (admin/community-level)
 | --- | --- | --- | --- | --- | --- |
 | 1 | [Native apps (React Native)](#native-apps-react-native) | feature | L | H | — |
 | 95 | [Dev instance of the app (Netlify and Supabase)](#dev-instance-of-the-app-netlify-and-supabase) | improvement | L | H | — |
-| 116 | [Check-in performance optimization](#check-in-performance-optimization) | improvement | L | H | — |
-| 113 | [Trim Place Details field mask to a cheaper SKU tier](#trim-place-details-field-mask-to-a-cheaper-sku-tier) | improvement | S | M | — |
 | 115 | [Extend the daily credit guard to admin-triggered Geoapify calls](#extend-the-daily-credit-guard-to-admin-triggered-geoapify-calls) | improvement | M | M | — |
 | 105 | [Additional app themes within brand guidelines](#additional-app-themes-within-brand-guidelines) | feature | M | L | — |
 
@@ -108,39 +100,7 @@ No open limitations.
 **Type:** feature
 **Depends:** —
 **Why** — Creating a neighborhood should stay free, but interactive features — events, custom challenge authoring, and other more involved functionality — should require a small per-neighborhood paid upgrade, giving the platform a lightweight monetization path on the neighborhood side (distinct from the business/venue side's coupon/credits monetization) without paywalling a neighborhood's basic existence.
-**Notes:** Overlaps with [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) (Ref 39), which already proposes a `neighborhood.tier` column with quota-based limits — this ask is feature-gating (specific functionality locked/unlocked) rather than quota-tiering (more of the same thing, faster), so the same `neighborhood.tier` field could likely drive both, or this becomes the concrete feature-flag half of Ref 39's broader tiering plan. Needs entitlement checks in front of: the Events tab/iCal import (already shipped free as of v0.51.0 — gating this retroactively means either grandfathering existing neighborhoods' access or communicating a feature change) and [Neighborhood-admin challenge authoring](#neighborhood-admin-challenge-authoring) (Ref 77, not yet built — could ship already gated from day one, avoiding the grandfathering problem entirely). Needs Stripe integration for the upgrade purchase itself. Open question: the exact feature list behind the paywall beyond events/challenges ("other more interactive features" per the request) needs to be nailed down before scoping.
-
-#### Neighborhood photo strip from venues/POIs
-
-**Ref:** 60
-**Type:** feature
-**Depends:** —
-**Why** — Neighborhood pages are otherwise all text/map, no imagery — a photo strip or mosaic pulled from the neighborhood's own venues/POIs would give it visual life for free, since it's sourced from data already fetched and cached rather than a new content type someone has to author.
-**Notes:** Query a handful of venues (and POIs — both now get enrichment as of v0.38.0) in the neighborhood with a non-empty cached photo list, and render them via the existing `GET /locations/:id/photo?index=` proxy pattern (no new Places API calls — reuses `venue_enrichment_cache` rows already populated by detail-page views). The expanded field mask (multi-photo mapping) shipped in v0.32.1, so more venues now have a cached photo, and more photos per venue, than before. Open question: curation order (top-rated vs. most recent vs. simple "first N active with a cached photo") — start with the simplest option and revisit if it looks thin.
-
-#### Neighborhood notifications
-
-**Ref:** 9
-**Type:** feature
-**Depends:** —
-**Why** — Venue-level content (business events, coupons) reaches only that business's own followers; there's no way for neighborhood-level staff (neighborhood admin roles shipped v0.12.0) to broadcast something to everyone in a neighborhood at once (e.g. an event, a service outage, a safety notice).
-**Notes:** Business announcements (the venue-scoped precedent this item's original design leaned on for a reusable shape) were replaced by venue coupons (shipped v0.54.0, see CHANGELOG.md) and no longer exist as a table, so this needs a fresh `NeighborhoodNotification` table (`neighborhood_id`, message, timestamps) rather than reusing anything — authored via an admin tool gated the same way as other admin surfaces (`requireAdmin`, v0.12.0). Delivery channel (push vs. in-app feed) still open.
-
-#### Bulk removals: check all / uncheck all toggle
-
-**Ref:** 55
-**Type:** improvement
-**Depends:** —
-**Why** — The Locations review wizard's Removals step (shipped v0.29.0) surfaces every active venue/POI that falls outside a redrawn boundary as a checklist for admin approval. For neighborhoods with many removals, manually checking/unchecking each one is tedious — a "Select all / Clear all" button pair would speed up the workflow when an admin wants to approve or skip the entire removal batch.
-**Notes:** Add a button pair at the top of the removals list (or inline with the count summary) that toggles all checkboxes in that step. Already using `approvedRemovals` state (`Set<string>` of removal keys) in `apps/web/src/app/neighborhood-admin/[neighborhoodSlug]/locations/review/page.tsx`, so the UI change is just two buttons + a `setApprovedRemovals` call to either copy the full removal list or clear it. No API/schema changes.
-
-#### Venues tab: default to map view
-
-**Ref:** 53
-**Type:** improvement
-**Depends:** —
-**Why** — The neighborhood page's subnav split (shipped v0.24.1) carried the Venues tab's List/Map toggle over as-is, defaulting to List; the original subnav proposal floated Map as a more natural "what's near me" default, but that part didn't ship with the split.
-**Notes:** `VenuesView.tsx` already has the List/Map toggle (shipped v0.7.0/v0.23.0); just flip its initial `useState` to `"map"`. Small, self-contained — no schema or API changes.
+**Notes:** Overlaps with [Neighborhood marketplace/licensing model](#neighborhood-marketplacelicensing-model) (Ref 39), which already proposes a `neighborhood.tier` column with quota-based limits — this ask is feature-gating (specific functionality locked/unlocked) rather than quota-tiering (more of the same thing, faster), so the same `neighborhood.tier` field could likely drive both, or this becomes the concrete feature-flag half of Ref 39's broader tiering plan. Needs entitlement checks in front of: the Events tab/iCal import (already shipped free as of v0.51.0 — gating this retroactively means either grandfathering existing neighborhoods' access or communicating a feature change) and the neighborhood-admin Challenges tab (custom challenge+badge authoring, shipped per Ref 108 — same grandfathering consideration as Events). Needs Stripe integration for the upgrade purchase itself. Open question: the exact feature list behind the paywall beyond events/challenges ("other more interactive features" per the request) needs to be nailed down before scoping.
 
 #### "New" badge for recently-launched neighborhoods
 
@@ -157,14 +117,6 @@ No open limitations.
 **Depends:** —
 **Why** — Granting neighborhood-admin access today is a one-off CLI script (`apps/api/src/scripts/grantNeighborhoodAdmin.ts`) run against the `neighborhood_admin` table (`user_id`, `neighborhood_id`, no role column) — there is no self-serve way for an existing admin to bring on a co-admin. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed an "Admins" card on the Overview tab (invite by email with a role picker, active/invited list, remove action) that was deliberately left out since it needs real backend, not just restyling.
 **Notes:** `neighborhood_admin` has no pending/invited state today, only accepted rows — needs either an invite-token/email flow (requires email delivery infra, and handling an invitee with no account yet) or a simpler invite-by-existing-username flow (no email infra, but the invitee must already have signed up) — open question which to build first. Also needs a `GET .../neighborhoods/:id/admins` list endpoint and a remove endpoint (`DELETE .../neighborhoods/:id/admins/:userId`), both `neighborhoodAdminGate`-scoped like the rest of `/neighborhood-admin/*`. No role column exists on `neighborhood_admin` — the mockup's Owner/Admin role picker would need one added, or could be dropped in favor of a flat "admin" concept matching what actually exists.
-
-#### Neighborhood-admin challenge authoring
-
-**Ref:** 77
-**Type:** feature
-**Depends:** —
-**Why** — Challenges today are template-driven and read-only from the admin's perspective (`GET /neighborhoods/:slug/challenges` is the only challenge route; badge rule engine shipped v0.40.0) — there is no admin CRUD or "launch a challenge" concept at all. Split out of the neighborhood-admin sidebar redesign (v0.44.1), whose imported mockup showed a full Challenges tab (a live challenge card with joined/completed/check-ins-driven stats and pause/edit actions, ready-to-launch template cards with an eligible-venue count and a Launch button, and a "Build your own" custom challenge creator) that was left out entirely since it's materially new schema and API, not a restyle.
-**Notes:** Likely needs a `neighborhood_challenge` instance table distinct from whatever backs the existing badge-rule-engine templates — an admin "launching" a template creates a live, trackable instance (joined/completed/check-ins-driven counts, pause state) rather than just referencing the static template. The "Build your own" flow (pick category, set a target count, name the badge) implies the badge rule engine needs to accept admin-authored rules, not just seeded ones. Largest of the redesign's deferred pieces — worth its own scoping pass before starting (template launch vs. build-your-own could ship as two separate cuts).
 
 #### Real interactive map on the Locations tab
 
@@ -207,14 +159,6 @@ No open limitations.
 **Depends:** —
 **Why** — The 39-category taxonomy (project plan §2, shipped v0.4.0) exists server-side, but the venue list only shows category as plain text next to the address — there's no way to filter or browse by category today.
 **Notes:** Filter chips or a category picker on the venues list and map view (map view shipped v0.7.0, already color-codes markers by category group per project plan §1.7). Reuses the existing `Category`/`source_mapping_json` data, no new schema needed.
-
-#### QR check-in + POI curation + leaderboards
-
-**Ref:** 7
-**Type:** feature
-**Depends:** —
-**Why** — Solves GPS accuracy issues for multi-POI venues (markets, food halls) and rounds out the check-in system started earlier.
-**Notes:** QR code generation per Venue/POI linking to a signed check-in URL (project plan §4 Phase 2), POI curation tooling for admins/businesses (project plan §3), public leaderboards.
 
 #### Business-editable venue basic data
 
@@ -323,28 +267,6 @@ No open limitations.
 **Depends:** —
 **Why** — A persistent staging environment enables safe testing and debugging of changes before they reach production users, and a formal approval/promotion workflow prevents accidental releases and gives visibility into what's going live.
 **Notes:** Set up parallel Netlify and Supabase instances (or use Supabase preview branches) mirroring the production setup. Hide the dev site from users and search engines via `robots.txt` disallow, meta tags, and/or a basic auth gate. Configure Netlify to auto-deploy commits to a dev branch (e.g. `main-dev` or `staging`) or trigger via GitHub Actions. Create a promotion mechanism — either a manual Netlify deployment trigger (promoting a dev build to prod) or a GitHub Actions workflow requiring explicit approval (via `workflow_dispatch` or a review/check) before promoting. Open questions: should this coexist with Netlify's per-PR preview deploys (different purposes — per-branch preview for each PR, vs. persistent shared dev for manual testing), or replace them? Should dev share a Supabase project/database or use a completely separate one for true isolation?
-
-#### Check-in performance optimization
-
-**Ref:** 116
-**Type:** improvement
-**Depends:** —
-**Why** — Traced the full POST /locations/:id/checkins pipeline end to end: `performCheckin`'s geofence/cooldown decision, then (once created) `awardCheckinRewards`, `notifyConnectionsOfCheckin`, and `recordVenueCollection` + collection badges — all `await`ed one after another per `app.ts`'s Netlify/Lambda-freeze comment, each making multiple Supabase PostgREST round trips. That serial chain, plus a few outright redundant fetches, is the main lever on how long a check-in actually takes; a "Check-in timing" chart now ships on Monitoring > Performance (`checkin_timing_log`, v0.88.0) breaking Total down by phase (geofence/cooldown, rewards, notify, collection) specifically so each change below can be measured before/after against real traffic instead of guessed at.
-**Notes:** Roughly in effort order:
-
-1. Dedupe redundant location fetches — the location is fetched 3 separate times in one request: `performCheckin`'s internal `getLocation` (`CheckinRepository`), `awardCheckinRewards`' internal `getLocationContext` (`GamificationRepository`), and the notify-connections block's own `getLocationById` (`LocationRepository`) in `app.ts`. Fully deduping means threading an already-fetched location into `performCheckin`/`awardCheckinRewards`, both heavily unit-tested (`checkin.test.ts`, `rewards.test.ts`, `badges.test.ts`) — do that carefully, or start with just the notify block's fetch (not inside a tested pure function, lower risk) run in parallel with `performCheckin` instead of serially after it.
-2. Dedupe `evaluateBadgesAfterCheckin` and `evaluateBadgesForCollectionCount` each independently calling `getAllBadgeRules()` (fetches the whole rule table twice per check-in). A short-TTL in-memory cache in `SupabaseGamificationRepository` is a lower-risk fix than threading the rules array through both signatures.
-3. Parallelize the three independent post-checkin phases (`awardCheckinRewards`, `notifyConnectionsOfCheckin`, `recordVenueCollection` + badges) with `Promise.allSettled` instead of running them serially — none depends on another's output, and each already swallows its own errors, so nothing about the current failure-isolation design blocks this. Expected to be the biggest single win: today's total is roughly their sum; concurrent, it'd be roughly the slowest of the three. This is the change to watch for on the new chart — Total dropping below the phases' summed average is the signal it actually worked.
-4. Parallelize `sendPushToUsers`' per-subscription sends (`apps/api/src/pushSubscriptions/pushSubscriptions.ts`) — currently a sequential `for` loop awaiting each external push-service call one at a time, which scales with the checking-in user's connection count.
-5. Client-side GPS preload/reuse — `/checkin`'s `NearestVenues.tsx` already calls `getCurrentPosition()` once to sort venues by distance, then discards it; `useCheckIn.ts` fetches a fresh position from scratch when the user actually slides. The location detail page's `SlideToCheckIn` has no prefetch at all — the GPS fix only starts once the slide gesture completes. Fix: kick off `getCurrentPosition()` on page/component mount (or reuse `NearestVenues`' already-fetched position) and have `useCheckIn` reuse a short-TTL cached fix, falling back to a fresh fetch if stale or missing. Note this only ever shows up in client-perceived latency, not the server-side chart above.
-
-##### Trim Place Details field mask to a cheaper SKU tier
-
-**Ref:** 113
-**Type:** improvement
-**Depends:** —
-**Why** — `DETAIL_FIELD_MASK` (`apps/api/src/places/client.ts`) requests `reviews` and `photos` on every single `getPlaceDetails` call, which pushes every one of those calls into Google's priciest "Place Details Enterprise + Atmosphere" SKU tier ($25/1k) regardless of whether the caller actually needs reviews/photos that time. Places API content (rating, reviews, hours, phone, photos, etc.) has no caching exception under Google's ToS — only `place_id` (indefinite) and lat/lng (30 days) do — so unlike a typical cost problem, caching longer isn't an available lever here; requesting less per call is.
-**Notes:** Check whether every consumer of `VenueEnrichmentCache` actually needs `reviews`/`photos` on every refresh, or whether a cheaper Basic/Contact-only mask would do for most cases, with the Enterprise+Atmosphere mask reserved for whichever specific call sites (if any) truly need it. Related work already shipped: the Places API cost guardrail (`apps/api/src/places/quotaGuard.ts`, `PLACES_API_PRICING` in `packages/types/src/index.ts`) caps `getPlaceDetails`/`fetchPhotoMedia` near the monthly free tier, and `MAX_GALLERY_PHOTOS` (`apps/api/src/enrichment/refresh.ts`) already caps photo count per venue for the same ToS-driven reason. Open question: does trimming the mask conditionally (some calls Basic-only, some Enterprise+Atmosphere) add enough complexity to justify itself, versus just accepting the current flat rate — worth a quick check of how much of `venue_enrichment_cache`'s data actually goes unused before committing to a split.
 
 #### Extend the daily credit guard to admin-triggered Geoapify calls
 

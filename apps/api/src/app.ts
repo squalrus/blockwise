@@ -1100,65 +1100,76 @@ export function createApp() {
             .json({ error: "Check-in cooldown still active", retry_at: result.retryAt, scope: result.scope });
           return;
         case "created": {
-          // Points/challenges/badges (BACKLOG.md Ref 6) -- awaited before the
-          // response is sent (rather than fired-and-forgotten after it) since
-          // this API runs as a Netlify/Lambda function: the runtime can
+          // Points/challenges/badges (BACKLOG.md Ref 6), the connections
+          // notify (Ref 91), and forager collection (Ref 98) are independent
+          // of each other's output -- none reads what another writes -- so
+          // they run concurrently (BACKLOG.md Ref 116 item 3) rather than one
+          // after another. Each phase already wraps its own body in a
+          // try/catch that logs and swallows its own failure (the check-in
+          // itself already succeeded and shouldn't be undone by a
+          // rewards/notify/collection error), so none of the three can
+          // reject -- Promise.all is equivalent to allSettled here without
+          // needing to unwrap per-phase settle results. All still awaited
+          // before the response is sent (not fired-and-forgotten after it)
+          // since this API runs as a Netlify/Lambda function: the runtime can
           // freeze the container as soon as the HTTP response completes, so
           // work still pending in the event loop after res.json() isn't
-          // guaranteed to run. A failure here is still swallowed -- the
-          // check-in itself already succeeded and shouldn't be undone by a
-          // rewards-evaluation error -- but the response's rewards then just
-          // report nothing earned, rather than failing the check-in.
-          let rewards: CheckinRewardsSummary = { points_earned: 0, challenges_completed: [], badges_earned: [] };
-          const rewardsStartedAt = Date.now();
-          try {
-            const summary = await awardCheckinRewards(
-              {
-                userId: result.checkin.user_id,
-                checkinId: result.checkin.id,
-                venueId: req.params.id,
-                checkedInAt: result.checkin.checked_in_at,
-              },
-              getGamificationRepository()
-            );
-            rewards = {
-              points_earned: summary.pointsEarned,
-              challenges_completed: summary.challengesCompleted.map((c) => ({
-                id: c.id,
-                title: c.title,
-                points_reward: c.pointsReward,
-                badge: c.badge,
-              })),
-              badges_earned: summary.badgesEarned,
-            };
-          } catch (err) {
-            console.error(`awardCheckinRewards (location ${req.params.id}) failed:`, err);
-          }
-          const rewardsMs = Date.now() - rewardsStartedAt;
+          // guaranteed to run.
+          // Narrowed to locals once, rather than read off `result` inside the
+          // phase closures below -- a `function` declaration's hoisting
+          // means TS can't carry the switch's "created" narrowing of
+          // `result` into its body.
+          const { checkin, location } = result;
+          const phasesStartedAt = Date.now();
 
-          // BACKLOG.md Ref 91: notify the checking-in user's accepted
-          // connections. Awaited (not fired-and-forgotten) for the same
-          // Netlify/Lambda reason as awardCheckinRewards above -- the
-          // container can freeze as soon as res.json() completes -- but a
-          // failure here is swallowed the same way, since the check-in
-          // already succeeded.
-          const notifyStartedAt = Date.now();
-          try {
-            const venue = await getLocationRepository().getLocationById(req.params.id);
-            if (venue) {
+          async function runRewardsPhase(): Promise<{ rewards: CheckinRewardsSummary; ms: number }> {
+            let rewards: CheckinRewardsSummary = { points_earned: 0, challenges_completed: [], badges_earned: [] };
+            try {
+              const summary = await awardCheckinRewards(
+                {
+                  userId: checkin.user_id,
+                  checkinId: checkin.id,
+                  venueId: req.params.id,
+                  checkedInAt: checkin.checked_in_at,
+                },
+                getGamificationRepository(),
+                {
+                  neighborhoodId: location.neighborhoodId,
+                  categoryId: location.categoryId,
+                  kind: location.kind,
+                }
+              );
+              rewards = {
+                points_earned: summary.pointsEarned,
+                challenges_completed: summary.challengesCompleted.map((c) => ({
+                  id: c.id,
+                  title: c.title,
+                  points_reward: c.pointsReward,
+                  badge: c.badge,
+                })),
+                badges_earned: summary.badgesEarned,
+              };
+            } catch (err) {
+              console.error(`awardCheckinRewards (location ${req.params.id}) failed:`, err);
+            }
+            return { rewards, ms: Date.now() - phasesStartedAt };
+          }
+
+          async function runNotifyPhase(): Promise<{ ms: number }> {
+            try {
               await notifyConnectionsOfCheckin(
-                result.checkin.user_id,
-                { displayName: req.appUser!.displayName, venueName: venue.name, venueId: venue.id },
+                checkin.user_id,
+                { displayName: req.appUser!.displayName, venueName: location.name, venueId: location.id },
                 getConnectionRepository(),
                 getPushSubscriptionRepository(),
                 getWebPushSender(),
                 getAuthRepository()
               );
+            } catch (err) {
+              console.error(`notifyConnectionsOfCheckin (location ${req.params.id}) failed:`, err);
             }
-          } catch (err) {
-            console.error(`notifyConnectionsOfCheckin (location ${req.params.id}) failed:`, err);
+            return { ms: Date.now() - phasesStartedAt };
           }
-          const notifyMs = Date.now() - notifyStartedAt;
 
           // BACKLOG.md Ref 98: forager collection -- collects this venue's
           // mushroom "species" the first time (bumps quantity on repeats),
@@ -1169,29 +1180,45 @@ export function createApp() {
           // CheckinResultCard's "unlocked" popup -- only the Badges tab's
           // *locked* preview hides un-earned forager tiers (BadgesPage.tsx),
           // since previewing all ~28 of them there would be noisy.
-          const collectionStartedAt = Date.now();
-          try {
-            const isNewSpecies = await getMushroomCollectionRepository().recordVenueCollection(
-              result.checkin.user_id,
-              req.params.id
-            );
-            if (isNewSpecies) {
-              const collectionCount = await getMushroomCollectionRepository().countCollectionForUser(
-                result.checkin.user_id
+          async function runCollectionPhase(): Promise<{ badgesEarned: CheckinRewardsSummary["badges_earned"]; ms: number }> {
+            let badgesEarned: CheckinRewardsSummary["badges_earned"] = [];
+            try {
+              const isNewSpecies = await getMushroomCollectionRepository().recordVenueCollection(
+                checkin.user_id,
+                req.params.id
               );
-              const collectionBadges = await evaluateBadgesForCollectionCount(
-                result.checkin.user_id,
-                collectionCount,
-                getGamificationRepository()
-              );
-              rewards = { ...rewards, badges_earned: [...rewards.badges_earned, ...collectionBadges] };
+              if (isNewSpecies) {
+                const collectionCount = await getMushroomCollectionRepository().countCollectionForUser(
+                  checkin.user_id
+                );
+                badgesEarned = await evaluateBadgesForCollectionCount(
+                  checkin.user_id,
+                  collectionCount,
+                  getGamificationRepository()
+                );
+              }
+            } catch (err) {
+              console.error(`recordVenueCollection (location ${req.params.id}) failed:`, err);
             }
-          } catch (err) {
-            console.error(`recordVenueCollection (location ${req.params.id}) failed:`, err);
+            return { badgesEarned, ms: Date.now() - phasesStartedAt };
           }
-          const collectionMs = Date.now() - collectionStartedAt;
 
-          logCheckinTiming("created", { geofenceMs, rewardsMs, notifyMs, collectionMs });
+          const [rewardsResult, notifyResult, collectionResult] = await Promise.all([
+            runRewardsPhase(),
+            runNotifyPhase(),
+            runCollectionPhase(),
+          ]);
+          const rewards: CheckinRewardsSummary = {
+            ...rewardsResult.rewards,
+            badges_earned: [...rewardsResult.rewards.badges_earned, ...collectionResult.badgesEarned],
+          };
+
+          logCheckinTiming("created", {
+            geofenceMs,
+            rewardsMs: rewardsResult.ms,
+            notifyMs: notifyResult.ms,
+            collectionMs: collectionResult.ms,
+          });
           res.status(201).json({ ...result.checkin, rewards });
           return;
         }

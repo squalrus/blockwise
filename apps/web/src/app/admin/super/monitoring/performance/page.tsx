@@ -45,11 +45,12 @@ export default function MonitoringPerformancePage() {
             <h2 className="mb-3.5 font-heading text-lg font-extrabold">Check-in timing</h2>
             <p className="mb-3 text-xs text-muted">
               POST /locations/:id/checkins broken down by phase (geofence/cooldown, then -- only for a
-              successful check-in -- rewards, neighbor notifications, and collection). Phases are awaited in
-              series today, so Total tracking their sum is expected; Total pulling below that sum is the
-              signal a change actually overlapped their latency instead of just moving it around.
+              successful check-in -- rewards, neighbor notifications, and collection), run concurrently
+              (BACKLOG.md Ref 116), so Total tracking below their sum is expected. Daily averages the day&apos;s
+              attempts per phase; Individual plots the (up to 500 most recent, within the selected window)
+              attempts one point each, for spotting outliers a daily average would hide.
             </p>
-            <CheckinTimingChart data={analytics.checkin_timing_over_time} />
+            <CheckinTimingChart daily={analytics.checkin_timing_over_time} recent={analytics.checkin_timing_recent} />
           </section>
 
           <section className="rounded-3xl border border-border bg-card p-6 lg:col-span-2">

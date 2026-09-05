@@ -7,7 +7,7 @@ import type {
   TopVisitor,
 } from "@blockwise/types";
 import { haversineMeters } from "../places/geo";
-import type { CheckinRecord, CheckinRepository } from "./repository";
+import type { CheckinRecord, CheckinRepository, LocationCoords } from "./repository";
 
 // MushroomCustomization's shape/spotShape are plain strings (packages/types
 // has no dependency on the enums they validate against server-side, per
@@ -174,7 +174,7 @@ export function evaluateCheckin(input: EvaluateCheckinInput): CheckinDecision {
 }
 
 export type CheckinResult =
-  | { status: "created"; checkin: Checkin }
+  | { status: "created"; checkin: Checkin; location: LocationCoords }
   | { status: "not_found" }
   | { status: "too_far"; distanceMeters: number }
   | { status: "cooldown"; retryAt: string; scope: CheckinCooldownScope };
@@ -225,5 +225,5 @@ export async function performCheckin(
     deviceLat: device.lat,
     deviceLng: device.lng,
   });
-  return { status: "created", checkin: toCheckin(created) };
+  return { status: "created", checkin: toCheckin(created), location };
 }

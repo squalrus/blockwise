@@ -2,6 +2,17 @@
 
 User-visible changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [semver](https://semver.org/) versioning.
 
+## [0.88.1] — 2026-09-05
+
+### Added
+
+- **"Check-in timing" chart gained a Daily/Individual toggle.** Daily keeps the existing per-day phase averages; Individual plots up to the 500 most recent check-in attempts (within the selected window) as one point each, so per-attempt variance and outliers are visible instead of smoothed away by the daily average. Both views share the same phase colors. (`apps/web/src/app/admin/super/monitoring/CheckinTimingChart.tsx`, `performance/page.tsx`, `packages/types/src/index.ts`, `supabase/migrations/20260905010000_monitoring_analytics_fn_v17.sql`)
+
+### Changed
+
+- **Check-in latency reduced** (BACKLOG.md Ref 116): the venue row is now fetched once per check-in instead of three times (`performCheckin`'s own fetch is reused by rewards and the connections-notify step instead of each re-querying it); badge rules are cached briefly in memory instead of being fetched twice per check-in; the three independent post-checkin phases (rewards, neighbor notifications, forager collection) and per-connection push sends now run concurrently instead of one after another. (`apps/api/src/checkins/`, `apps/api/src/gamification/rewards.ts`, `supabaseRepository.ts`, `apps/api/src/pushSubscriptions/pushSubscriptions.ts`, `apps/api/src/app.ts`)
+- **Check-in slide gesture now prefetches GPS on mount** instead of waiting for the slide to complete before requesting a location fix, and reuses a still-fresh fix instead of requesting a new one when the check-in actually fires. (`apps/web/src/lib/geolocation.ts`, `apps/web/src/app/useCheckIn.ts`, `SlideToCheckIn.tsx`)
+
 ## [0.88.0] — 2026-09-04
 
 ### Added

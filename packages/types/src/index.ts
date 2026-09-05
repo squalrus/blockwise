@@ -1864,6 +1864,23 @@ export interface MonitoringCheckinTimingByDay {
   attempt_count: number;
 }
 
+// Backs the "Check-in timing" chart's Individual view (CheckinTimingChart.tsx)
+// -- one row per check-in attempt within the selected window (capped at 500,
+// most-recent-first) instead of MonitoringCheckinTimingByDay's per-day
+// average, so per-attempt variance and outliers are visible rather than
+// smoothed away. Phase fields are only ever set for outcome = 'created' rows,
+// same reasoning as MonitoringCheckinTimingByDay's phase averages.
+export interface MonitoringCheckinTimingEntry {
+  id: string;
+  outcome: "created" | "too_far" | "cooldown" | "not_found";
+  total_ms: number;
+  geofence_ms: number | null;
+  rewards_ms: number | null;
+  notify_ms: number | null;
+  collection_ms: number | null;
+  created_at: string;
+}
+
 // DB-level query latency (pg_stat_statements, get_slow_queries RPC) --
 // pairs with MonitoringSlowestRoute's Express-level latency so a slow route
 // can be traced to "the app" vs. "the query."
@@ -2001,6 +2018,7 @@ export interface MonitoringAnalytics {
   slowest_routes: MonitoringSlowestRoute[];
   slowest_queries: MonitoringSlowQuery[];
   checkin_timing_over_time: MonitoringCheckinTimingByDay[];
+  checkin_timing_recent: MonitoringCheckinTimingEntry[];
   places_api_calls_over_time: MonitoringDailyCount[];
   places_api_by_endpoint: MonitoringPlacesApiByEndpoint[];
   recent_places_api_failures: MonitoringPlacesApiFailure[];

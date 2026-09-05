@@ -1,5 +1,5 @@
 import type { Badge } from "@blockwise/types";
-import type { GamificationRepository } from "./repository";
+import type { GamificationRepository, LocationContext } from "./repository";
 import { type CompletedChallengeSummary, evaluateChallengesAfterCheckin } from "./challenges";
 import { evaluateBadgesAfterCheckin, evaluateBadgesForNeighborCount } from "./badges";
 import { CHECKIN_POINTS, NEIGHBOR_CONNECTION_POINTS } from "./points";
@@ -26,9 +26,14 @@ const NO_REWARDS: CheckinRewardsSummary = {
 // check-in already succeeded by the time this runs.
 export async function awardCheckinRewards(
   checkin: { userId: string; checkinId: string; venueId: string; checkedInAt: string },
-  repository: GamificationRepository
+  repository: GamificationRepository,
+  // Callers on the check-in path already have this from performCheckin's own
+  // venue-table read (BACKLOG.md Ref 116 item 1) -- passing it in skips a
+  // redundant getLocationContext query. Falls back to fetching it here for
+  // any other caller.
+  locationContext?: LocationContext
 ): Promise<CheckinRewardsSummary> {
-  const context = await repository.getLocationContext(checkin.venueId);
+  const context = locationContext ?? (await repository.getLocationContext(checkin.venueId));
   if (!context) return NO_REWARDS;
 
   await repository.awardPoints({

@@ -17,7 +17,15 @@ import type {
   NeighborhoodVisitorMosaic,
 } from "./repository";
 
-const VENUE: LocationCoords = { id: "venue-1", lat: 47.6062, lng: -122.3321 };
+const VENUE: LocationCoords = {
+  id: "venue-1",
+  lat: 47.6062,
+  lng: -122.3321,
+  name: "Test Venue",
+  neighborhoodId: "n1",
+  categoryId: "cat-coffee",
+  kind: "business",
+};
 const AT_VENUE = { lat: 47.6062, lng: -122.3321 };
 const FAR_AWAY = { lat: 45.5152, lng: -122.6784 }; // ~230km away (Portland)
 const PAST_COOLDOWN_MS = 5 * 60 * 60 * 1000;
@@ -257,7 +265,15 @@ describe("performCheckin", () => {
   });
 
   it("checks in against a former-POI-kind location the same way as a business (BACKLOG.md 'POIs and venues managed almost the same')", async () => {
-    const poi: LocationCoords = { id: "poi-1", lat: 47.6062, lng: -122.3321 };
+    const poi: LocationCoords = {
+      id: "poi-1",
+      lat: 47.6062,
+      lng: -122.3321,
+      name: "Test POI",
+      neighborhoodId: "n1",
+      categoryId: null,
+      kind: "poi",
+    };
     const repo = new FakeCheckinRepository([poi]);
     const result = await performCheckin("poi-1", "user-1", AT_VENUE, repo);
     expect(result.status).toBe("created");
