@@ -86,18 +86,25 @@ export async function sendPushToUsers(
   const subscriptions = await repository.listForUsers(userIds);
   const summary: SendPushSummary = { sent: 0, pruned: 0, failed: 0 };
 
-  for (const subscription of subscriptions) {
-    const result = await sender.send({ endpoint: subscription.endpoint, keys: subscription.keys }, payload);
-    if (result.status === "sent") {
-      summary.sent += 1;
-    } else if (result.status === "gone") {
-      summary.pruned += 1;
-      await repository.deleteSubscription(subscription.id);
-    } else {
-      summary.failed += 1;
-      console.error(`push send to subscription ${subscription.id} failed:`, result.message);
-    }
-  }
+  // BACKLOG.md Ref 116 item 4: each subscription's send is independent of
+  // every other's (no shared state besides this summary, which each branch
+  // below only ever increments its own counter of) -- sent in parallel
+  // instead of one push-service round trip at a time, so this no longer
+  // scales linearly with the checking-in user's connection count.
+  await Promise.all(
+    subscriptions.map(async (subscription) => {
+      const result = await sender.send({ endpoint: subscription.endpoint, keys: subscription.keys }, payload);
+      if (result.status === "sent") {
+        summary.sent += 1;
+      } else if (result.status === "gone") {
+        summary.pruned += 1;
+        await repository.deleteSubscription(subscription.id);
+      } else {
+        summary.failed += 1;
+        console.error(`push send to subscription ${subscription.id} failed:`, result.message);
+      }
+    })
+  );
 
   return summary;
 }

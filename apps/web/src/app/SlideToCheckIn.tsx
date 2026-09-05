@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getCurrentPosition } from "@/lib/geolocation";
 import { CheckinResultCard } from "./CheckinResultCard";
 import { SLIDE_TRACK_HEIGHT_PX, SlideTrack } from "./SlideTrack";
 import { useCheckIn, type CheckinStatus } from "./useCheckIn";
@@ -40,6 +41,20 @@ export function SlideToCheckIn({
   const live = useCheckIn(locationId);
   const [mockStatus, setMockStatus] = useState<CheckinStatus>({ state: "idle" });
   const status = mockResolution ? mockStatus : live.status;
+
+  // BACKLOG.md Ref 116 item 5: kick off the GPS lookup as soon as this
+  // control mounts rather than waiting for the user to complete the slide
+  // gesture -- useCheckIn's actual check-in call then reuses this fix via
+  // getCachedPosition() instead of starting a fresh one on the critical
+  // path. Skipped in the component-gallery preview (mockResolution) since
+  // that's never a real check-in and shouldn't prompt for location access.
+  useEffect(() => {
+    if (mockResolution) return;
+    getCurrentPosition().catch(() => {
+      // Ignore -- checkIn() surfaces the same failure if the user actually
+      // slides, no need to double-report it here.
+    });
+  }, [mockResolution]);
 
   function checkIn() {
     if (!mockResolution) {

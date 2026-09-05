@@ -49,14 +49,23 @@ export class SupabaseCheckinRepository implements CheckinRepository {
   async getLocation(locationId: string): Promise<LocationCoords | null> {
     const { data, error } = await this.supabase
       .from("venue")
-      .select("id, lat, lng")
+      .select("id, lat, lng, name, neighborhood_id, category_id, kind")
       .eq("id", locationId)
       .not("lat", "is", null)
       .not("lng", "is", null)
       .maybeSingle();
 
     if (error) throw new Error(`getLocation failed: ${error.message}`);
-    return data;
+    if (!data) return null;
+    return {
+      id: data.id,
+      lat: data.lat,
+      lng: data.lng,
+      name: data.name,
+      neighborhoodId: data.neighborhood_id,
+      categoryId: data.category_id,
+      kind: data.kind,
+    };
   }
 
   async getLastCheckinForLocation(userId: string, locationId: string): Promise<CheckinRecord | null> {

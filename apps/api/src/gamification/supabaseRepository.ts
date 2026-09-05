@@ -120,7 +120,18 @@ const UNIQUE_VIOLATION = "23505";
 // exported from there, so duplicated rather than reached across modules).
 const RECENT_VISITOR_QUERY_LIMIT = 2000;
 
+// BACKLOG.md Ref 116 item 2: evaluateBadgesAfterCheckin and
+// evaluateBadgesForCollectionCount each independently call getAllBadgeRules
+// once per check-in, fetching the whole (rarely-changing -- rules are seeded
+// directly in the DB, per badgeAdmin.ts, not authored through the app) rule
+// table twice. A short in-memory cache is lower-risk than threading the
+// rules array through both call sites' signatures. 30s bounds how stale a
+// newly-seeded rule can appear without needing a redeploy to take effect.
+const BADGE_RULES_CACHE_TTL_MS = 30_000;
+
 export class SupabaseGamificationRepository implements GamificationRepository {
+  private badgeRulesCache: { rules: BadgeRuleRecord[]; fetchedAt: number } | null = null;
+
   constructor(private readonly supabase: SupabaseClient) {}
 
   async getLocationContext(locationId: string): Promise<LocationContext | null> {
@@ -606,9 +617,14 @@ export class SupabaseGamificationRepository implements GamificationRepository {
   }
 
   async getAllBadgeRules(): Promise<BadgeRuleRecord[]> {
+    if (this.badgeRulesCache && Date.now() - this.badgeRulesCache.fetchedAt < BADGE_RULES_CACHE_TTL_MS) {
+      return this.badgeRulesCache.rules;
+    }
     const { data, error } = await this.supabase.from("badge_rule").select(BADGE_RULE_COLUMNS);
     if (error) throw new Error(`getAllBadgeRules failed: ${error.message}`);
-    return (data ?? []).map((row) => toBadgeRuleRecord(row as unknown as BadgeRuleRow));
+    const rules = (data ?? []).map((row) => toBadgeRuleRecord(row as unknown as BadgeRuleRow));
+    this.badgeRulesCache = { rules, fetchedAt: Date.now() };
+    return rules;
   }
 
   async hasEarnedBadge(userId: string, badgeId: string): Promise<boolean> {

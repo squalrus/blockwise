@@ -1,9 +1,19 @@
-import type { RecentVisitorMushroom, TopVenue, TopVisitor } from "@blockwise/types";
+import type { LocationKind, RecentVisitorMushroom, TopVenue, TopVisitor } from "@blockwise/types";
 
+// Carries the gamification/notification context (name, neighborhood,
+// category, kind) alongside the coords getLocation already fetched for the
+// geofence check -- one venue-table read instead of three (BACKLOG.md Ref
+// 116 item 1: this same row was previously re-fetched by
+// awardCheckinRewards' getLocationContext and the notify-connections
+// block's getLocationById).
 export interface LocationCoords {
   id: string;
   lat: number;
   lng: number;
+  name: string;
+  neighborhoodId: string;
+  categoryId: string | null;
+  kind: LocationKind;
 }
 
 export interface CheckinRecord {
